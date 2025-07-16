@@ -306,7 +306,7 @@ const Custom404Page = () => {
             className="mb-12"
             style={{ animation: 'fadeInUp 1s ease-out 0.5s both' }}
           >
-            <h1 className="text-4xl md:text-6xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-6">
+            <h1 className="text-4xl md:text-6xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-8 pb-2">
               Page Not Found
             </h1>
             <p className="text-xl md:text-2xl text-white/80 max-w-2xl mx-auto font-light leading-relaxed mb-4">
