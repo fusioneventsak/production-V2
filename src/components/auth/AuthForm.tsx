@@ -198,17 +198,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin = true }) => {
           </button>
         </div>
         
-        {isLogin && (
-          <div className="mt-6 pt-4 border-t border-gray-700">
-            <div className="text-center text-sm text-gray-400">
-              <p>Demo Admin Account:</p>
-              <p className="mt-1 font-mono bg-black/30 p-2 rounded">
-                Email: info@fusion-events.ca<br />
-                Password: fusion3873
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
