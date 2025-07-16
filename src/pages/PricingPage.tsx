@@ -53,9 +53,6 @@ const FloatingPhotos = () => {
             limit: 20,
             sortBy: { column: 'name', order: 'asc' }
           });
-            limit: 20,
-            sortBy: { column: 'name', order: 'asc' }
-          });
         
         if (error) {
           console.error('Error fetching stock photos:', error);
@@ -74,6 +71,13 @@ const FloatingPhotos = () => {
             });
           
           setStockPhotos(photoUrls);
+        }
+      } catch (error) {
+        console.error('Error in fetchStockPhotos:', error);
+      }
+    };
+
+    fetchStockPhotos();
   }, []);
 
   useEffect(() => {
@@ -186,7 +190,7 @@ const FloatingPhotos = () => {
         const y = Math.cos(time) * 0.15; // Reduced rotation amount
         
         // Apply subtle perspective rotation
-        container.style.transform = `perspective(1500px) rotateX(${y}deg) rotateY(${x}deg)`;
+        (container as HTMLElement).style.transform = `perspective(1500px) rotateX(${y}deg) rotateY(${x}deg)`;
       }
     };
     
@@ -196,7 +200,6 @@ const FloatingPhotos = () => {
       clearInterval(interval);
       clearInterval(cameraInterval);
     };
-    return () => clearInterval(interval);
   }, []);
 
   return (
