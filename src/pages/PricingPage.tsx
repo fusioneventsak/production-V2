@@ -3,6 +3,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { Palette } from 'lucide-react';
+import Layout from '../components/layout/Layout';
+import { supabase } from '../lib/supabase';
 
 // Particle themes for the 3D scene
 const PARTICLE_THEMES = [
@@ -1121,7 +1123,42 @@ export const PricingCard = ({
 
 // Main PricingPage Component
 const PricingPage = () => {
+  const [stockPhotos, setStockPhotos] = useState<string[]>([]);
   const [particleTheme, setParticleTheme] = useState(PARTICLE_THEMES[0]);
+
+  // Fetch stock photos from Supabase storage
+  useEffect(() => {
+    const fetchStockPhotos = async () => {
+      try {
+        const { data, error } = await supabase.storage.from('stock_photos').list();
+        
+        if (error) {
+          console.error('Error fetching stock photos:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          // Filter for image files only
+          const imageFiles = data.filter(file => 
+            file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+          );
+          
+          // Convert to public URLs
+          const urls = imageFiles.map(file => {
+            const { data } = supabase.storage.from('stock_photos').getPublicUrl(file.name);
+            return data.publicUrl;
+          });
+          
+          setStockPhotos(urls);
+          console.log('Loaded', urls.length, 'stock photos from Supabase storage');
+        }
+      } catch (err) {
+        console.error('Failed to fetch stock photos:', err);
+      }
+    };
+    
+    fetchStockPhotos();
+  }, []);
 
   const samplePlans: PricingCardProps[] = [
     {
@@ -1184,25 +1221,27 @@ const PricingPage = () => {
   };
 
   return (
-    <div className="bg-black text-white min-h-screen w-full overflow-hidden relative">
-      {/* 3D Scene Background */}
-      <div className="absolute inset-0 w-full h-full">
-        <ErrorBoundary>
-          {/* Theme Controls */}
-          <div className="absolute top-4 right-4 z-50">
-            <div className="relative">
-              <button
-                onClick={() => {
-                  const currentIndex = PARTICLE_THEMES.findIndex(theme => theme.name === particleTheme.name);
-                  const nextIndex = (currentIndex + 1) % PARTICLE_THEMES.length;
-                  setParticleTheme(PARTICLE_THEMES[nextIndex]);
-                }}
-                className="flex items-center gap-2 px-3 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-white hover:bg-black/40 transition-all duration-200 shadow-lg text-sm"
-                aria-label="Change particle colors"
-              >
-                <Palette size={16} />
-                <span className="hidden sm:inline">{particleTheme.name}</span>
-              </button>
+    <Layout>
+      <div className="bg-black text-white w-full overflow-hidden relative">
+        {/* 3D Scene Background */}
+        <div className="absolute inset-0 w-full h-full">
+          <ErrorBoundary>
+            {/* Theme Controls */}
+            <div className="absolute top-4 right-4 z-50">
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    const currentIndex = PARTICLE_THEMES.findIndex(theme => theme.name === particleTheme.name);
+                    const nextIndex = (currentIndex + 1) % PARTICLE_THEMES.length;
+                    setParticleTheme(PARTICLE_THEMES[nextIndex]);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-white hover:bg-black/40 transition-all duration-200 shadow-lg text-sm"
+                  aria-label="Change particle colors"
+                >
+                  <Palette size={16} />
+                  <span className="hidden sm:inline">{particleTheme.name}</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1239,9 +1278,9 @@ const PricingPage = () => {
           </Canvas>
         </ErrorBoundary>
       </div>
-      
+
       {/* Pricing Content - Above 3D Scene */}
-      <main className="relative z-10 w-full min-h-screen flex flex-col items-center justify-center px-6 py-16">
+      <main className="relative z-10 w-full flex flex-col items-center justify-center px-6 py-16">
         <div className="w-full max-w-7xl mx-auto text-center mb-20">
           <h1 className="text-6xl md:text-7xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-8">
             Choose Your PhotoSphere Plan
@@ -1304,6 +1343,7 @@ const PricingPage = () => {
         </div>
       </main>
     </div>
+    </Layout>
   );
 };
 
