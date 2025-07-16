@@ -17,6 +17,7 @@ import CollageEditorPage from './pages/CollageEditorPage';
 import CollageViewerPage from './pages/CollageViewerPage';
 import CollageModerationPage from './pages/CollageModerationPage';
 import PhotoboothPage from './pages/PhotoboothPage';
+import Blog from './pages/Blog';
 import JoinCollage from './pages/JoinCollage';
 
 // Create router with future flag enabled
@@ -29,6 +30,7 @@ const router = createBrowserRouter(
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/join" element={<JoinCollage />} />
+      <Route path="/blog" element={<Blog />} />
       <Route path="/collage/:code" element={<CollageViewerPage />} />
       <Route path="/photobooth/:code" element={<PhotoboothPage />} />
       
