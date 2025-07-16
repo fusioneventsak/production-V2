@@ -112,7 +112,6 @@ const Header: React.FC = () => {
                 <DollarSign className="h-8 w-8 mr-4" />
               </Link>
             </nav>
-            </nav>
 
             {/* Join Collage button - positioned at bottom */}
             <div className="absolute bottom-12 left-0 right-0 flex justify-center">
