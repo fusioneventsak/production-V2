@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, LogIn, Menu, X, Home, DollarSign } from 'lucide-react';
+import { Users, Menu, X, Home, DollarSign } from 'lucide-react';
 import DemoRequestModal from '../modals/DemoRequestModal';
 
 const Header: React.FC = () => {
@@ -42,18 +42,10 @@ const Header: React.FC = () => {
             <nav className="hidden md:flex items-center space-x-1">
               <Link
                 to="/join"
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
+                className="px-4 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
               >
                 <Users className="h-4 w-4 mr-1" />
                 Join Collage
-              </Link>
-              
-              <Link
-                to="/login"
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
-              >
-                <LogIn className="h-4 w-4 mr-1" />
-                Login
               </Link>
               
               <button
@@ -66,21 +58,6 @@ const Header: React.FC = () => {
             
             {/* Mobile menu button */}
             <div className="flex items-center">
-              <Link
-                to="/join"
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center mr-2"
-              >
-                <Users className="h-4 w-4 mr-1" />
-                Join
-              </Link>
-              
-              <button
-                onClick={() => setIsDemoModalOpen(true)}
-                className="mr-4 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 rounded-md hover:from-purple-700 hover:to-blue-600 transition-colors"
-              >
-                Demo
-              </button>
-              
               <button
                 onClick={toggleMenu}
                 className="p-2 rounded-md text-gray-200 hover:text-white hover:bg-purple-500/20 transition-colors"
@@ -93,7 +70,7 @@ const Header: React.FC = () => {
         </div>
         
         {/* Full screen menu overlay */}
-        <div 
+        <div
           className={`fixed inset-0 bg-black z-50 transition-transform duration-300 ease-in-out ${
             isMenuOpen ? 'transform translate-x-0' : 'transform translate-x-full'
           }`}
@@ -144,12 +121,12 @@ const Header: React.FC = () => {
             {/* Menu footer with login button */}
             <div className="p-6 border-t border-white/10">
               <Link
-                to="/login"
+                to="/join"
                 className="flex items-center justify-center w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <LogIn className="h-5 w-5 mr-2" />
-                Log In
+                <Users className="h-5 w-5 mr-2" />
+                Join Collage
               </Link>
             </div>
           </div>
