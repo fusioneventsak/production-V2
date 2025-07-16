@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import Layout from '../components/layout/Layout';
 import { Palette } from 'lucide-react';
 
 // Particle themes for the 3D scene
@@ -1115,7 +1116,7 @@ export const PricingCard = ({
           {buttonText}
         </Button>
       </div>
-    </div>
+    </Layout>
   );
 };
 
@@ -1184,25 +1185,27 @@ const App = () => {
   };
 
   return (
-    <div className="bg-black text-white min-h-screen w-full overflow-hidden relative">
-      {/* 3D Scene Background */}
-      <div className="absolute inset-0 w-full h-full">
-        <ErrorBoundary>
-          {/* Theme Controls */}
-          <div className="absolute top-4 right-4 z-50">
-            <div className="relative">
-              <button
-                onClick={() => {
-                  const currentIndex = PARTICLE_THEMES.findIndex(theme => theme.name === particleTheme.name);
-                  const nextIndex = (currentIndex + 1) % PARTICLE_THEMES.length;
-                  setParticleTheme(PARTICLE_THEMES[nextIndex]);
-                }}
-                className="flex items-center gap-2 px-3 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-white hover:bg-black/40 transition-all duration-200 shadow-lg text-sm"
-                aria-label="Change particle colors"
-              >
-                <Palette size={16} />
-                <span className="hidden sm:inline">{particleTheme.name}</span>
-              </button>
+    <Layout>
+      <div className="bg-black text-white min-h-screen w-full overflow-hidden relative">
+        {/* 3D Scene Background */}
+        <div className="absolute inset-0 w-full h-full">
+          <ErrorBoundary>
+            {/* Theme Controls */}
+            <div className="absolute top-4 right-4 z-50">
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    const currentIndex = PARTICLE_THEMES.findIndex(theme => theme.name === particleTheme.name);
+                    const nextIndex = (currentIndex + 1) % PARTICLE_THEMES.length;
+                    setParticleTheme(PARTICLE_THEMES[nextIndex]);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-white hover:bg-black/40 transition-all duration-200 shadow-lg text-sm"
+                  aria-label="Change particle colors"
+                >
+                  <Palette size={16} />
+                  <span className="hidden sm:inline">{particleTheme.name}</span>
+                </button>
+              </div>
             </div>
           </div>
 
