@@ -1067,8 +1067,8 @@ export const PricingCard = ({
   planName, description, price, features, buttonText, isPopular = false, buttonVariant = 'primary'
 }: PricingCardProps) => {
   const buttonClassName = buttonVariant === 'primary' 
-    ? 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-cyan-400 hover:bg-cyan-300 text-black shadow-lg hover:shadow-cyan-400/20' 
-    : 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:border-white/30';
+    ? 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-cyan-400/90 hover:bg-cyan-300/90 text-black shadow-lg hover:shadow-cyan-400/30 backdrop-blur-sm' 
+    : 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:border-white/30 backdrop-blur-sm';
 
   const displayPrice = price.indexOf('$') === 0 ? price : '$' + price;
   const showPeriod = price !== 'Contact Sales';
@@ -1079,9 +1079,9 @@ export const PricingCard = ({
         <div className={isPopular ? 'absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600' : 'absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/30 via-blue-500/30 to-purple-600/30'} />
       </div>
       
-      <div className="relative bg-black/90 backdrop-blur-xl rounded-2xl border border-white/10 p-8 flex flex-col h-full shadow-2xl">
+      <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 p-8 flex flex-col h-full shadow-2xl bg-gradient-to-b from-white/10 to-transparent">
         {isPopular && (
-          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 text-sm font-bold rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-lg z-30">
+          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 text-sm font-bold rounded-full bg-gradient-to-r from-cyan-400/90 to-blue-500/90 text-black shadow-lg z-30 backdrop-blur-md border border-white/30">
             🚀 Most Popular
           </div>
         )}
@@ -1102,12 +1102,12 @@ export const PricingCard = ({
           </div>
         </div>
         
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mb-6"></div>
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent mb-6"></div>
         
-        <ul className="flex flex-col gap-4 text-base text-white/90 mb-8 flex-grow">
+        <ul className="flex flex-col gap-4 text-base text-white/95 mb-8 flex-grow">
           {features.map((feature, index) => (
             <li key={index} className="flex items-start gap-3">
-              <CheckIcon className="text-cyan-400 w-5 h-5 mt-0.5 flex-shrink-0" />
+              <CheckIcon className="text-cyan-400/90 w-5 h-5 mt-0.5 flex-shrink-0" />
               <span>{feature}</span>
             </li>
           ))}
@@ -1335,7 +1335,7 @@ const PricingPage = () => {
             <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl">
               <h3 className="text-white text-2xl font-semibold mb-4">Need a custom solution?</h3>
               <p className="text-white/70 text-lg mb-8 max-w-2xl mx-auto">We offer tailored packages for large events, multiple locations, and enterprise deployments.</p>
-              <Button className="px-8 py-4 bg-cyan-400 hover:bg-cyan-300 text-black rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-cyan-400/20">
+              <Button className="px-8 py-4 bg-cyan-400/90 hover:bg-cyan-300/90 text-black rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-cyan-400/30 backdrop-blur-sm border border-white/20">
                 Contact Our Team
               </Button>
             </div>
