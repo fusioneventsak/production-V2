@@ -110,8 +110,8 @@ const Header: React.FC = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 <DollarSign className="h-8 w-8 mr-4" />
-                Pricing
-              </nav>
+              </Link>
+            </nav>
             </nav>
 
             {/* Join Collage button - positioned at bottom */}
