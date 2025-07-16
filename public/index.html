@@ -1,0 +1,46 @@
+@@ .. @@
+     <meta name="twitter:image" content="https://www.fusion-events.ca/wp-content/uploads/2025/07/3d-Selfies-1.jpg" />
+     <meta name="twitter:image:alt" content="PhotoSphere - 3D Photo Collage Platform" />
+     
++    <!-- 404 Page Meta Tags (only shown on 404 page) -->
++    <script type="text/javascript">
++      // This script adds noindex meta tag for 404 pages
++      if (window.location.pathname !== '/' && 
++          !window.location.pathname.startsWith('/blog') && 
++          !window.location.pathname.startsWith('/collage') && 
++          !window.location.pathname.startsWith('/photobooth') && 
++          !window.location.pathname.startsWith('/dashboard') && 
++          !window.location.pathname.startsWith('/join') && 
++          !window.location.pathname.startsWith('/login') && 
++          !window.location.pathname.startsWith('/signup') && 
++          !window.location.pathname.startsWith('/pricing')) {
++        
++        // Check if page exists, if not found add noindex
++        fetch(window.location.pathname)
++          .then(response => {
++            if (!response.ok && response.status === 404) {
++              const meta = document.createElement('meta');
++              meta.name = 'robots';
++              meta.content = 'noindex';
++              document.head.appendChild(meta);
++              
++              // Update title for 404 page
++              document.title = 'Page Not Found | PhotoSphere';
++            }
++          })
++          .catch(() => {
++            // On error, assume 404
++            const meta = document.createElement('meta');
++            meta.name = 'robots';
++            meta.content = 'noindex';
++            document.head.appendChild(meta);
++            
++            // Update title for 404 page
++            document.title = 'Page Not Found | PhotoSphere';
++          });
++      }
++    </script>
++    
+     <!-- Alternate URL for additional domain -->
+     <link rel="alternate" href="https://selfiephotosphere.com" />
+     <meta property="og:see_also" content="https://selfiephotosphere.com" />

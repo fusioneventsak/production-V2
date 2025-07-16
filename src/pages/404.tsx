@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // --- Internal Helper Components --- //
 
@@ -230,6 +231,7 @@ const HeroScene3D = () => {
 
 // 404 Page Component
 const Custom404Page = () => {
+  const navigate = useNavigate();
   const [glitchText, setGlitchText] = useState('404');
   
   // Glitch effect for the 404 text
@@ -267,8 +269,7 @@ const Custom404Page = () => {
   }, []);
 
   const handleGoHome = () => {
-    // Navigate to home - you can replace this with your router logic
-    window.location.href = '/';
+    navigate('/');
   };
 
   const handleGoBack = () => {
@@ -353,6 +354,7 @@ const Custom404Page = () => {
             className="mt-12 text-center"
             style={{ animation: 'fadeInUp 1s ease-out 2s both' }}
           >
+            <meta name="robots" content="noindex" />
             <p className="text-white/40 text-sm font-mono">
               Error Code: PHOTOSPHERE_NOT_FOUND_IN_DIGITAL_SPACE
             </p>

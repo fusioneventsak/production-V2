@@ -21,6 +21,7 @@ import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
 import BlogPostAI from './pages/BlogPostAI';
 import JoinCollage from './pages/JoinCollage';
+import Custom404Page from './pages/404';
 
 // Create router with future flag enabled
 const router = createBrowserRouter(
@@ -37,6 +38,9 @@ const router = createBrowserRouter(
       <Route path="/blog/ai-revolution-photo-activations-photobooth-software-future" element={<BlogPostAI />} />
       <Route path="/collage/:code" element={<CollageViewerPage />} />
       <Route path="/photobooth/:code" element={<PhotoboothPage />} />
+      
+      {/* 404 Page - This must be the last route */}
+      <Route path="*" element={<Custom404Page />} />
       
       {/* Redirect for common typo */}
       <Route path="/dashbaord" element={<Navigate to="/dashboard" replace />} />
