@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, User, ArrowRight, Clock, Tag, Menu, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 // Blog data
 const blogPosts = [
@@ -164,8 +165,21 @@ const AnimatedBackground = () => {
 const BlogCard = ({ post, index }) => {
   const [isHovered, setIsHovered] = useState(false);
   
+  // Generate URL based on post ID
+  const getPostUrl = (postId) => {
+    switch(postId) {
+      case 1:
+        return "/blog/photobooth-businesses-double-revenue-photosphere-case-study";
+      case 2:
+        return "/blog/ai-revolution-photo-activations-photobooth-software-future";
+      default:
+        return "/blog";
+    }
+  };
+  
   return (
-    <article 
+    <Link
+      to={getPostUrl(post.id)}
       className={`group relative bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-500 hover:scale-105 hover:border-purple-500/50 hover:shadow-2xl hover:shadow-purple-500/20 ${
         post.featured ? 'md:col-span-2 md:row-span-2' : ''
       }`}
@@ -241,18 +255,17 @@ const BlogCard = ({ post, index }) => {
           </span>
         </div>
         
-        {/* Read more button */}
-        <button className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-all duration-300 font-medium group/btn">
+        <div className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-all duration-300 font-medium group/btn">
           Read More
           <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover/btn:translate-x-1" />
-        </button>
+        </div>
       </div>
       
       {/* Hover glow effect */}
       <div className={`absolute inset-0 bg-gradient-to-r from-purple-600/5 to-blue-600/5 transition-opacity duration-500 pointer-events-none ${
         isHovered ? 'opacity-100' : 'opacity-0'
       }`} />
-    </article>
+    </Link>
   );
 };
 
