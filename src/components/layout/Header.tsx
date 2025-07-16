@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Menu, X, Home, DollarSign } from 'lucide-react';
+import { Users, Menu, X, Home, DollarSign, LogIn } from 'lucide-react';
 import DemoRequestModal from '../modals/DemoRequestModal';
 
 const Header: React.FC = () => {
@@ -40,7 +40,7 @@ const Header: React.FC = () => {
             </div>
             
             {/* Mobile menu button */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <Link
                 to="/join"
                 className="px-4 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
@@ -68,70 +68,60 @@ const Header: React.FC = () => {
         </div>
         
         {/* Full screen menu overlay */}
-        <div
-          className={`fixed inset-0 bg-black z-50 transition-transform duration-300 ease-in-out h-full w-full ${
-            isMenuOpen ? 'transform translate-x-0' : 'transform translate-x-full'
-          }`}
-        >
-          <div className="flex flex-col h-full">
-            {/* Menu header with close button */}
-            <div className="p-4 border-b border-white/10">
-              <div className="flex justify-between items-center">
-                <Link to="/" className="flex items-center" onClick={() => setIsMenuOpen(false)}>
-                  <img 
-                    src="https://www.fusion-events.ca/wp-content/uploads/2025/06/Untitled-design-15.png" 
-                    alt="Fusion Events Logo" 
-                    className="h-12 w-auto"
-                  />
-                </Link>
-                <button
-                  onClick={toggleMenu}
-                  className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                  aria-label="Close menu"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-            </div>
+        <div className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
+            isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}>
+          {/* Frosted glass background */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+          
+          {/* Centered content container */}
+          <div className="relative h-full flex flex-col items-center justify-center">
+            {/* Close button - positioned absolutely in top right */}
+            <button
+              onClick={toggleMenu}
+              className="absolute top-6 right-6 p-3 rounded-full text-white hover:bg-white/10 transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="h-8 w-8" />
+            </button>
             
-            {/* Menu items */}
-            <div className="flex-1 overflow-y-auto py-8 px-4">
-              <nav className="flex flex-col space-y-6">
-                <Link 
-                  to="/" 
-                  className="flex items-center text-xl font-medium text-white py-2 border-b border-white/10 pb-4"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Home className="h-6 w-6 mr-3" />
-                  Home
-                </Link>
-                <Link 
-                  to="/pricing" 
-                  className="flex items-center text-xl font-medium text-white py-2 border-b border-white/10 pb-4"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <DollarSign className="h-6 w-6 mr-3" />
-                  Pricing
-                </Link>
-                <Link 
-                  to="/pricing" 
-                  className="flex items-center text-xl font-medium text-white py-2 border-b border-white/10 pb-4"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <DollarSign className="h-6 w-6 mr-3" />
-                  Pricing
-                </Link>
-              </nav>
-            </div>
+            {/* Logo - positioned absolutely in top left */}
+            <Link to="/" className="absolute top-6 left-6" onClick={() => setIsMenuOpen(false)}>
+              <img 
+                src="https://www.fusion-events.ca/wp-content/uploads/2025/06/Untitled-design-15.png" 
+                alt="Fusion Events Logo" 
+                className="h-12 w-auto"
+              />
+            </Link>
             
-            {/* Menu footer with login button */}
-            <div className="p-6 border-t border-white/10">
-              <Link
-                to="/join"
-                className="flex items-center justify-center w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            {/* Centered navigation */}
+            <nav className="flex flex-col items-center space-y-8 mb-12">
+              <Link 
+                to="/" 
+                className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <Users className="h-5 w-5 mr-2" />
+                <Home className="h-8 w-8 mr-4" />
+                Home
+              </Link>
+              <Link 
+                to="/pricing" 
+                className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <DollarSign className="h-8 w-8 mr-4" />
+                Pricing
+              </nav>
+            </nav>
+
+            {/* Join Collage button - positioned at bottom */}
+            <div className="absolute bottom-12 left-0 right-0 flex justify-center">
+              <Link
+                to="/join"
+                className="flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-lg"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Users className="h-6 w-6 mr-3" />
                 Join Collage
               </Link>
             </div>
