@@ -43,10 +43,18 @@ const Header: React.FC = () => {
             <div className="flex items-center space-x-3">
               <Link
                 to="/join"
-                className="px-4 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
               >
                 <Users className="h-4 w-4 mr-1" />
                 Join Collage
+              </Link>
+              
+              <Link
+                to="/login"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
+              >
+                <LogIn className="h-4 w-4 mr-1" />
+                Login
               </Link>
               
               <button
@@ -117,14 +125,24 @@ const Header: React.FC = () => {
 
           {/* Join Collage button - positioned at bottom */}
           <div className="absolute bottom-12 left-0 right-0 flex justify-center">
-            <Link
-              to="/join"
-              className="flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-lg"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Users className="h-6 w-6 mr-3" />
-              Join Collage
-            </Link>
+            <div className="flex space-x-4">
+              <Link
+                to="/join"
+                className="flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-lg"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Users className="h-6 w-6 mr-3" />
+                Join Collage
+              </Link>
+              <Link
+                to="/login"
+                className="flex items-center justify-center px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-lg"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <LogIn className="h-6 w-6 mr-3" />
+                Admin Login
+              </Link>
+            </div>
           </div>
         </div>
       </div>
