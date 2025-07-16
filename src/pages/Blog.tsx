@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, User, ArrowRight, Clock, Tag, Menu, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 // Blog data
 const blogPosts = [
@@ -271,9 +271,15 @@ const BlogCard = ({ post, index }) => {
 
 // Main blog component
 const PhotoSphereBlog = () => {
+  const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [filteredPosts, setFilteredPosts] = useState(blogPosts);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Scroll to top when location changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
   
   useEffect(() => {
     if (selectedCategory === "All") {

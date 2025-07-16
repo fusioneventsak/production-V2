@@ -1,9 +1,16 @@
 import React from 'react';
-import { Link } from 'react-router-dom'; 
+import { Link, useLocation, useEffect } from 'react-router-dom'; 
 import { ArrowLeft, ArrowRight, Calendar, Clock, User, Tag, Share2, Facebook, Twitter, Linkedin } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 
 const BlogPostAI: React.FC = () => {
+  const location = useLocation();
+  
+  // Scroll to top when component mounts or location changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
