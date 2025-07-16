@@ -25,7 +25,7 @@ const Header: React.FC = () => {
   }, []);
 
   return (
-    <>
+    <React.Fragment>
       <header className="sticky top-0 z-10 backdrop-blur-md bg-black/30 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -65,75 +65,75 @@ const Header: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-        
-        {/* Full screen menu overlay */}
-        <div className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
-            isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}>
-          {/* Frosted glass background */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
-          
-          {/* Centered content container */}
-          <div className="relative h-full flex flex-col items-center justify-center">
-            {/* Close button - positioned absolutely in top right */}
-            <button
-              onClick={toggleMenu}
-              className="absolute top-6 right-6 p-3 rounded-full text-white hover:bg-white/10 transition-colors"
-              aria-label="Close menu"
-            >
-              <X className="h-8 w-8" />
-            </button>
-            
-            {/* Logo - positioned absolutely in top left */}
-            <Link to="/" className="absolute top-6 left-6" onClick={() => setIsMenuOpen(false)}>
-              <img 
-                src="https://www.fusion-events.ca/wp-content/uploads/2025/06/Untitled-design-15.png" 
-                alt="Fusion Events Logo" 
-                className="h-12 w-auto"
-              />
-            </Link>
-            
-            {/* Centered navigation */}
-            <nav className="flex flex-col items-center space-y-8 mb-12">
-              <Link 
-                to="/" 
-                className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Home className="h-8 w-8 mr-4" />
-                Home
-              </Link>
-              <Link 
-                to="/pricing" 
-                className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <DollarSign className="h-8 w-8 mr-4" />
-              </Link>
-            </nav>
+      </header>
 
-            {/* Join Collage button - positioned at bottom */}
-            <div className="absolute bottom-12 left-0 right-0 flex justify-center">
-              <Link
-                to="/join"
-                className="flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-lg"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Users className="h-6 w-6 mr-3" />
-                Join Collage
-              </Link>
-            </div>
+      {/* Full screen menu overlay - moved outside header to ensure it's truly fullscreen */}
+      <div className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${
+          isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}>
+        {/* Frosted glass background */}
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+        
+        {/* Centered content container */}
+        <div className="relative h-full flex flex-col items-center justify-center">
+          {/* Close button - positioned absolutely in top right */}
+          <button
+            onClick={toggleMenu}
+            className="absolute top-6 right-6 p-3 rounded-full text-white hover:bg-white/10 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="h-8 w-8" />
+          </button>
+          
+          {/* Logo - positioned absolutely in top left */}
+          <Link to="/" className="absolute top-6 left-6" onClick={() => setIsMenuOpen(false)}>
+            <img 
+              src="https://www.fusion-events.ca/wp-content/uploads/2025/06/Untitled-design-15.png" 
+              alt="Fusion Events Logo" 
+              className="h-12 w-auto"
+            />
+          </Link>
+          
+          {/* Centered navigation */}
+          <nav className="flex flex-col items-center space-y-8 mb-12">
+            <Link 
+              to="/" 
+              className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <Home className="h-8 w-8 mr-4" />
+              Home
+            </Link>
+            <Link 
+              to="/pricing" 
+              className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <DollarSign className="h-8 w-8 mr-4" />
+              Pricing
+            </Link>
+          </nav>
+
+          {/* Join Collage button - positioned at bottom */}
+          <div className="absolute bottom-12 left-0 right-0 flex justify-center">
+            <Link
+              to="/join"
+              className="flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-lg"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <Users className="h-6 w-6 mr-3" />
+              Join Collage
+            </Link>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Demo Request Modal */}
       <DemoRequestModal 
         isOpen={isDemoModalOpen} 
         onClose={() => setIsDemoModalOpen(false)} 
       />
-    </>
+    </React.Fragment>
   );
 };
 
