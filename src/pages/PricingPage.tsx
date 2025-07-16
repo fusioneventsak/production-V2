@@ -38,14 +38,18 @@ const FloatingPhotos = () => {
     src: string;
   }>>([]);
 
-  // Fetch stock photos exclusively from Supabase
+  // Fetch stock photos from Supabase storage bucket
   useEffect(() => {
     const fetchStockPhotos = async () => {
       try {
+        // Get photos from the stock_photos storage bucket
         const { data, error } = await supabase
+          .storage
           .from('stock_photos')
-          .select('url')
-          .limit(20);
+          .list('', {
+            limit: 20,
+            sortBy: { column: 'name', order: 'asc' }
+          });
         
         if (error) {
           console.error('Error fetching stock photos:', error);
@@ -53,7 +57,17 @@ const FloatingPhotos = () => {
         }
         
         if (data && data.length > 0) {
-          setStockPhotos(data.map(photo => photo.url));
+          // Convert storage items to public URLs
+          const photoUrls = data
+            .filter(item => !item.id.endsWith('/')) // Filter out folders
+            .map(item => {
+              const { data: urlData } = supabase.storage
+                .from('stock_photos')
+                .getPublicUrl(item.name);
+              return urlData.publicUrl;
+            });
+          
+          setStockPhotos(photoUrls);
         }
       } catch (err) {
         console.error('Failed to fetch stock photos:', err);
@@ -71,18 +85,18 @@ const FloatingPhotos = () => {
       const newPhotos = Array.from({ length: 20 }, (_, i) => ({
         id: i,
         // Evenly distribute photos across the width
-        x: (i % 5) * (window.innerWidth / 5) + (Math.random() * 100 - 50),
+        x: (i % 5) * (window.innerWidth / 5) + (Math.random() * 50 - 25),
         // Start photos from below the screen
         y: window.innerHeight + (i % 4) * 100,
-        // Consistent portrait orientation (3:4 aspect ratio)
-        size: 100,
-        height: 140,
+        // Larger photos with consistent portrait orientation (3:4 aspect ratio)
+        size: 160,
+        height: 220,
         // Gentle upward movement with slight variation
         speed: 0.3 + Math.random() * 0.2,
         // Keep photos upright with minimal rotation
-        rotation: (Math.random() - 0.5) * 5,
+        rotation: 0, // No rotation to keep photos perfectly upright
         // Very subtle rotation
-        rotationSpeed: (Math.random() - 0.5) * 0.2,
+        rotationSpeed: 0, // No rotation speed to prevent skewing
         // Fully opaque
         opacity: 1,
         // Use stock photos from Supabase only
@@ -106,19 +120,19 @@ const FloatingPhotos = () => {
           // Gentle vertical movement (floating up)
           let newY = photo.y - photo.speed;
           
-          // Very subtle horizontal movement
-          let newX = photo.x + Math.sin(Date.now() * 0.0003 + photo.id) * 0.3;
+          // No horizontal movement to keep photos floating straight up
+          let newX = photo.x;
           
-          // Minimal rotation to keep photos mostly upright
-          let newRotation = photo.rotation + photo.rotationSpeed * Math.sin(Date.now() * 0.0002 + photo.id);
+          // No rotation to keep photos perfectly upright
+          let newRotation = 0;
           
           // Reset when photos go off-screen (cycle them)
           if (newY < -photo.height - 100) {
             newY = window.innerHeight + 100;
             // Maintain even distribution when recycling
-            newX = (photo.id % 5) * (window.innerWidth / 5) + (Math.random() * 100 - 50);
-            // Keep photos upright
-            newRotation = (Math.random() - 0.5) * 5;
+            newX = (photo.id % 5) * (window.innerWidth / 5) + (Math.random() * 50 - 25);
+            // Keep photos perfectly upright
+            newRotation = 0;
           }
           
           return {
@@ -137,9 +151,9 @@ const FloatingPhotos = () => {
     const rotateCamera = () => {
       const container = document.querySelector('.pricing-container');
       if (container) {
-        const time = Date.now() * 0.00005;
-        const x = Math.sin(time) * 0.3;
-        const y = Math.cos(time) * 0.3;
+        const time = Date.now() * 0.00003; // Slower rotation
+        const x = Math.sin(time) * 0.2; // Reduced rotation amount
+        const y = Math.cos(time) * 0.2; // Reduced rotation amount
         
         // Apply subtle perspective rotation
         container.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg)`;
@@ -165,7 +179,7 @@ const FloatingPhotos = () => {
             height: photo.height + 'px',
             opacity: photo.opacity,
             transform: 'rotate(' + photo.rotation + 'deg)',
-            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.25)'
+            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.35)'
           }}
         >
           <img
