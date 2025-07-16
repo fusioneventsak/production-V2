@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-// --- Internal Helper Components (Not exported) --- //
+// --- Internal Helper Components --- //
 
 const CheckIcon = ({ className }: { className?: string }) => (
   <svg
@@ -38,7 +38,7 @@ const FloatingPhotos = () => {
     src: string;
   }>>([]);
 
-  // Fetch stock photos from Supabase
+  // Fetch stock photos exclusively from Supabase
   useEffect(() => {
     const fetchStockPhotos = async () => {
       try {
@@ -54,15 +54,6 @@ const FloatingPhotos = () => {
         
         if (data && data.length > 0) {
           setStockPhotos(data.map(photo => photo.url));
-        } else {
-          // Fallback to some default photos if none found in Supabase
-          setStockPhotos([
-            'https://images.pexels.com/photos/1839564/pexels-photo-1839564.jpeg',
-            'https://images.pexels.com/photos/2896853/pexels-photo-2896853.jpeg',
-            'https://images.pexels.com/photos/3876394/pexels-photo-3876394.jpeg',
-            'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg',
-            'https://images.pexels.com/photos/1266810/pexels-photo-1266810.jpeg'
-          ]);
         }
       } catch (err) {
         console.error('Failed to fetch stock photos:', err);
@@ -76,25 +67,25 @@ const FloatingPhotos = () => {
     const generatePhotos = () => {
       if (stockPhotos.length === 0) return;
       
-      // Create more photos for a denser effect
+      // Create evenly distributed photos across the screen width
       const newPhotos = Array.from({ length: 20 }, (_, i) => ({
         id: i,
-        // Distribute photos across the entire width
-        x: Math.random() * window.innerWidth,
-        // Start photos from below the screen with varied heights
-        y: window.innerHeight + Math.random() * 300,
-        // Varied sizes for more natural look
-        size: 80 + Math.random() * 60,
-        height: 100 + Math.random() * 80,
-        // Varied speeds for more natural movement
-        speed: 0.5 + Math.random() * 1.2,
-        // Random initial rotation
-        rotation: Math.random() * 360,
-        // Varied rotation speeds
-        rotationSpeed: (Math.random() - 0.5) * 1.5,
-        // Higher opacity for better visibility
-        opacity: 0.4 + Math.random() * 0.5,
-        // Use stock photos from Supabase
+        // Evenly distribute photos across the width
+        x: (i % 5) * (window.innerWidth / 5) + (Math.random() * 100 - 50),
+        // Start photos from below the screen
+        y: window.innerHeight + (i % 4) * 100,
+        // Consistent portrait orientation (3:4 aspect ratio)
+        size: 100,
+        height: 140,
+        // Gentle upward movement with slight variation
+        speed: 0.3 + Math.random() * 0.2,
+        // Keep photos upright with minimal rotation
+        rotation: (Math.random() - 0.5) * 5,
+        // Very subtle rotation
+        rotationSpeed: (Math.random() - 0.5) * 0.2,
+        // Fully opaque
+        opacity: 1,
+        // Use stock photos from Supabase only
         src: stockPhotos[i % stockPhotos.length]
       }));
       setPhotos(newPhotos);
@@ -112,23 +103,22 @@ const FloatingPhotos = () => {
     const animatePhotos = () => {
       setPhotos(prevPhotos => 
         prevPhotos.map(photo => {
-          // Float pattern similar to collage
-          // Vertical movement (floating up)
+          // Gentle vertical movement (floating up)
           let newY = photo.y - photo.speed;
           
-          // Horizontal movement (gentle swaying)
-          // More pronounced horizontal movement like in float pattern
-          let newX = photo.x + Math.sin(Date.now() * 0.0008 + photo.id) * 1.2;
+          // Very subtle horizontal movement
+          let newX = photo.x + Math.sin(Date.now() * 0.0003 + photo.id) * 0.3;
           
-          // Rotation that changes direction based on position
-          let newRotation = photo.rotation + photo.rotationSpeed * Math.sin(Date.now() * 0.0005 + photo.id);
+          // Minimal rotation to keep photos mostly upright
+          let newRotation = photo.rotation + photo.rotationSpeed * Math.sin(Date.now() * 0.0002 + photo.id);
           
           // Reset when photos go off-screen (cycle them)
           if (newY < -photo.height - 100) {
             newY = window.innerHeight + 100;
-            newX = Math.random() * window.innerWidth;
-            // Randomize rotation when recycling
-            newRotation = Math.random() * 360;
+            // Maintain even distribution when recycling
+            newX = (photo.id % 5) * (window.innerWidth / 5) + (Math.random() * 100 - 50);
+            // Keep photos upright
+            newRotation = (Math.random() - 0.5) * 5;
           }
           
           return {
@@ -143,13 +133,13 @@ const FloatingPhotos = () => {
 
     const interval = setInterval(animatePhotos, 16);
     
-    // Add camera rotation effect
+    // Subtle camera rotation effect
     const rotateCamera = () => {
       const container = document.querySelector('.pricing-container');
       if (container) {
-        const time = Date.now() * 0.0001;
-        const x = Math.sin(time) * 0.5;
-        const y = Math.cos(time) * 0.5;
+        const time = Date.now() * 0.00005;
+        const x = Math.sin(time) * 0.3;
+        const y = Math.cos(time) * 0.3;
         
         // Apply subtle perspective rotation
         container.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg)`;
@@ -163,7 +153,7 @@ const FloatingPhotos = () => {
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-gradient-to-b from-black to-purple-900/30">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-gradient-to-b from-black to-purple-900/20">
       {photos.map((photo) => (
         <div
           key={photo.id}
@@ -175,7 +165,7 @@ const FloatingPhotos = () => {
             height: photo.height + 'px',
             opacity: photo.opacity,
             transform: 'rotate(' + photo.rotation + 'deg)',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.25)'
           }}
         >
           <img
