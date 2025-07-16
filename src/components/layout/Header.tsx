@@ -65,7 +65,7 @@ const Header: React.FC = () => {
             </nav>
             
             {/* Mobile menu button */}
-            <div className="flex md:hidden items-center">
+            <div className="flex items-center">
               <Link
                 to="/join"
                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center mr-2"
