@@ -69,7 +69,7 @@ const Header: React.FC = () => {
         
         {/* Full screen menu overlay */}
         <div
-          className={`fixed inset-0 bg-black z-50 transition-transform duration-300 ease-in-out ${
+          className={`fixed inset-0 bg-black z-50 transition-transform duration-300 ease-in-out h-full w-full ${
             isMenuOpen ? 'transform translate-x-0' : 'transform translate-x-full'
           }`}
         >
@@ -104,6 +104,14 @@ const Header: React.FC = () => {
                 >
                   <Home className="h-6 w-6 mr-3" />
                   Home
+                </Link>
+                <Link 
+                  to="/pricing" 
+                  className="flex items-center text-xl font-medium text-white py-2 border-b border-white/10 pb-4"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <DollarSign className="h-6 w-6 mr-3" />
+                  Pricing
                 </Link>
                 <Link 
                   to="/pricing" 
