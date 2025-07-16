@@ -246,88 +246,87 @@ const PhotoSphereBlog = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative overflow-hidden">
-      {/* 3D Background */}
-      <div className="fixed inset-0 z-0">
-        <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
-          <ambientLight intensity={0.2} />
-          <pointLight position={[10, 10, 10]} intensity={0.5} />
-          <FloatingParticles />
-        </Canvas>
-      </div>
-      
-      {/* Content */}
-      <div className="relative z-10">
-        {/* Hero Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-400 via-blue-400 to-purple-600 bg-clip-text text-transparent">
-              PhotoSphere Blog
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-8">
-              Insights, tips, and stories from the world of interactive event photography
-            </p>
-            <div className="w-24 h-1 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full"></div>
-          </div>
-        </section>
+        {/* 3D Background */}
+        <div className="fixed inset-0 z-0">
+          <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
+            <ambientLight intensity={0.2} />
+            <pointLight position={[10, 10, 10]} intensity={0.5} />
+            <FloatingParticles />
+          </Canvas>
+        </div>
         
-        {/* Category Filter */}
-        <section className="px-4 sm:px-6 lg:px-8 mb-12">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-wrap justify-center gap-3">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-full transition-all duration-300 ${
-                    selectedCategory === category
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white'
-                      : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-        
-        {/* Blog Grid */}
-        <section className="px-4 sm:px-6 lg:px-8 pb-20">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredPosts.map((post, index) => (
-                <BlogCard key={post.id} post={post} index={index} />
-              ))}
-            </div>
-          </div>
-        </section>
-        
-        {/* Newsletter Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 backdrop-blur-sm border border-purple-500/20 rounded-2xl p-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">Stay Updated</h2>
-              <p className="text-gray-300 mb-8 text-lg">
-                Get the latest insights on event photography, 3D technology, and PhotoSphere updates delivered to your inbox.
+        {/* Content */}
+        <div className="relative z-10">
+          {/* Hero Section */}
+          <section className="py-20 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto text-center">
+              <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-400 via-blue-400 to-purple-600 bg-clip-text text-transparent">
+                PhotoSphere Blog
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-300 mb-8">
+                Insights, tips, and stories from the world of interactive event photography
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="flex-1 px-4 py-3 bg-black/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                />
-                <button className="bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-600 transition-all">
-                  Subscribe
-                </button>
+              <div className="w-24 h-1 bg-gradient-to-r from-purple-600 to-blue-500 mx-auto rounded-full"></div>
+            </div>
+          </section>
+          
+          {/* Category Filter */}
+          <section className="px-4 sm:px-6 lg:px-8 mb-12">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-wrap justify-center gap-3">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`px-4 py-2 rounded-full transition-all duration-300 ${
+                      selectedCategory === category
+                        ? 'bg-gradient-to-r from-purple-600 to-blue-500 text-white'
+                        : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 hover:text-white'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-        </section>
-      </div>
+          </section>
+          
+          {/* Blog Grid */}
+          <section className="px-4 sm:px-6 lg:px-8 pb-20">
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredPosts.map((post, index) => (
+                  <BlogCard key={post.id} post={post} index={index} />
+                ))}
+              </div>
+            </div>
+          </section>
+          
+          {/* Newsletter Section */}
+          <section className="py-20 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-4xl mx-auto text-center">
+              <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 backdrop-blur-sm border border-purple-500/20 rounded-2xl p-12">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">Stay Updated</h2>
+                <p className="text-gray-300 mb-8 text-lg">
+                  Get the latest insights on event photography, 3D technology, and PhotoSphere updates delivered to your inbox.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="flex-1 px-4 py-3 bg-black/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                  />
+                  <button className="bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-600 transition-all">
+                    Subscribe
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </Layout>
-    </div>
   );
 };
 
-export default PhotoSphereBlog;
+export default Blog;
