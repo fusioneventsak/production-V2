@@ -26,7 +26,7 @@ const Header: React.FC = () => {
 
   return (
     <React.Fragment>
-      <header className="sticky top-0 z-10 backdrop-blur-md bg-black/30 border-b border-white/10">
+      <header className="sticky top-0 z-50 backdrop-blur-md bg-black/30 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">

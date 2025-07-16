@@ -1222,7 +1222,7 @@ const PricingPage = () => {
 
   return (
     <Layout>
-      <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white">
+      <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white overflow-y-auto">
         {/* 3D Scene Background */}
         <div className="absolute inset-0 w-full h-full z-0">
           <ErrorBoundary>
@@ -1279,7 +1279,7 @@ const PricingPage = () => {
         </div>
 
         {/* Pricing Content - Above 3D Scene */}
-        <main className="relative z-10 w-full flex flex-col items-center justify-center px-6 py-16">
+        <main className="relative z-5 w-full flex flex-col items-center justify-center px-6 py-16">
           <div className="w-full max-w-7xl mx-auto text-center mb-20">
             <h1 className="text-6xl md:text-7xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-8">
               Choose Your PhotoSphere Plan
