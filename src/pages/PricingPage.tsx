@@ -1243,7 +1243,6 @@ const PricingPage = () => {
                 </button>
               </div>
             </div>
-          </div>
 
           <Canvas
             className="absolute inset-0 w-full h-full"
@@ -1277,6 +1276,7 @@ const PricingPage = () => {
             </Suspense>
           </Canvas>
         </ErrorBoundary>
+        </div>
       </div>
 
       {/* Pricing Content - Above 3D Scene */}
