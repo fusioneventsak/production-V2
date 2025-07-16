@@ -231,7 +231,7 @@ const BlogCard = ({ post, index }) => {
 };
 
 // Main blog component
-const PhotoSphereBlog = () => {
+const Blog = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [filteredPosts, setFilteredPosts] = useState(blogPosts);
   
