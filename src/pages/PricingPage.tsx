@@ -1222,9 +1222,9 @@ const PricingPage = () => {
 
   return (
     <Layout>
-      <div className="bg-black text-white w-full overflow-hidden relative">
+      <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white">
         {/* 3D Scene Background */}
-        <div className="absolute inset-0 w-full h-full">
+        <div className="absolute inset-0 w-full h-full z-0">
           <ErrorBoundary>
             {/* Theme Controls */}
             <div className="absolute top-4 right-4 z-50">
@@ -1277,72 +1277,71 @@ const PricingPage = () => {
           </Canvas>
         </ErrorBoundary>
         </div>
-      </div>
 
-      {/* Pricing Content - Above 3D Scene */}
-      <main className="relative z-10 w-full flex flex-col items-center justify-center px-6 py-16">
-        <div className="w-full max-w-7xl mx-auto text-center mb-20">
-          <h1 className="text-6xl md:text-7xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-8">
-            Choose Your PhotoSphere Plan
-          </h1>
-          <p className="text-xl md:text-2xl text-white/80 max-w-4xl mx-auto font-light leading-relaxed">
-            Create immersive photo experiences for your events. Start free and scale as you grow.
-          </p>
-        </div>
-        
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 justify-center items-center lg:items-end w-full max-w-7xl mb-20">
-          {samplePlans.map((plan) => (
-            <PricingCard key={plan.planName} {...plan} />
-          ))}
-        </div>
-        
-        <div className="flex justify-center w-full max-w-7xl mb-20">
-          <PricingCard {...oneTimePlan} />
-        </div>
-        
-        <div className="w-full max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-white/70 mb-16">
-            <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
-                <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <h3 className="text-white text-xl font-semibold mb-4">Secure & Private</h3>
-              <p className="text-base leading-relaxed">Your photos are encrypted and stored securely with enterprise-grade security.</p>
-            </div>
-            
-            <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
-                <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h3 className="text-white text-xl font-semibold mb-4">Real-time Updates</h3>
-              <p className="text-base leading-relaxed">See photos appear instantly as guests upload them during your event.</p>
-            </div>
-            
-            <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
-                <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-              <h3 className="text-white text-xl font-semibold mb-4">Easy Setup</h3>
-              <p className="text-base leading-relaxed">Get started in minutes with our intuitive setup process and QR code sharing.</p>
-            </div>
+        {/* Pricing Content - Above 3D Scene */}
+        <main className="relative z-10 w-full flex flex-col items-center justify-center px-6 py-16">
+          <div className="w-full max-w-7xl mx-auto text-center mb-20">
+            <h1 className="text-6xl md:text-7xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-8">
+              Choose Your PhotoSphere Plan
+            </h1>
+            <p className="text-xl md:text-2xl text-white/80 max-w-4xl mx-auto font-light leading-relaxed">
+              Create immersive photo experiences for your events. Start free and scale as you grow.
+            </p>
           </div>
           
-          <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl">
-            <h3 className="text-white text-2xl font-semibold mb-4">Need a custom solution?</h3>
-            <p className="text-white/70 text-lg mb-8 max-w-2xl mx-auto">We offer tailored packages for large events, multiple locations, and enterprise deployments.</p>
-            <Button className="px-8 py-4 bg-cyan-400 hover:bg-cyan-300 text-black rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-cyan-400/20">
-              Contact Our Team
-            </Button>
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 justify-center items-center lg:items-end w-full max-w-7xl mb-20">
+            {samplePlans.map((plan) => (
+              <PricingCard key={plan.planName} {...plan} />
+            ))}
           </div>
-        </div>
-      </main>
-    
+          
+          <div className="flex justify-center w-full max-w-7xl mb-20">
+            <PricingCard {...oneTimePlan} />
+          </div>
+          
+          <div className="w-full max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-white/70 mb-16">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
+                  <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <h3 className="text-white text-xl font-semibold mb-4">Secure & Private</h3>
+                <p className="text-base leading-relaxed">Your photos are encrypted and stored securely with enterprise-grade security.</p>
+              </div>
+              
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
+                  <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-white text-xl font-semibold mb-4">Real-time Updates</h3>
+                <p className="text-base leading-relaxed">See photos appear instantly as guests upload them during your event.</p>
+              </div>
+              
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
+                  <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-white text-xl font-semibold mb-4">Easy Setup</h3>
+                <p className="text-base leading-relaxed">Get started in minutes with our intuitive setup process and QR code sharing.</p>
+              </div>
+            </div>
+            
+            <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl">
+              <h3 className="text-white text-2xl font-semibold mb-4">Need a custom solution?</h3>
+              <p className="text-white/70 text-lg mb-8 max-w-2xl mx-auto">We offer tailored packages for large events, multiple locations, and enterprise deployments.</p>
+              <Button className="px-8 py-4 bg-cyan-400 hover:bg-cyan-300 text-black rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-cyan-400/20">
+                Contact Our Team
+              </Button>
+            </div>
+          </div>
+        </main>
+      </div>
     </Layout>
   );
 };
