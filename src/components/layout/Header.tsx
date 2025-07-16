@@ -65,6 +65,7 @@ const Header: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
       </header>
 
       {/* Full screen menu overlay - moved outside header to ensure it's truly fullscreen */}
