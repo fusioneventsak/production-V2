@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Calendar, User, ArrowRight, Clock, Tag } from 'lucide-react';
+import Layout from '../components/layout/Layout';
 
 // Floating particles component for background
 const FloatingParticles = () => {
@@ -243,7 +244,8 @@ const PhotoSphereBlog = () => {
   }, [selectedCategory]);
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative overflow-hidden">
+    <Layout>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative overflow-hidden">
       {/* 3D Background */}
       <div className="fixed inset-0 z-0">
         <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
@@ -255,29 +257,6 @@ const PhotoSphereBlog = () => {
       
       {/* Content */}
       <div className="relative z-10">
-        {/* Header */}
-        <header className="bg-black/20 backdrop-blur-sm border-b border-gray-700/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-lg font-bold">PS</span>
-                </div>
-                <span className="text-xl font-bold">PhotoSphere</span>
-              </div>
-              <nav className="hidden md:flex items-center gap-6">
-                <a href="/" className="text-gray-300 hover:text-white transition-colors">Home</a>
-                <a href="/features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-                <a href="/pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
-                <a href="/blog" className="text-purple-400 font-medium">Blog</a>
-                <button className="bg-gradient-to-r from-purple-600 to-blue-500 px-4 py-2 rounded-lg font-medium hover:from-purple-700 hover:to-blue-600 transition-all">
-                  Get Started
-                </button>
-              </nav>
-            </div>
-          </div>
-        </header>
-        
         {/* Hero Section */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
@@ -344,57 +323,9 @@ const PhotoSphereBlog = () => {
             </div>
           </div>
         </section>
-        
-        {/* Footer */}
-        <footer className="bg-black/40 backdrop-blur-sm border-t border-gray-700/50 py-12 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-lg font-bold">PS</span>
-                  </div>
-                  <span className="text-xl font-bold">PhotoSphere</span>
-                </div>
-                <p className="text-gray-400">
-                  Transforming event photography with immersive 3D experiences.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="font-bold mb-4">Product</h3>
-                <ul className="space-y-2 text-gray-400">
-                  <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">API</a></li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="font-bold mb-4">Resources</h3>
-                <ul className="space-y-2 text-gray-400">
-                  <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Tutorials</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Support</a></li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="font-bold mb-4">Company</h3>
-                <ul className="space-y-2 text-gray-400">
-                  <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
-                </ul>
-              </div>
-            </div>
-            
-            <div className="border-t border-gray-700/50 pt-8 text-center text-gray-400">
-              <p>&copy; 2025 PhotoSphere. All rights reserved.</p>
-            </div>
-          </div>
-        </footer>
       </div>
+      </div>
+    </Layout>
     </div>
   );
 };
