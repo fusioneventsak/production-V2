@@ -138,18 +138,18 @@ const Header: React.FC = () => {
             <div className="flex space-x-4">
               <Link
                 to="/join"
-                className="flex items-center justify-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-lg"
+                className="flex items-center justify-center px-4 py-2 bg-purple-600/90 hover:bg-purple-700 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-purple-500/20 backdrop-blur-sm"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <Users className="h-6 w-6 mr-3" />
+                <Users className="h-4 w-4 mr-2" />
                 Join Collage
               </Link>
               <Link
                 to="/login"
-                className="flex items-center justify-center px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-lg"
+                className="flex items-center justify-center px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:border-white/30 rounded-md text-sm font-medium transition-all duration-200 backdrop-blur-sm"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <LogIn className="h-6 w-6 mr-3" />
+                <LogIn className="h-4 w-4 mr-2" />
                 Admin Login
               </Link>
             </div>
