@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link, useLocation, useEffect } from 'react-router-dom'; 
+import React, { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom'; 
 import { ArrowLeft, ArrowRight, Calendar, Clock, User, Tag, Share2, Facebook, Twitter, Linkedin } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 
