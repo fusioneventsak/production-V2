@@ -18,6 +18,7 @@ import CollageViewerPage from './pages/CollageViewerPage';
 import CollageModerationPage from './pages/CollageModerationPage';
 import PhotoboothPage from './pages/PhotoboothPage';
 import Blog from './pages/Blog';
+import BlogPost from './pages/BlogPost';
 import JoinCollage from './pages/JoinCollage';
 
 // Create router with future flag enabled
@@ -31,6 +32,7 @@ const router = createBrowserRouter(
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/join" element={<JoinCollage />} />
       <Route path="/blog" element={<Blog />} />
+      <Route path="/blog/photobooth-businesses-double-revenue-photosphere-case-study" element={<BlogPost />} />
       <Route path="/collage/:code" element={<CollageViewerPage />} />
       <Route path="/photobooth/:code" element={<PhotoboothPage />} />
       
