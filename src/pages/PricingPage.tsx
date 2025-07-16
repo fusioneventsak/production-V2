@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 
 // --- Internal Helper Components --- //
 
+// --- Internal Helper Components --- //
+
 const CheckIcon = ({ className }: { className?: string }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -25,13 +27,14 @@ const Button = ({ children, className, ...props }: any) => (
 // Floating Photos Background Component
 const FloatingPhotos = () => {
   const [stockPhotos, setStockPhotos] = useState<string[]>([]);
-  const [photos, setPhotos] = useState<Array<{
+  const [photos, setPhotos] = useState<Array<{ 
     id: number;
     x: number;
     y: number;
     size: number;
     height: number;
     speed: number;
+    depth: number;
     rotation: number;
     rotationSpeed: number;
     opacity: number;
@@ -47,6 +50,9 @@ const FloatingPhotos = () => {
           .storage
           .from('stock_photos')
           .list('', {
+            limit: 20,
+            sortBy: { column: 'name', order: 'asc' }
+          });
             limit: 20,
             sortBy: { column: 'name', order: 'asc' }
           });
@@ -68,40 +74,59 @@ const FloatingPhotos = () => {
             });
           
           setStockPhotos(photoUrls);
-        }
-      } catch (err) {
-        console.error('Failed to fetch stock photos:', err);
-      }
-    };
-    
-    fetchStockPhotos();
   }, []);
 
   useEffect(() => {
     const generatePhotos = () => {
       if (stockPhotos.length === 0) return;
       
-      // Create evenly distributed photos across the screen width
-      const newPhotos = Array.from({ length: 20 }, (_, i) => ({
-        id: i,
-        // Evenly distribute photos across the width
-        x: (i % 5) * (window.innerWidth / 5) + (Math.random() * 50 - 25),
-        // Start photos from below the screen
-        y: window.innerHeight + (i % 4) * 100,
-        // Larger photos with consistent portrait orientation (3:4 aspect ratio)
-        size: 160,
-        height: 220,
-        // Gentle upward movement with slight variation
-        speed: 0.3 + Math.random() * 0.2,
-        // Keep photos upright with minimal rotation
-        rotation: 0, // No rotation to keep photos perfectly upright
-        // Very subtle rotation
-        rotationSpeed: 0, // No rotation speed to prevent skewing
-        // Fully opaque
-        opacity: 1,
-        // Use stock photos from Supabase only
-        src: stockPhotos[i % stockPhotos.length]
-      }));
+      // Create 40 photos with varying depths for a more immersive scene
+      const newPhotos = Array.from({ length: 40 }, (_, i) => {
+        // Determine if this is a foreground, midground, or background photo
+        const depthLayer = i % 3; // 0 = foreground, 1 = midground, 2 = background
+        
+        // Calculate depth factor (0.5 to 2.0)
+        const depth = depthLayer === 0 ? 2.0 : // foreground
+                      depthLayer === 1 ? 1.0 : // midground
+                      0.5;                     // background
+        
+        // Size based on depth (larger in foreground, smaller in background)
+        const baseSize = 160;
+        const size = Math.round(baseSize * depth);
+        const height = Math.round(size * 1.4); // 1.4 aspect ratio for portrait orientation
+        
+        // Speed based on depth (faster in foreground, slower in background)
+        const baseSpeed = 0.3;
+        const speed = baseSpeed * (depth * 0.8);
+        
+        // Calculate column for even distribution (5 columns)
+        const column = i % 5;
+        // Calculate horizontal position with depth-based offset
+        const xPos = (column * (window.innerWidth / 5)) + 
+                    ((Math.random() - 0.5) * 40 * depth);
+        
+        // Stagger vertical positions based on row and depth
+        const row = Math.floor(i / 5) % 4;
+        const yPos = window.innerHeight + (row * 150) + (depthLayer * 100);
+        
+        return {
+          id: i,
+          x: xPos,
+          y: yPos,
+          size,
+          height,
+          speed,
+          depth,
+          // Keep photos perfectly upright
+          rotation: 0,
+          rotationSpeed: 0,
+          // Opacity based on depth (more transparent in background)
+          opacity: depth === 0.5 ? 0.7 : 1,
+          // Use stock photos
+          src: stockPhotos[i % stockPhotos.length]
+        };
+      });
+      
       setPhotos(newPhotos);
     };
 
@@ -117,21 +142,26 @@ const FloatingPhotos = () => {
     const animatePhotos = () => {
       setPhotos(prevPhotos => 
         prevPhotos.map(photo => {
-          // Gentle vertical movement (floating up)
+          // Vertical movement based on depth
           let newY = photo.y - photo.speed;
           
-          // No horizontal movement to keep photos floating straight up
-          let newX = photo.x;
+          // Very subtle horizontal drift based on depth
+          let newX = photo.x + Math.sin(Date.now() * 0.0001 * photo.depth) * 0.2 * photo.depth;
           
-          // No rotation to keep photos perfectly upright
+          // Keep photos perfectly upright
           let newRotation = 0;
           
           // Reset when photos go off-screen (cycle them)
-          if (newY < -photo.height - 100) {
-            newY = window.innerHeight + 100;
-            // Maintain even distribution when recycling
-            newX = (photo.id % 5) * (window.innerWidth / 5) + (Math.random() * 50 - 25);
-            // Keep photos perfectly upright
+          if (newY < -photo.height - 50) {
+            // Reset position based on depth layer
+            newY = window.innerHeight + 50 + (Math.random() * 100);
+            
+            // Maintain column position for even distribution
+            const column = photo.id % 5;
+            newX = (column * (window.innerWidth / 5)) + 
+                  ((Math.random() - 0.5) * 40 * photo.depth);
+                  
+            // Keep upright
             newRotation = 0;
           }
           
@@ -151,27 +181,30 @@ const FloatingPhotos = () => {
     const rotateCamera = () => {
       const container = document.querySelector('.pricing-container');
       if (container) {
-        const time = Date.now() * 0.00003; // Slower rotation
-        const x = Math.sin(time) * 0.2; // Reduced rotation amount
-        const y = Math.cos(time) * 0.2; // Reduced rotation amount
+        const time = Date.now() * 0.00002; // Even slower rotation
+        const x = Math.sin(time) * 0.15; // Reduced rotation amount
+        const y = Math.cos(time) * 0.15; // Reduced rotation amount
         
         // Apply subtle perspective rotation
-        container.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg)`;
+        container.style.transform = `perspective(1500px) rotateX(${y}deg) rotateY(${x}deg)`;
       }
     };
     
     const cameraInterval = setInterval(rotateCamera, 16);
     
+    return () => {
+      clearInterval(interval);
       clearInterval(cameraInterval);
+    };
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-gradient-to-b from-black to-purple-900/20">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-gradient-to-b from-black via-purple-900/10 to-black/80">
       {photos.map((photo) => (
         <div
           key={photo.id}
-          className="absolute rounded-lg overflow-hidden shadow-lg transition-transform duration-200"
+          className="absolute rounded-lg overflow-hidden shadow-lg transition-all duration-200"
           style={{
             left: photo.x + 'px',
             top: photo.y + 'px',
@@ -179,7 +212,9 @@ const FloatingPhotos = () => {
             height: photo.height + 'px',
             opacity: photo.opacity,
             transform: 'rotate(' + photo.rotation + 'deg)',
-            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.35)'
+            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.35)',
+            zIndex: Math.round(photo.depth * 10),
+            filter: photo.depth < 1 ? `blur(${(1 - photo.depth) * 2}px)` : 'none'
           }}
         >
           <img
@@ -213,7 +248,7 @@ export const PricingCard = ({
     ? 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-cyan-400 hover:bg-cyan-300 text-black shadow-lg hover:shadow-cyan-400/20' 
     : 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:border-white/30';
 
-  const displayPrice = price.indexOf('$') === 0 ? price : '$' + price;
+  const displayPrice = price === 'Contact Sales' ? price : '$' + price;
   const showPeriod = price !== 'Contact Sales';
 
   return (
@@ -327,7 +362,7 @@ const App = () => {
   };
 
   return (
-    <div className="bg-black text-white min-h-screen w-full overflow-hidden relative pricing-container">
+    <div className="bg-black text-white min-h-screen w-full overflow-hidden relative pricing-container perspective-1500">
       <FloatingPhotos />
       
       <main className="relative z-10 w-full min-h-screen flex flex-col items-center justify-center px-6 py-16 pricing-content">
