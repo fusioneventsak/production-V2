@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // --- Internal Helper Components --- //
 
@@ -232,7 +232,13 @@ const HeroScene3D = () => {
 // 404 Page Component
 const Custom404Page = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [glitchText, setGlitchText] = useState('404');
+  
+  // Scroll to top when component mounts or location changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
   
   // Glitch effect for the 404 text
   useEffect(() => {
