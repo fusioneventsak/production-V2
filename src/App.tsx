@@ -12,6 +12,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
+import PricingPage from './pages/PricingPage';
 import CollageEditorPage from './pages/CollageEditorPage';
 import CollageViewerPage from './pages/CollageViewerPage';
 import CollageModerationPage from './pages/CollageModerationPage';
@@ -26,6 +27,7 @@ const router = createBrowserRouter(
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/join" element={<JoinCollage />} />
       <Route path="/collage/:code" element={<CollageViewerPage />} />
       <Route path="/photobooth/:code" element={<PhotoboothPage />} />
