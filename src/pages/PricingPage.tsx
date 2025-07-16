@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 // --- Internal Helper Components (Not exported) --- //
 
@@ -23,6 +24,7 @@ const Button = ({ children, className, ...props }: any) => (
 
 // Floating Photos Background Component
 const FloatingPhotos = () => {
+  const [stockPhotos, setStockPhotos] = useState<string[]>([]);
   const [photos, setPhotos] = useState<Array<{
     id: number;
     x: number;
@@ -36,53 +38,97 @@ const FloatingPhotos = () => {
     src: string;
   }>>([]);
 
-  // Sample photo URLs - you can replace these with your own
-  const photoUrls = [
-    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1494790108755-2616b332c9ae?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=200&fit=crop&crop=face",
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=200&fit=crop&crop=face",
-  ];
+  // Fetch stock photos from Supabase
+  useEffect(() => {
+    const fetchStockPhotos = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('stock_photos')
+          .select('url')
+          .limit(20);
+        
+        if (error) {
+          console.error('Error fetching stock photos:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          setStockPhotos(data.map(photo => photo.url));
+        } else {
+          // Fallback to some default photos if none found in Supabase
+          setStockPhotos([
+            'https://images.pexels.com/photos/1839564/pexels-photo-1839564.jpeg',
+            'https://images.pexels.com/photos/2896853/pexels-photo-2896853.jpeg',
+            'https://images.pexels.com/photos/3876394/pexels-photo-3876394.jpeg',
+            'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg',
+            'https://images.pexels.com/photos/1266810/pexels-photo-1266810.jpeg'
+          ]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch stock photos:', err);
+      }
+    };
+    
+    fetchStockPhotos();
+  }, []);
 
   useEffect(() => {
     const generatePhotos = () => {
-      const newPhotos = Array.from({ length: 12 }, (_, i) => ({
+      if (stockPhotos.length === 0) return;
+      
+      // Create more photos for a denser effect
+      const newPhotos = Array.from({ length: 20 }, (_, i) => ({
         id: i,
+        // Distribute photos across the entire width
         x: Math.random() * window.innerWidth,
-        y: window.innerHeight + Math.random() * 200,
-        size: 60 + Math.random() * 50,
-        height: 80 + Math.random() * 70,
-        speed: 0.3 + Math.random() * 0.7,
+        // Start photos from below the screen with varied heights
+        y: window.innerHeight + Math.random() * 300,
+        // Varied sizes for more natural look
+        size: 80 + Math.random() * 60,
+        height: 100 + Math.random() * 80,
+        // Varied speeds for more natural movement
+        speed: 0.5 + Math.random() * 1.2,
+        // Random initial rotation
         rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 2,
-        opacity: 0.3 + Math.random() * 0.4,
-        src: photoUrls[i % photoUrls.length]
+        // Varied rotation speeds
+        rotationSpeed: (Math.random() - 0.5) * 1.5,
+        // Higher opacity for better visibility
+        opacity: 0.4 + Math.random() * 0.5,
+        // Use stock photos from Supabase
+        src: stockPhotos[i % stockPhotos.length]
       }));
       setPhotos(newPhotos);
     };
 
-    generatePhotos();
-    window.addEventListener('resize', generatePhotos);
-    return () => window.removeEventListener('resize', generatePhotos);
-  }, []);
+    // Only generate photos once we have stock photos
+    if (stockPhotos.length > 0) {
+      generatePhotos();
+      window.addEventListener('resize', generatePhotos);
+      return () => window.removeEventListener('resize', generatePhotos);
+    }
+  }, [stockPhotos]);
 
   useEffect(() => {
     const animatePhotos = () => {
       setPhotos(prevPhotos => 
         prevPhotos.map(photo => {
+          // Float pattern similar to collage
+          // Vertical movement (floating up)
           let newY = photo.y - photo.speed;
-          let newX = photo.x + Math.sin(Date.now() * 0.001 + photo.id) * 0.5;
-          let newRotation = photo.rotation + photo.rotationSpeed;
           
+          // Horizontal movement (gentle swaying)
+          // More pronounced horizontal movement like in float pattern
+          let newX = photo.x + Math.sin(Date.now() * 0.0008 + photo.id) * 1.2;
+          
+          // Rotation that changes direction based on position
+          let newRotation = photo.rotation + photo.rotationSpeed * Math.sin(Date.now() * 0.0005 + photo.id);
+          
+          // Reset when photos go off-screen (cycle them)
           if (newY < -photo.height - 100) {
             newY = window.innerHeight + 100;
             newX = Math.random() * window.innerWidth;
+            // Randomize rotation when recycling
+            newRotation = Math.random() * 360;
           }
           
           return {
@@ -96,15 +142,32 @@ const FloatingPhotos = () => {
     };
 
     const interval = setInterval(animatePhotos, 16);
+    
+    // Add camera rotation effect
+    const rotateCamera = () => {
+      const container = document.querySelector('.pricing-container');
+      if (container) {
+        const time = Date.now() * 0.0001;
+        const x = Math.sin(time) * 0.5;
+        const y = Math.cos(time) * 0.5;
+        
+        // Apply subtle perspective rotation
+        container.style.transform = `perspective(1000px) rotateX(${y}deg) rotateY(${x}deg)`;
+      }
+    };
+    
+    const cameraInterval = setInterval(rotateCamera, 16);
+    
+      clearInterval(cameraInterval);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-gradient-to-b from-black to-purple-900/30">
       {photos.map((photo) => (
         <div
           key={photo.id}
-          className="absolute rounded-lg overflow-hidden shadow-lg transition-transform duration-75"
+          className="absolute rounded-lg overflow-hidden shadow-lg transition-transform duration-200"
           style={{
             left: photo.x + 'px',
             top: photo.y + 'px',
@@ -112,6 +175,7 @@ const FloatingPhotos = () => {
             height: photo.height + 'px',
             opacity: photo.opacity,
             transform: 'rotate(' + photo.rotation + 'deg)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
           }}
         >
           <img
@@ -259,10 +323,10 @@ const App = () => {
   };
 
   return (
-    <div className="bg-black text-white min-h-screen w-full overflow-hidden relative">
+    <div className="bg-black text-white min-h-screen w-full overflow-hidden relative pricing-container">
       <FloatingPhotos />
       
-      <main className="relative z-10 w-full min-h-screen flex flex-col items-center justify-center px-6 py-16">
+      <main className="relative z-10 w-full min-h-screen flex flex-col items-center justify-center px-6 py-16 pricing-content">
         <div className="w-full max-w-7xl mx-auto text-center mb-20">
           <h1 className="text-6xl md:text-7xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-8">
             Choose Your PhotoSphere Plan
