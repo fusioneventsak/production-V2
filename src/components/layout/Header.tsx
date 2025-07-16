@@ -39,7 +39,8 @@ const Header: React.FC = () => {
               </Link>
             </div>
             
-            <nav className="hidden md:flex items-center space-x-1">
+            {/* Mobile menu button */}
+            <div className="flex items-center space-x-2">
               <Link
                 to="/join"
                 className="px-4 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
@@ -50,14 +51,11 @@ const Header: React.FC = () => {
               
               <button
                 onClick={() => setIsDemoModalOpen(true)}
-                className="ml-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 rounded-md hover:from-purple-700 hover:to-blue-600 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 rounded-md hover:from-purple-700 hover:to-blue-600 transition-colors"
               >
                 Request Demo
               </button>
-            </nav>
-            
-            {/* Mobile menu button */}
-            <div className="flex items-center">
+              
               <button
                 onClick={toggleMenu}
                 className="p-2 rounded-md text-gray-200 hover:text-white hover:bg-purple-500/20 transition-colors"
