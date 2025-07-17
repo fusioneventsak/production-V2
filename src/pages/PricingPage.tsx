@@ -1267,6 +1267,7 @@ const PricingPage = () => {
         "Advanced camera animations",
         "Built-in video recording",
         "20 PhotoSpheres",
+        "Up to 500 photos displayed",
         "Priority support"
       ],
       buttonText: "Start Pro Plan",
