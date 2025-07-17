@@ -13,12 +13,16 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
     <>
       {/* Full screen overlay - covers everything */}
       <div 
-        className="fixed inset-0 z-[99999] bg-black bg-opacity-75 backdrop-blur-sm"
+        className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm"
+        style={{ zIndex: 999999 }}
         onClick={onClose}
       />
       
       {/* Modal container - positioned above overlay */}
-      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pointer-events-none">
+      <div 
+        className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
+        style={{ zIndex: 999999 }}
+      >
         {/* Modal content */}
         <div className="relative w-full max-w-4xl max-h-[90vh] bg-gray-900 border border-gray-700 shadow-xl rounded-2xl flex flex-col pointer-events-auto">
           {/* Header */}
