@@ -1252,7 +1252,7 @@ const PricingPage = () => {
         "Virtual PhotoBooth",
         "PhotoSphere Display", 
         "Moderation tools",
-        "Up to 500 photos displayed"
+        "Up to 200 photos displayed"
       ],
       buttonText: "Get Started",
       buttonVariant: "secondary"
