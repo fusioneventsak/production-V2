@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { Palette } from 'lucide-react';
+import Layout from '../components/layout/Layout';
 
 // Particle themes for the 3D scene
 const PARTICLE_THEMES = [
@@ -1307,7 +1308,8 @@ const PricingPage = () => {
   ];
 
   return (
-    <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white overflow-y-auto">
+    <Layout>
+      <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white overflow-y-auto">
       {/* 3D Scene Background */}
       <div className="absolute inset-0 w-full h-full z-0">
         <ErrorBoundary>
@@ -1430,6 +1432,7 @@ const PricingPage = () => {
         </div>
       </main>
     </div>
+    </Layout>
   );
 };
 
