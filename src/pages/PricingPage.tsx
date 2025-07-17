@@ -1081,51 +1081,51 @@ const PricingToggle: React.FC<{ isYearly: boolean; onToggle: () => void }> = ({ 
 // Free Trial Section Component
 const FreeTrialSection: React.FC = () => {
   return (
-    <div className="w-full max-w-4xl mx-auto mb-20">
+    <div className="w-full max-w-3xl mx-auto mb-16">
       <div className="relative">
-        <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-pulse" />
-        <div className="relative bg-black/60 backdrop-blur-xl rounded-3xl border border-white/20 p-12 text-center">
-          <div className="mb-8">
-            <h2 className="text-4xl font-extralight text-white mb-4">
+        <div className="absolute inset-0 rounded-2xl p-[2px] bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-pulse" />
+        <div className="relative bg-black/60 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center">
+          <div className="mb-6">
+            <h2 className="text-3xl font-extralight text-white mb-3">
               Start Your Free 14-Day Trial
             </h2>
-            <p className="text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg text-white/80 max-w-xl mx-auto leading-relaxed">
               Experience the full power of PhotoSphere with unlimited access to all Pro features. No credit card required.
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-cyan-400/20 flex items-center justify-center mb-3">
-                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-full bg-cyan-400/20 flex items-center justify-center mb-2">
+                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <span className="text-white font-medium">Full Pro Access</span>
+              <span className="text-white font-medium text-sm">Full Pro Access</span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-cyan-400/20 flex items-center justify-center mb-3">
-                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-full bg-cyan-400/20 flex items-center justify-center mb-2">
+                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                 </svg>
               </div>
-              <span className="text-white font-medium">No Credit Card</span>
+              <span className="text-white font-medium text-sm">No Credit Card</span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-cyan-400/20 flex items-center justify-center mb-3">
-                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-full bg-cyan-400/20 flex items-center justify-center mb-2">
+                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192L5.636 18.364M12 2.25a9.75 9.75 0 109.75 9.75A9.75 9.75 0 0012 2.25z" />
                 </svg>
               </div>
-              <span className="text-white font-medium">Cancel Anytime</span>
+              <span className="text-white font-medium text-sm">Cancel Anytime</span>
             </div>
           </div>
           
-          <Button className="px-12 py-4 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-black rounded-xl font-bold text-xl transition-all duration-200 shadow-2xl hover:shadow-cyan-400/30 transform hover:scale-105">
+          <Button className="px-10 py-3 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-black rounded-xl font-bold text-lg transition-all duration-200 shadow-2xl hover:shadow-cyan-400/30 transform hover:scale-105">
             Start Free Trial →
           </Button>
           
-          <p className="text-white/60 text-sm mt-6">
+          <p className="text-white/60 text-xs mt-4">
             Trial includes all Pro features • Upgrade or cancel anytime • No commitment
           </p>
         </div>
@@ -1172,14 +1172,14 @@ export const PricingCard = ({
   }, []);
 
   return (
-    <div className={isPopular ? 'relative flex flex-col min-w-[280px] max-w-[300px] transition-all duration-300 scale-105 z-20' : 'relative flex flex-col min-w-[280px] max-w-[300px] transition-all duration-300 z-10'}>
-      <div className={isPopular ? 'absolute inset-0 rounded-2xl p-[2px] animate-pulse' : 'absolute inset-0 rounded-2xl p-[2px]'}>
+    <div className={isPopular ? 'relative flex flex-col min-w-[280px] max-w-[300px] transition-all duration-300 scale-102 z-20' : 'relative flex flex-col min-w-[280px] max-w-[300px] transition-all duration-300 z-10'}>
+      <div className={isPopular ? 'absolute inset-0 rounded-2xl p-[2px]' : 'absolute inset-0 rounded-2xl p-[2px]'}>
         <div className={isPopular ? 'absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600' : 'absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/30 via-blue-500/30 to-purple-600/30'} />
       </div>
       
       <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 p-6 flex flex-col h-full shadow-2xl bg-gradient-to-b from-white/10 to-transparent">
         {isPopular && (
-          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 text-sm font-bold rounded-full bg-gradient-to-r from-cyan-400/90 to-blue-500/90 text-black shadow-lg z-30 backdrop-blur-md border border-white/30">
+          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-cyan-400/90 to-blue-500/90 text-black shadow-lg z-30 backdrop-blur-md border border-white/30">
             🚀 Most Popular
           </div>
         )}
@@ -1244,7 +1244,7 @@ const PricingPage = () => {
       planName: "Starter",
       description: "Perfect for small events",
       monthlyPrice: 45,
-      yearlyPrice: 432, // 20% discount: 45 * 12 * 0.8
+      yearlyPrice: 430, // 20% discount rounded
       features: [
         "5 PhotoSpheres",
         "Virtual PhotoBooth",
