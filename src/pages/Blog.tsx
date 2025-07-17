@@ -181,7 +181,7 @@ const BlogCard = ({ post, index }) => {
     <Link 
       to={getPostUrl(post.id)}
       className={`group relative bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-500 hover:scale-105 hover:border-purple-500/50 hover:shadow-2xl hover:shadow-purple-500/20 ${
-        post.featured ? 'md:col-span-2 md:row-span-2' : ''
+        post.featured ? 'md:col-span-2' : ''
       }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
