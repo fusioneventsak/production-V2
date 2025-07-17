@@ -350,13 +350,11 @@ const LandingPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               <div className="bg-gradient-to-br from-purple-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-purple-500/20">
                 <div className="flex flex-col items-center mb-8">
-                  <div className="bg-purple-900/30 p-4 rounded-xl mb-4">
-                    <img 
-                      src="https://www.fusion-events.ca/wp-content/uploads/2025/07/1-1.png"
-                      alt="Full Customization Control" 
-                      className="w-24 h-24 mb-4"
-                    />
-                  </div>
+                  <img 
+                    src="https://www.fusion-events.ca/wp-content/uploads/2025/07/1-1.png"
+                    alt="Full Customization Control"
+                    className="w-32 h-32 mb-4"
+                  />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Full Customization Control</h3>
                 <p className="text-gray-400 text-sm">Multiple animations and patterns. Change camera angles, lighting, photo size, speed - all with simple sliders in real-time.</p>
@@ -364,13 +362,11 @@ const LandingPage: React.FC = () => {
 
               <div className="bg-gradient-to-br from-blue-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-blue-500/20">
                 <div className="flex flex-col items-center mb-8">
-                  <div className="bg-blue-900/30 p-4 rounded-xl mb-4">
-                    <img 
-                      src="https://www.fusion-events.ca/wp-content/uploads/2025/07/2-1.png"
-                      alt="Professional Photography" 
-                      className="w-24 h-24 mb-4"
-                    />
-                  </div>
+                  <img 
+                    src="https://www.fusion-events.ca/wp-content/uploads/2025/07/2-1.png"
+                    alt="Professional Photography"
+                    className="w-32 h-32 mb-4"
+                  />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Professional Photography</h3>
                 <p className="text-gray-400 text-sm">Perfect for professional photographers and photobooths. Upload high-quality photos in large batches effortlessly.</p>
@@ -378,13 +374,11 @@ const LandingPage: React.FC = () => {
 
               <div className="bg-gradient-to-br from-green-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-green-500/20">
                 <div className="flex flex-col items-center mb-8">
-                  <div className="bg-green-900/30 p-4 rounded-xl mb-4">
-                    <img 
-                      src="https://www.fusion-events.ca/wp-content/uploads/2025/07/3-1.png"
-                      alt="Moderation & Safety" 
-                      className="w-24 h-24 mb-4"
-                    />
-                  </div>
+                  <img 
+                    src="https://www.fusion-events.ca/wp-content/uploads/2025/07/3-1.png"
+                    alt="Moderation & Safety"
+                    className="w-32 h-32 mb-4"
+                  />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Moderation & Safety</h3>
                 <p className="text-gray-400 text-sm">Full moderation controls - you decide what images are displayed. Add text to images. Use our built-in mobile photobooth. Coming soon: AI photo generation!</p>
@@ -392,13 +386,11 @@ const LandingPage: React.FC = () => {
 
               <div className="bg-gradient-to-br from-pink-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-pink-500/20">
                 <div className="flex flex-col items-center mb-8">
-                  <div className="bg-pink-900/30 p-4 rounded-xl mb-4">
-                    <img 
-                      src="https://www.fusion-events.ca/wp-content/uploads/2025/07/Untitled-design-39.png"
-                      alt="Brandable & Customizable" 
-                      className="w-24 h-24 mb-4"
-                    />
-                  </div>
+                  <img 
+                    src="https://www.fusion-events.ca/wp-content/uploads/2025/07/Untitled-design-39.png"
+                    alt="Brandable & Customizable"
+                    className="w-32 h-32 mb-4"
+                  />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Brandable & Customizable</h3>
                 <p className="text-gray-400 text-sm">Add your logo with transparency support. Create branded collages that match your event or business.</p>
@@ -834,172 +826,4 @@ const LandingPage: React.FC = () => {
                   <h4 className="text-lg font-semibold text-white mb-2">Additional Revenue</h4>
                   <p className="text-gray-400 text-sm">Offer as premium add-on to existing packages</p>
                 </div>
-                <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 hover:bg-black/40 transition-all duration-300">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <span className="text-xl">🎯</span>
-                  </div>
-                  <h4 className="text-lg font-semibold text-white mb-2">Competitive Edge</h4>
-                  <p className="text-gray-400 text-sm">Stand out with cutting-edge technology</p>
-                </div>
-                <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 hover:bg-black/40 transition-all duration-300">
-                  <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <span className="text-xl">⚡</span>
-                  </div>
-                  <h4 className="text-lg font-semibold text-white mb-2">Easy Implementation</h4>
-                  <p className="text-gray-400 text-sm">No equipment, no setup - just share a code</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Contact & CTA Section - More transparent background */}
-        <div className="py-16 bg-gradient-to-b from-black/20 to-black/10 relative">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              {/* Contact Information */}
-              <div className="space-y-8">
-                <div>
-                  <h2 className="text-3xl font-bold text-white mb-4">Ready to Transform Your Event?</h2>
-                  <p className="text-xl text-gray-300 mb-6">
-                    Contact our team to learn how the 3D Selfie Holosphere can create unforgettable experiences at your next event.
-                  </p>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg flex items-center justify-center">
-                      <Mail className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">Email</p>
-                      <a href="mailto:info@fusion-events.ca" className="text-purple-400 hover:text-purple-300 transition-colors">
-                        info@fusion-events.ca
-                      </a>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg flex items-center justify-center">
-                      <Phone className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">Phone</p>
-                      <a href="tel:416-825-4938" className="text-purple-400 hover:text-purple-300 transition-colors">
-                        416-825-4938
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <p className="text-gray-400 text-sm">
-                    Professional event technology by Fusion Events. Available for corporate events, weddings, parties, and special occasions across the Greater Toronto Area.
-                  </p>
-                  <img 
-                    src="https://www.fusion-events.ca/wp-content/uploads/2025/07/1-1.png" 
-                    alt="Full Customization Control" 
-                    className="w-16 h-16 mb-4"
-                  />
-                  <h3 className="text-2xl md:text-3xl font-bold text-white">Ready to Get Started?</h3>
-                  <p className="text-gray-300">
-                    See how PhotoSphere can transform your events and boost engagement. Request a personalized demo to see all features in action.
-                  </p>
-                  <img 
-                    src="https://www.fusion-events.ca/wp-content/uploads/2025/07/Untitled-design-39.png" 
-                    alt="Brandable & Customizable" 
-                    className="w-16 h-16 mb-4"
-                  />
-                  <img 
-                    src="https://www.fusion-events.ca/wp-content/uploads/2025/07/2-1.png" 
-                    alt="Professional Photography" 
-                    className="w-16 h-16 mb-4"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Trust Section - More transparent background */}
-        <div className="py-16 bg-black/10 relative">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <div className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-full p-3 inline-block mb-4">
-              <ShieldCheck className="h-6 w-6 text-white" />
-            </div>
-            <h3 className="text-xl font-medium text-white mb-2">Your Photos Are Safe</h3>
-            <p className="text-gray-400 max-w-2xl mx-auto">
-              We use industry-standard encryption to protect your photos and personal information. Your memories are always safe with us.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Demo Request Modal */}
-      <DemoRequestModal 
-        isOpen={isDemoModalOpen} 
-        onClose={() => setIsDemoModalOpen(false)} 
-      />
-
-      <style jsx="true">{`
-        .phone-float-animation {
-          animation: phoneFloat 8s ease-in-out infinite;
-        }
-        .computer-float-animation {
-          animation: computerFloat 8s ease-in-out infinite;
-        }
-        .photo-float-1 {
-          animation: photoFloat1 6s ease-in-out infinite;
-        }
-        .photo-float-2 {
-          animation: photoFloat2 6s ease-in-out infinite 1s;
-        }
-        .photo-float-3 {
-          animation: photoFloat3 6s ease-in-out infinite 2s;
-        }
-        .photo-float-4 {
-          animation: photoFloat4 6s ease-in-out infinite 3s;
-        }
-        .photo-float-5 {
-          animation: photoFloat5 6s ease-in-out infinite 4s;
-        }
-        
-        @keyframes phoneFloat {
-          0%, 100% { transform: translateY(0px) rotateY(15deg) rotateX(-5deg); }
-          50% { transform: translateY(-20px) rotateY(-15deg) rotateX(5deg); }
-        }
-        @keyframes computerFloat {
-          0%, 100% { transform: translateY(0px) rotateY(-10deg) rotateX(5deg); }
-          50% { transform: translateY(-25px) rotateY(10deg) rotateX(-5deg); }
-        }
-        @keyframes photoFloat1 {
-          0%, 100% { transform: translateY(0px) translateX(0px) rotate(12deg); }
-          33% { transform: translateY(-8px) translateX(4px) rotate(15deg); }
-          66% { transform: translateY(4px) translateX(-2px) rotate(10deg); }
-        }
-        @keyframes photoFloat2 {
-          0%, 100% { transform: translateY(0px) translateX(0px) rotate(-6deg); }
-          33% { transform: translateY(-6px) translateX(-3px) rotate(-3deg); }
-          66% { transform: translateY(3px) translateX(2px) rotate(-9deg); }
-        }
-        @keyframes photoFloat3 {
-          0%, 100% { transform: translateY(0px) translateX(0px) rotate(6deg); }
-          33% { transform: translateY(-5px) translateX(3px) rotate(9deg); }
-          66% { transform: translateY(2px) translateX(-4px) rotate(3deg); }
-        }
-        @keyframes photoFloat4 {
-          0%, 100% { transform: translateY(0px) translateX(0px) rotate(-12deg); }
-          33% { transform: translateY(-7px) translateX(-2px) rotate(-9deg); }
-          66% { transform: translateY(5px) translateX(3px) rotate(-15deg); }
-        }
-        @keyframes photoFloat5 {
-          0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
-          33% { transform: translateY(-4px) translateX(2px) rotate(3deg); }
-          66% { transform: translateY(6px) translateX(-1px) rotate(-3deg); }
-        }
-      `}</style>
-    </Layout>
-  );
-};
-
-export default LandingPage;
+                <div className="bg-black/30 backdrop-blur-sm border border-white/10
