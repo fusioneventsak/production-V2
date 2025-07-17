@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, User, ArrowRight, Clock, Tag, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import BlogScene from '../components/three/BlogScene';
+import Layout from '../components/layout/Layout';
 
 // Blog data
 const blogPosts = [
@@ -109,58 +111,6 @@ const blogPosts = [
 ];
 
 const categories = ["All", "Business Growth", "Innovation", "Corporate", "Weddings", "Marketing"];
-
-// Animated background component with CSS
-const AnimatedBackground = () => {
-  return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-purple-900"></div>
-      
-      {/* Floating orbs */}
-      {[...Array(20)].map((_, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full opacity-10 animate-pulse"
-          style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            width: `${Math.random() * 200 + 50}px`,
-            height: `${Math.random() * 200 + 50}px`,
-            background: `radial-gradient(circle, ${
-              Math.random() > 0.5 ? '#8b5cf6' : '#3b82f6'
-            } 0%, transparent 70%)`,
-            animationDelay: `${Math.random() * 5}s`,
-            animationDuration: `${Math.random() * 10 + 10}s`
-          }}
-        />
-      ))}
-      
-      {/* Moving particles */}
-      <div className="absolute inset-0">
-        {[...Array(50)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1 h-1 bg-purple-400 rounded-full opacity-30"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `float ${Math.random() * 20 + 10}s infinite linear`,
-              animationDelay: `${Math.random() * 10}s`
-            }}
-          />
-        ))}
-      </div>
-      
-      <style jsx>{`
-        @keyframes float {
-          0% { transform: translateY(100vh) translateX(0px); }
-          100% { transform: translateY(-100px) translateX(${Math.random() * 200 - 100}px); }
-        }
-      `}</style>
-    </div>
-  );
-};
 
 // Blog card component with 3D hover effects
 const BlogCard = ({ post, index }) => {
@@ -293,29 +243,9 @@ const PhotoSphereBlog = () => {
   
   return (
     <Layout>
-      <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white overflow-y-auto">
-        {/* Background similar to pricing page */}
-        <div className="absolute inset-0 w-full h-full z-0">
-          <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-black"></div>
-          
-          {/* Subtle particle effect */}
-          <div className="absolute inset-0 opacity-30">
-            {Array.from({ length: 100 }).map((_, i) => (
-              <div
-                key={`particle-${i}`}
-                className={`absolute w-1 h-1 rounded-full ${
-                  i % 10 === 0 ? 'bg-purple-400' : i % 7 === 0 ? 'bg-blue-400' : 'bg-cyan-400'
-                }`}
-                style={{
-                  left: Math.random() * 100 + '%',
-                  top: Math.random() * 100 + '%',
-                  animationDelay: Math.random() * 3 + 's',
-                  animation: 'twinkle 2s infinite alternate'
-                }}
-              />
-            ))}
-          </div>
-        </div>
+      <div className="relative w-full min-h-[calc(100vh-160px)] text-white overflow-y-auto">
+        {/* 3D Background Scene */}
+        <BlogScene />
         
         {/* Content with z-index to appear above background */}
         <div className="relative z-10">
@@ -396,14 +326,6 @@ const PhotoSphereBlog = () => {
           </div>
         </section>
         </div>
-        
-        {/* CSS for twinkle animation */}
-        <style jsx>{`
-          @keyframes twinkle {
-            0% { opacity: 0.3; transform: scale(1); }
-            100% { opacity: 1; transform: scale(1.5); }
-          }
-        `}</style>
       </div>
     </Layout>
   );
