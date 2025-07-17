@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface TermsAndConditionsModalProps {
@@ -9,30 +10,50 @@ interface TermsAndConditionsModalProps {
 const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center">
-      <div className="relative w-full max-w-4xl px-4">
-        {/* Background overlay */}
-        <div 
-          className="fixed inset-0 transition-opacity bg-black bg-opacity-75 backdrop-blur-sm"
-          onClick={onClose}
-        ></div>
-
+  // Create the modal content
+  const modalContent = (
+    <>
+      {/* Full screen overlay - covers everything */}
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm"
+        style={{ 
+          zIndex: 2147483647,  // Maximum possible z-index value
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}
+        onClick={onClose}
+      />
+      
+      {/* Modal container - positioned above overlay */}
+      <div 
+        className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
+        style={{ 
+          zIndex: 2147483647,  // Maximum possible z-index value
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}
+      >
         {/* Modal content */}
-        <div className="relative w-full p-6 overflow-hidden text-left align-middle transition-all transform bg-gray-900 border border-gray-700 shadow-xl rounded-2xl">
+        <div className="relative w-full max-w-4xl max-h-[90vh] bg-gray-900 border border-gray-700 shadow-xl rounded-2xl flex flex-col pointer-events-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between p-6 border-b border-gray-700">
             <h3 className="text-2xl font-bold text-white">Terms and Conditions</h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-white transition-colors p-1"
             >
               <X className="w-6 h-6" />
             </button>
           </div>
 
-          {/* Content */}
-          <div className="max-h-[70vh] overflow-y-auto pr-2">
+          {/* Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-6 text-gray-300">
               <p className="text-sm text-gray-400">Last Updated: July 1, 2025</p>
               
@@ -163,7 +184,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
           </div>
           
           {/* Footer */}
-          <div className="mt-6 pt-4 border-t border-gray-700">
+          <div className="p-6 border-t border-gray-700">
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors"
@@ -173,8 +194,11 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
+
+  // Render the modal using a portal to document.body
+  return createPortal(modalContent, document.body);
 };
 
 export default TermsAndConditionsModal;
