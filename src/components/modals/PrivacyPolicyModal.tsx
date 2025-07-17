@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface PrivacyPolicyModalProps {
@@ -9,19 +10,34 @@ interface PrivacyPolicyModalProps {
 const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  return (
+  // Create the modal content
+  const modalContent = (
     <>
       {/* Full screen overlay - covers everything */}
       <div 
         className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm"
-        style={{ zIndex: 999999 }}
+        style={{ 
+          zIndex: 2147483647,  // Maximum possible z-index value
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}
         onClick={onClose}
       />
       
       {/* Modal container - positioned above overlay */}
       <div 
         className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
-        style={{ zIndex: 999999 }}
+        style={{ 
+          zIndex: 2147483647,  // Maximum possible z-index value
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}
       >
         {/* Modal content */}
         <div className="relative w-full max-w-4xl max-h-[90vh] bg-gray-900 border border-gray-700 shadow-xl rounded-2xl flex flex-col pointer-events-auto">
@@ -153,6 +169,9 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
       </div>
     </>
   );
+
+  // Render the modal using a portal to document.body
+  return createPortal(modalContent, document.body);
 };
 
 export default PrivacyPolicyModal;
