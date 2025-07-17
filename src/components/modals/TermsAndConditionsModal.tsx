@@ -155,7 +155,13 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
                   WE DO NOT WARRANT THAT: (a) THE PLATFORM WILL BE UNINTERRUPTED, SECURE, OR ERROR-FREE; (b) DEFECTS WILL BE CORRECTED; (c) THE PLATFORM IS FREE FROM VIRUSES OR HARMFUL COMPONENTS; (d) YOUR DATA WILL BE SECURE OR NOT LOST; (e) THE PLATFORM WILL MEET YOUR REQUIREMENTS; OR (f) THE RESULTS FROM USING THE PLATFORM WILL BE ACCURATE OR RELIABLE.
                 </p>
                 <p>
-                  YOU ACKNOWLEDGE THAT INTERNET-BASED SERVICES ARE SUBJECT TO INTERRUPTIONS, DELAYS, AND OTHER PROBLEMS INHERENT IN ELECTRONIC COMMUNICATIONS AND NETWORKS.
+                  <strong>Third-Party Service Dependencies:</strong> THE PLATFORM RELIES ON THIRD-PARTY SERVICES INCLUDING BUT NOT LIMITED TO CLOUD HOSTING PROVIDERS (SUPABASE, NETLIFY, AWS), CONTENT DELIVERY NETWORKS, PAYMENT PROCESSORS, AND OTHER INFRASTRUCTURE PROVIDERS. WE DISCLAIM ALL LIABILITY FOR SERVICE INTERRUPTIONS, DATA LOSS, OR PLATFORM UNAVAILABILITY CAUSED BY THIRD-PARTY SERVICE PROVIDERS, INCLUDING SCHEDULED MAINTENANCE, UNEXPECTED OUTAGES, CYBERATTACKS, OR SERVICE DEGRADATION.
+                </p>
+                <p>
+                  <strong>Service Level Disclaimers:</strong> WE MAKE NO REPRESENTATIONS OR WARRANTIES REGARDING PLATFORM UPTIME, AVAILABILITY, OR PERFORMANCE. THE PLATFORM MAY BE UNAVAILABLE DUE TO MAINTENANCE, UPDATES, THIRD-PARTY OUTAGES, INTERNET CONNECTIVITY ISSUES, OR OTHER FACTORS BEYOND OUR CONTROL.
+                </p>
+                <p>
+                  YOU ACKNOWLEDGE THAT INTERNET-BASED SERVICES ARE SUBJECT TO INTERRUPTIONS, DELAYS, AND OTHER PROBLEMS INHERENT IN ELECTRONIC COMMUNICATIONS AND NETWORKS. YOU ASSUME ALL RISKS RELATED TO SERVICE AVAILABILITY AND AGREE THAT ANY BUSINESS OR PERSONAL RELIANCE ON PLATFORM AVAILABILITY IS AT YOUR SOLE RISK.
                 </p>
               </section>
               
@@ -171,6 +177,10 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
                   <li>Harm to reputation or emotional distress</li>
                   <li>Cost of substitute services or technology failures</li>
                   <li>Any damages arising from User Content or third-party actions</li>
+                  <li>Service interruptions, outages, or unavailability due to third-party providers</li>
+                  <li>Data loss, corruption, or unavailability due to infrastructure failures</li>
+                  <li>Business disruption or lost opportunities due to platform downtime</li>
+                  <li>Any costs associated with alternative services during outages</li>
                 </ul>
                 <p>
                   THIS LIMITATION APPLIES REGARDLESS OF THE THEORY OF LIABILITY (CONTRACT, TORT, NEGLIGENCE, STRICT LIABILITY, OR OTHERWISE) AND EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
@@ -254,7 +264,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
                   <strong>Assignment:</strong> You may not assign or transfer these Terms or your account without our written consent. We may assign these Terms without restriction.
                 </p>
                 <p>
-                  <strong>Force Majeure:</strong> We are not liable for any failure to perform due to causes beyond our reasonable control, including natural disasters, government actions, or internet infrastructure failures.
+                  <strong>Force Majeure:</strong> We are not liable for any failure to perform due to causes beyond our reasonable control, including but not limited to: natural disasters, acts of God, government actions, war, terrorism, cyberattacks, internet infrastructure failures, third-party service provider outages (including Supabase, Netlify, AWS, and other hosting services), power outages, labor strikes, pandemics, or any other unforeseeable circumstances that prevent or delay performance of our obligations under these Terms.
                 </p>
                 <p>
                   <strong>Notices:</strong> All legal notices must be sent to info@fusion-events.ca. Notices to you may be sent to your registered email address.
