@@ -354,7 +354,7 @@ const LandingPage: React.FC = () => {
                     <img 
                       src="https://www.fusion-events.ca/wp-content/uploads/2025/07/1-1.png"
                       alt="Full Customization Control" 
-                      className="w-16 h-16 mb-4"
+                      className="w-24 h-24 mb-4"
                     />
                   </div>
                 </div>
@@ -368,7 +368,7 @@ const LandingPage: React.FC = () => {
                     <img 
                       src="https://www.fusion-events.ca/wp-content/uploads/2025/07/2-1.png"
                       alt="Professional Photography" 
-                      className="w-16 h-16 mb-4"
+                      className="w-24 h-24 mb-4"
                     />
                   </div>
                 </div>
@@ -382,7 +382,7 @@ const LandingPage: React.FC = () => {
                     <img 
                       src="https://www.fusion-events.ca/wp-content/uploads/2025/07/3-1.png"
                       alt="Moderation & Safety" 
-                      className="w-16 h-16 mb-4"
+                      className="w-24 h-24 mb-4"
                     />
                   </div>
                 </div>
@@ -396,7 +396,7 @@ const LandingPage: React.FC = () => {
                     <img 
                       src="https://www.fusion-events.ca/wp-content/uploads/2025/07/Untitled-design-39.png"
                       alt="Brandable & Customizable" 
-                      className="w-16 h-16 mb-4"
+                      className="w-24 h-24 mb-4"
                     />
                   </div>
                 </div>
