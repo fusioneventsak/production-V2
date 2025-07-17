@@ -8,7 +8,7 @@ const blogPosts = [
     id: 1,
     title: "How PhotoSphere Helped 3 Photobooth Businesses Double Their Revenue in 6 Months",
     excerpt: "Real case studies from photobooth entrepreneurs who transformed their traditional setups with interactive 3D photo activations, commanding premium prices and securing repeat clients.",
-    author: "Marcus Rivera",
+    author: "Arthur Kerekes",
     date: "2025-07-15",
     readTime: "8 min read",
     category: "Business Growth",
@@ -19,7 +19,7 @@ const blogPosts = [
     id: 2,
     title: "The AI Revolution in Photo Activations: What Photobooth Owners Need to Know Now",
     excerpt: "Explore how artificial intelligence is reshaping event photography, from automatic curation to predictive guest engagement - and how to stay ahead of the curve.",
-    author: "Dr. Elena Vasquez",
+    author: "Arthur Kerekes",
     date: "2025-07-12",
     readTime: "6 min read",
     category: "Innovation",
@@ -29,7 +29,7 @@ const blogPosts = [
     id: 3,
     title: "5 Pricing Strategies That Let Photobooth Businesses Charge 40% More with Interactive Experiences",
     excerpt: "Learn the exact pricing models successful photobooth operators use to justify premium rates when offering PhotoSphere's immersive 3D photo walls at events.",
-    author: "Jennifer Walsh",
+    author: "Arthur Kerekes",
     date: "2025-07-10",
     readTime: "7 min read",
     category: "Business Growth",
@@ -39,7 +39,7 @@ const blogPosts = [
     id: 4,
     title: "Beyond the Static Backdrop: How Interactive Photo Activations Are Saving the Event Industry",
     excerpt: "Discover why event planners are abandoning traditional photobooths for dynamic, shareable experiences that keep guests engaged throughout entire events.",
-    author: "Alex Thompson",
+    author: "Arthur Kerekes",
     date: "2025-07-08",
     readTime: "5 min read",
     category: "Innovation",
@@ -49,7 +49,7 @@ const blogPosts = [
     id: 5,
     title: "The Corporate Event Gold Mine: Why Fortune 500s Pay 300% More for Interactive Photo Experiences",
     excerpt: "Uncover the massive opportunity in corporate photo activations and learn how to position PhotoSphere as an essential brand engagement tool for enterprise clients.",
-    author: "Robert Chen",
+    author: "Arthur Kerekes",
     date: "2025-07-05",
     readTime: "9 min read",
     category: "Corporate",
@@ -59,7 +59,7 @@ const blogPosts = [
     id: 6,
     title: "Stop Losing Clients to Competitors: The Complete Guide to Modernizing Your Photobooth Business",
     excerpt: "A step-by-step roadmap for traditional photobooth operators to integrate cutting-edge photo activation technology without breaking the bank or losing existing customers.",
-    author: "Sarah Martinez",
+    author: "Arthur Kerekes",
     date: "2025-07-03",
     readTime: "10 min read",
     category: "Business Growth",
@@ -69,7 +69,7 @@ const blogPosts = [
     id: 7,
     title: "Wedding Venues Are Demanding This: How Interactive Photo Walls Became the New Must-Have",
     excerpt: "Learn why wedding venues are requiring interactive photo experiences in vendor packages and how to become their preferred photobooth partner with PhotoSphere.",
-    author: "Diana Foster",
+    author: "Arthur Kerekes",
     date: "2025-07-01",
     readTime: "6 min read",
     category: "Weddings",
@@ -79,7 +79,7 @@ const blogPosts = [
     id: 8,
     title: "From Zero to Viral: The Science Behind Shareable Photo Activations That Drive Event ROI",
     excerpt: "Discover the psychological triggers and design principles that make photo activations go viral on social media, multiplying your clients' event reach organically.",
-    author: "Mark Rodriguez",
+    author: "Arthur Kerekes",
     date: "2025-06-28",
     readTime: "8 min read",
     category: "Marketing",
@@ -89,7 +89,7 @@ const blogPosts = [
     id: 9,
     title: "The Hidden Revenue Stream: How Event Photographers Are Making $50K+ Extra with Photo Activations",
     excerpt: "Event photographers reveal how they're diversifying beyond traditional shoots by offering interactive photo experiences as premium add-on services.",
-    author: "Carlos Delgado",
+    author: "Arthur Kerekes",
     date: "2025-06-25",
     readTime: "7 min read",
     category: "Business Growth",
@@ -99,7 +99,7 @@ const blogPosts = [
     id: 10,
     title: "Event Tech Predictions 2025: Why Interactive Photo Experiences Will Dominate the Next Decade",
     excerpt: "Industry experts forecast the future of event technology, revealing why photobooth businesses that adopt interactive photo activations now will lead the market by 2030.",
-    author: "Dr. Lisa Chang",
+    author: "Arthur Kerekes",
     date: "2025-06-22",
     readTime: "11 min read",
     category: "Innovation",
@@ -178,7 +178,7 @@ const BlogCard = ({ post, index }) => {
   };
   
   return (
-    <Link
+    <Link 
       to={getPostUrl(post.id)}
       className={`group relative bg-gradient-to-br from-gray-900/80 to-black/80 backdrop-blur-sm border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-500 hover:scale-105 hover:border-purple-500/50 hover:shadow-2xl hover:shadow-purple-500/20 ${
         post.featured ? 'md:col-span-2 md:row-span-2' : ''
@@ -239,7 +239,7 @@ const BlogCard = ({ post, index }) => {
         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-4">
           <span className="flex items-center gap-1">
             <User className="w-4 h-4" />
-            {post.author}
+            Arthur Kerekes
           </span>
           <span className="flex items-center gap-1">
             <Calendar className="w-4 h-4" />

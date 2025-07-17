@@ -347,7 +347,7 @@ const BlogPost: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center">
                 <Share2 className="w-5 h-5 text-gray-400 mr-3" />
-                <span className="text-gray-300 mr-4">Share this article:</span>
+                Arthur Kerekes
                 <div className="flex space-x-3">
                   <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors">
                     <Facebook className="w-5 h-5" />
