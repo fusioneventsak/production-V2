@@ -1153,10 +1153,12 @@ export const PricingCard = ({
 }: PricingCardProps) => {
   const [isYearly, setIsYearly] = React.useState(false);
   
-  const currentPrice = isContact ? 'Contact Sales' : isYearly ? yearlyPrice : monthlyPrice;
-  const displayPrice = isContact ? 'Contact Sales' : `$${currentPrice}`;
-  const showPeriod = !isContact;
-  const savings = isYearly && !isContact ? Math.round(((monthlyPrice * 12) - yearlyPrice) / (monthlyPrice * 12) * 100) : 0;
+  // For one-time plans, always show the same price regardless of toggle
+  const isOneTime = planName === "One-Time";
+  const currentPrice = isContact ? 'Contact Sales' : (isOneTime ? monthlyPrice : (isYearly ? yearlyPrice : monthlyPrice));
+  const displayPrice = isContact ? 'Contact Sales' : `${currentPrice}`;
+  const showPeriod = !isContact && !isOneTime;
+  const savings = isYearly && !isContact && !isOneTime ? Math.round(((monthlyPrice * 12) - yearlyPrice) / (monthlyPrice * 12) * 100) : 0;
 
   const buttonClassName = buttonVariant === 'primary' 
     ? 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-cyan-400/90 hover:bg-cyan-300/90 text-black shadow-lg hover:shadow-cyan-400/30 backdrop-blur-sm' 
@@ -1198,7 +1200,7 @@ export const PricingCard = ({
               <span className="text-sm text-white/70">/{isYearly ? 'year' : 'mo'}</span>
             )}
           </div>
-          {isYearly && !isContact && savings > 0 && (
+          {isYearly && !isContact && !isOneTime && savings > 0 && (
             <div className="mt-2">
               <span className="text-sm text-green-400 font-medium">Save {savings}% annually</span>
             </div>
