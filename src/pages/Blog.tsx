@@ -3,7 +3,6 @@ import { Calendar, User, ArrowRight, Clock, Tag, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import BlogScene from '../components/three/BlogScene';
-import Layout from '../components/layout/Layout';
 
 // Blog data
 const blogPosts = [
