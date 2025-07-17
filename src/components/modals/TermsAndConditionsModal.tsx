@@ -60,7 +60,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
               <section className="space-y-3">
                 <h4 className="text-xl font-semibold text-white">1. Acceptance of Terms</h4>
                 <p>
-                  By accessing, using, or clicking "I agree" to the PhotoSphere platform, website, mobile applications, or any related services (collectively, the "Platform"), you ("User," "you," or "your") enter into a legally binding agreement with PhotoSphere Inc. ("Company," "we," "us," or "our") and agree to be bound by these Terms of Service ("Terms"). If you do not agree to all Terms, you must immediately cease all use of the Platform.
+                  By accessing, using, or clicking "I agree" to the PhotoSphere platform, website, mobile applications, or any related services (collectively, the "Platform"), you ("User," "you," or "your") enter into a legally binding agreement with PhotoSphere Inc., a subsidiary of Fusion Events Inc. ("Company," "we," "us," or "our") and agree to be bound by these Terms of Service ("Terms"). If you do not agree to all Terms, you must immediately cease all use of the Platform.
                 </p>
                 <p>
                   <strong>These Terms contain important provisions, including an arbitration clause and class action waiver that affect your rights. Please read them carefully.</strong>
@@ -126,7 +126,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
                   <strong>Company Disclaimers:</strong> WE EXPRESSLY DISCLAIM ALL LIABILITY FOR: (a) unauthorized use or distribution of photos by other users; (b) privacy violations resulting from photo uploads; (c) copyright infringement claims; (d) misuse of photos for commercial or personal purposes; (e) data breaches or unauthorized access to photos; and (f) any harm arising from photo content or display.
                 </p>
                 <p>
-                  <strong>Takedown Procedures:</strong> If you believe your rights have been violated, contact us immediately at legal@photosphere.com with detailed information. We reserve the right to remove content without investigation and may terminate accounts for repeated violations.
+                  <strong>Takedown Procedures:</strong> If you believe your rights have been violated, contact us immediately at info@fusion-events.ca with detailed information. We reserve the right to remove content without investigation and may terminate accounts for repeated violations.
                 </p>
               </section>
               
@@ -162,7 +162,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
               <section className="space-y-3">
                 <h4 className="text-xl font-semibold text-white">8. Limitation of Liability and Damages</h4>
                 <p>
-                  TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL PHOTOSPHERE, ITS AFFILIATES, DIRECTORS, OFFICERS, EMPLOYEES, AGENTS, CONTRACTORS, OR LICENSORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO:
+                  TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL PHOTOSPHERE, ITS PARENT COMPANY FUSION EVENTS INC., AFFILIATES, DIRECTORS, OFFICERS, EMPLOYEES, AGENTS, CONTRACTORS, OR LICENSORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO:
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>Loss of profits, revenue, data, or business opportunities</li>
@@ -189,7 +189,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
               <section className="space-y-3">
                 <h4 className="text-xl font-semibold text-white">9. Indemnification and Defense</h4>
                 <p>
-                  You agree to defend, indemnify, and hold harmless PhotoSphere and its affiliates, directors, officers, employees, agents, contractors, and licensors from and against all claims, demands, actions, damages, losses, costs, and expenses (including reasonable attorneys' fees and court costs) arising from or relating to:
+                  You agree to defend, indemnify, and hold harmless PhotoSphere, its parent company Fusion Events Inc., and their respective affiliates, directors, officers, employees, agents, contractors, and licensors from and against all claims, demands, actions, damages, losses, costs, and expenses (including reasonable attorneys' fees and court costs) arising from or relating to:
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>Your use or misuse of the Platform</li>
@@ -257,7 +257,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
                   <strong>Force Majeure:</strong> We are not liable for any failure to perform due to causes beyond our reasonable control, including natural disasters, government actions, or internet infrastructure failures.
                 </p>
                 <p>
-                  <strong>Notices:</strong> All legal notices must be sent to legal@photosphere.com. Notices to you may be sent to your registered email address.
+                  <strong>Notices:</strong> All legal notices must be sent to info@fusion-events.ca. Notices to you may be sent to your registered email address.
                 </p>
               </section>
               
@@ -268,7 +268,8 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
                 </p>
                 <p>
                   <strong>PhotoSphere Inc.</strong><br />
-                  Email: legal@photosphere.com<br />
+                  (A subsidiary of Fusion Events Inc.)<br />
+                  Email: info@fusion-events.ca<br />
                   Legal Department<br />
                   Ontario, Canada
                 </p>
