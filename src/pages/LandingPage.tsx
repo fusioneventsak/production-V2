@@ -317,7 +317,7 @@ const LandingPage: React.FC = () => {
               <div className="space-y-6">
                 <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl">
                   <iframe
-                    src="https://www.youtube.com/embed/96PSJYnYzhI"
+                    src="https://youtu.be/4L-4UcbNRfQ?si=usCe1zuBqRPsGpSb"
                     title="3D Selfie Holosphere Demo"
                     className="w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
