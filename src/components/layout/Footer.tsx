@@ -45,11 +45,24 @@ const Footer: React.FC = () => {
             >
               <Twitter className="h-5 w-5" />
             </a>
-            <span className="text-gray-400 flex items-center">
-              <span className="text-xs mr-1">Made with</span> 
-              <Heart className="h-3 w-3 text-red-500" fill="currentColor" />
-            </span>
           </div>
+        </div>
+        
+        {/* New bottom section with Fusion Events credit */}
+        <div className="mt-6 pt-4 border-t border-white/10 text-center">
+          <p className="text-gray-400 text-sm flex items-center justify-center">
+            <span className="mr-1">Made with</span>
+            <Heart className="h-4 w-4 text-red-500 mx-1" fill="currentColor" />
+            <span className="mr-1">by</span>
+            <a 
+              href="https://www.fusion-events.ca" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-purple-400 hover:text-purple-300 transition-colors font-medium"
+            >
+              Fusion Events
+            </a>
+          </p>
         </div>
       </div>
     </footer>
