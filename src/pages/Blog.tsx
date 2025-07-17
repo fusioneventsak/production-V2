@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, User, ArrowRight, Clock, Tag, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import Layout from '../components/layout/Layout';
 
 // Blog data
 const blogPosts = [
@@ -276,7 +277,6 @@ const PhotoSphereBlog = () => {
   const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [filteredPosts, setFilteredPosts] = useState(blogPosts);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Scroll to top when location changes
   useEffect(() => {
@@ -292,61 +292,33 @@ const PhotoSphereBlog = () => {
   }, [selectedCategory]);
   
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-x-hidden">
-      {/* Animated Background */}
-      <AnimatedBackground />
-      
-      {/* Content */}
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="bg-black/30 backdrop-blur-md border-b border-gray-700/30 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center shadow-lg">
-                  <span className="text-lg font-bold">PS</span>
-                </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                  PhotoSphere
-                </span>
-              </div>
-              
-              {/* Desktop Navigation */}
-              <nav className="hidden md:flex items-center gap-8">
-                <a href="/" className="text-gray-300 hover:text-white transition-colors duration-300">Home</a>
-                <a href="/features" className="text-gray-300 hover:text-white transition-colors duration-300">Features</a>
-                <a href="/pricing" className="text-gray-300 hover:text-white transition-colors duration-300">Pricing</a>
-                <a href="/blog" className="text-purple-400 font-medium">Blog</a>
-                <button className="bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-2 rounded-lg font-medium hover:from-purple-700 hover:to-blue-600 transition-all duration-300 shadow-lg hover:shadow-purple-500/25">
-                  Get Started
-                </button>
-              </nav>
-              
-              {/* Mobile menu button */}
-              <button 
-                className="md:hidden p-2"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              >
-                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-            
-            {/* Mobile Navigation */}
-            {isMobileMenuOpen && (
-              <div className="md:hidden py-4 border-t border-gray-700/30">
-                <div className="flex flex-col space-y-4">
-                  <a href="/" className="text-gray-300 hover:text-white transition-colors duration-300">Home</a>
-                  <a href="/features" className="text-gray-300 hover:text-white transition-colors duration-300">Features</a>
-                  <a href="/pricing" className="text-gray-300 hover:text-white transition-colors duration-300">Pricing</a>
-                  <a href="/blog" className="text-purple-400 font-medium">Blog</a>
-                  <button className="bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-2 rounded-lg font-medium hover:from-purple-700 hover:to-blue-600 transition-all duration-300 shadow-lg text-left">
-                    Get Started
-                  </button>
-                </div>
-              </div>
-            )}
+    <Layout>
+      <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white overflow-y-auto">
+        {/* Background similar to pricing page */}
+        <div className="absolute inset-0 w-full h-full z-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-black"></div>
+          
+          {/* Subtle particle effect */}
+          <div className="absolute inset-0 opacity-30">
+            {Array.from({ length: 100 }).map((_, i) => (
+              <div
+                key={`particle-${i}`}
+                className={`absolute w-1 h-1 rounded-full ${
+                  i % 10 === 0 ? 'bg-purple-400' : i % 7 === 0 ? 'bg-blue-400' : 'bg-cyan-400'
+                }`}
+                style={{
+                  left: Math.random() * 100 + '%',
+                  top: Math.random() * 100 + '%',
+                  animationDelay: Math.random() * 3 + 's',
+                  animation: 'twinkle 2s infinite alternate'
+                }}
+              />
+            ))}
           </div>
-        </header>
+        </div>
+        
+        {/* Content with z-index to appear above background */}
+        <div className="relative z-10">
         
         {/* Hero Section */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
@@ -423,63 +395,17 @@ const PhotoSphereBlog = () => {
             </div>
           </div>
         </section>
+        </div>
         
-        {/* Footer */}
-        <footer className="bg-black/60 backdrop-blur-sm border-t border-gray-700/50 py-12 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-lg font-bold">PS</span>
-                  </div>
-                  <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                    PhotoSphere
-                  </span>
-                </div>
-                <p className="text-gray-400 leading-relaxed">
-                  Transforming event photography with immersive 3D experiences that create lasting memories.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="font-bold mb-4 text-white">Product</h3>
-                <ul className="space-y-2 text-gray-400">
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Features</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Pricing</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">API</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Integrations</a></li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="font-bold mb-4 text-white">Resources</h3>
-                <ul className="space-y-2 text-gray-400">
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Documentation</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Tutorials</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Support</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Community</a></li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="font-bold mb-4 text-white">Company</h3>
-                <ul className="space-y-2 text-gray-400">
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">About</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Contact</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Privacy</a></li>
-                  <li><a href="#" className="hover:text-purple-400 transition-colors duration-300">Terms</a></li>
-                </ul>
-              </div>
-            </div>
-            
-            <div className="border-t border-gray-700/50 pt-8 text-center text-gray-400">
-              <p>&copy; 2025 PhotoSphere. All rights reserved. Built with ❤️ for the event community.</p>
-            </div>
-          </div>
-        </footer>
+        {/* CSS for twinkle animation */}
+        <style jsx>{`
+          @keyframes twinkle {
+            0% { opacity: 0.3; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.5); }
+          }
+        `}</style>
       </div>
-    </div>
+    </Layout>
   );
 };
 
