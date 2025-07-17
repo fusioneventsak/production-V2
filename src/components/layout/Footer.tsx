@@ -84,16 +84,20 @@ const Footer: React.FC = () => {
       </div>
       
       {/* Privacy Policy Modal */}
-      <PrivacyPolicyModal 
-        isOpen={isPrivacyModalOpen} 
-        onClose={() => setIsPrivacyModalOpen(false)} 
-      />
+      {isPrivacyModalOpen && (
+        <PrivacyPolicyModal 
+          isOpen={isPrivacyModalOpen} 
+          onClose={() => setIsPrivacyModalOpen(false)} 
+        />
+      )}
       
       {/* Terms and Conditions Modal */}
-      <TermsAndConditionsModal 
-        isOpen={isTermsModalOpen} 
-        onClose={() => setIsTermsModalOpen(false)} 
-      />
+      {isTermsModalOpen && (
+        <TermsAndConditionsModal 
+          isOpen={isTermsModalOpen} 
+          onClose={() => setIsTermsModalOpen(false)} 
+        />
+      )}
     </footer>
   );
 };

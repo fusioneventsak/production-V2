@@ -10,8 +10,8 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center">
+      <div className="relative w-full max-w-4xl px-4">
         {/* Background overlay */}
         <div 
           className="fixed inset-0 transition-opacity bg-black bg-opacity-75 backdrop-blur-sm"
@@ -19,7 +19,7 @@ const TermsAndConditionsModal: React.FC<TermsAndConditionsModalProps> = ({ isOpe
         ></div>
 
         {/* Modal content */}
-        <div className="inline-block w-full max-w-4xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-gray-900 border border-gray-700 shadow-xl rounded-2xl">
+        <div className="relative w-full p-6 overflow-hidden text-left align-middle transition-all transform bg-gray-900 border border-gray-700 shadow-xl rounded-2xl">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-2xl font-bold text-white">Terms and Conditions</h3>
