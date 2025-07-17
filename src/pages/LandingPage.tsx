@@ -838,7 +838,7 @@ const LandingPage: React.FC = () => {
                     <span className="text-xl">⚡</span>
                   </div>
                   <h4 className="text-lg font-semibold text-white mb-2">Zero Setup</h4>
-                  <p className="text-gray-400 text-sm">Browser-based - works with existing equipment</p>
+                  <p className="text-gray-400 text-sm">No additional equipment or training required</p>
                 </div>
               </div>
             </div>
