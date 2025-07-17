@@ -10,15 +10,17 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      {/* Background overlay */}
+    <>
+      {/* Full screen overlay - covers everything */}
       <div 
-        className="absolute inset-0 bg-black bg-opacity-75 backdrop-blur-sm"
+        className="fixed inset-0 z-[99999] bg-black bg-opacity-75 backdrop-blur-sm"
         onClick={onClose}
       />
-
-      {/* Modal content */}
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-gray-900 border border-gray-700 shadow-xl rounded-2xl flex flex-col">
+      
+      {/* Modal container - positioned above overlay */}
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 pointer-events-none">
+        {/* Modal content */}
+        <div className="relative w-full max-w-4xl max-h-[90vh] bg-gray-900 border border-gray-700 shadow-xl rounded-2xl flex flex-col pointer-events-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <h3 className="text-2xl font-bold text-white">Privacy Policy</h3>
@@ -144,7 +146,7 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
           </button>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
