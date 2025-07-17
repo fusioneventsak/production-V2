@@ -1246,6 +1246,36 @@ const PricingPage = () => {
       monthlyPrice: 45,
       yearlyPrice: 432, // 20% discount: 45 * 12 * 0.8
       features: [
+        "5 PhotoSpheres",
+        "Virtual PhotoBooth",
+        "PhotoSphere Display", 
+        "Moderation tools",
+        "Up to 500 photos displayed"
+      ],
+      buttonText: "Get Started",
+      buttonVariant: "secondary"
+    },
+    {
+      planName: "Pro",
+      description: "Best for growing businesses",
+      monthlyPrice: 99,
+      yearlyPrice: 950, // 20% discount: 99 * 12 * 0.8
+      features: [
+        "Everything in Starter",
+        "Advanced camera animations",
+        "Built-in video recording",
+        "20 PhotoSpheres",
+        "Priority support"
+      ],
+      buttonText: "Start Pro Plan",
+      isPopular: true
+    },
+    {
+      planName: "Enterprise",
+      description: "For large organizations",
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      features: [
         "Everything in Pro",
         "White label on your domain",
         "Dedicated Account Manager",
@@ -1400,34 +1430,4 @@ const PricingPage = () => {
   );
 };
 
-export default PricingPage; [
-        "5 PhotoSpheres",
-        "Virtual PhotoBooth",
-        "PhotoSphere Display", 
-        "Moderation tools",
-        "Up to 500 photos displayed"
-      ],
-      buttonText: "Get Started",
-      buttonVariant: "secondary"
-    },
-    {
-      planName: "Pro",
-      description: "Best for growing businesses",
-      monthlyPrice: 99,
-      yearlyPrice: 950, // 20% discount: 99 * 12 * 0.8
-      features: [
-        "Everything in Starter",
-        "Advanced camera animations",
-        "Built-in video recording",
-        "20 PhotoSpheres",
-        "Priority support"
-      ],
-      buttonText: "Start Pro Plan",
-      isPopular: true
-    },
-    {
-      planName: "Enterprise",
-      description: "For large organizations",
-      monthlyPrice: 0,
-      yearlyPrice: 0,
-      features:
+export default PricingPage;
