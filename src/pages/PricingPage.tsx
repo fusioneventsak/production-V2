@@ -3,8 +3,6 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { Palette } from 'lucide-react';
-import Layout from '../components/layout/Layout';
-import { supabase } from '../lib/supabase';
 
 // Particle themes for the 3D scene
 const PARTICLE_THEMES = [
@@ -1052,34 +1050,134 @@ const LoadingFallback: React.FC = () => (
   </mesh>
 );
 
-// Pricing Card Component
+// Pricing Toggle Component
+const PricingToggle: React.FC<{ isYearly: boolean; onToggle: () => void }> = ({ isYearly, onToggle }) => {
+  return (
+    <div className="flex items-center justify-center gap-4 mb-12">
+      <span className={`text-lg font-medium transition-colors ${!isYearly ? 'text-white' : 'text-white/60'}`}>
+        Monthly
+      </span>
+      <button
+        onClick={onToggle}
+        className="relative w-16 h-8 bg-white/20 rounded-full transition-all duration-300 hover:bg-white/30 border border-white/30"
+        aria-label={`Switch to ${isYearly ? 'monthly' : 'yearly'} pricing`}
+      >
+        <div
+          className={`absolute top-1 w-6 h-6 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-transform duration-300 ${
+            isYearly ? 'translate-x-8' : 'translate-x-1'
+          }`}
+        />
+      </button>
+      <span className={`text-lg font-medium transition-colors ${isYearly ? 'text-white' : 'text-white/60'}`}>
+        Yearly
+      </span>
+      <div className="ml-2 px-3 py-1 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-full">
+        <span className="text-sm font-semibold text-green-400">Save 20%</span>
+      </div>
+    </div>
+  );
+};
+
+// Free Trial Section Component
+const FreeTrialSection: React.FC = () => {
+  return (
+    <div className="w-full max-w-4xl mx-auto mb-20">
+      <div className="relative">
+        <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-pulse" />
+        <div className="relative bg-black/60 backdrop-blur-xl rounded-3xl border border-white/20 p-12 text-center">
+          <div className="mb-8">
+            <h2 className="text-4xl font-extralight text-white mb-4">
+              Start Your Free 14-Day Trial
+            </h2>
+            <p className="text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
+              Experience the full power of PhotoSphere with unlimited access to all Pro features. No credit card required.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-cyan-400/20 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span className="text-white font-medium">Full Pro Access</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-cyan-400/20 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
+              <span className="text-white font-medium">No Credit Card</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-cyan-400/20 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192L5.636 18.364M12 2.25a9.75 9.75 0 109.75 9.75A9.75 9.75 0 0012 2.25z" />
+                </svg>
+              </div>
+              <span className="text-white font-medium">Cancel Anytime</span>
+            </div>
+          </div>
+          
+          <Button className="px-12 py-4 bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-black rounded-xl font-bold text-xl transition-all duration-200 shadow-2xl hover:shadow-cyan-400/30 transform hover:scale-105">
+            Start Free Trial →
+          </Button>
+          
+          <p className="text-white/60 text-sm mt-6">
+            Trial includes all Pro features • Upgrade or cancel anytime • No commitment
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Pricing Card Component (Updated)
 export interface PricingCardProps {
   planName: string;
   description: string;
-  price: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
   features: string[];
   buttonText: string;
   isPopular?: boolean;
   buttonVariant?: 'primary' | 'secondary';
+  isContact?: boolean;
 }
 
 export const PricingCard = ({
-  planName, description, price, features, buttonText, isPopular = false, buttonVariant = 'primary'
+  planName, description, monthlyPrice, yearlyPrice, features, buttonText, 
+  isPopular = false, buttonVariant = 'primary', isContact = false
 }: PricingCardProps) => {
+  const [isYearly, setIsYearly] = React.useState(false);
+  
+  const currentPrice = isContact ? 'Contact Sales' : isYearly ? yearlyPrice : monthlyPrice;
+  const displayPrice = isContact ? 'Contact Sales' : `$${currentPrice}`;
+  const showPeriod = !isContact;
+  const savings = isYearly && !isContact ? Math.round(((monthlyPrice * 12) - yearlyPrice) / (monthlyPrice * 12) * 100) : 0;
+
   const buttonClassName = buttonVariant === 'primary' 
     ? 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-cyan-400/90 hover:bg-cyan-300/90 text-black shadow-lg hover:shadow-cyan-400/30 backdrop-blur-sm' 
     : 'w-full py-4 rounded-xl font-semibold text-base transition-all duration-200 bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:border-white/30 backdrop-blur-sm';
 
-  const displayPrice = price.indexOf('$') === 0 ? price : '$' + price;
-  const showPeriod = price !== 'Contact Sales';
+  React.useEffect(() => {
+    const handleToggle = (event: CustomEvent) => {
+      setIsYearly(event.detail.isYearly);
+    };
+    
+    window.addEventListener('pricing-toggle', handleToggle as EventListener);
+    return () => window.removeEventListener('pricing-toggle', handleToggle as EventListener);
+  }, []);
 
   return (
-    <div className={isPopular ? 'relative flex flex-col min-w-[300px] max-w-[340px] transition-all duration-300 scale-110 z-20' : 'relative flex flex-col min-w-[300px] max-w-[340px] transition-all duration-300 z-10'}>
+    <div className={isPopular ? 'relative flex flex-col min-w-[280px] max-w-[300px] transition-all duration-300 scale-105 z-20' : 'relative flex flex-col min-w-[280px] max-w-[300px] transition-all duration-300 z-10'}>
       <div className={isPopular ? 'absolute inset-0 rounded-2xl p-[2px] animate-pulse' : 'absolute inset-0 rounded-2xl p-[2px]'}>
         <div className={isPopular ? 'absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600' : 'absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/30 via-blue-500/30 to-purple-600/30'} />
       </div>
       
-      <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 p-8 flex flex-col h-full shadow-2xl bg-gradient-to-b from-white/10 to-transparent">
+      <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 p-6 flex flex-col h-full shadow-2xl bg-gradient-to-b from-white/10 to-transparent">
         {isPopular && (
           <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 text-sm font-bold rounded-full bg-gradient-to-r from-cyan-400/90 to-blue-500/90 text-black shadow-lg z-30 backdrop-blur-md border border-white/30">
             🚀 Most Popular
@@ -1087,27 +1185,32 @@ export const PricingCard = ({
         )}
         
         <div className="text-center mb-6">
-          <h2 className="text-5xl font-extralight tracking-tight text-white leading-none mb-3">{planName}</h2>
-          <p className="text-lg text-white/80 font-sans">{description}</p>
+          <h2 className="text-4xl font-extralight tracking-tight text-white leading-none mb-3">{planName}</h2>
+          <p className="text-base text-white/80 font-sans">{description}</p>
         </div>
         
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="flex items-baseline justify-center gap-2">
-            <span className="text-5xl font-extralight text-white">
+            <span className="text-4xl font-extralight text-white">
               {displayPrice}
             </span>
             {showPeriod && (
-              <span className="text-base text-white/70">/mo</span>
+              <span className="text-sm text-white/70">/{isYearly ? 'year' : 'mo'}</span>
             )}
           </div>
+          {isYearly && !isContact && savings > 0 && (
+            <div className="mt-2">
+              <span className="text-sm text-green-400 font-medium">Save {savings}% annually</span>
+            </div>
+          )}
         </div>
         
         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent mb-6"></div>
         
-        <ul className="flex flex-col gap-4 text-base text-white/95 mb-8 flex-grow">
+        <ul className="flex flex-col gap-3 text-sm text-white/95 mb-6 flex-grow">
           {features.map((feature, index) => (
             <li key={index} className="flex items-start gap-3">
-              <CheckIcon className="text-cyan-400/90 w-5 h-5 mt-0.5 flex-shrink-0" />
+              <CheckIcon className="text-cyan-400/90 w-4 h-4 mt-0.5 flex-shrink-0" />
               <span>{feature}</span>
             </li>
           ))}
@@ -1123,49 +1226,181 @@ export const PricingCard = ({
 
 // Main PricingPage Component
 const PricingPage = () => {
-  const [stockPhotos, setStockPhotos] = useState<string[]>([]);
   const [particleTheme, setParticleTheme] = useState(PARTICLE_THEMES[0]);
+  const [isYearly, setIsYearly] = useState(false);
 
-  // Fetch stock photos from Supabase storage
-  useEffect(() => {
-    const fetchStockPhotos = async () => {
-      try {
-        const { data, error } = await supabase.storage.from('stock_photos').list();
-        
-        if (error) {
-          console.error('Error fetching stock photos:', error);
-          return;
-        }
-        
-        if (data && data.length > 0) {
-          // Filter for image files only
-          const imageFiles = data.filter(file => 
-            file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-          );
-          
-          // Convert to public URLs
-          const urls = imageFiles.map(file => {
-            const { data } = supabase.storage.from('stock_photos').getPublicUrl(file.name);
-            return data.publicUrl;
-          });
-          
-          setStockPhotos(urls);
-          console.log('Loaded', urls.length, 'stock photos from Supabase storage');
-        }
-      } catch (err) {
-        console.error('Failed to fetch stock photos:', err);
-      }
-    };
+  const handleToggle = () => {
+    const newIsYearly = !isYearly;
+    setIsYearly(newIsYearly);
     
-    fetchStockPhotos();
-  }, []);
+    // Dispatch custom event to update all cards
+    window.dispatchEvent(new CustomEvent('pricing-toggle', { 
+      detail: { isYearly: newIsYearly } 
+    }));
+  };
 
-  const samplePlans: PricingCardProps[] = [
+  const allPlans: PricingCardProps[] = [
     {
       planName: "Starter",
       description: "Perfect for small events",
-      price: "45",
+      monthlyPrice: 45,
+      yearlyPrice: 432, // 20% discount: 45 * 12 * 0.8
       features: [
+        "Everything in Pro",
+        "White label on your domain",
+        "Dedicated Account Manager",
+        "Custom training sessions",
+        "24/7 premium support"
+      ],
+      buttonText: "Contact Sales",
+      buttonVariant: "secondary",
+      isContact: true
+    },
+    {
+      planName: "One-Time",
+      description: "Perfect for single events",
+      monthlyPrice: 499,
+      yearlyPrice: 499, // Same price for one-time
+      features: [
+        "PhotoSphere lasts 30 days post-event",
+        "Up to 500 photos displayed",
+        "Virtual PhotoBooth included",
+        "Basic moderation tools",
+        "Single event license"
+      ],
+      buttonText: "Book Event",
+      buttonVariant: "secondary"
+    }
+  ];
+
+  return (
+    <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white overflow-y-auto">
+      {/* 3D Scene Background */}
+      <div className="absolute inset-0 w-full h-full z-0">
+        <ErrorBoundary>
+          {/* Theme Controls */}
+          <div className="absolute top-4 right-4 z-50">
+            <div className="relative">
+              <button
+                onClick={() => {
+                  const currentIndex = PARTICLE_THEMES.findIndex(theme => theme.name === particleTheme.name);
+                  const nextIndex = (currentIndex + 1) % PARTICLE_THEMES.length;
+                  setParticleTheme(PARTICLE_THEMES[nextIndex]);
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-white hover:bg-black/40 transition-all duration-200 shadow-lg text-sm"
+                aria-label="Change particle colors"
+              >
+                <Palette size={16} />
+                <span className="hidden sm:inline">{particleTheme.name}</span>
+              </button>
+            </div>
+          </div>
+
+        <Canvas
+          className="absolute inset-0 w-full h-full"
+          camera={{ position: [15, 3, 15], fov: 45 }}
+          shadows={false}
+          gl={{ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: "high-performance",
+            preserveDrawingBuffer: false,
+          }}
+          style={{ 
+            background: 'transparent',
+            pointerEvents: 'auto',
+            touchAction: 'manipulation',
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+            userSelect: 'none',
+            zIndex: 1
+          }}
+          onCreated={({ gl }) => {
+            gl.shadowMap.enabled = false;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 1.2;
+          }}
+          frameloop="always"
+          dpr={[1, 2]}
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            <Scene particleTheme={particleTheme} />
+          </Suspense>
+        </Canvas>
+      </ErrorBoundary>
+      </div>
+
+      {/* Pricing Content - Above 3D Scene */}
+      <main className="relative z-5 w-full flex flex-col items-center justify-center px-6 py-16">
+        <div className="w-full max-w-7xl mx-auto text-center mb-16">
+          <h1 className="text-6xl md:text-7xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-8">
+            Choose Your PhotoSphere Plan
+          </h1>
+          <p className="text-xl md:text-2xl text-white/80 max-w-4xl mx-auto font-light leading-relaxed">
+            Create immersive photo experiences for your events. Start free and scale as you grow.
+          </p>
+        </div>
+
+        {/* Free Trial Section */}
+        <FreeTrialSection />
+        
+        {/* Pricing Toggle */}
+        <PricingToggle isYearly={isYearly} onToggle={handleToggle} />
+        
+        {/* All Pricing Cards in One Row */}
+        <div className="flex flex-wrap justify-center items-end gap-6 lg:gap-8 w-full max-w-7xl mb-20">
+          {allPlans.map((plan) => (
+            <PricingCard key={plan.planName} {...plan} />
+          ))}
+        </div>
+        
+        <div className="w-full max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-white/70 mb-16">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
+                <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-white text-xl font-semibold mb-4">Secure & Private</h3>
+              <p className="text-base leading-relaxed">Your photos are encrypted and stored securely with enterprise-grade security.</p>
+            </div>
+            
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
+                <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h3 className="text-white text-xl font-semibold mb-4">Real-time Updates</h3>
+              <p className="text-base leading-relaxed">See photos appear instantly as guests upload them during your event.</p>
+            </div>
+            
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
+                <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </div>
+              <h3 className="text-white text-xl font-semibold mb-4">Easy Setup</h3>
+              <p className="text-base leading-relaxed">Get started in minutes with our intuitive setup process and QR code sharing.</p>
+            </div>
+          </div>
+          
+          <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl">
+            <h3 className="text-white text-2xl font-semibold mb-4">Need a custom solution?</h3>
+            <p className="text-white/70 text-lg mb-8 max-w-2xl mx-auto">We offer tailored packages for large events, multiple locations, and enterprise deployments.</p>
+            <Button className="px-8 py-4 bg-cyan-400/90 hover:bg-cyan-300/90 text-black rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-cyan-400/30 backdrop-blur-sm border border-white/20">
+              Contact Our Team
+            </Button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default PricingPage; [
         "5 PhotoSpheres",
         "Virtual PhotoBooth",
         "PhotoSphere Display", 
@@ -1178,7 +1413,8 @@ const PricingPage = () => {
     {
       planName: "Pro",
       description: "Best for growing businesses",
-      price: "99",
+      monthlyPrice: 99,
+      yearlyPrice: 950, // 20% discount: 99 * 12 * 0.8
       features: [
         "Everything in Starter",
         "Advanced camera animations",
@@ -1186,164 +1422,12 @@ const PricingPage = () => {
         "20 PhotoSpheres",
         "Priority support"
       ],
-      buttonText: "Start Free Trial",
+      buttonText: "Start Pro Plan",
       isPopular: true
     },
     {
       planName: "Enterprise",
       description: "For large organizations",
-      price: "Contact Sales",
-      features: [
-        "Everything in Pro",
-        "White label on your domain",
-        "Dedicated Account Manager",
-        "Custom training sessions",
-        "24/7 premium support"
-      ],
-      buttonText: "Contact Sales",
-      buttonVariant: "secondary"
-    }
-  ];
-
-  const oneTimePlan: PricingCardProps = {
-    planName: "One-Time",
-    description: "Perfect for single events",
-    price: "499",
-    features: [
-      "PhotoSphere lasts 30 days post-event",
-      "Up to 500 photos displayed",
-      "Virtual PhotoBooth included",
-      "Basic moderation tools",
-      "Single event license"
-    ],
-    buttonText: "Book Event",
-    buttonVariant: "secondary"
-  };
-
-  return (
-    <Layout>
-      <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white overflow-y-auto">
-        {/* 3D Scene Background */}
-        <div className="absolute inset-0 w-full h-full z-0">
-          <ErrorBoundary>
-            {/* Theme Controls */}
-            <div className="absolute top-4 right-4 z-50">
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    const currentIndex = PARTICLE_THEMES.findIndex(theme => theme.name === particleTheme.name);
-                    const nextIndex = (currentIndex + 1) % PARTICLE_THEMES.length;
-                    setParticleTheme(PARTICLE_THEMES[nextIndex]);
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-white hover:bg-black/40 transition-all duration-200 shadow-lg text-sm"
-                  aria-label="Change particle colors"
-                >
-                  <Palette size={16} />
-                  <span className="hidden sm:inline">{particleTheme.name}</span>
-                </button>
-              </div>
-            </div>
-
-          <Canvas
-            className="absolute inset-0 w-full h-full"
-            camera={{ position: [15, 3, 15], fov: 45 }}
-            shadows={false}
-            gl={{ 
-              antialias: true, 
-              alpha: true,
-              powerPreference: "high-performance",
-              preserveDrawingBuffer: false,
-            }}
-            style={{ 
-              background: 'transparent',
-              pointerEvents: 'auto',
-              touchAction: 'manipulation',
-              WebkitTouchCallout: 'none',
-              WebkitUserSelect: 'none',
-              userSelect: 'none',
-              zIndex: 1
-            }}
-            onCreated={({ gl }) => {
-              gl.shadowMap.enabled = false;
-              gl.toneMapping = THREE.ACESFilmicToneMapping;
-              gl.toneMappingExposure = 1.2;
-            }}
-            frameloop="always"
-            dpr={[1, 2]}
-          >
-            <Suspense fallback={<LoadingFallback />}>
-              <Scene particleTheme={particleTheme} />
-            </Suspense>
-          </Canvas>
-        </ErrorBoundary>
-        </div>
-
-        {/* Pricing Content - Above 3D Scene */}
-        <main className="relative z-5 w-full flex flex-col items-center justify-center px-6 py-16">
-          <div className="w-full max-w-7xl mx-auto text-center mb-20">
-            <h1 className="text-6xl md:text-7xl font-extralight leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-300 to-blue-400 mb-8">
-              Choose Your PhotoSphere Plan
-            </h1>
-            <p className="text-xl md:text-2xl text-white/80 max-w-4xl mx-auto font-light leading-relaxed">
-              Create immersive photo experiences for your events. Start free and scale as you grow.
-            </p>
-          </div>
-          
-          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 justify-center items-center lg:items-end w-full max-w-7xl mb-20">
-            {samplePlans.map((plan) => (
-              <PricingCard key={plan.planName} {...plan} />
-            ))}
-          </div>
-          
-          <div className="flex justify-center w-full max-w-7xl mb-20">
-            <PricingCard {...oneTimePlan} />
-          </div>
-          
-          <div className="w-full max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-white/70 mb-16">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
-                  <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <h3 className="text-white text-xl font-semibold mb-4">Secure & Private</h3>
-                <p className="text-base leading-relaxed">Your photos are encrypted and stored securely with enterprise-grade security.</p>
-              </div>
-              
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
-                  <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-white text-xl font-semibold mb-4">Real-time Updates</h3>
-                <p className="text-base leading-relaxed">See photos appear instantly as guests upload them during your event.</p>
-              </div>
-              
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-cyan-400/20 flex items-center justify-center mb-6">
-                  <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-white text-xl font-semibold mb-4">Easy Setup</h3>
-                <p className="text-base leading-relaxed">Get started in minutes with our intuitive setup process and QR code sharing.</p>
-              </div>
-            </div>
-            
-            <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl">
-              <h3 className="text-white text-2xl font-semibold mb-4">Need a custom solution?</h3>
-              <p className="text-white/70 text-lg mb-8 max-w-2xl mx-auto">We offer tailored packages for large events, multiple locations, and enterprise deployments.</p>
-              <Button className="px-8 py-4 bg-cyan-400/90 hover:bg-cyan-300/90 text-black rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-cyan-400/30 backdrop-blur-sm border border-white/20">
-                Contact Our Team
-              </Button>
-            </div>
-          </div>
-        </main>
-      </div>
-    </Layout>
-  );
-};
-
-export default PricingPage;
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      features:
