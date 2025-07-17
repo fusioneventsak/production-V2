@@ -1,8 +1,19 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Heart, Github, Twitter } from 'lucide-react';
+import PrivacyPolicyModal from '../modals/PrivacyPolicyModal';
+import TermsAndConditionsModal from '../modals/TermsAndConditionsModal';
 
 const Footer: React.FC = () => {
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = React.useState(false);
+  const [isTermsModalOpen, setIsTermsModalOpen] = React.useState(false);
+  const location = useLocation();
+
+  // Close modals when location changes (page navigation)
+  React.useEffect(() => {
+    setIsPrivacyModalOpen(false);
+    setIsTermsModalOpen(false);
+  }, [location]);
   return (
     <footer className="mt-auto py-6 bg-black/20 backdrop-blur-md border-t border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,12 +31,18 @@ const Footer: React.FC = () => {
             <Link to="/about" className="text-sm hover:text-purple-400 transition-colors">
               About
             </Link>
-            <Link to="/privacy" className="text-sm hover:text-purple-400 transition-colors">
+            <button 
+              onClick={() => setIsPrivacyModalOpen(true)}
+              className="text-sm hover:text-purple-400 transition-colors"
+            >
               Privacy
-            </Link>
-            <Link to="/terms" className="text-sm hover:text-purple-400 transition-colors">
+            </button>
+            <button 
+              onClick={() => setIsTermsModalOpen(true)}
+              className="text-sm hover:text-purple-400 transition-colors"
+            >
               Terms
-            </Link>
+            </button>
           </div>
           
           <div className="flex space-x-4 mt-4 md:mt-0">
@@ -65,6 +82,18 @@ const Footer: React.FC = () => {
           </p>
         </div>
       </div>
+      
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal 
+        isOpen={isPrivacyModalOpen} 
+        onClose={() => setIsPrivacyModalOpen(false)} 
+      />
+      
+      {/* Terms and Conditions Modal */}
+      <TermsAndConditionsModal 
+        isOpen={isTermsModalOpen} 
+        onClose={() => setIsTermsModalOpen(false)} 
+      />
     </footer>
   );
 };
