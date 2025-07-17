@@ -20,6 +20,7 @@ import PhotoboothPage from './pages/PhotoboothPage';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
 import BlogPostAI from './pages/BlogPostAI';
+import BlogPostPricing from './pages/BlogPostPricing';
 import JoinCollage from './pages/JoinCollage';
 import Custom404Page from './pages/404';
 
@@ -36,6 +37,7 @@ const router = createBrowserRouter(
       <Route path="/blog" element={<Blog />} />
       <Route path="/blog/photobooth-businesses-double-revenue-photosphere-case-study" element={<BlogPost />} />
       <Route path="/blog/ai-revolution-photo-activations-photobooth-software-future" element={<BlogPostAI />} />
+      <Route path="/blog/photobooth-pricing-strategies-premium-rates" element={<BlogPostPricing />} />
       <Route path="/collage/:code" element={<CollageViewerPage />} />
       <Route path="/photobooth/:code" element={<PhotoboothPage />} />
       

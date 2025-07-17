@@ -172,6 +172,8 @@ const BlogCard = ({ post, index }) => {
         return "/blog/photobooth-businesses-double-revenue-photosphere-case-study";
       case 2:
         return "/blog/ai-revolution-photo-activations-photobooth-software-future";
+      case 3:
+        return "/blog/photobooth-pricing-strategies-premium-rates";
       default:
         return "/blog";
     }
