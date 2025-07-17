@@ -349,38 +349,56 @@ const LandingPage: React.FC = () => {
             {/* Event Use Cases - The 4 cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               <div className="bg-gradient-to-br from-purple-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-purple-500/20">
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-500 rounded-lg flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
+                <div className="flex flex-col items-center mb-8">
+                  <div className="bg-purple-900/30 p-4 rounded-xl mb-4">
+                    <img 
+                      src="https://www.fusion-events.ca/wp-content/uploads/2025/07/1-1.png"
+                      alt="Full Customization Control" 
+                      className="w-16 h-16 mb-4"
+                    />
+                  </div>
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Full Customization Control</h3>
                 <p className="text-gray-400 text-sm">Multiple animations and patterns. Change camera angles, lighting, photo size, speed - all with simple sliders in real-time.</p>
               </div>
 
               <div className="bg-gradient-to-br from-blue-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-blue-500/20">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-500 rounded-lg flex items-center justify-center mb-4">
-                  <Camera className="w-6 h-6 text-white" />
+                <div className="flex flex-col items-center mb-8">
+                  <div className="bg-blue-900/30 p-4 rounded-xl mb-4">
+                    <img 
+                      src="https://www.fusion-events.ca/wp-content/uploads/2025/07/2-1.png"
+                      alt="Professional Photography" 
+                      className="w-16 h-16 mb-4"
+                    />
+                  </div>
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Professional Photography</h3>
                 <p className="text-gray-400 text-sm">Perfect for professional photographers and photobooths. Upload high-quality photos in large batches effortlessly.</p>
               </div>
 
               <div className="bg-gradient-to-br from-green-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-green-500/20">
-                <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-blue-500 rounded-lg flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                <div className="flex flex-col items-center mb-8">
+                  <div className="bg-green-900/30 p-4 rounded-xl mb-4">
+                    <img 
+                      src="https://www.fusion-events.ca/wp-content/uploads/2025/07/3-1.png"
+                      alt="Moderation & Safety" 
+                      className="w-16 h-16 mb-4"
+                    />
+                  </div>
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Moderation & Safety</h3>
                 <p className="text-gray-400 text-sm">Full moderation controls - you decide what images are displayed. Add text to images. Use our built-in mobile photobooth. Coming soon: AI photo generation!</p>
               </div>
 
               <div className="bg-gradient-to-br from-pink-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-pink-500/20">
-                <div className="w-12 h-12 bg-gradient-to-r from-pink-600 to-purple-500 rounded-lg flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
+                <div className="flex flex-col items-center mb-8">
+                  <div className="bg-pink-900/30 p-4 rounded-xl mb-4">
+                    <img 
+                      src="https://www.fusion-events.ca/wp-content/uploads/2025/07/Untitled-design-39.png"
+                      alt="Brandable & Customizable" 
+                      className="w-16 h-16 mb-4"
+                    />
+                  </div>
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Brandable & Customizable</h3>
                 <p className="text-gray-400 text-sm">Add your logo with transparency support. Create branded collages that match your event or business.</p>
@@ -892,6 +910,7 @@ const LandingPage: React.FC = () => {
                     alt="Brandable & Customizable" 
                     className="w-16 h-16 mb-4"
                   />
+                  <img 
                     src="https://www.fusion-events.ca/wp-content/uploads/2025/07/2-1.png" 
                     alt="Professional Photography" 
                     className="w-16 h-16 mb-4"
