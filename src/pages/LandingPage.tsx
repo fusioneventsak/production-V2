@@ -356,7 +356,7 @@ const LandingPage: React.FC = () => {
                     className="w-32 h-32 mb-4"
                   />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">Full Customization Control</h3>
+                <h3 className="text-lg font-semibold text-white mb-2 text-center">Full Customization Control</h3>
                 <p className="text-gray-400 text-sm">Multiple animations and patterns. Change camera angles, lighting, photo size, speed - all with simple sliders in real-time.</p>
               </div>
 
@@ -368,7 +368,7 @@ const LandingPage: React.FC = () => {
                     className="w-32 h-32 mb-4"
                   />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">Professional Photography</h3>
+                <h3 className="text-lg font-semibold text-white mb-2 text-center">Professional Photography</h3>
                 <p className="text-gray-400 text-sm">Perfect for professional photographers and photobooths. Upload high-quality photos in large batches effortlessly.</p>
               </div>
 
@@ -380,7 +380,7 @@ const LandingPage: React.FC = () => {
                     className="w-32 h-32 mb-4"
                   />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">Moderation & Safety</h3>
+                <h3 className="text-lg font-semibold text-white mb-2 text-center">Moderation & Safety</h3>
                 <p className="text-gray-400 text-sm">Full moderation controls - you decide what images are displayed. Add text to images. Use our built-in mobile photobooth. Coming soon: AI photo generation!</p>
               </div>
 
@@ -392,7 +392,7 @@ const LandingPage: React.FC = () => {
                     className="w-32 h-32 mb-4"
                   />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">Brandable & Customizable</h3>
+                <h3 className="text-lg font-semibold text-white mb-2 text-center">Brandable & Customizable</h3>
                 <p className="text-gray-400 text-sm">Add your logo with transparency support. Create branded collages that match your event or business.</p>
               </div>
             </div>
@@ -837,35 +837,186 @@ const LandingPage: React.FC = () => {
                   <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
                     <span className="text-xl">⚡</span>
                   </div>
-                  <h4 className="text-lg font-semibold text-white mb-2">Zero Setup</h4>
-                  <p className="text-gray-400 text-sm">Browser-based - works with existing equipment</p>
+                  <h4 className="text-lg font-semibold text-white mb-2">Easy Integration</h4>
+                  <p className="text-gray-400 text-sm">Works with your existing AV setup</p>
+                </div>
+              </div>
+              
+              <div className="mt-8">
+                <button
+                  onClick={() => setIsDemoModalOpen(true)}
+                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-purple-500/25"
+                >
+                  See How It Works - Request Demo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Features Section */}
+        <div className="py-20 bg-gradient-to-b from-black/30 to-black/10 relative">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-bold text-white mb-4">Powerful Features</h2>
+              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                Everything you need to create stunning 3D photo experiences
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="bg-white/5 backdrop-blur-sm p-6 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105">
+                <div className="flex flex-col items-center">
+                  <div className="w-32 h-32 text-purple-400 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                      <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2 text-center">
+                    Full Customization
+                  </h3>
+                  <p className="text-gray-300 text-center">
+                    Customize colors, animations, and layouts to match your event's theme
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-white/5 backdrop-blur-sm p-6 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105">
+                <div className="flex flex-col items-center">
+                  <div className="w-32 h-32 text-purple-400 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2 text-center">
+                    Real-time Moderation
+                  </h3>
+                  <p className="text-gray-300 text-center">
+                    Review and approve photos before they appear in the collage
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-white/5 backdrop-blur-sm p-6 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105">
+                <div className="flex flex-col items-center">
+                  <div className="w-32 h-32 text-purple-400 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="9" cy="7" r="4"></circle>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2 text-center">
+                    Multi-tenant Support
+                  </h3>
+                  <p className="text-gray-300 text-center">
+                    Create and manage multiple collages for different events
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-white/5 backdrop-blur-sm p-6 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105">
+                <div className="flex flex-col items-center">
+                  <div className="w-32 h-32 text-purple-400 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                      <line x1="8" y1="21" x2="16" y2="21"></line>
+                      <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2 text-center">
+                    Works on All Devices
+                  </h3>
+                  <p className="text-gray-300 text-center">
+                    Responsive design works on phones, tablets, and desktops
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Final CTA Section */}
-        <div className="py-20 bg-gradient-to-b from-black/30 to-black/40 relative">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-4xl font-bold text-white mb-6">Ready to Transform Your Events?</h2>
-            <p className="text-xl text-gray-300 mb-8">
-              Join event professionals who are already creating unforgettable experiences with PhotoSphere
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <button
-                onClick={() => setIsDemoModalOpen(true)}
-                className="px-8 py-4 text-lg font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
-              >
-                Request Demo
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
-              <Link
-                to="/join"
-                className="px-8 py-4 text-lg font-medium rounded-lg text-white bg-black/50 backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors flex items-center justify-center shadow-lg"
-              >
-                Try It Now
-              </Link>
+        {/* Contact Section */}
+        <div className="py-20 bg-gradient-to-b from-black/10 to-black/30 relative">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-bold text-white mb-4">Ready to Transform Your Events?</h2>
+              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                Get started today and create unforgettable 3D photo experiences for your guests
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div className="space-y-8">
+                <div className="bg-white/5 backdrop-blur-sm p-6 rounded-lg border border-white/10">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mr-4">
+                      <Mail className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Email Us</h3>
+                      <p className="text-gray-400">info@fusion-events.ca</p>
+                    </div>
+                  </div>
+                  <p className="text-gray-300">
+                    Send us your questions and we'll get back to you within 24 hours.
+                  </p>
+                </div>
+                
+                <div className="bg-white/5 backdrop-blur-sm p-6 rounded-lg border border-white/10">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mr-4">
+                      <Phone className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Call Us</h3>
+                      <p className="text-gray-400">(416) 123-4567</p>
+                    </div>
+                  </div>
+                  <p className="text-gray-300">
+                    Speak directly with our team about your event needs.
+                  </p>
+                </div>
+                
+                <div className="bg-white/5 backdrop-blur-sm p-6 rounded-lg border border-white/10">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mr-4">
+                      <ShieldCheck className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Free Demo</h3>
+                      <p className="text-gray-400">No commitment required</p>
+                    </div>
+                  </div>
+                  <p className="text-gray-300">
+                    See PhotoSphere in action with a personalized demo for your event.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 backdrop-blur-sm border border-purple-500/20 rounded-xl p-8">
+                  <h3 className="text-2xl font-bold text-white mb-4">Start Your Free Demo</h3>
+                  <p className="text-gray-300 mb-6">
+                    Experience the magic of 3D photo collages. No technical skills required!
+                  </p>
+                  <button
+                    onClick={() => setIsDemoModalOpen(true)}
+                    className="w-full px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-purple-500/25 flex items-center justify-center"
+                  >
+                    Request Demo Now
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </button>
+                  <p className="text-sm text-gray-400 mt-4">
+                    We'll contact you within 24 hours to schedule your demo
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
