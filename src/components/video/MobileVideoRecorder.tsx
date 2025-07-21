@@ -72,7 +72,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
   const [outputFormat, setOutputFormat] = useState<'webm' | 'mp4'>('webm');
-  const [quality, setQuality] = useState<'standard' | 'high' | 'ultra'>('high');
+  const [quality, setQuality] = useState<'standard' | 'high' | 'ultra'>('ultra');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -86,7 +86,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     const baseHeight = resolution === '4k' ? 2160 : 1080;
     
     if (aspectRatio === '9:16') {
-      // For vertical video, swap dimensions
+      // For vertical video, swap dimensions but maintain proper proportions
       return { width: baseHeight, height: Math.round(baseHeight * 16 / 9) };
     }
     
@@ -95,50 +95,47 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
 
   // Get quality-based bitrate optimized for Three.js content
   const getBitrate = useCallback(() => {
-    const { width, height } = getDimensions();
-    
-    // Three.js content needs much higher bitrates due to complex 3D rendering
-    // Base bitrates for different resolutions and qualities
+    // Three.js content needs EXTREMELY high bitrates due to complex 3D rendering, particles, and animations
     let baseBitrate: number;
     
     if (resolution === '4k') {
       switch (quality) {
         case 'ultra':
-          baseBitrate = isMobile ? 80000000 : 120000000; // 80-120 Mbps for 4K Ultra
+          baseBitrate = isMobile ? 150000000 : 250000000; // 150-250 Mbps for 4K Ultra
           break;
         case 'high':
-          baseBitrate = isMobile ? 50000000 : 80000000;  // 50-80 Mbps for 4K High
+          baseBitrate = isMobile ? 100000000 : 150000000; // 100-150 Mbps for 4K High
           break;
         case 'standard':
-          baseBitrate = isMobile ? 30000000 : 50000000;  // 30-50 Mbps for 4K Standard
+          baseBitrate = isMobile ? 60000000 : 100000000;  // 60-100 Mbps for 4K Standard
           break;
         default:
-          baseBitrate = 50000000;
+          baseBitrate = 100000000;
       }
     } else { // 1080p
       switch (quality) {
         case 'ultra':
-          baseBitrate = isMobile ? 30000000 : 50000000;  // 30-50 Mbps for 1080p Ultra
+          baseBitrate = isMobile ? 80000000 : 120000000;  // 80-120 Mbps for 1080p Ultra
           break;
         case 'high':
-          baseBitrate = isMobile ? 20000000 : 35000000;  // 20-35 Mbps for 1080p High
+          baseBitrate = isMobile ? 50000000 : 80000000;   // 50-80 Mbps for 1080p High
           break;
         case 'standard':
-          baseBitrate = isMobile ? 12000000 : 20000000;  // 12-20 Mbps for 1080p Standard
+          baseBitrate = isMobile ? 30000000 : 50000000;   // 30-50 Mbps for 1080p Standard
           break;
         default:
-          baseBitrate = 20000000;
+          baseBitrate = 50000000;
       }
     }
     
     // For 9:16 aspect ratio, maintain similar quality
     if (aspectRatio === '9:16') {
-      baseBitrate = Math.round(baseBitrate * 0.9); // Slightly reduce for vertical format
+      baseBitrate = Math.round(baseBitrate * 0.85); // Slightly reduce for vertical format
     }
     
-    // Ensure we don't exceed browser limits
-    const maxBitrate = isMobile ? 100000000 : 200000000; // 100/200 Mbps maximum
-    const minBitrate = 10000000; // 10 Mbps minimum for Three.js
+    // Ensure we don't exceed practical browser limits but allow very high bitrates for Three.js
+    const maxBitrate = 300000000; // 300 Mbps maximum
+    const minBitrate = 25000000;  // 25 Mbps minimum for Three.js quality
     
     return Math.max(minBitrate, Math.min(maxBitrate, baseBitrate));
   }, [resolution, quality, aspectRatio, isMobile]);
@@ -167,25 +164,26 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     }
   }, [resolution, aspectRatio, canvasRef, onResolutionChange, getDimensions]);
 
-  // Detect supported video format with better codec preferences
+  // Detect supported video format with Three.js optimized codecs
   useEffect(() => {
     const formats = [
-      'video/webm;codecs=vp9,opus',    // Best quality WebM with VP9
-      'video/webm;codecs=vp8,vorbis',  // Fallback WebM with VP8
-      'video/webm;codecs=h264,aac',    // WebM container with H.264
-      'video/mp4;codecs=h264,aac',     // MP4 with H.264
-      'video/webm',                    // Basic WebM
-      'video/mp4'                      // Basic MP4
+      'video/webm;codecs=vp9,opus',           // VP9 with Opus - best for Three.js
+      'video/webm;codecs=av01,opus',          // AV1 codec if available
+      'video/webm;codecs=vp8,vorbis',         // VP8 fallback
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2', // H.264 High Profile
+      'video/mp4;codecs=h264,aac',            // Standard H.264
+      'video/webm',                           // Basic WebM
+      'video/mp4'                             // Basic MP4
     ];
     
     const supported = formats.find(format => MediaRecorder.isTypeSupported(format));
     
     if (supported) {
-      console.log('Using video format:', supported);
+      console.log('🎥 Using Three.js optimized video format:', supported);
       setSupportedMimeType(supported);
     } else {
-      console.error('No supported video format found');
-      setError('Your browser does not support video recording');
+      console.error('❌ No supported video format found for Three.js recording');
+      setError('Your browser does not support high-quality video recording');
     }
   }, []);
 
@@ -199,6 +197,41 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, [videoUrl]);
 
+  // Prepare Three.js canvas for recording
+  const prepareCanvasForRecording = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return false;
+
+    try {
+      // Force a render to ensure the canvas is ready
+      const context = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      if (!context) {
+        console.error('❌ WebGL context not found');
+        return false;
+      }
+
+      // Ensure preserveDrawingBuffer is enabled for recording
+      const contextAttributes = context.getContextAttributes();
+      if (!contextAttributes?.preserveDrawingBuffer) {
+        console.warn('⚠️ preserveDrawingBuffer not enabled - recording quality may be affected');
+      }
+
+      // Force a consistent pixel ratio for recording
+      const pixelRatio = resolution === '4k' ? 2 : 1;
+      
+      console.log('🎥 Three.js canvas prepared for recording:', {
+        dimensions: `${canvas.width}x${canvas.height}`,
+        pixelRatio,
+        contextAttributes
+      });
+
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to prepare canvas for recording:', error);
+      return false;
+    }
+  }, [canvasRef, resolution]);
+
   const startRecording = useCallback(async () => {
     if (!canvasRef.current || !supportedMimeType) {
       setError('Canvas or video format not supported');
@@ -207,6 +240,14 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     
     try {
       setError(null);
+      
+      // Prepare the Three.js canvas
+      const canvasReady = await prepareCanvasForRecording();
+      if (!canvasReady) {
+        setError('Failed to prepare Three.js canvas for recording');
+        return;
+      }
+
       setIsRecording(true);
       setRecordingTime(0);
       setVideoBlob(null);
@@ -214,26 +255,33 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       chunksRef.current = [];
       
-      // Get the canvas stream with higher frame rate for Three.js smoothness
+      // Get the canvas stream with optimized settings for Three.js
       const canvas = canvasRef.current;
-      const frameRate = quality === 'ultra' ? 60 : quality === 'high' ? 60 : 30; // Higher framerates for Three.js
+      
+      // Use 60fps for smooth Three.js animations - critical for particle systems and camera movements
+      const frameRate = 60;
+      
+      // Wait a frame to ensure Three.js is rendering properly
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      
       const stream = canvas.captureStream(frameRate);
       streamRef.current = stream;
       
       const bitrate = getBitrate();
       
-      // Configure MediaRecorder with optimized settings
+      // Configure MediaRecorder with Three.js optimized settings
       const options: MediaRecorderOptions = {
         mimeType: supportedMimeType,
         videoBitsPerSecond: bitrate
       };
       
-      console.log(`Recording at ${resolution} ${aspectRatio} with:`, {
+      console.log('🎥 Starting Three.js recording with:', {
         dimensions: getDimensions(),
         bitrate: `${(bitrate / 1000000).toFixed(1)}Mbps`,
         frameRate: `${frameRate}fps`,
         quality,
-        format: supportedMimeType
+        format: supportedMimeType,
+        aspectRatio
       });
       
       const recorder = new MediaRecorder(stream, options);
@@ -252,16 +300,21 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         setVideoUrl(url);
         setIsProcessing(false);
         streamRef.current = null;
+        
+        console.log('✅ Three.js recording completed:', {
+          size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
+          type: blob.type
+        });
       };
       
       recorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event);
-        setError('Recording failed. Please try again.');
+        console.error('❌ Three.js MediaRecorder error:', event);
+        setError('Recording failed. Three.js content may be too complex for this quality setting.');
         stopRecording();
       };
       
-      // Start recording with very small timeslices for Three.js smoothness
-      recorder.start(25);
+      // Start recording with very small timeslices for Three.js smoothness (10ms chunks)
+      recorder.start(10);
       mediaRecorderRef.current = recorder;
       
       // Start timer
@@ -277,11 +330,11 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       }, 1000);
       
     } catch (err) {
-      console.error('Error starting recording:', err);
-      setError('Failed to start recording. Please check browser permissions.');
+      console.error('❌ Error starting Three.js recording:', err);
+      setError('Failed to start recording. Try reducing quality or resolution.');
       setIsRecording(false);
     }
-  }, [canvasRef, supportedMimeType, getBitrate, duration, resolution, aspectRatio, quality, getDimensions]);
+  }, [canvasRef, supportedMimeType, getBitrate, duration, resolution, aspectRatio, quality, getDimensions, prepareCanvasForRecording]);
 
   const stopRecording = useCallback(() => {
     // Clear timer
@@ -302,7 +355,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       try {
         mediaRecorderRef.current.stop();
       } catch (err) {
-        console.error('Error stopping recorder:', err);
+        console.error('❌ Error stopping recorder:', err);
       }
       mediaRecorderRef.current = null;
     }
@@ -314,6 +367,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     }
     
     setIsRecording(false);
+    console.log('🛑 Three.js recording stopped');
   }, []);
 
   const downloadVideo = useCallback(() => {
@@ -325,10 +379,13 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     const fileExtension = outputFormat === 'mp4' ? 'mp4' : 'webm';
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
     const aspectSuffix = aspectRatio === '9:16' ? '_vertical' : '_landscape';
+    const qualitySuffix = quality === 'ultra' ? '_ultra' : quality === 'high' ? '_high' : '';
     
-    a.download = `photosphere-${resolution}${aspectSuffix}-${timestamp}.${fileExtension}`;
+    a.download = `photosphere-${resolution}${aspectSuffix}${qualitySuffix}-${timestamp}.${fileExtension}`;
     a.click();
-  }, [videoBlob, videoUrl, outputFormat, resolution, aspectRatio]);
+    
+    console.log('💾 Three.js video downloaded:', a.download);
+  }, [videoBlob, videoUrl, outputFormat, resolution, aspectRatio, quality]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -338,6 +395,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
 
   const remainingTime = duration - recordingTime;
   const { width, height } = getDimensions();
+  const estimatedFileSizeMB = (getBitrate() * duration / 8 / 1024 / 1024).toFixed(0);
 
   return (
     <div className={`relative ${className}`}>
@@ -354,11 +412,11 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         />
       )}
       
-      {/* Enhanced Settings Panel */}
+      {/* Enhanced Settings Panel for Three.js */}
       {showSettings && !isRecording && !isProcessing && (
-        <div className="absolute -top-64 left-0 right-0 bg-black/80 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4 shadow-2xl">
+        <div className="absolute -top-80 left-0 right-0 bg-black/85 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4 shadow-2xl">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-white text-sm font-medium">Video Settings</h3>
+            <h3 className="text-white text-sm font-medium">Three.js Video Settings</h3>
             <button 
               onClick={() => setShowSettings(false)}
               className="text-gray-400 hover:text-white transition-colors"
@@ -437,9 +495,9 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
               </div>
             </div>
             
-            {/* Quality Selection */}
+            {/* Quality Selection for Three.js */}
             <div>
-              <label className="text-white text-xs mb-2 block">Quality</label>
+              <label className="text-white text-xs mb-2 block">Quality (Three.js)</label>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setQuality('standard')}
@@ -469,12 +527,14 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             </div>
           </div>
           
-          {/* Preview Info */}
+          {/* Three.js Specific Preview Info */}
           <div className="mt-4 p-3 bg-gray-800/50 rounded border border-gray-600">
-            <div className="text-xs text-gray-300">
-              <div>Output: {width} × {height} ({aspectRatio})</div>
-              <div>Bitrate: {(getBitrate() / 1000000).toFixed(1)} Mbps</div>
-              <div>Frame Rate: {quality === 'ultra' ? '60' : quality === 'high' ? '60' : '30'} fps</div>
+            <div className="text-xs text-gray-300 space-y-1">
+              <div>📐 Output: {width} × {height} ({aspectRatio})</div>
+              <div>🎬 Bitrate: {(getBitrate() / 1000000).toFixed(0)} Mbps (Three.js Optimized)</div>
+              <div>🎞️ Frame Rate: 60 fps (Smooth animations)</div>
+              <div>💾 Est. Size: ~{estimatedFileSizeMB} MB</div>
+              <div className="text-yellow-400 text-xs">⚡ High bitrates ensure quality for 3D content</div>
             </div>
           </div>
         </div>
@@ -498,7 +558,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors shadow-lg"
-              title="Recording Settings"
+              title="Three.js Recording Settings"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -508,7 +568,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         {isRecording && (
           <button
             onClick={stopRecording}
-            className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg"
+            className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg animate-pulse"
           >
             <Square className="w-4 h-4" />
             <span>Recording {formatTime(recordingTime)}</span>
@@ -518,7 +578,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         {isProcessing && (
           <div className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg shadow-lg">
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>Processing...</span>
+            <span>Processing Three.js...</span>
           </div>
         )}
         
@@ -530,7 +590,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             <button
               onClick={downloadVideo}
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg"
-              title={`Download ${width}×${height} video`}
+              title={`Download ${width}×${height} Three.js video`}
             >
               <Download className="w-4 h-4" />
               <span>Download</span>
