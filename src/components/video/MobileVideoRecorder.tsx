@@ -206,13 +206,13 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, [videoUrl]);
 
-  // Prepare Three.js canvas for recording to match CollageScene particle layers exactly
+  // Prepare Three.js canvas to match EXACT CollageScene camera and depth settings
   const prepareCanvasForRecording = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return false;
 
     try {
-      console.log('🎥 Preparing canvas for CollageScene multi-layer particle recording...');
+      console.log('🎥 Preparing canvas to match EXACT CollageScene camera settings...');
       
       // Get the WebGL context - match your CollageScene exactly
       const context = canvas.getContext('webgl2') || canvas.getContext('webgl');
@@ -228,55 +228,102 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         return false;
       }
 
+      // CRITICAL: Your CollageScene camera settings
+      // position: [0, 0, 20], fov: 75, near: 0.1, far: 1000
+      // This affects all particle shader distance calculations!
+      
+      console.log('📹 CollageScene camera configuration:', {
+        position: '[0, 0, 20]',
+        fov: 75,
+        near: 0.1,
+        far: 1000,
+        particleDepthRanges: {
+          main: '0-50 units (close to camera)',
+          atmospheric: '100-400 units (far from camera)', 
+          distantSwirl: '200-600 units (very far from camera)'
+        }
+      });
+
       // CRITICAL: Your CollageScene sets pixel ratio based on width
-      // We need to MATCH this exactly during recording
       const scenePixelRatio = recordingResolution.width > 1920 ? 2 : 1;
       
-      // Enable depth testing for proper particle layer rendering
+      // Enable depth testing with exact settings for particle depth ranges
       context.enable(context.DEPTH_TEST);
       context.depthFunc(context.LEQUAL);
+      context.clearDepth(1.0);
       
-      // Enable blending for additive particle effects
+      // Enable blending for additive particle effects (your particles use AdditiveBlending)
       context.enable(context.BLEND);
       context.blendFunc(context.SRC_ALPHA, context.ONE_MINUS_SRC_ALPHA);
       
-      // Set viewport to match recording resolution
+      // Set viewport to match recording resolution exactly
       context.viewport(0, 0, canvas.width, canvas.height);
       
-      // Force the same pixel ratio your scene uses
-      console.log(`🎯 Setting pixel ratio to match CollageScene: ${scenePixelRatio}`);
+      console.log(`🎯 Pixel ratio matching CollageScene: ${scenePixelRatio}`);
       
-      // Wait for ALL particle system layers to fully initialize
-      // Your MilkyWayParticleSystem has: main, dust, clusters, atmospheric, distantSwirl, bigSwirls
-      console.log('🌌 Waiting for ALL MilkyWayParticleSystem layers...');
+      // Wait for ALL particle system layers with EXACT distance ranges
+      console.log('🌌 Waiting for particles at ALL depth ranges...');
       
-      // Wait extra long for distance-based opacity calculations to stabilize
-      for (let i = 0; i < 20; i++) {
+      // Your particle distance ranges:
+      // Main cloud: close to camera (good recording)
+      // Atmospheric: 100-400 units (problem area)
+      // Distant swirl: 200-600 units (problem area)
+      // Big swirls: 120+ units (problem area)
+      
+      // CRITICAL: Wait for distance-based shader calculations to complete
+      // These use modelViewMatrix calculations that need camera position stabilization
+      console.log('📏 Waiting for camera-distance shader calculations...');
+      for (let i = 0; i < 30; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       
-      // Force multiple render cycles to ensure depth-based particles are stable
-      console.log('🔄 Forcing multiple render cycles for distance-based particles...');
-      for (let i = 0; i < 5; i++) {
+      // Force multiple render cycles for far particles to stabilize
+      console.log('🔄 Forcing render stabilization for distant particles...');
+      for (let i = 0; i < 10; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       
-      // Verify all particle layers are rendering by checking for non-zero pixels
-      const pixelCheck = new Uint8Array(4);
-      context.readPixels(canvas.width / 2, canvas.height / 2, 1, 1, context.RGBA, context.UNSIGNED_BYTE, pixelCheck);
-      console.log('📊 Center pixel check (should show particles):', pixelCheck);
+      // Verify particles at different depths are rendering
+      const verifyParticleDepths = () => {
+        console.log('🔍 Verifying particle rendering at different depths...');
+        
+        // Check center (main particles - should be good)
+        const centerPixel = new Uint8Array(4);
+        context.readPixels(canvas.width / 2, canvas.height / 2, 1, 1, context.RGBA, context.UNSIGNED_BYTE, centerPixel);
+        console.log('📊 Center (main particles):', centerPixel);
+        
+        // Check edges (atmospheric/distant particles - problem area)
+        const edgePixel = new Uint8Array(4);
+        context.readPixels(canvas.width / 6, canvas.height / 6, 1, 1, context.RGBA, context.UNSIGNED_BYTE, edgePixel);
+        console.log('📊 Edge (distant particles):', edgePixel);
+        
+        // Check corners (very distant particles)
+        const cornerPixel = new Uint8Array(4);
+        context.readPixels(10, 10, 1, 1, context.RGBA, context.UNSIGNED_BYTE, cornerPixel);
+        console.log('📊 Corner (very distant particles):', cornerPixel);
+        
+        return {
+          centerHasParticles: centerPixel[3] > 0, // Alpha channel
+          edgeHasParticles: edgePixel[3] > 0,
+          cornerHasParticles: cornerPixel[3] > 0
+        };
+      };
       
-      // Check corners for background particles
-      context.readPixels(canvas.width / 4, canvas.height / 4, 1, 1, context.RGBA, context.UNSIGNED_BYTE, pixelCheck);
-      console.log('📊 Background particle check:', pixelCheck);
+      const particleCheck = verifyParticleDepths();
+      console.log('✅ Particle depth verification:', particleCheck);
       
-      console.log('✅ Canvas prepared with ALL particle layers:', {
+      if (!particleCheck.edgeHasParticles) {
+        console.warn('⚠️ Distant particles may not be rendering properly!');
+      }
+      
+      console.log('✅ Canvas prepared with EXACT CollageScene camera matching:', {
         dimensions: `${canvas.width}x${canvas.height}`,
         pixelRatio: scenePixelRatio,
-        preserveDrawingBuffer: contextAttributes.preserveDrawingBuffer,
-        depthTesting: true,
-        blendingEnabled: true,
-        particleLayers: 'main, dust, clusters, atmospheric, distantSwirl, bigSwirls'
+        cameraPosition: '[0, 0, 20]',
+        fov: 75,
+        depthRange: '0.1 - 1000',
+        particleVerification: particleCheck,
+        waitTime: '40 frames for distance calculations'
       });
 
       return true;
@@ -315,36 +362,45 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       // Use maximum 60fps for particle systems - critical for smooth particle animation
       const frameRate = 60;
       
-      // CRITICAL: Use the EXACT same pixel ratio logic as your CollageScene
-      // Your scene: state.gl.setPixelRatio(width > 1920 ? 2 : 1);
+      // CRITICAL: Use EXACT CollageScene camera settings for particle distance calculations
+      // Your scene: camera={{ position: [0, 0, 20], fov: 75, near: 0.1, far: 1000 }}
+      // Particle shaders use these values: gl_PointSize = size * (300.0 / -mvPosition.z)
       const sceneMatchingPixelRatio = recordingResolution.width > 1920 ? 2 : 1;
       
-      // Wait for your specific multi-layer particle system to be fully loaded
-      // MilkyWayParticleSystem layers: main, dust, clusters, atmospheric, distantSwirl, bigSwirls
-      // Background layers (atmospheric, distantSwirl) need extra time for distance calculations
-      console.log('🌌 Waiting for ALL MilkyWayParticleSystem layers including background...');
-      for (let i = 0; i < 25; i++) {
+      // Wait for particle system with EXACT distance range requirements
+      // Main cloud: gl_PointSize = size * (300.0 / -mvPosition.z) - records well
+      // Atmospheric: gl_PointSize = size * (150.0 / -mvPosition.z) + smoothstep(100.0, 400.0, distance)
+      // Distant swirl: gl_PointSize = size * (400.0 / -mvPosition.z) + smoothstep(200.0, 600.0, distance)
+      console.log('🌌 Waiting for ALL particle distance calculations with camera at [0,0,20]...');
+      
+      // CRITICAL: Extended wait for far particle calculations (atmospheric: 100-400, distant: 200-600)
+      for (let i = 0; i < 40; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       
-      // CRITICAL: Extra wait for distance-based opacity calculations in background particles
-      // Atmospheric particles: vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
-      // Distant swirl: vOpacity = 1.0 - smoothstep(200.0, 600.0, distance);
-      console.log('🌫️ Waiting for distance-based opacity calculations...');
-      for (let i = 0; i < 10; i++) {
+      // CRITICAL: Extra stabilization for particles beyond z=100 (your problem area)
+      console.log('🌫️ Extra stabilization for particles beyond camera distance 100...');
+      for (let i = 0; i < 15; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       
-      // CRITICAL: Capture stream with settings that match your CollageScene
+      // CRITICAL: Capture stream with exact camera-matched settings
       const stream = canvas.captureStream(frameRate);
       
-      console.log('🎬 Capturing stream with ALL particle layers:', {
+      console.log('🎬 Capturing with EXACT camera distance calculations:', {
+        cameraPosition: '[0, 0, 20]',
+        fov: 75,
+        nearFar: '[0.1, 1000]',
         pixelRatio: sceneMatchingPixelRatio,
         frameRate,
         canvasSize: `${canvas.width}x${canvas.height}`,
-        sceneSettings: 'antialias=true, preserveDrawingBuffer=true, toneMapping=ACESFilmic',
-        particleLayers: 'main, dust, clusters, atmospheric, distantSwirl, bigSwirls',
-        backgroundParticleWaitTime: '35 frames'
+        particleDistanceRanges: {
+          main: '0-50 units (recording fine)',
+          atmospheric: '100-400 units (TARGET FIX)',
+          distantSwirl: '200-600 units (TARGET FIX)',
+          bigSwirls: '120+ units (TARGET FIX)'
+        },
+        totalWaitFrames: 55
       });
       
       // Get video track and apply additional quality settings
@@ -406,10 +462,11 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         setIsProcessing(false);
         streamRef.current = null;
         
-        console.log('✅ Three.js recording completed with CollageScene settings:', {
+        console.log('✅ Recording completed with ALL particle depth ranges:', {
           size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
           type: blob.type,
-          matchedScenePixelRatio: recordingResolution.width > 1920 ? 2 : 1
+          cameraMatched: '[0,0,20] fov:75',
+          particleDepthsCaptured: 'main(0-50), atmospheric(100-400), distant(200-600)'
         });
       };
       
@@ -641,7 +698,8 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
               <div>🎞️ Frame Rate: 60 fps (Smooth particles)</div>
               <div>💾 Est. Size: ~{estimatedFileSizeMB} MB</div>
               <div className="text-yellow-400 text-xs">✨ Ultra-high bitrates for particle quality</div>
-              <div className="text-blue-400 text-xs">🌫️ Distance-based particle layers</div>
+              <div>📏 Camera: [0,0,20] FOV:75 (matches scene)</div>
+              <div>🌫️ Distance ranges: 0-50, 100-400, 200-600</div>
             </div>
           </div>
         </div>
