@@ -1846,6 +1846,42 @@ const PhotoboothPage: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
                 
+                {/* Countdown Overlay - Contained within camera preview */}
+                {isCountingDown && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                    <div className="text-center">
+                      <div 
+                        className="text-8xl md:text-9xl font-bold text-white mb-4 animate-pulse"
+                        style={{
+                          textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.6)',
+                          filter: 'drop-shadow(0 0 10px rgba(0, 0, 0, 0.8))'
+                        }}
+                      >
+                        {countdown}
+                      </div>
+                      <p 
+                        className="text-xl md:text-2xl text-white font-medium"
+                        style={{
+                          textShadow: '0 0 10px rgba(0, 0, 0, 0.8)',
+                          filter: 'drop-shadow(0 0 5px rgba(0, 0, 0, 0.8))'
+                        }}
+                      >
+                        Get ready for your photo!
+                      </p>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="absolute bottom-8 left-8 right-8">
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div 
+                          className="bg-white h-2 rounded-full transition-all duration-1000 ease-linear"
+                          style={{ width: `${((4 - countdown) / 3) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {cameraState !== 'active' && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="text-center text-white">
@@ -2363,34 +2399,6 @@ const PhotoboothPage: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Countdown Overlay */}
-      {isCountingDown && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center">
-          <div className="text-center">
-            <div 
-              className="text-9xl font-bold text-white mb-4 animate-pulse"
-              style={{
-                textShadow: '0 0 30px rgba(255, 255, 255, 0.8), 0 0 60px rgba(139, 92, 246, 0.6)',
-                animation: 'countdownPulse 1s ease-in-out'
-              }}
-            >
-              {countdown}
-            </div>
-            <p className="text-2xl text-white/80 font-medium">
-              Get ready for your photo!
-            </p>
-            <div className="mt-4 flex justify-center">
-              <div className="w-16 h-1 bg-purple-500 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-white transition-all duration-1000 ease-linear"
-                  style={{ width: `${((4 - countdown) / 3) * 100}%` }}
-                />
-              </div>
             </div>
           </div>
         </div>
