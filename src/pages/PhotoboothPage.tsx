@@ -1399,25 +1399,9 @@ const PhotoboothPage: React.FC = () => {
                                 updateTextElement(selectedTextId, { color });
                               }}
                               className="w-8 h-8 rounded-full border border-white/40 hover:border-white transition-colors"
-                              className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer"
-                            style={{ zIndex: 53 }}
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const element = textElements.find(el => el.id === selectedTextId);
-                              if (element) {
-                                updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
-                              }
-                            }}
-                            className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
-                            style={{ zIndex: 53 }}
-                          >
-                            +
-                          </button>
-                        </div>
-                        <div className="text-white text-xs text-center mt-1">
-                          {textElements.find(el => el.id === selectedTextId)?.size || 32}px
+                              style={{ backgroundColor: color, zIndex: 53 }}
+                            />
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1748,19 +1732,21 @@ const PhotoboothPage: React.FC = () => {
                                 className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer"
                                 style={{ zIndex: 53 }}
                               />
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const element = textElements.find(el => el.id === selectedTextId);
-                                  if (element) {
-                                    updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
-                                  }
-                                }}
-                                className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
-                                style={{ zIndex: 53 }}
-                              >
-                                +
-                              </button>
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const element = textElements.find(el => el.id === selectedTextId);
+                                    if (element) {
+                                      updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
+                                    }
+                                  }}
+                                  className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                                  style={{ zIndex: 53 }}
+                                >
+                                  +
+                                </button>
+                              </>
                             </div>
                             <div className="text-white text-xs text-center mt-1">
                               {textElements.find(el => el.id === selectedTextId)?.size || 32}px
@@ -2026,51 +2012,4 @@ const PhotoboothPage: React.FC = () => {
   );
 };
 
-export default PhotoboothPage; backgroundColor: color, zIndex: 53 }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Text Size Icon with Slider */}
-                    <div className="relative">
-                      <button
-                        className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-                        style={{ zIndex: 51 }}
-                      >
-                        <Type className="w-6 h-6 text-white" />
-                      </button>
-                      
-                      {/* Size Slider Popup */}
-                      <div 
-                        className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity"
-                        style={{ zIndex: 52 }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-                      >
-                        <div className="flex items-center space-x-3 w-32">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const element = textElements.find(el => el.id === selectedTextId);
-                              if (element) {
-                                updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
-                              }
-                            }}
-                            className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
-                            style={{ zIndex: 53 }}
-                          >
-                            -
-                          </button>
-                          <input
-                            type="range"
-                            min="16"
-                            max="72"
-                            value={textElements.find(el => el.id === selectedTextId)?.size || 32}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
-                            }}
-                            className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer"
-                            style={{
+export default PhotoboothPage;
