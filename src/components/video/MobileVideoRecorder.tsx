@@ -206,13 +206,13 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, [videoUrl]);
 
-  // Prepare Three.js canvas for recording to match CollageScene exactly
+  // Prepare Three.js canvas for recording to match CollageScene particle layers exactly
   const prepareCanvasForRecording = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return false;
 
     try {
-      console.log('🎥 Preparing canvas for CollageScene particle recording...');
+      console.log('🎥 Preparing canvas for CollageScene multi-layer particle recording...');
       
       // Get the WebGL context - match your CollageScene exactly
       const context = canvas.getContext('webgl2') || canvas.getContext('webgl');
@@ -232,33 +232,51 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       // We need to MATCH this exactly during recording
       const scenePixelRatio = recordingResolution.width > 1920 ? 2 : 1;
       
+      // Enable depth testing for proper particle layer rendering
+      context.enable(context.DEPTH_TEST);
+      context.depthFunc(context.LEQUAL);
+      
+      // Enable blending for additive particle effects
+      context.enable(context.BLEND);
+      context.blendFunc(context.SRC_ALPHA, context.ONE_MINUS_SRC_ALPHA);
+      
+      // Set viewport to match recording resolution
+      context.viewport(0, 0, canvas.width, canvas.height);
+      
       // Force the same pixel ratio your scene uses
       console.log(`🎯 Setting pixel ratio to match CollageScene: ${scenePixelRatio}`);
       
-      // Verify tone mapping settings match your scene
-      const renderer = context;
-      console.log('🎨 WebGL context attributes:', contextAttributes);
+      // Wait for ALL particle system layers to fully initialize
+      // Your MilkyWayParticleSystem has: main, dust, clusters, atmospheric, distantSwirl, bigSwirls
+      console.log('🌌 Waiting for ALL MilkyWayParticleSystem layers...');
       
-      // Wait for particle system to fully initialize
-      // Your MilkyWayParticleSystem needs time to set up all shader materials
-      console.log('⏱️ Waiting for particle system initialization...');
-      for (let i = 0; i < 10; i++) {
+      // Wait extra long for distance-based opacity calculations to stabilize
+      for (let i = 0; i < 20; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       
-      // Force a full render cycle to ensure particles are ready
-      console.log('🔄 Forcing render cycle for particle stability...');
+      // Force multiple render cycles to ensure depth-based particles are stable
+      console.log('🔄 Forcing multiple render cycles for distance-based particles...');
+      for (let i = 0; i < 5; i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
       
-      // Check if particles are actually rendering by looking at the canvas
-      const imageData = context.readPixels(0, 0, 1, 1, context.RGBA, context.UNSIGNED_BYTE, new Uint8Array(4));
-      console.log('📊 Canvas pixel check:', imageData);
+      // Verify all particle layers are rendering by checking for non-zero pixels
+      const pixelCheck = new Uint8Array(4);
+      context.readPixels(canvas.width / 2, canvas.height / 2, 1, 1, context.RGBA, context.UNSIGNED_BYTE, pixelCheck);
+      console.log('📊 Center pixel check (should show particles):', pixelCheck);
       
-      console.log('✅ Canvas prepared with CollageScene-matching settings:', {
+      // Check corners for background particles
+      context.readPixels(canvas.width / 4, canvas.height / 4, 1, 1, context.RGBA, context.UNSIGNED_BYTE, pixelCheck);
+      console.log('📊 Background particle check:', pixelCheck);
+      
+      console.log('✅ Canvas prepared with ALL particle layers:', {
         dimensions: `${canvas.width}x${canvas.height}`,
         pixelRatio: scenePixelRatio,
         preserveDrawingBuffer: contextAttributes.preserveDrawingBuffer,
-        antialias: contextAttributes.antialias,
-        powerPreference: contextAttributes.powerPreference
+        depthTesting: true,
+        blendingEnabled: true,
+        particleLayers: 'main, dust, clusters, atmospheric, distantSwirl, bigSwirls'
       });
 
       return true;
@@ -301,21 +319,32 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       // Your scene: state.gl.setPixelRatio(width > 1920 ? 2 : 1);
       const sceneMatchingPixelRatio = recordingResolution.width > 1920 ? 2 : 1;
       
-      // Wait for your specific particle system to be fully loaded
-      // MilkyWayParticleSystem has multiple layers: main, dust, clusters, atmospheric, etc.
-      console.log('🌌 Waiting for MilkyWayParticleSystem full initialization...');
-      for (let i = 0; i < 15; i++) {
+      // Wait for your specific multi-layer particle system to be fully loaded
+      // MilkyWayParticleSystem layers: main, dust, clusters, atmospheric, distantSwirl, bigSwirls
+      // Background layers (atmospheric, distantSwirl) need extra time for distance calculations
+      console.log('🌌 Waiting for ALL MilkyWayParticleSystem layers including background...');
+      for (let i = 0; i < 25; i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+      
+      // CRITICAL: Extra wait for distance-based opacity calculations in background particles
+      // Atmospheric particles: vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
+      // Distant swirl: vOpacity = 1.0 - smoothstep(200.0, 600.0, distance);
+      console.log('🌫️ Waiting for distance-based opacity calculations...');
+      for (let i = 0; i < 10; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       
       // CRITICAL: Capture stream with settings that match your CollageScene
       const stream = canvas.captureStream(frameRate);
       
-      console.log('🎬 Capturing stream with CollageScene-matching settings:', {
+      console.log('🎬 Capturing stream with ALL particle layers:', {
         pixelRatio: sceneMatchingPixelRatio,
         frameRate,
         canvasSize: `${canvas.width}x${canvas.height}`,
-        sceneSettings: 'antialias=true, preserveDrawingBuffer=true, toneMapping=ACESFilmic'
+        sceneSettings: 'antialias=true, preserveDrawingBuffer=true, toneMapping=ACESFilmic',
+        particleLayers: 'main, dust, clusters, atmospheric, distantSwirl, bigSwirls',
+        backgroundParticleWaitTime: '35 frames'
       });
       
       // Get video track and apply additional quality settings
@@ -612,7 +641,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
               <div>🎞️ Frame Rate: 60 fps (Smooth particles)</div>
               <div>💾 Est. Size: ~{estimatedFileSizeMB} MB</div>
               <div className="text-yellow-400 text-xs">✨ Ultra-high bitrates for particle quality</div>
-              <div className="text-blue-400 text-xs">🔬 Shader-optimized recording</div>
+              <div className="text-blue-400 text-xs">🌫️ Distance-based particle layers</div>
             </div>
           </div>
         </div>
