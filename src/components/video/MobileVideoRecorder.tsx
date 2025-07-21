@@ -2,6 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Video, Square, Download, X, Clock, Settings } from 'lucide-react';
 
 type Resolution = '1080p' | '4k';
+type AspectRatio = '16:9' | '9:16';
 
 interface VideoRecorderProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -9,6 +10,48 @@ interface VideoRecorderProps {
   onClose?: () => void;
   onResolutionChange?: (width: number, height: number) => void;
 }
+
+interface VideoRecordingOverlayProps {
+  recordingTime: number;
+  remainingTime: number;
+  logoUrl?: string;
+}
+
+const VideoRecordingOverlay: React.FC<VideoRecordingOverlayProps> = ({
+  recordingTime,
+  remainingTime,
+  logoUrl = 'https://www.fusion-events.ca/wp-content/uploads/2025/06/Untitled-design-15.png'
+}) => {
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 pointer-events-none">
+      {/* Recording indicator */}
+      <div className="absolute top-4 left-4 flex items-center space-x-2 bg-black/70 px-3 py-1 rounded-full backdrop-blur-sm border border-red-500/30">
+        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+        <span className="text-white text-sm font-medium">REC</span>
+      </div>
+      
+      {/* Timer */}
+      <div className="absolute top-4 right-4 bg-black/70 px-3 py-1 rounded-full backdrop-blur-sm border border-white/20">
+        <span className="text-white text-sm font-mono">{formatTime(remainingTime)}</span>
+      </div>
+      
+      {/* Logo watermark */}
+      <div className="absolute bottom-4 right-4 flex items-center justify-center">
+        <img 
+          src={logoUrl} 
+          alt="Brand Logo" 
+          className="h-8 w-auto opacity-90 drop-shadow-lg"
+        />
+      </div>
+    </div>
+  );
+};
 
 const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({ 
   canvasRef, 
@@ -26,14 +69,63 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [duration, setDuration] = useState<30 | 60>(60);
   const [resolution, setResolution] = useState<Resolution>('1080p');
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
   const [outputFormat, setOutputFormat] = useState<'webm' | 'mp4'>('webm');
+  const [quality, setQuality] = useState<'standard' | 'high' | 'ultra'>('high');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+
+  // Calculate dimensions based on resolution and aspect ratio
+  const getDimensions = useCallback(() => {
+    const baseWidth = resolution === '4k' ? 3840 : 1920;
+    const baseHeight = resolution === '4k' ? 2160 : 1080;
+    
+    if (aspectRatio === '9:16') {
+      // For vertical video, swap dimensions
+      return { width: baseHeight, height: Math.round(baseHeight * 16 / 9) };
+    }
+    
+    return { width: baseWidth, height: baseHeight };
+  }, [resolution, aspectRatio]);
+
+  // Get quality-based bitrate
+  const getBitrate = useCallback(() => {
+    const { width, height } = getDimensions();
+    const pixelCount = width * height;
+    
+    // Base bitrate per pixel (bits per second per pixel)
+    let bitsPerPixel: number;
+    
+    switch (quality) {
+      case 'ultra':
+        bitsPerPixel = isMobile ? 0.15 : 0.2; // Ultra high quality
+        break;
+      case 'high':
+        bitsPerPixel = isMobile ? 0.1 : 0.15; // High quality
+        break;
+      case 'standard':
+        bitsPerPixel = isMobile ? 0.05 : 0.08; // Standard quality
+        break;
+      default:
+        bitsPerPixel = 0.1;
+    }
+    
+    const baseBitrate = Math.round(pixelCount * bitsPerPixel);
+    
+    // Apply mobile optimization
+    const mobileFactor = isMobile ? 0.8 : 1.0;
+    
+    // Ensure minimum and maximum bitrates
+    const minBitrate = 2000000; // 2 Mbps minimum
+    const maxBitrate = isMobile ? 50000000 : 100000000; // 50/100 Mbps maximum
+    
+    return Math.max(minBitrate, Math.min(maxBitrate, baseBitrate * mobileFactor));
+  }, [getDimensions, quality, isMobile]);
 
   // Detect mobile device
   useEffect(() => {
@@ -51,22 +143,23 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, []);
   
-  // Update canvas resolution when resolution changes
+  // Update canvas resolution when settings change
   useEffect(() => {
     if (canvasRef.current && onResolutionChange) {
-      const width = resolution === '4k' ? 3840 : 1920;
-      const height = resolution === '4k' ? 2160 : 1080;
+      const { width, height } = getDimensions();
       onResolutionChange(width, height);
     }
-  }, [resolution, canvasRef, onResolutionChange]);
+  }, [resolution, aspectRatio, canvasRef, onResolutionChange, getDimensions]);
 
-  // Detect supported video format
+  // Detect supported video format with better codec preferences
   useEffect(() => {
     const formats = [
-      'video/webm;codecs=vp9',      // Best quality WebM
-      'video/webm;codecs=vp8',      // Fallback WebM
-      'video/webm',                 // Basic WebM
-      'video/mp4;codecs=h264'       // MP4 format
+      'video/webm;codecs=vp9,opus',    // Best quality WebM with VP9
+      'video/webm;codecs=vp8,vorbis',  // Fallback WebM with VP8
+      'video/webm;codecs=h264,aac',    // WebM container with H.264
+      'video/mp4;codecs=h264,aac',     // MP4 with H.264
+      'video/webm',                    // Basic WebM
+      'video/mp4'                      // Basic MP4
     ];
     
     const supported = formats.find(format => MediaRecorder.isTypeSupported(format));
@@ -105,26 +198,27 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       chunksRef.current = [];
       
-      // Get the canvas stream
+      // Get the canvas stream with higher frame rate for better quality
       const canvas = canvasRef.current;
-      const stream = canvas.captureStream(60); // Increased to 60fps for smoother recording
+      const frameRate = quality === 'ultra' ? 60 : quality === 'high' ? 30 : 24;
+      const stream = canvas.captureStream(frameRate);
       streamRef.current = stream;
       
-      // Configure MediaRecorder with appropriate settings
+      const bitrate = getBitrate();
+      
+      // Configure MediaRecorder with optimized settings
       const options: MediaRecorderOptions = {
-        mimeType: supportedMimeType
+        mimeType: supportedMimeType,
+        videoBitsPerSecond: bitrate
       };
       
-      // Set bitrate based on resolution and device
-      if (resolution === '4k') {
-        // 4K bitrates: 30Mbps for desktop, 20Mbps for mobile
-        options.videoBitsPerSecond = isMobile ? 20000000 : 30000000;
-      } else {
-        // 1080p bitrates: 15Mbps for desktop, 10Mbps for mobile
-        options.videoBitsPerSecond = isMobile ? 10000000 : 15000000;
-      }
-      
-      console.log(`Recording at ${resolution} with bitrate: ${options.videoBitsPerSecond / 1000000}Mbps`);
+      console.log(`Recording at ${resolution} ${aspectRatio} with:`, {
+        dimensions: getDimensions(),
+        bitrate: `${(bitrate / 1000000).toFixed(1)}Mbps`,
+        frameRate: `${frameRate}fps`,
+        quality,
+        format: supportedMimeType
+      });
       
       const recorder = new MediaRecorder(stream, options);
       
@@ -150,15 +244,15 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         stopRecording();
       };
       
-      // Start recording with 100ms timeslices for more frequent ondataavailable events
-      recorder.start(100);
+      // Start recording with smaller timeslices for better quality
+      recorder.start(50);
       mediaRecorderRef.current = recorder;
       
       // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => {
           const newTime = prev + 1; 
-          if (newTime >= duration) { // Use selected duration
+          if (newTime >= duration) {
             stopRecording();
             return duration;
           }
@@ -171,7 +265,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       setError('Failed to start recording. Please check browser permissions.');
       setIsRecording(false);
     }
-  }, [canvasRef, supportedMimeType, isMobile, duration, resolution]);
+  }, [canvasRef, supportedMimeType, getBitrate, duration, resolution, aspectRatio, quality, getDimensions]);
 
   const stopRecording = useCallback(() => {
     // Clear timer
@@ -212,38 +306,13 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     const a = document.createElement('a');
     a.href = videoUrl;
     
-    // Use the selected output format for the file extension
     const fileExtension = outputFormat === 'mp4' ? 'mp4' : 'webm';
-    a.download = `photosphere-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${fileExtension}`;
-    a.click();
-  }, [videoBlob, videoUrl, outputFormat]);
-
-  // Convert WebM to MP4 if needed
-  const convertToMp4 = useCallback(async () => {
-    if (!videoBlob || outputFormat !== 'mp4' || supportedMimeType?.includes('mp4')) return;
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const aspectSuffix = aspectRatio === '9:16' ? '_vertical' : '_landscape';
     
-    try {
-      setIsProcessing(true);
-      
-      // For browsers that don't support MP4 recording directly, we'd need a server-side conversion
-      // Since we can't do that here, we'll just download as WebM but with .mp4 extension
-      // In a production app, you would send the WebM to a server for conversion
-      
-      // For now, just change the extension but keep the WebM format
-      if (videoUrl) {
-        const a = document.createElement('a');
-        a.href = videoUrl;
-        a.download = `photosphere-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp4`;
-        a.click();
-      }
-      
-      setIsProcessing(false);
-    } catch (err) {
-      console.error('Error converting to MP4:', err);
-      setError('Failed to convert to MP4 format');
-      setIsProcessing(false);
-    }
-  }, [videoBlob, videoUrl, outputFormat, supportedMimeType]);
+    a.download = `photosphere-${resolution}${aspectSuffix}-${timestamp}.${fileExtension}`;
+    a.click();
+  }, [videoBlob, videoUrl, outputFormat, resolution, aspectRatio]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -252,119 +321,144 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   };
 
   const remainingTime = duration - recordingTime;
+  const { width, height } = getDimensions();
 
   return (
     <div className={`relative ${className}`}>
       {error && (
-        <div className="absolute -top-16 left-0 right-0 bg-red-500/80 text-white px-4 py-2 rounded-lg text-sm backdrop-blur-sm">
+        <div className="absolute -top-16 left-0 right-0 bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm backdrop-blur-sm border border-red-400">
           {error}
         </div>
       )}
       
       {isRecording && (
-        <div className="fixed inset-0 z-40 pointer-events-none">
-          {/* Recording indicators */}
-          <div className="absolute top-4 left-4 flex items-center space-x-2 bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
-            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-white text-sm font-medium">REC</span>
-          </div>
-          
-          <div className="absolute top-4 right-4 bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
-            <span className="text-white text-sm font-mono">{formatTime(remainingTime)}</span>
-          </div>
-          
-          {/* Logo watermark */}
-          <div className="absolute bottom-4 right-4 flex items-center justify-center">
-            <img 
-              src="https://www.fusion-events.ca/wp-content/uploads/2025/06/Untitled-design-15.png" 
-              alt="Fusion Events" 
-              className="h-8 w-auto opacity-90 drop-shadow-lg"
-            />
-          </div>
-        </div>
+        <VideoRecordingOverlay 
+          recordingTime={recordingTime}
+          remainingTime={remainingTime}
+        />
       )}
       
-      {/* Settings Panel */}
+      {/* Enhanced Settings Panel */}
       {showSettings && !isRecording && !isProcessing && (
-        <div className="absolute -top-36 left-0 right-0 bg-black/70 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4">
-          <div className="flex justify-between items-center mb-3">
+        <div className="absolute -top-64 left-0 right-0 bg-black/80 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4 shadow-2xl">
+          <div className="flex justify-between items-center mb-4">
             <h3 className="text-white text-sm font-medium">Video Settings</h3>
             <button 
               onClick={() => setShowSettings(false)}
-              className="text-gray-400 hover:text-white"
+              className="text-gray-400 hover:text-white transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
           
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Duration Selection */}
             <div>
-              <label className="text-white text-xs mb-1 block">Duration</label>
+              <label className="text-white text-xs mb-2 block">Duration</label>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setDuration(30)}
-                  className={`px-3 py-1 rounded text-xs ${
+                  className={`px-3 py-1.5 rounded text-xs transition-colors ${
                     duration === 30 
                       ? 'bg-purple-600 text-white' 
-                      : 'bg-gray-700 text-gray-300'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
-                >30 seconds</button>
+                >30s</button>
                 <button
                   onClick={() => setDuration(60)}
-                  className={`px-3 py-1 rounded text-xs ${
+                  className={`px-3 py-1.5 rounded text-xs transition-colors ${
                     duration === 60 
                       ? 'bg-purple-600 text-white' 
-                      : 'bg-gray-700 text-gray-300'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
-                >60 seconds</button>
+                >60s</button>
               </div>
             </div>
             
             {/* Resolution Selection */}
             <div>
-              <label className="text-white text-xs mb-1 block">Resolution</label>
+              <label className="text-white text-xs mb-2 block">Resolution</label>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setResolution('1080p')}
-                  className={`px-3 py-1 rounded text-xs ${
+                  className={`px-3 py-1.5 rounded text-xs transition-colors ${
                     resolution === '1080p' 
                       ? 'bg-purple-600 text-white' 
-                      : 'bg-gray-700 text-gray-300'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >1080p</button>
                 <button
                   onClick={() => setResolution('4k')}
-                  className={`px-3 py-1 rounded text-xs ${
+                  className={`px-3 py-1.5 rounded text-xs transition-colors ${
                     resolution === '4k' 
                       ? 'bg-purple-600 text-white' 
-                      : 'bg-gray-700 text-gray-300'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >4K</button>
               </div>
             </div>
             
-            {/* Format Selection */}
+            {/* Aspect Ratio Selection */}
             <div>
-              <label className="text-white text-xs mb-1 block">Output Format</label>
+              <label className="text-white text-xs mb-2 block">Aspect Ratio</label>
               <div className="flex space-x-2">
                 <button
-                  onClick={() => setOutputFormat('webm')}
-                  className={`px-3 py-1 rounded text-xs ${
-                    outputFormat === 'webm' 
+                  onClick={() => setAspectRatio('16:9')}
+                  className={`px-3 py-1.5 rounded text-xs transition-colors ${
+                    aspectRatio === '16:9' 
                       ? 'bg-purple-600 text-white' 
-                      : 'bg-gray-700 text-gray-300'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
-                >WebM</button>
+                >16:9</button>
                 <button
-                  onClick={() => setOutputFormat('mp4')}
-                  className={`px-3 py-1 rounded text-xs ${
-                    outputFormat === 'mp4' 
+                  onClick={() => setAspectRatio('9:16')}
+                  className={`px-3 py-1.5 rounded text-xs transition-colors ${
+                    aspectRatio === '9:16' 
                       ? 'bg-purple-600 text-white' 
-                      : 'bg-gray-700 text-gray-300'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
-                >MP4</button>
+                >9:16</button>
               </div>
+            </div>
+            
+            {/* Quality Selection */}
+            <div>
+              <label className="text-white text-xs mb-2 block">Quality</label>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setQuality('standard')}
+                  className={`px-2 py-1.5 rounded text-xs transition-colors ${
+                    quality === 'standard' 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >Standard</button>
+                <button
+                  onClick={() => setQuality('high')}
+                  className={`px-2 py-1.5 rounded text-xs transition-colors ${
+                    quality === 'high' 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >High</button>
+                <button
+                  onClick={() => setQuality('ultra')}
+                  className={`px-2 py-1.5 rounded text-xs transition-colors ${
+                    quality === 'ultra' 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >Ultra</button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Preview Info */}
+          <div className="mt-4 p-3 bg-gray-800/50 rounded border border-gray-600">
+            <div className="text-xs text-gray-300">
+              <div>Output: {width} × {height} ({aspectRatio})</div>
+              <div>Bitrate: {(getBitrate() / 1000000).toFixed(1)} Mbps</div>
+              <div>Frame Rate: {quality === 'ultra' ? '60' : quality === 'high' ? '30' : '24'} fps</div>
             </div>
           </div>
         </div>
@@ -373,19 +467,21 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       <div className="flex items-center space-x-2">
         {!isRecording && !isProcessing && !videoUrl && (
           <>
-            <div className="text-xs text-white/70 mr-2">{resolution === '4k' ? '4K' : '1080p'}/60fps</div>
+            <div className="text-xs text-white/70 mr-2">
+              {resolution} • {aspectRatio} • {quality}
+            </div>
             <button
               onClick={startRecording}
               disabled={!supportedMimeType}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               <Video className="w-4 h-4" />
-              <span>Record {duration}s Clip</span>
+              <span>Record {duration}s</span>
             </button>
             
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors shadow-lg"
               title="Recording Settings"
             >
               <Settings className="w-4 h-4" />
@@ -396,7 +492,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         {isRecording && (
           <button
             onClick={stopRecording}
-            className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg"
           >
             <Square className="w-4 h-4" />
             <span>Recording {formatTime(recordingTime)}</span>
@@ -404,21 +500,24 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         )}
         
         {isProcessing && (
-          <div className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg">
+          <div className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg shadow-lg">
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             <span>Processing...</span>
           </div>
         )}
         
-        {videoUrl && !isProcessing && (
+        {videoBlob && videoUrl && !isProcessing && (
           <>
+            <div className="text-xs text-white/70 mr-2">
+              {(videoBlob.size / 1024 / 1024).toFixed(1)} MB
+            </div>
             <button
               onClick={downloadVideo}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              title={`Download as ${outputFormat.toUpperCase()}`}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg"
+              title={`Download ${width}×${height} video`}
             >
               <Download className="w-4 h-4" />
-              <span>Download {outputFormat.toUpperCase()}</span>
+              <span>Download</span>
             </button>
             
             <button
@@ -427,10 +526,10 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
                 setVideoUrl(null);
                 setVideoBlob(null);
               }}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-lg"
             >
               <Video className="w-4 h-4" />
-              <span>Record New</span>
+              <span>New</span>
             </button>
           </>
         )}
@@ -438,7 +537,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors shadow-lg"
           >
             <X className="w-4 h-4" />
           </button>
