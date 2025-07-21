@@ -1488,12 +1488,13 @@ const PhotoboothPage: React.FC = () => {
                 {renderTextElements()}
                 
                 {/* Always show text controls when we have a photo - Mobile */}
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 50 }}>
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 9998 }}>
                   {/* Add Text Button - Always visible */}
                   <button
                     onClick={addTextElement}
                     className="w-14 h-14 bg-purple-600/80 backdrop-blur-sm hover:bg-purple-700/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
                     title="Add Text"
+                    style={{ zIndex: 9999 }}
                   >
                     <Type className="w-7 h-7" />
                   </button>
@@ -1527,7 +1528,7 @@ const PhotoboothPage: React.FC = () => {
                           className="w-14 h-14 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform active:scale-95"
                           style={{ 
                             backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff',
-                            zIndex: 51
+                            zIndex: 9999
                           }}
                         >
                           <Palette className="w-7 h-7 text-black" />
@@ -1536,7 +1537,7 @@ const PhotoboothPage: React.FC = () => {
                         {/* Color Palette Popup - Modified for mobile */}
                         <div 
                           className="color-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
-                          style={{ zIndex: 52 }}
+                          style={{ zIndex: 10001 }}
                         >
                           <div className="grid grid-cols-2 gap-3">
                             {colorPresets.map((color) => (
@@ -1553,7 +1554,7 @@ const PhotoboothPage: React.FC = () => {
                                   }
                                 }}
                                 className="w-10 h-10 rounded-full border-2 border-white/40 hover:border-white transition-colors active:scale-95"
-                                style={{ backgroundColor: color, zIndex: 53 }}
+                                style={{ backgroundColor: color, zIndex: 10002 }}
                               />
                             ))}
                           </div>
@@ -1587,7 +1588,7 @@ const PhotoboothPage: React.FC = () => {
                             }
                           }}
                           className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
-                          style={{ zIndex: 51 }}
+                          style={{ zIndex: 9999 }}
                         >
                           <ZoomIn className="w-7 h-7 text-white" />
                         </button>
@@ -1595,7 +1596,7 @@ const PhotoboothPage: React.FC = () => {
                         {/* Size Slider Popup - Modified for mobile */}
                         <div 
                           className="size-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-4 opacity-0 transition-opacity pointer-events-none"
-                          style={{ zIndex: 52 }}
+                          style={{ zIndex: 10001 }}
                         >
                           <div className="flex items-center space-x-3 w-40">
                             <button
@@ -1614,7 +1615,7 @@ const PhotoboothPage: React.FC = () => {
                                 }
                               }}
                               className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
-                              style={{ zIndex: 53 }}
+                              style={{ zIndex: 10002 }}
                             >
                               -
                             </button>
@@ -1636,7 +1637,7 @@ const PhotoboothPage: React.FC = () => {
                                 }
                               }}
                               className="flex-1 h-3 bg-white/30 rounded-full appearance-none cursor-pointer"
-                              style={{ zIndex: 53 }}
+                              style={{ zIndex: 10002 }}
                             />
                             <button
                               onClick={(e) => {
@@ -1654,7 +1655,7 @@ const PhotoboothPage: React.FC = () => {
                                 }
                               }}
                               className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
-                              style={{ zIndex: 53 }}
+                              style={{ zIndex: 10002 }}
                             >
                               +
                             </button>
@@ -1689,7 +1690,7 @@ const PhotoboothPage: React.FC = () => {
                             }
                           }}
                           className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
-                          style={{ zIndex: 51 }}
+                          style={{ zIndex: 9999 }}
                         >
                           <Settings className="w-7 h-7 text-white" />
                         </button>
@@ -1697,7 +1698,7 @@ const PhotoboothPage: React.FC = () => {
                         {/* Background Style Popup - Modified for mobile */}
                         <div 
                           className="style-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
-                          style={{ zIndex: 52 }}
+                          style={{ zIndex: 10001 }}
                         >
                           <div className="space-y-2">
                             {textStylePresets.map((preset) => {
@@ -1721,7 +1722,7 @@ const PhotoboothPage: React.FC = () => {
                                       ? 'bg-white text-black' 
                                       : 'bg-white/30 text-white hover:bg-white/50'
                                   }`}
-                                  style={{ zIndex: 53 }}
+                                  style={{ zIndex: 10002 }}
                                 >
                                   {preset.name}
                                 </button>
@@ -1744,20 +1745,26 @@ const PhotoboothPage: React.FC = () => {
                       }}
                       className="w-14 h-14 bg-red-600/70 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
                       title="Delete All Text"
+                      style={{ zIndex: 9999 }}
                     >
                       <X className="w-7 h-7" />
                     </button>
                   )}
                 </div>
                 
-                {/* Instagram Story-like UI Controls - Top Right - Simplified for mobile */}
-                <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
+                {/* Instagram Story-like UI Controls - Top Right - Fixed z-index for mobile */}
+                <div className="absolute top-4 right-4 flex flex-col space-y-3" style={{ zIndex: 9999 }}>
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       console.log('📥 Download button clicked');
                       downloadPhoto();
+                    }}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('📥 Download button touch start');
                     }}
                     onTouchEnd={(e) => {
                       e.preventDefault();
@@ -1766,9 +1773,14 @@ const PhotoboothPage: React.FC = () => {
                       downloadPhoto();
                     }}
                     disabled={isDownloading}
-                    className="w-14 h-14 bg-green-600/80 backdrop-blur-sm hover:bg-green-700/80 disabled:bg-gray-600/70 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
+                    className="w-14 h-14 bg-green-600/90 backdrop-blur-sm hover:bg-green-700/90 disabled:bg-gray-600/70 text-white rounded-full flex items-center justify-center border-2 border-white/30 transition-all shadow-xl active:scale-95"
                     title="Download Photo"
-                    style={{ touchAction: 'manipulation' }}
+                    style={{ 
+                      touchAction: 'manipulation',
+                      zIndex: 10000,
+                      WebkitTapHighlightColor: 'transparent',
+                      position: 'relative'
+                    }}
                   >
                     {isDownloading ? (
                       <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
