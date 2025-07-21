@@ -1445,7 +1445,6 @@ const PhotoboothPage: React.FC = () => {
                 <div>
                   <h1 className="text-lg font-bold text-white flex items-center space-x-2">
                     <Camera className="w-5 h-5 text-purple-400" />
-                    </div>
                     <span>Photobooth</span>
                   </h1>
                   <p className="text-gray-300 text-sm">{currentCollage?.name}</p>
@@ -1936,6 +1935,7 @@ const PhotoboothPage: React.FC = () => {
                         ></div>
                       </div>
                     </div>
+                  </div>
                   <span>See PhotoSphere</span>
                 </h1>
                 <p className="text-gray-400">{currentCollage?.name} • Code: {currentCollage?.code}</p>
@@ -2175,7 +2175,7 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                     
                     <div className="absolute bottom-4 left-4 right-4">
-                     <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30 flex space-x-4">
+                      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30 flex space-x-4">
                         <button
                           onClick={retakePhoto}
                           className="px-4 py-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20"
