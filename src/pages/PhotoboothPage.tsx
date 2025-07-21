@@ -2220,18 +2220,18 @@ const PhotoboothPage: React.FC = () => {
                     
                     {/* DESKTOP CAPTURE BUTTON - ABSOLUTELY MUST BE HERE */}
                     {cameraState === 'active' && (
-                      <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30">
+                      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30">
                         <button 
                           onClick={(e) => {
                             e.preventDefault();
                             console.log('🖥️ Desktop capture button clicked!');
                             capturePhoto();
                           }}
-                          className="w-20 h-20 bg-white rounded-full border-4 border-gray-300 hover:border-gray-100 transition-all active:scale-95 flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50"
+                          className="w-12 h-12 bg-white rounded-full border-3 border-gray-300 hover:border-gray-100 transition-all active:scale-95 flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50"
                           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                           title="Take Photo"
                         >
-                          <div className="w-16 h-16 bg-gray-300 hover:bg-gray-400 rounded-full transition-colors"></div>
+                          <div className="w-8 h-8 bg-gray-300 hover:bg-gray-400 rounded-full transition-colors"></div>
                         </button>
                       </div>
                     )}
