@@ -1,4 +1,110 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+const createVideoFromFrames = useCallback(async (frames: string[]) => {
+    try {
+      console.log(`🎬 Creating video from ${frames.length} frames...`);
+      
+      // Create offscreen canvas for video creation
+      const videoCanvas = document.createElement('canvas');
+      const ctx = videoCanvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Could not get canvas context');
+      }
+      
+      // Load first frame to get dimensions
+      const firstImage = new Image();
+      await new Promise((resolve, reject) => {
+        firstImage.onload = resolve;
+        firstImage.onerror = reject;
+        firstImage.src = frames[0];
+      });
+      
+      videoCanvas.width = firstImage.width;
+      videoCanvas.height = firstImage.height;
+      
+      console.log(`📐 Video size: ${videoCanvas.width}x${videoCanvas.height}`);
+      
+      // Start MediaRecorder on the canvas
+      const stream = videoCanvas.captureStream(30); // Fixed 30fps for reliability
+      const chunks: BlobPart[] = [];
+      
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm',
+        videoBitsPerSecond: 25000000 // 25 Mbps for good quality without hanging
+      });
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        
+        setVideoBlob(blob);
+        setVideoUrl(url);
+        setIsProcessing(false);
+        
+        console.log('✅ Video created successfully!');
+      };
+      
+      recorder.onerror = (event) => {
+        console.error('❌ MediaRecorder error:', event);
+        setError('Failed to create video from frames');
+        setIsProcessing(false);
+      };
+      
+      // Start recording
+      recorder.start(1000); // 1 second chunks
+      
+      // Draw frames sequentially with proper timing
+      let frameIndex = 0;
+      const frameDuration = 1000 / fps; // ms per frame
+      
+      const drawFrame = async () => {
+        if (frameIndex >= frames.length) {
+          // Finished all frames
+          setTimeout(() => {
+            recorder.stop();
+          }, 500); // Give a bit of extra time
+          return;
+        }
+        
+        // Load and draw current frame
+        const img = new Image();
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.src = frames[frameIndex];
+        });
+        
+        ctx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
+        ctx.drawImage(img, 0, 0);
+        
+        frameIndex++;
+        
+        // Schedule next frame
+        setTimeout(drawFrame, frameDuration);
+      };
+      
+      // Start drawing frames
+      drawFrame();
+      
+      // Safety timeout to prevent infinite hanging
+      const totalExpectedTime = (frames.length / fps) * 1000 + 5000; // Expected time + 5s buffer
+      setTimeout(() => {
+        if (recorder.state === 'recording') {
+          console.warn('⚠️ Video creation timeout, forcing stop');
+          recorder.stop();
+        }
+      }, totalExpectedTime);
+      
+    } catch (error) {
+      console.error('❌ Error creating video from frames:', error);
+      setError('Failed to process frames into video');
+      setIsProcessing(false);
+    }
+  }, [fps]);import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Video, Square, Download, X, Settings } from 'lucide-react';
 
 interface VideoRecorderProps {
