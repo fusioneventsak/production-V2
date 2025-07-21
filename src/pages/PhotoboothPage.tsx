@@ -1,7 +1,7 @@
 // src/pages/PhotoboothPage.tsx - Full-screen mobile experience with desktop layout preserved
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Palette, AlignCenter, AlignLeft, AlignRight, Move, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowLeft, Camera, Download, Upload, X, Plus, Minus, RotateCw, Type, Palette, Move, Globe } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
@@ -1904,13 +1904,10 @@ const PhotoboothPage: React.FC = () => {
                 <ArrowLeft className="w-6 h-6" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white flex items-center space-x-2">
-                  <div className="w-6 h-6 relative">
-                    {/* 3D Rotating sphere */}
-                    <div 
-                      className="w-6 h-6 relative"
-                      style={{
-                        perspective: '100px',
+                <h1 className="text-lg font-bold text-white flex items-center space-x-2">
+                  <Globe className="w-5 h-5 text-purple-400" />
+                  <span>PhotoSphere</span>
+                </h1>
                         transformStyle: 'preserve-3d'
                       }}
                     >
