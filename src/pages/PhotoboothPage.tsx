@@ -1904,41 +1904,11 @@ const PhotoboothPage: React.FC = () => {
                 <ArrowLeft className="w-6 h-6" />
               </button>
               <div>
-                <h1 className="text-lg font-bold text-white flex items-center space-x-2">
-                  <Globe className="w-5 h-5 text-purple-400" />
-                  <span>PhotoSphere</span>
-                </h1>
-                        transformStyle: 'preserve-3d'
-                      }}
-                    >
-                      <div 
-                        className="w-6 h-6 rounded-full relative"
-                        style={{
-                          background: 'radial-gradient(circle at 30% 30%, #a855f7, #3b82f6, #1e40af)',
-                          animation: 'rotate3d 3s linear infinite',
-                          transformStyle: 'preserve-3d',
-                          boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.3), 0 0 8px rgba(168,85,247,0.4)'
-                        }}
-                      >
-                        {/* Highlight for 3D effect */}
-                        <div 
-                          className="absolute top-1 left-1 w-2 h-2 rounded-full opacity-60"
-                          style={{
-                            background: 'radial-gradient(circle, rgba(255,255,255,0.8), transparent)',
-                          }}
-                        ></div>
-                        {/* Ring around sphere */}
-                        <div 
-                          className="absolute inset-0 rounded-full border border-purple-300/30"
-                          style={{
-                            animation: 'rotateRing 2s linear infinite reverse'
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                  <span>See PhotoSphere</span>
-                </h1>
+                <h1 className="text-xl font-bold text-white flex items-center space-x-3">
+                  <h1 className="text-xl font-bold text-white flex items-center space-x-2">
+                    <Globe className="w-6 h-6 text-purple-400" />
+                    <span>See PhotoSphere</span>
+                  </h1>
                 <p className="text-gray-400">{currentCollage?.name} • Code: {currentCollage?.code}</p>
               </div>
             </div>
