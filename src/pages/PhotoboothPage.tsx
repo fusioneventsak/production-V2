@@ -1905,10 +1905,11 @@ const PhotoboothPage: React.FC = () => {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-white flex items-center space-x-3">
-                  <h1 className="text-xl font-bold text-white flex items-center space-x-2">
-                    <Globe className="w-6 h-6 text-purple-400" />
-                    <span>See PhotoSphere</span>
-                  </h1>
+                  <div className="flex items-center space-x-2">
+                    <Globe className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span>See PhotoSphere</span>
+                </h1>
                 <p className="text-gray-400">{currentCollage?.name} • Code: {currentCollage?.code}</p>
               </div>
             </div>
