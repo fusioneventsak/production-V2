@@ -1078,33 +1078,60 @@ const PhotoboothPage: React.FC = () => {
       
       // Ultimate fallback
       try {
-        let finalPhoto = photo;
-        if (textElements.length > 0 && canvasRef.current) {
-          finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
-        }
-        
-        const newWindow = window.open();
-        if (newWindow) {
-          newWindow.document.write(`
-            <html>
-              <head><title>Your Photobooth Photo</title></head>
-              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
-                <img src="${finalPhoto}" style="max-width:90%;max-height:70vh;border-radius:10px;" />
-                <div style="color:white;text-align:center;margin-top:20px;padding:20px;">
-                  <h2>Save Your Photo</h2>
-                  <p><strong>Desktop:</strong> Right-click image → "Save image as..."</p>
-                  <p><strong>Mobile:</strong> Long-press image → "Save to Photos"</p>
-                </div>
-              </body>
-            </html>
-          `);
-          newWindow.document.close();
-        }
-      } catch (fallbackErr) {
-        console.error('❌ Fallback failed too:', fallbackErr);
-        setError('Could not download photo. Please try again.');
+      console.log('📸 Starting photo capture...');
+      
+      if (!webcamRef.current) {
+        throw new Error('Camera not available');
+      }
+
+      // Add a small delay to ensure the webcam frame is fully rendered
+      console.log('⏳ Waiting for frame to be ready...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Ensure webcam is still available after delay
+      if (!webcamRef.current) {
+        throw new Error('Camera became unavailable during capture');
+      }
+
+      console.log('📷 Taking screenshot...');
+      const imageSrc = webcamRef.current.getScreenshot();
+      
+      console.log('🔍 Screenshot result:', imageSrc ? 'Success' : 'Failed');
+      console.log('📏 Screenshot length:', imageSrc?.length || 0);
+      
+      if (!imageSrc) {
+        throw new Error('Failed to capture photo - camera may not be ready');
+      }
+
+      // Check if the screenshot is just a black/empty image
+      if (imageSrc.length < 1000) {
+        throw new Error('Captured image appears to be empty or corrupted');
+      }
+
+      console.log('📸 Photo captured successfully, converting to file...');
+      
+      // Convert data URL to blob
+      const response = await fetch(imageSrc);
+      const blob = await response.blob();
+      
+      console.log('📦 Blob size:', blob.size, 'bytes');
+      
+      if (blob.size < 1000) {
+        throw new Error('Captured image file is too small - may be corrupted');
       }
       
+      // Create file from blob
+      const file = new File([blob], `photobooth-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
+      console.log('📤 Uploading photo...');
+      await uploadPhoto(currentCollage.id, file);
+      
+      console.log('✅ Photo uploaded successfully!');
+      setSuccessMessage('Photo captured and uploaded!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+        setError('Could not download photo. Please try again.');
+      console.error('❌ Capture failed:', error);
+      setError(error.message || 'Failed to capture photo');
       setTimeout(() => setError(null), 5000);
     } finally {
       setIsDownloading(false);
