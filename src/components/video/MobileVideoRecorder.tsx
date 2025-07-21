@@ -65,9 +65,9 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [isMobile, setIsMobile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [duration, setDuration] = useState<30 | 60>(60);
-  const [resolution, setResolution] = useState<Resolution>('4k');
+  const [resolution, setResolution] = useState<Resolution>('1080p');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
-  const [quality, setQuality] = useState<'standard' | 'high' | 'ultra'>('ultra');
+  const [quality, setQuality] = useState<'standard' | 'high' | 'ultra'>('high');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -86,47 +86,32 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     return { width: baseWidth, height: baseHeight };
   }, [resolution, aspectRatio]);
 
-  // Get ultra-high bitrates for perfect quality
+  // Realistic bitrates (not the crazy high ones that don't work)
   const getBitrate = useCallback(() => {
-    const { width, height } = getDimensions();
-    const pixelCount = width * height;
-    
-    // Use extremely high bitrates to match OBS quality
-    let bitrate: number;
-    
     if (resolution === '4k') {
       switch (quality) {
         case 'ultra':
-          bitrate = 400000000; // 400 Mbps - OBS quality
-          break;
+          return isMobile ? 25000000 : 40000000; // 25-40 Mbps
         case 'high':
-          bitrate = 250000000; // 250 Mbps
-          break;
+          return isMobile ? 15000000 : 25000000; // 15-25 Mbps
         case 'standard':
-          bitrate = 150000000; // 150 Mbps
-          break;
+          return isMobile ? 10000000 : 15000000; // 10-15 Mbps
         default:
-          bitrate = 400000000;
+          return 25000000;
       }
     } else { // 1080p
       switch (quality) {
         case 'ultra':
-          bitrate = 200000000; // 200 Mbps - OBS quality
-          break;
+          return isMobile ? 15000000 : 20000000; // 15-20 Mbps
         case 'high':
-          bitrate = 120000000; // 120 Mbps
-          break;
+          return isMobile ? 8000000 : 12000000;  // 8-12 Mbps
         case 'standard':
-          bitrate = 80000000;  // 80 Mbps
-          break;
+          return isMobile ? 5000000 : 8000000;   // 5-8 Mbps
         default:
-          bitrate = 200000000;
+          return 12000000;
       }
     }
-    
-    // Reduce slightly for mobile to prevent crashes
-    return isMobile ? Math.round(bitrate * 0.7) : bitrate;
-  }, [resolution, quality, aspectRatio, isMobile, getDimensions]);
+  }, [resolution, quality, isMobile]);
 
   // Detect mobile device
   useEffect(() => {
@@ -179,56 +164,33 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       const canvas = canvasRef.current;
       
-      console.log('🎥 Starting recording with particle shader optimization...');
+      console.log('📺 Starting SIMPLE screen recording of canvas...');
       
-      // CRITICAL FIX: Your distant particles have shader issues during recording
-      // Main: gl_PointSize = size * (300.0 / -mvPosition.z) + smoothstep(50.0, 200.0) ✅ Good
-      // Atmospheric: gl_PointSize = size * (150.0 / -mvPosition.z) + smoothstep(100.0, 400.0) ❌ Problem
-      // Distant: gl_PointSize = size * (400.0 / -mvPosition.z) + smoothstep(200.0, 600.0) ❌ Problem
-      // Big swirls: gl_PointSize = size * (500.0 / -mvPosition.z) + smoothstep(150.0, 500.0) ❌ Problem
-      
-      // The issue: distant particles fade out due to large distance ranges during compression
-      
-      // Let the scene render a few frames to ensure all particles are initialized
-      console.log('⏱️ Waiting for particle system to stabilize...');
-      for (let i = 0; i < 10; i++) {
-        await new Promise(resolve => requestAnimationFrame(resolve));
-      }
-      
-      // Capture at 60fps for smooth results
-      const stream = canvas.captureStream(60);
+      // Just capture the canvas as-is, like screen recording
+      const stream = canvas.captureStream(30); // 30fps is fine and more compatible
       streamRef.current = stream;
       
-      // Use the best codec available
-      const preferredCodecs = [
-        'video/webm; codecs=vp9,opus',
-        'video/webm; codecs=vp8,vorbis', 
-        'video/mp4; codecs=h264,aac',
-        'video/webm',
-        'video/mp4'
-      ];
-      
-      const supportedCodec = preferredCodecs.find(codec => 
-        MediaRecorder.isTypeSupported(codec)
-      );
-      
-      if (!supportedCodec) {
-        throw new Error('No supported video codec found');
+      // Use simple, compatible codec
+      let mimeType = 'video/webm';
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+        mimeType = 'video/webm;codecs=vp8';
+      } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+        mimeType = 'video/mp4';
       }
       
       const bitrate = getBitrate();
       
-      console.log(`🚀 Recording with enhanced particle settings:`, {
+      console.log(`📹 Simple recording settings:`, {
         resolution: `${canvas.width}x${canvas.height}`,
-        bitrate: `${(bitrate / 1000000).toFixed(0)} Mbps`,
-        codec: supportedCodec,
-        frameRate: '60fps',
-        particleIssue: 'Distant particles use large distance ranges that compress poorly'
+        bitrate: `${(bitrate / 1000000).toFixed(1)} Mbps`,
+        codec: mimeType,
+        frameRate: '30fps',
+        approach: 'Direct canvas capture - no processing'
       });
       
-      // Configure recorder with ultra-high quality to preserve distant particles
+      // Simple MediaRecorder setup
       const recorder = new MediaRecorder(stream, {
-        mimeType: supportedCodec,
+        mimeType: mimeType,
         videoBitsPerSecond: bitrate
       });
       
@@ -239,7 +201,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       };
       
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: supportedCodec });
+        const blob = new Blob(chunksRef.current, { type: mimeType });
         const url = URL.createObjectURL(blob);
         
         setVideoBlob(blob);
@@ -247,21 +209,20 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         setIsProcessing(false);
         streamRef.current = null;
         
-        console.log('✅ Recording completed (distant particles may still have compression artifacts):', {
-          size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-          type: blob.type,
-          note: 'Distant particle quality limited by shader distance calculations'
+        console.log('✅ Simple recording completed:', {
+          actualSize: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
+          type: blob.type
         });
       };
       
       recorder.onerror = (event) => {
         console.error('❌ Recording error:', event);
-        setError('Recording failed. Distant particle shaders may be too complex for recording.');
+        setError('Recording failed');
         stopRecording();
       };
       
-      // Start recording with smaller chunks to preserve particle detail
-      recorder.start(50); // 50ms chunks for better particle capture
+      // Start recording with regular timeslices
+      recorder.start(1000); // 1 second chunks
       mediaRecorderRef.current = recorder;
       
       // Start timer
@@ -278,7 +239,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
     } catch (err) {
       console.error('❌ Error starting recording:', err);
-      setError('Failed to start recording. Your browser may not support high-quality video recording.');
+      setError('Failed to start recording');
       setIsRecording(false);
     }
   }, [canvasRef, duration, getBitrate]);
@@ -315,11 +276,10 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
     const aspectSuffix = aspectRatio === '9:16' ? '_vertical' : '_landscape';
-    const qualitySuffix = quality === 'ultra' ? '_ultra' : quality === 'high' ? '_high' : '';
     
-    a.download = `photosphere-${resolution}${aspectSuffix}${qualitySuffix}-${timestamp}.webm`;
+    a.download = `photosphere-${resolution}${aspectSuffix}-${timestamp}.webm`;
     a.click();
-  }, [videoBlob, videoUrl, resolution, aspectRatio, quality]);
+  }, [videoBlob, videoUrl, resolution, aspectRatio]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -329,7 +289,9 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
 
   const remainingTime = duration - recordingTime;
   const { width, height } = getDimensions();
-  const estimatedFileSizeMB = (getBitrate() * duration / 8 / 1024 / 1024).toFixed(0);
+  
+  // FIXED: Realistic file size calculation
+  const estimatedFileSizeMB = Math.round((getBitrate() * duration / 8 / 1024 / 1024) * 0.7); // 0.7 factor for compression
 
   return (
     <div className={`relative ${className}`}>
@@ -348,9 +310,9 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       {/* Simple Settings Panel */}
       {showSettings && !isRecording && !isProcessing && (
-        <div className="absolute -top-64 left-0 right-0 bg-black/85 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4 shadow-2xl">
+        <div className="absolute -top-48 left-0 right-0 bg-black/85 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4 shadow-2xl">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-white text-sm font-medium">OBS-Quality Recording</h3>
+            <h3 className="text-white text-sm font-medium">Simple Screen Recording</h3>
             <button 
               onClick={() => setShowSettings(false)}
               className="text-gray-400 hover:text-white transition-colors"
@@ -359,7 +321,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             </button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {/* Duration Selection */}
             <div>
               <label className="text-white text-xs mb-2 block">Duration</label>
@@ -461,14 +423,14 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             </div>
           </div>
           
-          {/* Quality Info */}
+          {/* Realistic Info */}
           <div className="mt-4 p-3 bg-gray-800/50 rounded border border-gray-600">
             <div className="text-xs text-gray-300 space-y-1">
               <div>📐 Output: {width} × {height} ({aspectRatio})</div>
-              <div>🎬 Bitrate: {(getBitrate() / 1000000).toFixed(0)} Mbps (OBS Quality)</div>
-              <div>🎞️ Frame Rate: 60 fps</div>
+              <div>🎬 Bitrate: {(getBitrate() / 1000000).toFixed(1)} Mbps (Realistic)</div>
+              <div>🎞️ Frame Rate: 30 fps (Compatible)</div>
               <div>💾 Est. Size: ~{estimatedFileSizeMB} MB</div>
-              <div className="text-green-400 text-xs">🚀 Direct canvas capture - no processing</div>
+              <div className="text-green-400 text-xs">📺 Simple screen recording approach</div>
             </div>
           </div>
         </div>
@@ -501,7 +463,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         {isRecording && (
           <button
             onClick={stopRecording}
-            className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg animate-pulse"
+            className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg"
           >
             <Square className="w-4 h-4" />
             <span>Recording {formatTime(recordingTime)}</span>
