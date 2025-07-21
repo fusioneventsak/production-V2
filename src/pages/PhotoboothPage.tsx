@@ -1,4 +1,3 @@
-
 // src/pages/PhotoboothPage.tsx - Full-screen mobile experience with desktop layout preserved
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -1079,34 +1078,23 @@ const PhotoboothPage: React.FC = () => {
       
       // Ultimate fallback
       try {
-        let finalPhoto = photo;
-        if (textElements.length > 0 && canvasRef.current) {
-          finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
-        }
-        
         const newWindow = window.open();
         if (newWindow) {
           newWindow.document.write(`
             <html>
-              <head><title>Your Photobooth Photo</title></head>
-              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
-                <img src="${finalPhoto}" style="max-width:90%;max-height:70vh;border-radius:10px;" />
-                <div style="color:white;text-align:center;margin-top:20px;padding:20px;">
-                  <h2>Save Your Photo</h2>
-                  <p><strong>Desktop:</strong> Right-click image → "Save image as..."</p>
-                  <p><strong>Mobile:</strong> Long-press image → "Save to Photos"</p>
-                </div>
+              <head><title>Photo</title></head>
+              <body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+                <img src="${photo}" style="max-width:100%;max-height:100vh;" />
               </body>
             </html>
           `);
           newWindow.document.close();
         }
-      } catch (fallbackErr) {
-        console.error('❌ Fallback failed too:', fallbackErr);
         setError('Could not download photo. Please try again.');
+      } catch (fallbackError) {
+        console.error('❌ Capture failed:', fallbackError);
+        setError('Failed to capture photo');
       }
-      
-      setTimeout(() => setError(null), 5000);
     } finally {
       setIsDownloading(false);
       console.log('🏁 Download process finished');
