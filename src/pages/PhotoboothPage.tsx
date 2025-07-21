@@ -1364,7 +1364,7 @@ const PhotoboothPage: React.FC = () => {
                 {/* VERTICAL TEXT SETTINGS - LEFT SIDE (Show when text is selected) */}
                 {selectedTextId && (
                   <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 50 }}>
-                    {/* Color Picker Icon */}
+                    {/* Color Picker Icon - Modified for mobile touch */}
                     <div className="relative">
                       <button
                         onClick={() => {
@@ -1374,31 +1374,48 @@ const PhotoboothPage: React.FC = () => {
                           const nextColorIndex = (currentColorIndex + 1) % colorPresets.length;
                           updateTextElement(selectedTextId, { color: colorPresets[nextColorIndex] });
                         }}
-                        className="w-12 h-12 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                        onTouchStart={(e) => {
+                          e.preventDefault();
+                          // Show color palette on touch
+                          const popup = e.currentTarget.parentElement?.querySelector('.color-popup') as HTMLElement;
+                          if (popup) {
+                            popup.style.opacity = '1';
+                            popup.style.pointerEvents = 'auto';
+                            setTimeout(() => {
+                              popup.style.opacity = '0';
+                              popup.style.pointerEvents = 'none';
+                            }, 3000);
+                          }
+                        }}
+                        className="w-14 h-14 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform active:scale-95"
                         style={{ 
                           backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff',
                           zIndex: 51
                         }}
                       >
-                        <Palette className="w-6 h-6 text-black" />
+                        <Palette className="w-7 h-7 text-black" />
                       </button>
                       
-                      {/* Color Palette Popup */}
+                      {/* Color Palette Popup - Modified for mobile */}
                       <div 
-                        className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity"
+                        className="color-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
                         style={{ zIndex: 52 }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
                       >
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-3">
                           {colorPresets.map((color) => (
                             <button
                               key={color}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 updateTextElement(selectedTextId, { color });
+                                // Hide popup after selection
+                                const popup = e.currentTarget.closest('.color-popup') as HTMLElement;
+                                if (popup) {
+                                  popup.style.opacity = '0';
+                                  popup.style.pointerEvents = 'none';
+                                }
                               }}
-                              className="w-8 h-8 rounded-full border border-white/40 hover:border-white transition-colors"
+                              className="w-10 h-10 rounded-full border-2 border-white/40 hover:border-white transition-colors active:scale-95"
                               style={{ backgroundColor: color, zIndex: 53 }}
                             />
                           ))}
@@ -1406,23 +1423,34 @@ const PhotoboothPage: React.FC = () => {
                       </div>
                     </div>
                     
-                    {/* Text Size Icon with Slider */}
+                    {/* Text Size Icon with Slider - Modified for mobile */}
                     <div className="relative">
                       <button
-                        className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                        onTouchStart={(e) => {
+                          e.preventDefault();
+                          // Show size controls on touch
+                          const popup = e.currentTarget.parentElement?.querySelector('.size-popup') as HTMLElement;
+                          if (popup) {
+                            popup.style.opacity = '1';
+                            popup.style.pointerEvents = 'auto';
+                            setTimeout(() => {
+                              popup.style.opacity = '0';
+                              popup.style.pointerEvents = 'none';
+                            }, 4000);
+                          }
+                        }}
+                        className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
                         style={{ zIndex: 51 }}
                       >
-                        <Type className="w-6 h-6 text-white" />
+                        <Type className="w-7 h-7 text-white" />
                       </button>
                       
-                      {/* Size Slider Popup */}
+                      {/* Size Slider Popup - Modified for mobile */}
                       <div 
-                        className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity"
+                        className="size-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-4 opacity-0 transition-opacity pointer-events-none"
                         style={{ zIndex: 52 }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
                       >
-                        <div className="flex items-center space-x-3 w-32">
+                        <div className="flex items-center space-x-3 w-40">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1431,7 +1459,7 @@ const PhotoboothPage: React.FC = () => {
                                 updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
                               }
                             }}
-                            className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                            className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
                             style={{ zIndex: 53 }}
                           >
                             -
@@ -1445,7 +1473,7 @@ const PhotoboothPage: React.FC = () => {
                               e.stopPropagation();
                               updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
                             }}
-                            className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer"
+                            className="flex-1 h-3 bg-white/30 rounded-full appearance-none cursor-pointer"
                             style={{ zIndex: 53 }}
                           />
                           <button
@@ -1456,19 +1484,19 @@ const PhotoboothPage: React.FC = () => {
                                 updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
                               }
                             }}
-                            className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                            className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
                             style={{ zIndex: 53 }}
                           >
                             +
                           </button>
                         </div>
-                        <div className="text-white text-xs text-center mt-1">
+                        <div className="text-white text-sm text-center mt-2 font-medium">
                           {textElements.find(el => el.id === selectedTextId)?.size || 32}px
                         </div>
                       </div>
                     </div>
                     
-                    {/* Background/Style Icon */}
+                    {/* Background/Style Icon - Modified for mobile */}
                     <div className="relative">
                       <button
                         onClick={() => {
@@ -1478,18 +1506,29 @@ const PhotoboothPage: React.FC = () => {
                           const nextStyleIndex = (currentStyleIndex + 1) % textStylePresets.length;
                           updateTextElement(selectedTextId, { style: textStylePresets[nextStyleIndex] });
                         }}
-                        className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                        onTouchStart={(e) => {
+                          e.preventDefault();
+                          // Show style options on touch
+                          const popup = e.currentTarget.parentElement?.querySelector('.style-popup') as HTMLElement;
+                          if (popup) {
+                            popup.style.opacity = '1';
+                            popup.style.pointerEvents = 'auto';
+                            setTimeout(() => {
+                              popup.style.opacity = '0';
+                              popup.style.pointerEvents = 'none';
+                            }, 3000);
+                          }
+                        }}
+                        className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
                         style={{ zIndex: 51 }}
                       >
-                        <Settings className="w-6 h-6 text-white" />
+                        <Settings className="w-7 h-7 text-white" />
                       </button>
                       
-                      {/* Background Style Popup */}
+                      {/* Background Style Popup - Modified for mobile */}
                       <div 
-                        className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-2 opacity-0 hover:opacity-100 transition-opacity"
+                        className="style-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
                         style={{ zIndex: 52 }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
                       >
                         <div className="space-y-2">
                           {textStylePresets.map((preset) => {
@@ -1501,11 +1540,17 @@ const PhotoboothPage: React.FC = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   updateTextElement(selectedTextId, { style: preset });
+                                  // Hide popup after selection
+                                  const popup = e.currentTarget.closest('.style-popup') as HTMLElement;
+                                  if (popup) {
+                                    popup.style.opacity = '0';
+                                    popup.style.pointerEvents = 'none';
+                                  }
                                 }}
-                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                                className={`px-4 py-3 rounded-lg text-sm font-medium transition-all whitespace-nowrap active:scale-95 ${
                                   isSelected 
                                     ? 'bg-white text-black' 
-                                    : 'bg-white/20 text-white hover:bg-white/40'
+                                    : 'bg-white/30 text-white hover:bg-white/50'
                                 }`}
                                 style={{ zIndex: 53 }}
                               >
@@ -1523,18 +1568,18 @@ const PhotoboothPage: React.FC = () => {
                 <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
                   <button
                     onClick={addTextElement}
-                    className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                    className="w-14 h-14 bg-black/70 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
                     title="Add Text"
                   >
-                    <Type className="w-6 h-6" />
+                    <Type className="w-7 h-7" />
                   </button>
                   
                   <button
                     onClick={downloadPhoto}
-                    className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                    className="w-14 h-14 bg-black/70 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
                     title="Download"
                   >
-                    <Download className="w-6 h-6" />
+                    <Download className="w-7 h-7" />
                   </button>
                   
                   {/* Delete All Text Button */}
@@ -1546,10 +1591,10 @@ const PhotoboothPage: React.FC = () => {
                         setIsEditingText(false);
                         setShowTextStylePanel(false);
                       }}
-                      className="w-12 h-12 bg-red-600/60 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                      className="w-14 h-14 bg-red-600/70 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
                       title="Delete All Text"
                     >
-                      <X className="w-6 h-6" />
+                      <X className="w-7 h-7" />
                     </button>
                   )}
                 </div>
