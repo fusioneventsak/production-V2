@@ -2244,6 +2244,63 @@ const PhotoboothPage: React.FC = () => {
                 <canvas ref={canvasRef} className="hidden" />
               </div>
             </div>
+
+            <div className="w-full lg:w-72 space-y-4 lg:space-y-6">
+              {devices.length > 1 && (
+                <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
+                  <div className="flex items-center space-x-2 mb-3 lg:mb-4">
+                    <Settings className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
+                    <h3 className="text-base lg:text-lg font-semibold text-white">Camera Settings</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Camera Device
+                      {devices.length > 0 && (
+                        <span className="text-xs text-gray-400 ml-2">
+                          ({devices.length} available)
+                        </span>
+                      )}
+                    </label>
+                    <select
+                      value={selectedDevice}
+                      onChange={(e) => handleDeviceChange(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                      style={{ fontSize: '16px' }}
+                    >
+                      {devices.map((device, index) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || `Camera ${index + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {currentCollage && (
+                <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
+                  <h3 className="text-base lg:text-lg font-semibold text-white mb-3">Collage Info</h3>
+                  <div className="space-y-2 text-sm text-gray-300">
+                    <div className="flex justify-between">
+                      <span>Name:</span>
+                      <span className="text-white truncate ml-2">{currentCollage.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Code:</span>
+                      <span className="text-white font-mono">{currentCollage.code}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Photos:</span>
+                      <span className="text-white">{safePhotos.length}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
                     
                     {renderTextElements()}
                     
