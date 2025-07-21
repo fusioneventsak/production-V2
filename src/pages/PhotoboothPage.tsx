@@ -1889,10 +1889,10 @@ const PhotoboothPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* Desktop Layout - Original Design */
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen">
+        /* Desktop Layout - Original Design with viewport optimization */
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate(`/collage/${currentCollage?.code || ''}`)}
@@ -1921,7 +1921,7 @@ const PhotoboothPage: React.FC = () => {
           </div>
 
           {error && (
-            <div className={`mb-6 p-4 rounded-lg ${
+            <div className={`mb-4 p-4 rounded-lg ${
               error.includes('successfully') 
                 ? 'bg-green-900/30 border border-green-500/50 text-green-200'
                 : 'bg-red-900/30 border border-red-500/50 text-red-200'
@@ -1930,11 +1930,11 @@ const PhotoboothPage: React.FC = () => {
             </div>
           )}
 
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
-            <div className="flex-1 flex justify-center">
-              <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm lg:max-w-md xl:max-w-lg" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start">
+            <div className="flex-1 flex justify-center" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+              <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px] xl:max-w-[400px]">
                 {photo ? (
-                  <div ref={photoContainerRef} className="relative w-full" style={{ aspectRatio: '9/16', maxHeight: 'calc(100vh - 200px)' }}>
+                  <div ref={photoContainerRef} className="relative w-full aspect-[9/16]">
                     <img 
                       src={photo} 
                       alt="Captured photo" 
@@ -2165,7 +2165,7 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="relative w-full bg-gray-800" style={{ aspectRatio: '9/16', maxHeight: 'calc(100vh - 200px)' }}>
+                  <div className="relative w-full aspect-[9/16] bg-gray-800">
                     <video
                       ref={videoRef}
                       autoPlay
