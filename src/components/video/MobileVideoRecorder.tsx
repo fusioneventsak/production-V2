@@ -109,32 +109,51 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       chunksRef.current = [];
       
-      // Get the canvas stream - record current canvas as-is
       const canvas = canvasRef.current;
       
-      console.log(`🎥 Recording canvas at current size to avoid pixel ratio issues:`, {
-        currentSize: `${canvas.width}x${canvas.height}`,
-        approach: 'Record current canvas - no resizing'
-      });
+      console.log('🎥 Attempting TRUE screen capture like OBS...');
       
-      const stream = canvas.captureStream(60); // 60fps for smoother recording
+      let stream;
+      
+      // Try Screen Capture API first (like OBS)
+      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+        try {
+          console.log('📺 Using Screen Capture API (like OBS)');
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              mediaSource: 'screen',
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              frameRate: { ideal: 60 }
+            },
+            audio: false
+          });
+          
+          console.log('✅ Screen capture started - please select the browser window');
+        } catch (screenError) {
+          console.log('❌ Screen capture failed, falling back to canvas capture');
+          stream = canvas.captureStream(60);
+        }
+      } else {
+        console.log('📱 Screen capture not available, using canvas capture');
+        stream = canvas.captureStream(60);
+      }
+      
       streamRef.current = stream;
       
-      // Configure MediaRecorder with appropriate settings
+      // Configure MediaRecorder with high quality settings
       const options: MediaRecorderOptions = {
         mimeType: supportedMimeType
       };
       
-      // Set bitrate based on resolution and device
+      // Use very high bitrates for particle quality
       if (resolution === '4k') {
-        // 4K bitrates: 30Mbps for desktop, 20Mbps for mobile
-        options.videoBitsPerSecond = isMobile ? 20000000 : 30000000;
+        options.videoBitsPerSecond = isMobile ? 40000000 : 60000000; // 40-60 Mbps
       } else {
-        // 1080p bitrates: 15Mbps for desktop, 10Mbps for mobile
-        options.videoBitsPerSecond = isMobile ? 10000000 : 15000000;
+        options.videoBitsPerSecond = isMobile ? 20000000 : 40000000; // 20-40 Mbps
       }
       
-      console.log(`Recording with bitrate: ${options.videoBitsPerSecond / 1000000}Mbps`);
+      console.log(`🚀 Recording with ultra-high bitrate: ${options.videoBitsPerSecond / 1000000}Mbps`);
       
       const recorder = new MediaRecorder(stream, options);
       
@@ -153,7 +172,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         setIsProcessing(false);
         streamRef.current = null;
         
-        console.log('✅ Recording completed without canvas resize - particles should look good');
+        console.log('✅ Recording completed with screen capture approach');
       };
       
       recorder.onerror = (event) => {
@@ -162,15 +181,15 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         stopRecording();
       };
       
-      // Start recording with 100ms timeslices for more frequent ondataavailable events
-      recorder.start(100);
+      // Start recording with smaller chunks for better quality
+      recorder.start(50); // 50ms chunks
       mediaRecorderRef.current = recorder;
       
       // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => {
           const newTime = prev + 1; 
-          if (newTime >= duration) { // Use selected duration
+          if (newTime >= duration) {
             stopRecording();
             return duration;
           }
@@ -352,9 +371,9 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
               </div>
             </div>
             
-            {/* Info about current approach */}
-            <div className="text-xs text-yellow-400 bg-yellow-900/20 p-2 rounded">
-              💡 Recording at current canvas size to maintain particle quality
+            {/* Info about screen capture */}
+            <div className="text-xs text-blue-400 bg-blue-900/20 p-2 rounded">
+              🖥️ Will attempt true screen capture (like OBS) - select browser window when prompted
             </div>
           </div>
         </div>
@@ -363,7 +382,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       <div className="flex items-center space-x-2">
         {!isRecording && !isProcessing && !videoUrl && (
           <>
-            <div className="text-xs text-white/70 mr-2">Current Size • 60fps</div>
+            <div className="text-xs text-white/70 mr-2">Screen Capture • 60fps</div>
             <button
               onClick={startRecording}
               disabled={!supportedMimeType}
