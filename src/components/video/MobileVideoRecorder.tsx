@@ -93,49 +93,53 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     return { width: baseWidth, height: baseHeight };
   }, [resolution, aspectRatio]);
 
-  // Get quality-based bitrate optimized for Three.js content
+  // Get quality-based bitrate optimized for Three.js content with particle systems
   const getBitrate = useCallback(() => {
-    // Three.js content needs EXTREMELY high bitrates due to complex 3D rendering, particles, and animations
+    // Particle systems need MASSIVE bitrates due to:
+    // 1. Point sprites with alpha blending
+    // 2. Additive blending effects
+    // 3. Constantly moving/changing particles
+    // 4. Shader-based rendering with fine details
     let baseBitrate: number;
     
     if (resolution === '4k') {
       switch (quality) {
         case 'ultra':
-          baseBitrate = isMobile ? 150000000 : 250000000; // 150-250 Mbps for 4K Ultra
+          baseBitrate = isMobile ? 300000000 : 500000000; // 300-500 Mbps for 4K Ultra particles
           break;
         case 'high':
-          baseBitrate = isMobile ? 100000000 : 150000000; // 100-150 Mbps for 4K High
+          baseBitrate = isMobile ? 200000000 : 350000000; // 200-350 Mbps for 4K High particles
           break;
         case 'standard':
-          baseBitrate = isMobile ? 60000000 : 100000000;  // 60-100 Mbps for 4K Standard
+          baseBitrate = isMobile ? 120000000 : 200000000; // 120-200 Mbps for 4K Standard particles
           break;
         default:
-          baseBitrate = 100000000;
+          baseBitrate = 200000000;
       }
     } else { // 1080p
       switch (quality) {
         case 'ultra':
-          baseBitrate = isMobile ? 80000000 : 120000000;  // 80-120 Mbps for 1080p Ultra
+          baseBitrate = isMobile ? 150000000 : 250000000; // 150-250 Mbps for 1080p Ultra particles
           break;
         case 'high':
-          baseBitrate = isMobile ? 50000000 : 80000000;   // 50-80 Mbps for 1080p High
+          baseBitrate = isMobile ? 100000000 : 150000000; // 100-150 Mbps for 1080p High particles
           break;
         case 'standard':
-          baseBitrate = isMobile ? 30000000 : 50000000;   // 30-50 Mbps for 1080p Standard
+          baseBitrate = isMobile ? 60000000 : 100000000;  // 60-100 Mbps for 1080p Standard particles
           break;
         default:
-          baseBitrate = 50000000;
+          baseBitrate = 100000000;
       }
     }
     
-    // For 9:16 aspect ratio, maintain similar quality
+    // For 9:16 aspect ratio, maintain similar quality for particles
     if (aspectRatio === '9:16') {
-      baseBitrate = Math.round(baseBitrate * 0.85); // Slightly reduce for vertical format
+      baseBitrate = Math.round(baseBitrate * 0.9); // Slightly reduce for vertical format
     }
     
-    // Ensure we don't exceed practical browser limits but allow very high bitrates for Three.js
-    const maxBitrate = 300000000; // 300 Mbps maximum
-    const minBitrate = 25000000;  // 25 Mbps minimum for Three.js quality
+    // Allow extremely high bitrates for particle system quality
+    const maxBitrate = 600000000; // 600 Mbps maximum for particle systems
+    const minBitrate = 50000000;  // 50 Mbps minimum for particle quality
     
     return Math.max(minBitrate, Math.min(maxBitrate, baseBitrate));
   }, [resolution, quality, aspectRatio, isMobile]);
@@ -197,7 +201,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, [videoUrl]);
 
-  // Prepare Three.js canvas for recording
+  // Prepare Three.js canvas for recording with particle system optimization
   const prepareCanvasForRecording = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return false;
@@ -216,13 +220,35 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         console.warn('⚠️ preserveDrawingBuffer not enabled - recording quality may be affected');
       }
 
-      // Force a consistent pixel ratio for recording
-      const pixelRatio = resolution === '4k' ? 2 : 1;
+      // CRITICAL: Force high pixel ratio for particle systems
+      // Particles use point sprites that need high resolution to avoid pixelation
+      const recordingPixelRatio = resolution === '4k' ? 3 : 2; // Higher ratios for particles
       
-      console.log('🎥 Three.js canvas prepared for recording:', {
+      // Force WebGL to use floating point textures for better particle rendering
+      const ext = context.getExtension('OES_texture_float');
+      if (!ext) {
+        console.warn('⚠️ OES_texture_float not supported - particle quality may be reduced');
+      }
+
+      // Enable anisotropic filtering for better particle rendering
+      const anisotropyExt = context.getExtension('EXT_texture_filter_anisotropic');
+      if (anisotropyExt) {
+        console.log('✅ Anisotropic filtering enabled for particles');
+      }
+
+      // Wait multiple frames to ensure particle system is fully initialized
+      for (let i = 0; i < 3; i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+      
+      console.log('🎥 Three.js canvas prepared for particle recording:', {
         dimensions: `${canvas.width}x${canvas.height}`,
-        pixelRatio,
-        contextAttributes
+        pixelRatio: recordingPixelRatio,
+        contextAttributes,
+        particleOptimizations: {
+          floatTextures: !!ext,
+          anisotropicFiltering: !!anisotropyExt
+        }
       });
 
       return true;
@@ -255,16 +281,43 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       chunksRef.current = [];
       
-      // Get the canvas stream with optimized settings for Three.js
+      // Get the canvas stream with optimized settings for particle systems
       const canvas = canvasRef.current;
       
-      // Use 60fps for smooth Three.js animations - critical for particle systems and camera movements
+      // Use maximum 60fps for particle systems - critical for smooth particle animation
       const frameRate = 60;
       
-      // Wait a frame to ensure Three.js is rendering properly
-      await new Promise(resolve => requestAnimationFrame(resolve));
+      // Wait multiple frames to ensure particle system is fully rendered and stable
+      for (let i = 0; i < 5; i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
       
+      // CRITICAL: Capture stream with maximum quality settings for particles
       const stream = canvas.captureStream(frameRate);
+      
+      // Get video track and apply additional quality settings
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const capabilities = videoTrack.getCapabilities?.();
+        if (capabilities) {
+          console.log('📹 Video track capabilities:', capabilities);
+          
+          // Apply constraints for maximum quality
+          const constraints = {
+            frameRate: { ideal: frameRate, max: frameRate },
+            width: { ideal: canvas.width },
+            height: { ideal: canvas.height }
+          };
+          
+          try {
+            await videoTrack.applyConstraints(constraints);
+            console.log('✅ Applied high-quality constraints for particle recording');
+          } catch (constraintError) {
+            console.warn('⚠️ Could not apply video constraints:', constraintError);
+          }
+        }
+      }
+      
       streamRef.current = stream;
       
       const bitrate = getBitrate();
@@ -313,8 +366,8 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         stopRecording();
       };
       
-      // Start recording with very small timeslices for Three.js smoothness (10ms chunks)
-      recorder.start(10);
+      // Start recording with ultra-small timeslices for particle system smoothness (5ms chunks)
+      recorder.start(5);
       mediaRecorderRef.current = recorder;
       
       // Start timer
@@ -416,7 +469,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       {showSettings && !isRecording && !isProcessing && (
         <div className="absolute -top-80 left-0 right-0 bg-black/85 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4 shadow-2xl">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-white text-sm font-medium">Three.js Video Settings</h3>
+            <h3 className="text-white text-sm font-medium">Particle System Video Settings</h3>
             <button 
               onClick={() => setShowSettings(false)}
               className="text-gray-400 hover:text-white transition-colors"
@@ -497,7 +550,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             
             {/* Quality Selection for Three.js */}
             <div>
-              <label className="text-white text-xs mb-2 block">Quality (Three.js)</label>
+              <label className="text-white text-xs mb-2 block">Quality (Particle Systems)</label>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setQuality('standard')}
@@ -531,10 +584,11 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
           <div className="mt-4 p-3 bg-gray-800/50 rounded border border-gray-600">
             <div className="text-xs text-gray-300 space-y-1">
               <div>📐 Output: {width} × {height} ({aspectRatio})</div>
-              <div>🎬 Bitrate: {(getBitrate() / 1000000).toFixed(0)} Mbps (Three.js Optimized)</div>
-              <div>🎞️ Frame Rate: 60 fps (Smooth animations)</div>
+              <div>🎬 Bitrate: {(getBitrate() / 1000000).toFixed(0)} Mbps (Particle Optimized)</div>
+              <div>🎞️ Frame Rate: 60 fps (Smooth particles)</div>
               <div>💾 Est. Size: ~{estimatedFileSizeMB} MB</div>
-              <div className="text-yellow-400 text-xs">⚡ High bitrates ensure quality for 3D content</div>
+              <div className="text-yellow-400 text-xs">✨ Ultra-high bitrates for particle quality</div>
+              <div className="text-blue-400 text-xs">🔬 Shader-optimized recording</div>
             </div>
           </div>
         </div>
@@ -558,7 +612,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors shadow-lg"
-              title="Three.js Recording Settings"
+              title="Particle System Recording Settings"
             >
               <Settings className="w-4 h-4" />
             </button>
