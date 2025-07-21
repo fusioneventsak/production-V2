@@ -68,6 +68,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [resolution, setResolution] = useState<Resolution>('1080p');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [quality, setQuality] = useState<'standard' | 'high' | 'ultra'>('high');
+  const [originalCanvasSize, setOriginalCanvasSize] = useState<{width: number, height: number} | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -155,6 +156,19 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     
     try {
       setError(null);
+      
+      const canvas = canvasRef.current;
+      
+      // CRITICAL FIX: Store original canvas size BEFORE changing resolution
+      setOriginalCanvasSize({ 
+        width: canvas.width, 
+        height: canvas.height 
+      });
+      
+      console.log('📺 FOUND THE BUG: Canvas resize changes pixel ratio!');
+      console.log('📏 Original canvas size:', canvas.width, 'x', canvas.height);
+      console.log('📏 Original pixel ratio:', canvas.width > 1920 ? 2 : 1);
+      
       setIsRecording(true);
       setRecordingTime(0);
       setVideoBlob(null);
@@ -162,12 +176,15 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       chunksRef.current = [];
       
-      const canvas = canvasRef.current;
+      // ISSUE: When we change canvas size for recording, CollageScene onCreated runs again
+      // and calls state.gl.setPixelRatio(width > 1920 ? 2 : 1)
+      // This changes how particles render!
       
-      console.log('📺 Starting SIMPLE screen recording of canvas...');
+      console.log('⚠️ WARNING: Changing canvas size will trigger pixel ratio change');
+      console.log('⚠️ This is why distant particles look different during recording');
       
       // Just capture the canvas as-is, like screen recording
-      const stream = canvas.captureStream(30); // 30fps is fine and more compatible
+      const stream = canvas.captureStream(30);
       streamRef.current = stream;
       
       // Use simple, compatible codec
@@ -180,12 +197,12 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       const bitrate = getBitrate();
       
-      console.log(`📹 Simple recording settings:`, {
-        resolution: `${canvas.width}x${canvas.height}`,
+      console.log(`📹 Recording with current canvas (pixel ratio issue exists):`, {
+        currentSize: `${canvas.width}x${canvas.height}`,
+        currentPixelRatio: canvas.width > 1920 ? 2 : 1,
         bitrate: `${(bitrate / 1000000).toFixed(1)} Mbps`,
         codec: mimeType,
-        frameRate: '30fps',
-        approach: 'Direct canvas capture - no processing'
+        issue: 'Canvas resize during recording changes pixel ratio!'
       });
       
       // Simple MediaRecorder setup
@@ -209,9 +226,16 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         setIsProcessing(false);
         streamRef.current = null;
         
-        console.log('✅ Simple recording completed:', {
+        // RESTORE original canvas size after recording
+        if (originalCanvasSize && onResolutionChange) {
+          console.log('🔄 Restoring original canvas size:', originalCanvasSize);
+          onResolutionChange(originalCanvasSize.width, originalCanvasSize.height);
+        }
+        
+        console.log('✅ Recording completed (pixel ratio bug identified):', {
           actualSize: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-          type: blob.type
+          type: blob.type,
+          bug: 'Canvas resize changes pixel ratio - affects distant particles!'
         });
       };
       
@@ -222,7 +246,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       };
       
       // Start recording with regular timeslices
-      recorder.start(1000); // 1 second chunks
+      recorder.start(1000);
       mediaRecorderRef.current = recorder;
       
       // Start timer
@@ -242,7 +266,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       setError('Failed to start recording');
       setIsRecording(false);
     }
-  }, [canvasRef, duration, getBitrate]);
+  }, [canvasRef, duration, getBitrate, originalCanvasSize, onResolutionChange]);
 
   const stopRecording = useCallback(() => {
     if (timerRef.current) {
@@ -265,8 +289,15 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       streamRef.current = null;
     }
     
+    // RESTORE original canvas size to fix pixel ratio
+    if (originalCanvasSize && onResolutionChange) {
+      console.log('🔄 Restoring original canvas size to fix pixel ratio');
+      onResolutionChange(originalCanvasSize.width, originalCanvasSize.height);
+      setOriginalCanvasSize(null);
+    }
+    
     setIsRecording(false);
-  }, []);
+  }, [originalCanvasSize, onResolutionChange]);
 
   const downloadVideo = useCallback(() => {
     if (!videoBlob || !videoUrl) return;
