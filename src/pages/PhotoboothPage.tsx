@@ -34,6 +34,8 @@ const PhotoboothPage: React.FC = () => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [isCountingDown, setIsCountingDown] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [isEditingText, setIsEditingText] = useState(false);
   const [textPosition, setTextPosition] = useState({ x: 50, y: 50 });
@@ -865,10 +867,29 @@ const PhotoboothPage: React.FC = () => {
   }, [textElements, photoContainerRef, wrapText]);
 
   const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || cameraState !== 'active') {
-      console.log('❌ Cannot capture: missing refs or camera not active');
-      return;
-    }
+    if (!videoRef.current || !canvasRef.current || cameraState !== 'active' || isCountingDown) return;
+
+    // Start countdown
+    setIsCountingDown(true);
+    setCountdown(3);
+    
+    // Countdown timer
+    const countdownInterval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          setIsCountingDown(false);
+          // Start actual capture after countdown
+          performCapture();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [textElements, cameraState, isCountingDown]);
+
+  const performCapture = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
 
     setIsEditingText(false);
     
@@ -934,7 +955,7 @@ const PhotoboothPage: React.FC = () => {
     cleanupCamera();
     
     console.log('✅ Photo capture complete, text elements preserved for editing');
-  }, [textElements, cameraState, cleanupCamera]);
+  }, [textElements, cleanupCamera]);
 
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
@@ -1057,33 +1078,23 @@ const PhotoboothPage: React.FC = () => {
       
       // Ultimate fallback
       try {
-        let finalPhoto = photo;
-        if (textElements.length > 0 && canvasRef.current) {
-          finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
-        }
-        
         const newWindow = window.open();
         if (newWindow) {
           newWindow.document.write(`
             <html>
-              <head><title>Your Photobooth Photo</title></head>
-              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
-                <img src="${finalPhoto}" style="max-width:90%;max-height:70vh;border-radius:10px;" />
-                <div style="color:white;text-align:center;margin-top:20px;padding:20px;">
-                  <h2>Save Your Photo</h2>
-                  <p><strong>Desktop:</strong> Right-click image → "Save image as..."</p>
-                  <p><strong>Mobile:</strong> Long-press image → "Save to Photos"</p>
-                </div>
+              <head><title>Photo</title></head>
+              <body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+                <img src="${photo}" style="max-width:100%;max-height:100%;" />
               </body>
             </html>
           `);
           newWindow.document.close();
         }
-      } catch (fallbackErr) {
-        console.error('❌ Fallback failed too:', fallbackErr);
+        setError('Could not download photo. Please try again.');
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
         setError('Could not download photo. Please try again.');
       }
-      
       setTimeout(() => setError(null), 5000);
     } finally {
       setIsDownloading(false);
@@ -1444,7 +1455,6 @@ const PhotoboothPage: React.FC = () => {
                 </button>
                 <div>
                   <h1 className="text-lg font-bold text-white flex items-center space-x-2">
-                    <Camera className="w-5 h-5 text-purple-400" />
                     <span>Photobooth</span>
                   </h1>
                   <p className="text-gray-300 text-sm">{currentCollage?.name}</p>
@@ -1825,6 +1835,42 @@ const PhotoboothPage: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
                 
+                {/* Countdown Overlay - Contained within camera preview */}
+                {isCountingDown && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                    <div className="text-center">
+                      <div 
+                        className="text-8xl md:text-9xl font-bold text-white mb-4 animate-pulse"
+                        style={{
+                          textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.6)',
+                          filter: 'drop-shadow(0 0 10px rgba(0, 0, 0, 0.8))'
+                        }}
+                      >
+                        {countdown}
+                      </div>
+                      <p 
+                        className="text-xl md:text-2xl text-white font-medium"
+                        style={{
+                          textShadow: '0 0 10px rgba(0, 0, 0, 0.8)',
+                          filter: 'drop-shadow(0 0 5px rgba(0, 0, 0, 0.8))'
+                        }}
+                      >
+                        Get ready for your photo!
+                      </p>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="absolute bottom-8 left-8 right-8">
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div 
+                          className="bg-white h-2 rounded-full transition-all duration-1000 ease-linear"
+                          style={{ width: `${((4 - countdown) / 3) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {cameraState !== 'active' && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="text-center text-white">
@@ -1874,10 +1920,17 @@ const PhotoboothPage: React.FC = () => {
                   <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2">
                     <button 
                       onClick={capturePhoto}
-                      className="w-20 h-20 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-xl focus:outline-none"
+                      disabled={isCountingDown}
+                      className={`w-20 h-20 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all flex items-center justify-center shadow-xl focus:outline-none ${
+                        isCountingDown ? 'animate-pulse' : 'hover:scale-105 active:scale-95'
+                      }`}
                       style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                     >
-                      <div className="w-16 h-16 bg-gray-300 rounded-full"></div>
+                      {isCountingDown ? (
+                        <div className="w-8 h-8 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-300 rounded-full"></div>
+                      )}
                     </button>
                   </div>
                 )}
@@ -2261,11 +2314,18 @@ const PhotoboothPage: React.FC = () => {
                             console.log('🖥️ Desktop capture button clicked!');
                             capturePhoto();
                           }}
-                          className="w-12 h-12 bg-white rounded-full border-3 border-gray-300 hover:border-gray-100 transition-all active:scale-95 flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50"
+                          disabled={isCountingDown}
+                          className={`w-12 h-12 bg-white rounded-full border-3 border-gray-300 hover:border-gray-100 transition-all flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50 ${
+                            isCountingDown ? 'animate-pulse' : 'active:scale-95'
+                          }`}
                           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                           title="Take Photo"
                         >
-                          <div className="w-8 h-8 bg-gray-300 hover:bg-gray-400 rounded-full transition-colors"></div>
+                          {isCountingDown ? (
+                            <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <div className="w-8 h-8 bg-gray-300 hover:bg-gray-400 rounded-full transition-colors"></div>
+                          )}
                         </button>
                       </div>
                     )}
@@ -2342,6 +2402,24 @@ const PhotoboothPage: React.FC = () => {
           />
         </div>
       )}
+      
+      {/* Countdown Animation Styles */}
+      <style jsx>{`
+        @keyframes countdownPulse {
+          0% { 
+            transform: scale(1); 
+            opacity: 0.8; 
+          }
+          50% { 
+            transform: scale(1.1); 
+            opacity: 1; 
+          }
+          100% { 
+            transform: scale(1); 
+            opacity: 0.8; 
+          }
+        }
+      `}</style>
     </div>
   );
 };
