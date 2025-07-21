@@ -1144,13 +1144,50 @@ const PhotoboothPage: React.FC = () => {
           </button>
         )}
         
-        {/* Resize corner for desktop */}
+        {/* Resize corner for mobile and desktop */}
         {selectedTextId === element.id && !isEditingText && (
           <div
-            className="absolute -bottom-1 -right-1 w-4 h-4 bg-white border border-gray-400 rounded-full cursor-se-resize z-30 hidden md:block"
+            className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border-2 border-gray-400 rounded-full cursor-se-resize z-30 flex items-center justify-center shadow-lg"
             onMouseDown={(e) => handleResizeCornerStart(e, element.id)}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              const element = textElements.find(el => el.id === element.id);
+              if (!element) return;
+              
+              setInitialScale(element.scale || 1);
+              
+              const startTouch = e.touches[0];
+              const startX = startTouch.clientX;
+              const startY = startTouch.clientY;
+              
+              const moveHandler = (moveEvent: TouchEvent) => {
+                if (moveEvent.touches.length > 0) {
+                  const currentTouch = moveEvent.touches[0];
+                  const deltaX = currentTouch.clientX - startX;
+                  const deltaY = currentTouch.clientY - startY;
+                  const delta = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                  const scaleChange = 1 + (delta / 100); // Adjust sensitivity
+                  
+                  updateTextElement(element.id, {
+                    scale: Math.max(0.5, Math.min(3, (initialScale || 1) * scaleChange))
+                  });
+                }
+              };
+              
+              const endHandler = () => {
+                document.removeEventListener('touchmove', moveHandler);
+                document.removeEventListener('touchend', endHandler);
+              };
+              
+              document.addEventListener('touchmove', moveHandler, { passive: false });
+              document.addEventListener('touchend', endHandler);
+            }}
             style={{ touchAction: 'none' }}
-          />
+          >
+            <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+          </div>
         )}
       </div>
     ));
@@ -1437,6 +1474,16 @@ const PhotoboothPage: React.FC = () => {
                       {/* Text Size Icon with Slider - Modified for mobile */}
                       <div className="relative">
                         <button
+                          onClick={() => {
+                            // Cycle text size on tap
+                            const element = textElements.find(el => el.id === selectedTextId);
+                            if (element) {
+                              const sizes = [16, 24, 32, 40, 48, 56, 64, 72];
+                              const currentIndex = sizes.findIndex(s => s >= element.size);
+                              const nextIndex = (currentIndex + 1) % sizes.length;
+                              updateTextElement(selectedTextId, { size: sizes[nextIndex] });
+                            }
+                          }}
                           onTouchStart={(e) => {
                             e.preventDefault();
                             // Show size controls on touch
@@ -1466,7 +1513,14 @@ const PhotoboothPage: React.FC = () => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const element = textElements.find(el => el.id === selectedTextId);
-                                if (element) {
+                                if (element && selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
+                                }
+                              }}
+                              onTouchEnd={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element && selectedTextId) {
                                   updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
                                 }
                               }}
@@ -1482,7 +1536,15 @@ const PhotoboothPage: React.FC = () => {
                               value={textElements.find(el => el.id === selectedTextId)?.size || 32}
                               onChange={(e) => {
                                 e.stopPropagation();
-                                updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
+                                if (selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
+                                }
+                              }}
+                              onInput={(e) => {
+                                e.stopPropagation();
+                                if (selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: parseInt((e.target as HTMLInputElement).value) });
+                                }
                               }}
                               className="flex-1 h-3 bg-white/30 rounded-full appearance-none cursor-pointer"
                               style={{ zIndex: 53 }}
@@ -1491,7 +1553,14 @@ const PhotoboothPage: React.FC = () => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const element = textElements.find(el => el.id === selectedTextId);
-                                if (element) {
+                                if (element && selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
+                                }
+                              }}
+                              onTouchEnd={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element && selectedTextId) {
                                   updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
                                 }
                               }}
