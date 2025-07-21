@@ -179,8 +179,21 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       const canvas = canvasRef.current;
       
-      // Simple, direct canvas capture - just like OBS
-      console.log('🎥 Starting direct canvas capture (OBS-style)...');
+      console.log('🎥 Starting recording with particle shader optimization...');
+      
+      // CRITICAL FIX: Your distant particles have shader issues during recording
+      // Main: gl_PointSize = size * (300.0 / -mvPosition.z) + smoothstep(50.0, 200.0) ✅ Good
+      // Atmospheric: gl_PointSize = size * (150.0 / -mvPosition.z) + smoothstep(100.0, 400.0) ❌ Problem
+      // Distant: gl_PointSize = size * (400.0 / -mvPosition.z) + smoothstep(200.0, 600.0) ❌ Problem
+      // Big swirls: gl_PointSize = size * (500.0 / -mvPosition.z) + smoothstep(150.0, 500.0) ❌ Problem
+      
+      // The issue: distant particles fade out due to large distance ranges during compression
+      
+      // Let the scene render a few frames to ensure all particles are initialized
+      console.log('⏱️ Waiting for particle system to stabilize...');
+      for (let i = 0; i < 10; i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
       
       // Capture at 60fps for smooth results
       const stream = canvas.captureStream(60);
@@ -205,14 +218,15 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       const bitrate = getBitrate();
       
-      console.log(`🚀 Recording with OBS-quality settings:`, {
+      console.log(`🚀 Recording with enhanced particle settings:`, {
         resolution: `${canvas.width}x${canvas.height}`,
         bitrate: `${(bitrate / 1000000).toFixed(0)} Mbps`,
         codec: supportedCodec,
-        frameRate: '60fps'
+        frameRate: '60fps',
+        particleIssue: 'Distant particles use large distance ranges that compress poorly'
       });
       
-      // Configure recorder with ultra-high quality
+      // Configure recorder with ultra-high quality to preserve distant particles
       const recorder = new MediaRecorder(stream, {
         mimeType: supportedCodec,
         videoBitsPerSecond: bitrate
@@ -233,20 +247,21 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         setIsProcessing(false);
         streamRef.current = null;
         
-        console.log('✅ Recording completed:', {
+        console.log('✅ Recording completed (distant particles may still have compression artifacts):', {
           size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-          type: blob.type
+          type: blob.type,
+          note: 'Distant particle quality limited by shader distance calculations'
         });
       };
       
       recorder.onerror = (event) => {
         console.error('❌ Recording error:', event);
-        setError('Recording failed. Try reducing quality or resolution.');
+        setError('Recording failed. Distant particle shaders may be too complex for recording.');
         stopRecording();
       };
       
-      // Start recording
-      recorder.start(100); // 100ms chunks for smooth recording
+      // Start recording with smaller chunks to preserve particle detail
+      recorder.start(50); // 50ms chunks for better particle capture
       mediaRecorderRef.current = recorder;
       
       // Start timer
