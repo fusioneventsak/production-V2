@@ -1932,9 +1932,9 @@ const PhotoboothPage: React.FC = () => {
 
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
             <div className="flex-1 flex justify-center">
-              <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm lg:max-w-md">
+              <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm lg:max-w-md xl:max-w-lg" style={{ maxHeight: 'calc(100vh - 200px)' }}>
                 {photo ? (
-                  <div ref={photoContainerRef} className="relative aspect-[9/16]">
+                  <div ref={photoContainerRef} className="relative w-full" style={{ aspectRatio: '9/16', maxHeight: 'calc(100vh - 200px)' }}>
                     <img 
                       src={photo} 
                       alt="Captured photo" 
@@ -2165,7 +2165,7 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="relative aspect-[9/16] bg-gray-800">
+                  <div className="relative w-full bg-gray-800" style={{ aspectRatio: '9/16', maxHeight: 'calc(100vh - 200px)' }}>
                     <video
                       ref={videoRef}
                       autoPlay
