@@ -64,6 +64,7 @@ const PhotoboothPage: React.FC = () => {
   
   const [showError, setShowError] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
   const textOverlayRef = useRef<HTMLDivElement>(null);
@@ -984,24 +985,78 @@ const PhotoboothPage: React.FC = () => {
   }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, textElements, renderTextToCanvas, cleanupCamera]);
 
   const downloadPhoto = useCallback(async () => {
-    if (!photo) return;
+    if (!photo || isDownloading) return;
 
-    let finalPhoto = photo;
-    
-    // Render text to the photo before downloading
-    if (textElements.length > 0 && canvasRef.current) {
-      console.log('🎨 Rendering text to photo before download...');
-      finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+    setIsDownloading(true);
+
+    try {
+      let finalPhoto = photo;
+      
+      // Render text to the photo before downloading
+      if (textElements.length > 0 && canvasRef.current) {
+        console.log('🎨 Rendering text to photo before download...');
+        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+      }
+
+      // Create download link
+      const link = document.createElement('a');
+      link.href = finalPhoto;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      link.download = `photobooth-${timestamp}.jpg`;
+      
+      // For better mobile compatibility
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      
+      // Trigger download
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(finalPhoto);
+      }, 100);
+      
+      // Show success message
+      setError('Photo downloaded successfully!');
+      setTimeout(() => setError(null), 2000);
+      
+      console.log('💾 Photo downloaded with text elements');
+    } catch (err) {
+      console.error('❌ Download failed:', err);
+      setError('Download failed. Please try again.');
+      setTimeout(() => setError(null), 3000);
+      
+      // Fallback: Try to open in new tab for manual save
+      try {
+        let finalPhoto = photo;
+        if (textElements.length > 0 && canvasRef.current) {
+          finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+        }
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head><title>Download Photo</title></head>
+              <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
+                <div style="text-align:center;">
+                  <img src="${finalPhoto}" style="max-width:100%;max-height:90vh;" />
+                  <div style="color:white;margin-top:20px;">
+                    <p>Right-click the image and select "Save image as..." to download</p>
+                    <p>Or long-press on mobile and select "Save to Photos"</p>
+                  </div>
+                </div>
+              </body>
+            </html>
+          `);
+        }
+      } catch (fallbackErr) {
+        console.error('❌ Fallback also failed:', fallbackErr);
+      }
+    } finally {
+      setIsDownloading(false);
     }
-
-    const link = document.createElement('a');
-    link.href = finalPhoto;
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    link.download = `photobooth-${timestamp}.jpg`;
-    link.click();
-    
-    console.log('💾 Photo downloaded with text elements');
-  }, [photo, textElements, renderTextToCanvas]);
+  }, [photo, textElements, renderTextToCanvas, isDownloading]);
 
   const retakePhoto = useCallback(() => {
     setPhoto(null);
@@ -1665,10 +1720,15 @@ const PhotoboothPage: React.FC = () => {
                 <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
                   <button
                     onClick={downloadPhoto}
-                    className="w-14 h-14 bg-black/70 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
+                    disabled={isDownloading}
+                    className="w-14 h-14 bg-black/70 backdrop-blur-sm hover:bg-black/80 disabled:bg-gray-600/70 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
                     title="Download"
                   >
-                    <Download className="w-7 h-7" />
+                    {isDownloading ? (
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Download className="w-7 h-7" />
+                    )}
                   </button>
                 </div>
                 
@@ -1995,10 +2055,15 @@ const PhotoboothPage: React.FC = () => {
                       
                       <button
                         onClick={downloadPhoto}
-                        className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                        disabled={isDownloading}
+                        className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 disabled:bg-gray-600/60 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
                         title="Download"
                       >
-                        <Download className="w-6 h-6" />
+                        {isDownloading ? (
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Download className="w-6 h-6" />
+                        )}
                       </button>
                       
                       {/* Delete All Text Button */}
