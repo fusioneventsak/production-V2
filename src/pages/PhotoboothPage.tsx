@@ -1082,13 +1082,9 @@ const PhotoboothPage: React.FC = () => {
         if (newWindow) {
           newWindow.document.write(`
             <html>
-              <head><title>Download Photo</title></head>
-              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
-                <img src="${photo}" style="max-width:90%;max-height:70vh;border-radius:10px;" />
-                <div style="color:white;text-align:center;margin-top:20px;padding:20px;">
-                  <h2>Your Photobooth Picture</h2>
-                  <p>Right-click the image above and select<br/><strong>"Save image as..."</strong></p>
-                </div>
+              <head><title>Photo</title></head>
+              <body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+                <img src="${finalPhoto}" style="max-width:100%;max-height:100vh;" />
               </body>
             </html>
           `);
@@ -1458,7 +1454,6 @@ const PhotoboothPage: React.FC = () => {
                 </button>
                 <div>
                   <h1 className="text-lg font-bold text-white flex items-center space-x-2">
-                    <Camera className="w-5 h-5 text-purple-400" />
                     <span>Photobooth</span>
                   </h1>
                   <p className="text-gray-300 text-sm">{currentCollage?.name}</p>
