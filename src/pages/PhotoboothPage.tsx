@@ -1,464 +1,1469 @@
-// src/pages/PhotoboothPage.tsx - FIXED: Black screen photo capture with proper syntax
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Camera, ArrowLeft, Download, RotateCcw, Type, Palette, Move, Trash2, Plus, X } from 'lucide-react';
-import Webcam from 'react-webcam';
+
+// src/pages/PhotoboothPage.tsx - Full-screen mobile experience with desktop layout preserved
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Palette, AlignCenter, AlignLeft, AlignRight, Move, ZoomIn, ZoomOut } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
-import Layout from '../components/layout/Layout';
+import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
-// Text element interface
-interface TextElement {
-  id: string;
-  text: string;
-  x: number;
-  y: number;
-  fontSize: number;
-  color: string;
+type VideoDevice = {
+  deviceId: string;
+  label: string;
+};
+
+type CameraState = 'idle' | 'starting' | 'active' | 'error';
+
+type TextStyle = {
   fontFamily: string;
-  isDragging?: boolean;
-}
-
-// Font options
-const FONT_FAMILIES = [
-  'Arial, sans-serif',
-  'Georgia, serif',
-  'Times New Roman, serif',
-  'Helvetica, sans-serif',
-  'Verdana, sans-serif',
-  'Comic Sans MS, cursive',
-  'Impact, sans-serif',
-  'Trebuchet MS, sans-serif'
-];
-
-// Color presets
-const COLOR_PRESETS = [
-  '#FFFFFF', '#000000', '#FF0000', '#00FF00', '#0000FF',
-  '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080',
-  '#FFC0CB', '#A52A2A', '#808080', '#FFD700', '#32CD32'
-];
+  backgroundColor: string;
+  backgroundOpacity: number;
+  align: 'left' | 'center' | 'right';
+  outline: boolean;
+  padding: number;
+};
 
 const PhotoboothPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { 
-    currentCollage, 
-    fetchCollageByCode, 
-    uploadPhoto, 
-    loading, 
-    error 
-  } = useCollageStore();
-
-  // Camera and photo states
-  const webcamRef = useRef<Webcam>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const isInitializingRef = useRef(false);
+  
+  const [devices, setDevices] = useState<VideoDevice[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [isCountingDown, setIsCountingDown] = useState(false);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [textPosition, setTextPosition] = useState({ x: 50, y: 50 });
+  const [textSize, setTextSize] = useState(24);
+  const [textColor, setTextColor] = useState('#ffffff');
+  const [textShadow, setTextShadow] = useState(true);
+  const [cameraState, setCameraState] = useState<CameraState>('idle');
+  const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
+  
+  // New Instagram Story-like states
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [textElements, setTextElements] = useState<Array<{
+    id: string;
+    text: string;
+    position: { x: number; y: number };
+    size: number;
+    color: string;
+    style: TextStyle;
+    rotation: number;
+    scale: number;
+  }>>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [initialDistance, setInitialDistance] = useState(0);
+  const [initialScale, setInitialScale] = useState(1);
+  const [initialRotation, setInitialRotation] = useState(0);
+  const [showTextStylePanel, setShowTextStylePanel] = useState(false);
+  
+  const [showError, setShowError] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
-  // Text overlay states
-  const [textElements, setTextElements] = useState<TextElement[]>([]);
-  const [selectedElement, setSelectedElement] = useState<string | null>(null);
-  const [showTextControls, setShowTextControls] = useState(false);
-  const [newText, setNewText] = useState('');
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-
-  // Webcam configuration
-  const videoConstraints = {
-    width: 1280,
-    height: 720,
-    facingMode: "user"
-  };
-
-  // Normalize code to uppercase for consistent database lookup
+  const textOverlayRef = useRef<HTMLDivElement>(null);
+  const photoContainerRef = useRef<HTMLDivElement>(null);
+  
+  const safePhotos = Array.isArray(photos) ? photos : [];
   const normalizedCode = code?.toUpperCase();
 
-  // Load collage on mount
-  useEffect(() => {
-    if (normalizedCode) {
-      console.log('🔍 Fetching collage with code:', normalizedCode);
-      fetchCollageByCode(normalizedCode);
-    }
-  }, [normalizedCode, fetchCollageByCode]);
+  // Text style presets
+  const textStylePresets = [
+    { name: 'Classic', fontFamily: 'Arial', backgroundColor: 'transparent', backgroundOpacity: 0, align: 'center' as const, outline: true, padding: 0 },
+    { name: 'Highlight', fontFamily: 'Arial', backgroundColor: '#000000', backgroundOpacity: 0.7, align: 'center' as const, outline: false, padding: 8 },
+    { name: 'Neon', fontFamily: 'Impact', backgroundColor: 'transparent', backgroundOpacity: 0, align: 'center' as const, outline: true, padding: 0 },
+    { name: 'Modern', fontFamily: 'Helvetica', backgroundColor: '#ffffff', backgroundOpacity: 0.9, align: 'center' as const, outline: false, padding: 12 },
+  ];
 
-  // Countdown effect
-  useEffect(() => {
-    if (countdown !== null && countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (countdown === 0) {
-      performCapture();
-    }
-  }, [countdown]);
+  const colorPresets = [
+    '#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', 
+    '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff'
+  ];
 
-  // Enhanced photo capture with delay and validation
-  const performCapture = useCallback(async () => {
-    if (!webcamRef.current) {
-      console.error('❌ Webcam reference not available');
-      setIsCapturing(false);
-      setCountdown(null);
+  // Check if device is mobile/tablet
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = window.innerWidth < 1024; // lg breakpoint
+      setIsMobile(isMobileDevice);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const cleanupCamera = useCallback(() => {
+    console.log('🧹 Cleaning up camera...');
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
+      streamRef.current = null;
+    }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.pause();
+    }
+    
+    setCameraState('idle');
+  }, []);
+
+  const getVideoDevices = useCallback(async (): Promise<VideoDevice[]> => {
+    try {
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = allDevices
+        .filter(device => device.kind === 'videoinput')
+        .map(device => ({
+          deviceId: device.deviceId,
+          label: device.label || `Camera ${device.deviceId}`
+        }));
+      
+      console.log('📹 Available video devices:', videoDevices);
+      return videoDevices;
+    } catch (error) {
+      console.warn('⚠️ Could not enumerate devices:', error);
+      return [];
+    }
+  }, []);
+
+  const waitForVideoElement = useCallback(async (maxWaitMs: number = 5000): Promise<HTMLVideoElement | null> => {
+    const startTime = Date.now();
+    
+    console.log('⏳ Waiting for video element to be available...');
+    while (Date.now() - startTime < maxWaitMs) {
+      if (videoRef.current) {
+        console.log('✅ Video element is available');
+        return videoRef.current;
+      }
+      
+      console.log('⏳ Waiting for video element...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    console.error('❌ Video element not available after waiting');
+    return null;
+  }, []);
+
+  const startCamera = useCallback(async (deviceId?: string) => {
+    if (isInitializingRef.current) {
+      console.log('🔄 Camera initialization already in progress, skipping...');
       return;
     }
 
+    console.log('🎥 Starting camera initialization with device:', deviceId);
+    isInitializingRef.current = true;
+    setCameraState('starting');
+    setError(null);
+
     try {
-      console.log('📸 Starting photo capture process...');
-      
-      // Add a small delay to ensure the frame is ready
+      cleanupCamera();
+      const videoElement = await waitForVideoElement();
+      if (!videoElement) {
+        throw new Error('Video element not available - component may not be fully mounted');
+      }
+
       await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Double-check webcam is still available after delay
-      if (!webcamRef.current) {
-        console.error('❌ Webcam reference lost during capture delay');
-        setIsCapturing(false);
-        setCountdown(null);
-        return;
-      }
 
-      console.log('📸 Taking screenshot...');
-      const imageSrc = webcamRef.current.getScreenshot();
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
+      const isMobileDevice = isIOS || isAndroid;
       
-      // Validate screenshot
-      if (!imageSrc) {
-        console.error('❌ Screenshot returned null or undefined');
-        alert('Failed to capture photo. Please try again.');
-        setIsCapturing(false);
-        setCountdown(null);
-        return;
-      }
-
-      // Check if screenshot is too short (indicates empty/black image)
-      if (imageSrc.length < 1000) {
-        console.error('❌ Screenshot data too short:', imageSrc.length, 'characters');
-        alert('Captured image appears to be empty. Please ensure your camera is working and try again.');
-        setIsCapturing(false);
-        setCountdown(null);
-        return;
-      }
-
-      console.log('✅ Screenshot captured successfully, length:', imageSrc.length, 'characters');
-      setPhoto(imageSrc);
-      setIsCapturing(false);
-      setCountdown(null);
+      console.log('📱 Platform detected:', { isIOS, isAndroid, isMobileDevice });
       
-    } catch (error) {
-      console.error('❌ Error during photo capture:', error);
-      alert('Failed to capture photo. Please try again.');
-      setIsCapturing(false);
-      setCountdown(null);
+      let constraints: MediaStreamConstraints;
+      
+      if (deviceId) {
+        constraints = {
+          video: {
+            deviceId: { exact: deviceId },
+            ...(isMobileDevice ? { facingMode: "user" } : {}),
+            ...(isIOS ? {
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 }
+            } : {})
+          },
+          audio: false
+        };
+      } else {
+        constraints = {
+          video: isMobileDevice ? { facingMode: "user" } : true,
+          audio: false
+        };
+      }
+      
+      console.log('🔧 Using constraints:', constraints);
+      
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('✅ Got media stream:', mediaStream.active);
+      
+      const videoDevices = await getVideoDevices();
+      setDevices(videoDevices);
+      
+      if (!selectedDevice && videoDevices.length > 0 && isMobileDevice) {
+        const frontCamera = videoDevices.find(device => 
+          device.label.toLowerCase().includes('front') ||
+          device.label.toLowerCase().includes('user') ||
+          device.label.toLowerCase().includes('selfie') ||
+          device.label.toLowerCase().includes('facetime')
+        );
+        
+        if (frontCamera) {
+          console.log('📱 Auto-selecting front camera:', frontCamera.label);
+          setSelectedDevice(frontCamera.deviceId);
+        } else {
+          setSelectedDevice(videoDevices[0].deviceId);
+        }
+      }
+      
+      if (!videoRef.current) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        throw new Error('Video element became unavailable during setup');
+      }
+      
+      videoRef.current.srcObject = mediaStream;
+      
+      const video = videoRef.current;
+      
+      // Enhanced event handling with better timing
+      let hasStartedPlaying = false;
+      let eventListeners: { element: HTMLElement, event: string, handler: EventListener }[] = [];
+      
+      // Helper function to ensure video plays
+      const ensureVideoPlay = async (video: HTMLVideoElement) => {
+        try {
+          // Check if video can autoplay
+          const playPromise = video.play();
+          
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log('✅ Video autoplay successful');
+            return true;
+          }
+        } catch (error: any) {
+          console.warn('⚠️ Autoplay prevented:', error.message);
+          
+          // If autoplay fails, try to enable play after user interaction
+          if (error.name === 'NotAllowedError') {
+            console.log('👆 Autoplay blocked - waiting for user interaction');
+            setError('Camera ready - tap anywhere to start video');
+            
+            const enablePlay = () => {
+              video.play().then(() => {
+                console.log('✅ Video play after interaction successful');
+                setError(null);
+                document.removeEventListener('click', enablePlay);
+                document.removeEventListener('touchstart', enablePlay);
+              }).catch(err => console.error('❌ Play after interaction failed:', err));
+            };
+            
+            document.addEventListener('click', enablePlay, { once: true });
+            document.addEventListener('touchstart', enablePlay, { once: true });
+          }
+          
+          return false;
+        }
+        return false;
+      };
+      
+      // Add event listener with tracking for cleanup
+      const addTrackedEventListener = (element: HTMLElement, event: string, handler: EventListener) => {
+        element.addEventListener(event, handler);
+        eventListeners.push({ element, event, handler });
+      };
+      
+      // Clean up all tracked event listeners
+      const cleanupEventListeners = () => {
+        eventListeners.forEach(({ element, event, handler }) => {
+          element.removeEventListener(event, handler);
+        });
+        eventListeners = [];
+      };
+      
+      const handleLoadedMetadata = async () => {
+        console.log('📹 Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+        if (!hasStartedPlaying && video) {
+          const success = await ensureVideoPlay(video);
+          if (success) {
+            hasStartedPlaying = true;
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming from loadedmetadata');
+            cleanupEventListeners();
+          }
+        }
+      };
+      
+      const handleCanPlay = async () => {
+        console.log('📹 Video can play - attempting play if not already playing');
+        if (!hasStartedPlaying && video && video.paused) {
+          const success = await ensureVideoPlay(video);
+          if (success) {
+            hasStartedPlaying = true;
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming from canplay');
+            cleanupEventListeners();
+          }
+        }
+      };
+      
+      const handleLoadedData = async () => {
+        console.log('📹 Video data loaded');
+        // Additional attempt to play
+        if (!hasStartedPlaying && video && video.readyState >= 2) {
+          const success = await ensureVideoPlay(video);
+          if (success) {
+            hasStartedPlaying = true;
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming from loadeddata');
+            cleanupEventListeners();
+          }
+        }
+      };
+      
+      const handleError = (event: Event) => {
+        console.error('❌ Video element error:', event);
+        const target = event.target as HTMLVideoElement;
+        if (target && target.error) {
+          console.error('❌ Video error details:', target.error);
+        }
+        setCameraState('error');
+        setError('Video playback error');
+        mediaStream.getTracks().forEach(track => track.stop());
+        cleanupEventListeners();
+      };
+      
+      // Add event listeners - removed once: true to allow multiple attempts
+      addTrackedEventListener(video, 'loadedmetadata', handleLoadedMetadata);
+      addTrackedEventListener(video, 'canplay', handleCanPlay);
+      addTrackedEventListener(video, 'loadeddata', handleLoadedData);
+      addTrackedEventListener(video, 'error', handleError);
+      
+      // Additional debugging events
+      addTrackedEventListener(video, 'loadstart', () => console.log('📹 Video load start'));
+      addTrackedEventListener(video, 'canplaythrough', () => console.log('📹 Video can play through'));
+      
+      console.log('📹 Video element setup complete, waiting for events...');
+      
+      // Set the stream with a small delay to ensure event listeners are ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      video.srcObject = mediaStream;
+      
+      // AGGRESSIVE FALLBACK: Force camera active after short delay
+      setTimeout(() => {
+        if (!hasStartedPlaying) {
+          console.log('🚨 FORCING camera active - video events not firing properly');
+          console.log('🚨 Video readyState:', video.readyState);
+          console.log('🚨 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+          console.log('🚨 Video paused:', video.paused);
+          
+          // Force the camera to active state regardless of events
+          hasStartedPlaying = true;
+          streamRef.current = mediaStream;
+          setCameraState('active');
+          console.log('✅ Camera FORCED to active state');
+          cleanupEventListeners();
+        }
+      }, 1000); // Force after 1 second
+      
+      // Force a manual check after setting srcObject
+      setTimeout(() => {
+        if (!hasStartedPlaying && video && video.readyState >= 1) {
+          console.log('🔧 Manual video state check - readyState:', video.readyState);
+          console.log('🔧 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+          
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            console.log('✅ Video has dimensions, attempting manual play...');
+            ensureVideoPlay(video).then(success => {
+              if (success) {
+                hasStartedPlaying = true;
+                streamRef.current = mediaStream;
+                setCameraState('active');
+                console.log('✅ Camera active via manual check');
+                cleanupEventListeners();
+              }
+            });
+          }
+        }
+      }, 500);
+      
+      // Force load and play if needed after a short delay
+      const forcePlayTimeout = setTimeout(async () => {
+        if (!hasStartedPlaying && video && video.readyState >= 1) {
+          console.log('⏰ Forcing video play after timeout...');
+          console.log('⏰ Video readyState:', video.readyState, 'dimensions:', video.videoWidth, 'x', video.videoHeight);
+          
+          const success = await ensureVideoPlay(video);
+          if (success) {
+            hasStartedPlaying = true;
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming from force play');
+            cleanupEventListeners();
+          } else {
+            console.error('❌ Forced play failed');
+            // Still set to active if we have video dimensions
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              console.log('📹 Video has dimensions, setting active anyway');
+              hasStartedPlaying = true;
+              streamRef.current = mediaStream;
+              setCameraState('active');
+              cleanupEventListeners();
+            } else {
+              setCameraState('error');
+              setError('Camera initialization timeout - try refreshing the page');
+              mediaStream.getTracks().forEach(track => track.stop());
+              cleanupEventListeners();
+            }
+          }
+        }
+      }, 2000);
+      
+      // Cleanup timeout when camera becomes active
+      const checkActive = setInterval(() => {
+        if (hasStartedPlaying || cameraState === 'active') {
+          clearTimeout(forcePlayTimeout);
+          clearInterval(checkActive);
+          cleanupEventListeners();
+        }
+      }, 100);
+      
+    } catch (err: any) {
+      console.error('❌ Camera initialization failed:', err);
+      setCameraState('error');
+      
+      let errorMessage = 'Failed to access camera. ';
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = 'Camera access denied. Please allow camera access and refresh the page.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No camera found. Please check your camera and try again.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Camera is busy. Please close other apps using the camera and try again.';
+      } else if (err.name === 'OverconstrainedError') {
+        try {
+          console.log('🔄 Trying fallback constraints...');
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user" }, 
+            audio: false 
+          });
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = fallbackStream;
+            await videoRef.current.play();
+            streamRef.current = fallbackStream;
+            setCameraState('active');
+            setError(null);
+            console.log('✅ Fallback camera working');
+            return;
+          } else {
+            fallbackStream.getTracks().forEach(track => track.stop());
+            throw new Error('Video element not available for fallback');
+          }
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+          errorMessage = 'Camera not compatible with this device.';
+        }
+      } else {
+        errorMessage += err.message || 'Unknown camera error.';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      isInitializingRef.current = false;
     }
-  }, []);
+  }, [selectedDevice, cameraState, cleanupCamera, getVideoDevices, waitForVideoElement]);
 
-  const startCapture = useCallback(() => {
-    setIsCapturing(true);
-    setCountdown(3);
-    setUploadError(null);
-  }, []);
+  const switchCamera = useCallback(() => {
+    if (devices.length <= 1) return;
+    
+    const currentIndex = devices.findIndex(d => d.deviceId === selectedDevice);
+    const nextIndex = (currentIndex + 1) % devices.length;
+    handleDeviceChange(devices[nextIndex].deviceId);
+  }, [devices, selectedDevice]);
 
-  // Add text element
+  const handleDeviceChange = useCallback((newDeviceId: string) => {
+    if (newDeviceId === selectedDevice) return;
+    
+    setSelectedDevice(newDeviceId);
+    
+    if (!photo && cameraState !== 'starting') {
+      console.log('📱 Device changed, restarting camera...');
+      startCamera(newDeviceId);
+    }
+  }, [selectedDevice, photo, cameraState, startCamera]);
+
+  // Add new text element
   const addTextElement = useCallback(() => {
-    if (!newText.trim()) return;
-
-    const newElement: TextElement = {
-      id: Date.now().toString(),
-      text: newText,
-      x: 50, // Center-ish position
-      y: 50,
-      fontSize: 24,
-      color: '#FFFFFF',
-      fontFamily: 'Arial, sans-serif'
+    const newId = Date.now().toString();
+    const newElement = {
+      id: newId,
+      text: '',
+      position: { x: 50, y: 50 },
+      size: 32,
+      color: '#ffffff',
+      style: textStylePresets[0],
+      rotation: 0,
+      scale: 1,
     };
-
+    
     setTextElements(prev => [...prev, newElement]);
-    setNewText('');
-    setSelectedElement(newElement.id);
-  }, [newText]);
-
-  // Update text element
-  const updateTextElement = useCallback((id: string, updates: Partial<TextElement>) => {
-    setTextElements(prev => prev.map(el => 
-      el.id === id ? { ...el, ...updates } : el
-    ));
+    setSelectedTextId(newId);
+    setIsEditingText(true);
   }, []);
 
   // Delete text element
   const deleteTextElement = useCallback((id: string) => {
     setTextElements(prev => prev.filter(el => el.id !== id));
-    if (selectedElement === id) {
-      setSelectedElement(null);
+    if (selectedTextId === id) {
+      setSelectedTextId(null);
+      setIsEditingText(false);
+      setShowTextStylePanel(false);
     }
-  }, [selectedElement]);
+  }, [selectedTextId]);
 
-  // Handle mouse events for dragging
-  const handleMouseDown = useCallback((e: React.MouseEvent, elementId: string) => {
-    e.preventDefault();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const element = textElements.find(el => el.id === elementId);
-    if (!element) return;
-
-    setDragOffset({
-      x: e.clientX - rect.left - (element.x * rect.width / 100),
-      y: e.clientY - rect.top - (element.y * rect.height / 100)
-    });
-
-    setSelectedElement(elementId);
-    updateTextElement(elementId, { isDragging: true });
-  }, [textElements, updateTextElement]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const draggingElement = textElements.find(el => el.isDragging);
-    if (!draggingElement) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left - dragOffset.x) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top - dragOffset.y) / rect.height) * 100));
-
-    updateTextElement(draggingElement.id, { x, y });
-  }, [textElements, dragOffset, updateTextElement]);
-
-  const handleMouseUp = useCallback(() => {
-    setTextElements(prev => prev.map(el => ({ ...el, isDragging: false })));
+  // Update text element
+  const updateTextElement = useCallback((id: string, updates: Partial<typeof textElements[0]>) => {
+    setTextElements(prev => prev.map(el => 
+      el.id === id ? { ...el, ...updates } : el
+    ));
   }, []);
 
-  // Render text to canvas
-  const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, baseImage: HTMLImageElement) => {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // Get touch distance for pinch gestures
+  const getTouchDistance = (touches: TouchList): number => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.sqrt(
+      Math.pow(touch2.clientX - touch1.clientX, 2) + 
+      Math.pow(touch2.clientY - touch1.clientY, 2)
+    );
+  };
 
-    // Set canvas size to match image
-    canvas.width = baseImage.width;
-    canvas.height = baseImage.height;
+  // Get touch angle for rotation
+  const getTouchAngle = (touches: TouchList): number => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.atan2(touch2.clientY - touch1.clientY, touch2.clientX - touch1.clientX) * 180 / Math.PI;
+  };
 
-    // Draw the base image
-    ctx.drawImage(baseImage, 0, 0);
+  // Handle text interaction start (mouse/touch)
+  const handleTextInteractionStart = useCallback((e: React.MouseEvent | React.TouchEvent, textId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!photoContainerRef.current) return;
+    
+    setSelectedTextId(textId);
+    setIsDragging(true);
+    
+    const container = photoContainerRef.current.getBoundingClientRect();
+    
+    if ('touches' in e && e.touches.length === 2) {
+      setIsResizing(true);
+      setInitialDistance(getTouchDistance(e.touches));
+      setInitialRotation(getTouchAngle(e.touches));
+      
+      const element = textElements.find(el => el.id === textId);
+      if (element) {
+        setInitialScale(element.scale);
+      }
+    } else {
+      setIsResizing(false);
+    }
+    
+    const moveHandler = (moveEvent: MouseEvent | TouchEvent) => {
+      if ('touches' in moveEvent && moveEvent.touches.length === 2 && isResizing) {
+        const currentDistance = getTouchDistance(moveEvent.touches);
+        const currentAngle = getTouchAngle(moveEvent.touches);
+        
+        const scaleChange = currentDistance / initialDistance;
+        const rotationChange = currentAngle - initialRotation;
+        
+        updateTextElement(textId, {
+          scale: Math.max(0.5, Math.min(3, initialScale * scaleChange)),
+          rotation: rotationChange
+        });
+      } else {
+        const clientX = 'touches' in moveEvent 
+          ? moveEvent.touches[0].clientX 
+          : moveEvent.clientX;
+        const clientY = 'touches' in moveEvent 
+          ? moveEvent.touches[0].clientY 
+          : moveEvent.clientY;
+        
+        const x = Math.max(5, Math.min(95, ((clientX - container.left) / container.width) * 100));
+        const y = Math.max(5, Math.min(95, ((clientY - container.top) / container.height) * 100));
+        
+        updateTextElement(textId, { position: { x, y } });
+      }
+    };
+    
+    const endHandler = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+      document.removeEventListener('mousemove', moveHandler);
+      document.removeEventListener('touchmove', moveHandler);
+      document.removeEventListener('mouseup', endHandler);
+      document.removeEventListener('touchend', endHandler);
+    };
+    
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('touchmove', moveHandler);
+    document.addEventListener('mouseup', endHandler);
+    document.addEventListener('touchend', endHandler);
+  }, [textElements, isResizing, initialDistance, initialRotation, initialScale, updateTextElement]);
 
-    // Draw text elements
-    textElements.forEach(element => {
-      const x = (element.x / 100) * canvas.width;
-      const y = (element.y / 100) * canvas.height;
+  // Handle resize corner drag (desktop only)
+  const handleResizeCornerStart = useCallback((e: React.MouseEvent, textId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const element = textElements.find(el => el.id === textId);
+    if (!element) return;
+    
+    setInitialScale(element.scale);
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+    
+    const moveHandler = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      const delta = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      const scaleChange = 1 + (delta / 100); // Adjust sensitivity
+      
+      updateTextElement(textId, {
+        scale: Math.max(0.5, Math.min(3, initialScale * scaleChange))
+      });
+    };
+    
+    const endHandler = () => {
+      document.removeEventListener('mousemove', moveHandler);
+      document.removeEventListener('mouseup', endHandler);
+    };
+    
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('mouseup', endHandler);
+  }, [textElements, initialScale, updateTextElement]);
 
-      ctx.font = `${element.fontSize}px ${element.fontFamily}`;
-      ctx.fillStyle = element.color;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+  // Helper function to wrap text based on maximum width
+  const wrapText = useCallback((context: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
 
-      // Add text shadow for better visibility
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
+    for (let i = 0; i < words.length; i++) {
+      const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+      const metrics = context.measureText(testLine);
+      
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = words[i];
+      } else {
+        currentLine = testLine;
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
+  }, []);
 
-      ctx.fillText(element.text, x, y);
+  // Function to render text elements onto a canvas with high-resolution scaling
+  const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, imageData: string) => {
+    return new Promise<string>((resolve) => {
+      const context = canvas.getContext('2d');
+      if (!context) {
+        resolve(imageData);
+        return;
+      }
 
-      // Reset shadow
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
+      const img = new Image();
+      img.onload = () => {
+        // High-resolution output dimensions
+        const HIGH_RES_WIDTH = 1080;
+        const HIGH_RES_HEIGHT = 1920;
+        
+        // Calculate proper scaling factor to match preview appearance
+        let textScaleFactor = 1;
+        
+        if (photoContainerRef.current) {
+          const rect = photoContainerRef.current.getBoundingClientRect();
+          // Scale text proportionally to how the image is scaled
+          textScaleFactor = HIGH_RES_WIDTH / rect.width;
+          
+          console.log('📐 Preview container:', rect.width, 'x', rect.height);
+          console.log('📐 Text scale factor:', textScaleFactor);
+          console.log('📐 Output dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
+        } else {
+          // Fallback: assume typical mobile preview width
+          textScaleFactor = HIGH_RES_WIDTH / 360;
+          console.warn('⚠️ Preview container not found, using fallback text scale factor:', textScaleFactor);
+        }
+        
+        // Set high-resolution canvas dimensions
+        canvas.width = HIGH_RES_WIDTH;
+        canvas.height = HIGH_RES_HEIGHT;
+
+        // Clear and draw the original image at high resolution
+        context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+        context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+
+        console.log('🎨 Rendering', textElements.length, 'text elements to high-resolution image');
+
+        // Render all text elements with proportional scaling to match preview
+        textElements.forEach((element, index) => {
+          if (!element.text || element.text.trim() === '') {
+            return;
+          }
+
+          console.log(`✏️ Rendering text element ${index}: "${element.text}"`);
+
+          // Calculate positions (these scale with the resolution)
+          const x = (element.position.x / 100) * HIGH_RES_WIDTH;
+          const y = (element.position.y / 100) * HIGH_RES_HEIGHT;
+          
+          // Scale font size proportionally to match preview appearance
+          const baseFontSize = element.size * (element.scale || 1);
+          const fontSize = baseFontSize * textScaleFactor;
+          
+          console.log(`📝 Element ${index}: preview size ${baseFontSize}px, final size ${fontSize}px (scale: ${textScaleFactor})`);
+
+          context.save();
+          context.translate(x, y);
+          context.rotate((element.rotation || 0) * Math.PI / 180);
+
+          context.font = `bold ${fontSize}px ${element.style.fontFamily || 'Arial'}`;
+          context.textAlign = element.style.align || 'center';
+          context.textBaseline = 'middle';
+
+          // Calculate maximum width for text wrapping (scale the 280px constraint)
+          const maxTextWidth = 280 * textScaleFactor;
+
+          // Process text - handle both manual line breaks and automatic wrapping
+          let allLines: string[] = [];
+          const manualLines = element.text.split('\n');
+          
+          manualLines.forEach(line => {
+            if (line.trim() === '') {
+              allLines.push(''); // Preserve empty lines
+            } else {
+              // Wrap each manual line if it's too long
+              const wrappedLines = wrapText(context, line, maxTextWidth);
+              allLines = allLines.concat(wrappedLines);
+            }
+          });
+
+          const lineHeight = fontSize * 1.2;
+          const totalTextHeight = allLines.length * lineHeight;
+          const startY = -(totalTextHeight - lineHeight) / 2;
+
+          console.log(`📝 Element ${index}: ${allLines.length} lines after wrapping, lineHeight: ${lineHeight}px`);
+          console.log(`📝 Lines: ${allLines.map((line, i) => `${i}: "${line}"`).join(', ')}`);
+
+          // Draw background if needed with proportionally scaled padding
+          if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
+            const scaledPadding = element.style.padding * textScaleFactor;
+            const opacity = element.style.backgroundOpacity || 0.7;
+            context.fillStyle = `${element.style.backgroundColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
+
+            // Calculate background for all lines combined
+            let maxWidth = 0;
+            allLines.forEach(line => {
+              if (line) {
+                const metrics = context.measureText(line);
+                maxWidth = Math.max(maxWidth, metrics.width);
+              }
+            });
+
+            let bgX = -maxWidth/2 - scaledPadding;
+            if (element.style.align === 'left') bgX = -scaledPadding;
+            if (element.style.align === 'right') bgX = -maxWidth - scaledPadding;
+
+            context.fillRect(
+              bgX,
+              startY - fontSize/2 - scaledPadding,
+              maxWidth + scaledPadding * 2,
+              totalTextHeight + scaledPadding * 2
+            );
+          }
+
+          // Draw each line separately with proportionally scaled shadows
+          allLines.forEach((line, lineIndex) => {
+            const lineY = startY + lineIndex * lineHeight;
+
+            console.log(`📝 Rendering line ${lineIndex}: "${line}" at y: ${lineY}`);
+
+            // Skip empty lines for rendering but preserve spacing
+            if (!line) return;
+
+            // Scale shadow effects proportionally
+            if (element.style.outline) {
+              // Primary shadow
+              context.shadowColor = 'rgba(0,0,0,0.9)';
+              context.shadowBlur = 12 * textScaleFactor;
+              context.shadowOffsetX = 4 * textScaleFactor;
+              context.shadowOffsetY = 4 * textScaleFactor;
+
+              context.strokeStyle = 'black';
+              context.lineWidth = fontSize * 0.12;
+              context.strokeText(line, 0, lineY);
+
+              // Secondary shadow
+              context.shadowColor = 'rgba(0,0,0,0.8)';
+              context.shadowBlur = 6 * textScaleFactor;
+              context.shadowOffsetX = 2 * textScaleFactor;
+              context.shadowOffsetY = 2 * textScaleFactor;
+              context.strokeStyle = 'rgba(0,0,0,0.8)';
+              context.lineWidth = fontSize * 0.06;
+              context.strokeText(line, 0, lineY);
+            } else {
+              // Standard shadow for non-outline text
+              context.shadowColor = 'rgba(0,0,0,0.8)';
+              context.shadowBlur = 8 * textScaleFactor;
+              context.shadowOffsetX = 3 * textScaleFactor;
+              context.shadowOffsetY = 3 * textScaleFactor;
+            }
+
+            // Draw main text line by line
+            context.fillStyle = element.color;
+            context.fillText(line, 0, lineY);
+
+            // Reset shadow properties after each line
+            context.shadowColor = 'transparent';
+            context.shadowBlur = 0;
+            context.shadowOffsetX = 0;
+            context.shadowOffsetY = 0;
+          });
+
+          context.restore();
+        });
+
+        // Return the final high-resolution image with text
+        const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
+        console.log('✅ Text rendered to high-resolution image with proper wrapping');
+        console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
+        resolve(finalImageData);
+      };
+
+      img.src = imageData;
     });
-  }, [textElements]);
+  }, [textElements, photoContainerRef, wrapText]);
 
-  // Enhanced download with text overlay
+  const capturePhoto = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current || cameraState !== 'active' || isCountingDown) return;
+
+    // Start countdown
+    setIsCountingDown(true);
+    setCountdown(3);
+    
+    // Countdown timer
+    const countdownInterval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          setIsCountingDown(false);
+          // Start actual capture after countdown
+          performCapture();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [textElements, cameraState, isCountingDown]);
+
+  const performCapture = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    setIsEditingText(false);
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      console.log('❌ Cannot get canvas context');
+      return;
+    }
+
+    console.log('📸 Starting photo capture...');
+    console.log('🎨 Text elements available:', textElements.length);
+    console.log('🎨 Current textElements state:', textElements);
+
+    const targetAspectRatio = 9 / 16;
+    const videoAspectRatio = video.videoWidth / video.videoHeight;
+    
+    let sourceWidth, sourceHeight, sourceX, sourceY;
+    
+    if (videoAspectRatio > targetAspectRatio) {
+      sourceHeight = video.videoHeight;
+      sourceWidth = sourceHeight * targetAspectRatio;
+      sourceX = (video.videoWidth - sourceWidth) / 2;
+      sourceY = 0;
+    } else {
+      sourceWidth = video.videoWidth;
+      sourceHeight = sourceWidth / targetAspectRatio;
+      sourceX = 0;
+      sourceY = (video.videoHeight - sourceHeight) / 2;
+    }
+
+    const canvasWidth = 540;
+    const canvasHeight = 960;
+    
+    console.log('🖼️ Setting canvas size:', canvasWidth, 'x', canvasHeight);
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    // Clear canvas completely
+    context.clearRect(0, 0, canvasWidth, canvasHeight);
+    console.log('🧹 Canvas cleared');
+    
+    // Draw video frame
+    context.drawImage(
+      video,
+      sourceX, sourceY, sourceWidth, sourceHeight,
+      0, 0, canvasWidth, canvasHeight
+    );
+    console.log('📹 Video frame drawn to canvas');
+
+    // Since textElements might not be captured in closure, let's capture current state
+    const currentTextElements = textElements;
+    console.log('📝 Using current text elements:', currentTextElements.length);
+
+    // Create photo with text elements stored for later rendering
+    const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+    console.log('📸 Basic canvas converted to data URL');
+    
+    setPhoto(dataUrl);
+    // Keep text elements for post-capture editing - DON'T reset them
+    cleanupCamera();
+    
+    console.log('✅ Photo capture complete, text elements preserved for editing');
+  }, [textElements, cleanupCamera]);
+
+  const uploadToCollage = useCallback(async () => {
+    if (!photo || !currentCollage) return;
+
+    setUploading(true);
+    setError(null);
+    setIsEditingText(false);
+    
+    try {
+      // Render text to the photo BEFORE uploading
+      let finalPhoto = photo;
+      
+      if (textElements.length > 0 && canvasRef.current) {
+        console.log('🎨 Rendering text to photo before upload...');
+        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+      }
+
+      // Upload the final photo WITH text rendered
+      const response = await fetch(finalPhoto);
+      const blob = await response.blob();
+      const file = new File([blob], 'photobooth.jpg', { type: 'image/jpeg' });
+
+      const result = await uploadPhoto(currentCollage.id, file);
+      if (result) {        
+        setPhoto(null);
+        setTextElements([]);
+        setSelectedTextId(null);
+        setShowTextStylePanel(false);
+        
+        setError('Photo uploaded successfully! Your photo will appear in the collage automatically.');
+        setTimeout(() => setError(null), 3000);
+        
+        // Ensure camera restarts immediately after upload
+        console.log('🔄 Restarting camera after upload...');
+        await cleanupCamera();
+        await new Promise(resolve => setTimeout(resolve, 300));
+        startCamera(selectedDevice);
+        
+      } else {
+        throw new Error('Failed to upload photo');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload photo');
+    } finally {
+      setUploading(false);
+    }
+  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, textElements, renderTextToCanvas, cleanupCamera]);
+
   const downloadPhoto = useCallback(async () => {
-    if (!photo) return;
+    console.log('📥 Download function called', { photo: !!photo, isDownloading, textElementsCount: textElements.length });
+    
+    if (!photo || isDownloading) {
+      console.log('❌ Download blocked:', { hasPhoto: !!photo, isDownloading });
+      return;
+    }
+
+    setIsDownloading(true);
+    console.log('🔄 Starting download process...');
 
     try {
-      setIsDownloading(true);
-      console.log('📥 Starting download process...');
-
-      // Create image from photo data
-      const img = new Image();
+      let finalPhoto = photo;
       
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = photo;
-      });
+      // Render text to the photo before downloading
+      if (textElements.length > 0 && canvasRef.current) {
+        console.log('🎨 Rendering text to photo before download...');
+        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+        console.log('✅ Text rendered successfully');
+      }
 
-      console.log('🖼️ Base image loaded, size:', img.width, 'x', img.height);
+      // Simple download approach
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
+      const filename = `photobooth-${timestamp}.jpg`;
+      
+      console.log('💾 Creating download with filename:', filename);
 
-      // Create canvas for compositing
-      const canvas = document.createElement('canvas');
-      renderTextToCanvas(canvas, img);
-
-      // Convert to blob with validation
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Failed to create blob from canvas'));
-            return;
-          }
-          
-          // Validate blob size
-          if (blob.size < 1000) {
-            reject(new Error('Generated image is too small, may be corrupted'));
-            return;
-          }
-          
-          console.log('✅ Canvas converted to blob, size:', blob.size, 'bytes');
-          resolve(blob);
-        }, 'image/jpeg', 0.9);
-      });
-
-      // Create download link
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `photobooth-${Date.now()}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      console.log('✅ Download completed successfully');
-    } catch (error) {
-      console.error('❌ Download failed:', error);
-      alert('Failed to download photo. Please try again.');
+      // Try the most compatible download method
+      if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+        // iOS specific handling
+        console.log('📱 iOS detected, using iOS download method');
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head><title>Download Photo</title></head>
+              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
+                <img src="${finalPhoto}" style="max-width:90%;max-height:70vh;border-radius:10px;" />
+                <div style="color:white;text-align:center;margin-top:20px;padding:20px;">
+                  <h2>Your Photobooth Picture</h2>
+                  <p>Long-press the image above and select<br/><strong>"Save to Photos"</strong> or <strong>"Add to Photos"</strong></p>
+                  <p style="font-size:14px;opacity:0.8;">Filename: ${filename}</p>
+                </div>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
+        }
+      } else {
+        // Standard download for other browsers
+        console.log('💻 Standard browser detected, using direct download');
+        const link = document.createElement('a');
+        link.href = finalPhoto;
+        link.download = filename;
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ Download triggered successfully');
+      }
+      
+      // Show success message
+      setError('Photo download started! Check your downloads folder.');
+      setTimeout(() => setError(null), 3000);
+      
+      console.log('✅ Download process completed');
+    } catch (err) {
+      console.error('❌ Download failed:', err);
+      setError('Download failed. Opening photo in new tab...');
+      
+      // Ultimate fallback
+      try {
+        let finalPhoto = photo;
+        if (textElements.length > 0 && canvasRef.current) {
+          finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+        }
+        
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head><title>Your Photobooth Photo</title></head>
+              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
+                <img src="${finalPhoto}" style="max-width:90%;max-height:70vh;border-radius:10px;" />
+                <div style="color:white;text-align:center;margin-top:20px;padding:20px;">
+                  <h2>Save Your Photo</h2>
+                  <p><strong>Desktop:</strong> Right-click image → "Save image as..."</p>
+                  <p><strong>Mobile:</strong> Long-press image → "Save to Photos"</p>
+                </div>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
+        }
+      } catch (fallbackErr) {
+        console.error('❌ Fallback failed too:', fallbackErr);
+        setError('Could not download photo. Please try again.');
+      }
+      
+      setTimeout(() => setError(null), 5000);
     } finally {
       setIsDownloading(false);
       console.log('🏁 Download process finished');
     }
-  }, [photo, textElements, renderTextToCanvas]);
+  }, [photo, textElements, renderTextToCanvas, isDownloading]);
 
   const retakePhoto = useCallback(() => {
     setPhoto(null);
     setTextElements([]);
-    setSelectedElement(null);
-    setUploadError(null);
-  }, []);
+    setSelectedTextId(null);
+    setIsEditingText(false);
+    setShowTextStylePanel(false);
+    
+    // Ensure camera restarts properly
+    console.log('🔄 Restarting camera for retake...');
+    cleanupCamera();
+    setTimeout(() => {
+      startCamera(selectedDevice);
+    }, 300);
+  }, [startCamera, selectedDevice, cleanupCamera]);
 
-  // Enhanced upload with text overlay
-  const uploadToCollage = useCallback(async () => {
-    if (!photo || !currentCollage) return;
-
-    try {
-      setIsUploading(true);
-      setUploadError(null);
-      console.log('📤 Starting upload process...');
-
-      // Create image from photo data
-      const img = new Image();
-      
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = photo;
-      });
-
-      console.log('🖼️ Base image loaded for upload, size:', img.width, 'x', img.height);
-
-      // Create canvas for compositing
-      const canvas = document.createElement('canvas');
-      renderTextToCanvas(canvas, img);
-
-      // Convert to blob with validation
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Failed to create blob from canvas'));
-            return;
+  // Render text elements on photo
+  const renderTextElements = () => {
+    return textElements.map((element) => (
+      <div
+        key={element.id}
+        className={`absolute cursor-move select-none ${selectedTextId === element.id ? 'ring-2 ring-white ring-opacity-70' : ''}`}
+        style={{
+          left: `${element.position.x}%`,
+          top: `${element.position.y}%`,
+          transform: `translate(-50%, -50%) scale(${element.scale}) rotate(${element.rotation}deg)`,
+          touchAction: 'none',
+          zIndex: selectedTextId === element.id ? 20 : 10,
+        }}
+        onMouseDown={(e) => {
+          // Only handle drag if not editing - allow click to edit
+          if (!isEditingText) {
+            handleTextInteractionStart(e, element.id);
           }
-          
-          // Validate blob size
-          if (blob.size < 1000) {
-            reject(new Error('Generated image is too small, may be corrupted'));
-            return;
+        }}
+        onTouchStart={(e) => {
+          // Only handle drag if not editing - allow tap to edit
+          if (!isEditingText) {
+            handleTextInteractionStart(e, element.id);
           }
-          
-          console.log('✅ Canvas converted to blob for upload, size:', blob.size, 'bytes');
-          resolve(blob);
-        }, 'image/jpeg', 0.9);
-      });
-
-      // Create file from blob
-      const file = new File([blob], `photobooth-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      console.log('📁 File created, size:', file.size, 'bytes');
-
-      // Upload to collage
-      console.log('🚀 Uploading to collage:', currentCollage.id);
-      await uploadPhoto(currentCollage.id, file);
-      
-      console.log('✅ Upload completed successfully');
-      
-      // Reset state after successful upload
-      setPhoto(null);
-      setTextElements([]);
-      setSelectedElement(null);
-      
-    } catch (error: any) {
-      console.error('❌ Upload failed:', error);
-      setUploadError(error.message || 'Failed to upload photo');
-    } finally {
-      setIsUploading(false);
-      console.log('🏁 Upload process finished');
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Text clicked, setting selectedTextId to:', element.id);
+          // Single click/tap to select and edit
+          setSelectedTextId(element.id);
+          // Close style panel when selecting different text
+          if (selectedTextId !== element.id) {
+            setShowTextStylePanel(false);
+          }
+          if (!isEditingText) {
+            setIsEditingText(true);
+          }
+        }}
+        onDoubleClick={() => {
+          // Double click also works for editing
+          setSelectedTextId(element.id);
+          setIsEditingText(true);
+        }}
+      >
+        {selectedTextId === element.id && isEditingText ? (
+          <textarea
+            value={element.text}
+            onChange={(e) => updateTextElement(element.id, { text: e.target.value })}
+            className="bg-transparent border-none outline-none text-center resize-none"
+            style={{
+              fontSize: `${element.size}px`,
+              color: element.color,
+              fontFamily: element.style.fontFamily,
+              textAlign: element.style.align,
+              backgroundColor: element.style.backgroundColor !== 'transparent' 
+                ? `${element.style.backgroundColor}${Math.round(element.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}`
+                : 'transparent',
+              padding: `${element.style.padding}px`,
+              borderRadius: element.style.padding > 0 ? '8px' : '0',
+              textShadow: element.style.outline ? 
+                '3px 3px 0px rgba(0,0,0,0.8), -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 4px 4px 8px rgba(0,0,0,0.6)' : 
+                '2px 2px 4px rgba(0,0,0,0.8), 1px 1px 2px rgba(0,0,0,0.9), 0px 0px 8px rgba(0,0,0,0.5)',
+              caretColor: 'white',
+              minWidth: '100px',
+              maxWidth: '280px', // Constrain to viewport width
+              width: 'auto',
+              minHeight: '40px',
+              maxHeight: '200px', // Prevent too tall text
+              overflow: 'hidden',
+              lineHeight: '1.2',
+            }}
+            autoFocus
+            placeholder="Type something..."
+            rows={3}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setIsEditingText(false);
+              }
+            }}
+            onBlur={() => setIsEditingText(false)}
+          />
+        ) : (
+          <div
+            style={{
+              fontSize: `${element.size}px`,
+              color: element.color,
+              fontFamily: element.style.fontFamily,
+              textAlign: element.style.align,
+              backgroundColor: element.style.backgroundColor !== 'transparent' 
+                ? `${element.style.backgroundColor}${Math.round(element.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}`
+                : 'transparent',
+              padding: `${element.style.padding}px`,
+              borderRadius: element.style.padding > 0 ? '8px' : '0',
+              textShadow: element.style.outline ? 
+                '3px 3px 0px rgba(0,0,0,0.8), -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 4px 4px 8px rgba(0,0,0,0.6)' : 
+                '2px 2px 4px rgba(0,0,0,0.8), 1px 1px 2px rgba(0,0,0,0.9), 0px 0px 8px rgba(0,0,0,0.5)',
+              whiteSpace: 'pre-wrap', // Allow line breaks
+              maxWidth: '280px', // Constrain to viewport width
+              overflow: 'hidden',
+              userSelect: 'none',
+              lineHeight: '1.2',
+              wordWrap: 'break-word',
+              minHeight: element.text ? 'auto' : '40px', // Show minimum height when empty
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: element.style.align === 'left' ? 'flex-start' : element.style.align === 'right' ? 'flex-end' : 'center',
+            }}
+          >
+            {element.text || (selectedTextId === element.id ? 'Type something...' : '')}
+          </div>
+        )}
+        
+        {/* Delete button for selected text */}
+        {selectedTextId === element.id && !isEditingText && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteTextElement(element.id);
+            }}
+            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs z-30"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+        
+        {/* Resize corner for mobile and desktop */}
+        {selectedTextId === element.id && !isEditingText && (
+          <div
+            className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border-2 border-gray-400 rounded-full cursor-se-resize z-30 flex items-center justify-center shadow-lg"
+            onMouseDown={(e) => handleResizeCornerStart(e, element.id)}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              const element = textElements.find(el => el.id === element.id);
+              if (!element) return;
+              
+              setInitialScale(element.scale || 1);
+              
+              const startTouch = e.touches[0];
+              const startX = startTouch.clientX;
+              const startY = startTouch.clientY;
+              
+              const moveHandler = (moveEvent: TouchEvent) => {
+                if (moveEvent.touches.length > 0) {
+                  const currentTouch = moveEvent.touches[0];
+                  const deltaX = currentTouch.clientX - startX;
+                  const deltaY = currentTouch.clientY - startY;
+                  const delta = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                  const scaleChange = 1 + (delta / 100); // Adjust sensitivity
+                  
+                  updateTextElement(element.id, {
+                    scale: Math.max(0.5, Math.min(3, (initialScale || 1) * scaleChange))
+                  });
+                }
+              };
+              
+              const endHandler = () => {
+                document.removeEventListener('touchmove', moveHandler);
+                document.removeEventListener('touchend', endHandler);
+              };
+              
+              document.addEventListener('touchmove', moveHandler, { passive: false });
+              document.addEventListener('touchend', endHandler);
+            }}
+            style={{ touchAction: 'none' }}
+          >
+            <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+          </div>
+        )}
+      </div>
+    ));
+  };
+  
+  useEffect(() => {
+    if (normalizedCode) {
+      console.log('🔍 Fetching collage with normalized code:', normalizedCode);
+      setShowError(false);
+      fetchCollageByCode(normalizedCode);
     }
-  }, [photo, currentCollage, uploadPhoto, textElements, renderTextToCanvas]);
+  }, [normalizedCode, fetchCollageByCode]);
 
-  if (loading && !currentCollage) {
+  useEffect(() => {
+    if (storeError && !loading && !currentCollage) {
+      const timer = setTimeout(() => {
+        setShowError(true);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    } else {
+      setShowError(false);
+    }
+  }, [storeError, loading, currentCollage]);
+
+  useEffect(() => {
+    if (currentCollage?.id) {
+      console.log('🔄 Setting up realtime subscription in photobooth for collage:', currentCollage.id);
+      setupRealtimeSubscription(currentCollage.id);
+    }
+    
+    return () => {
+      cleanupRealtimeSubscription();
+    };
+  }, [currentCollage?.id, setupRealtimeSubscription, cleanupRealtimeSubscription]);
+
+  useEffect(() => {
+    if (currentCollage && !photo && cameraState === 'idle' && !isInitializingRef.current) {
+      console.log('🚀 Initializing camera...');
+      
+      // Try to start camera immediately without waiting for device selection
+      const timer = setTimeout(() => {
+        if (!selectedDevice) {
+          console.log('📱 No device selected, starting with default camera...');
+          startCamera(); // Call without device ID to use default
+        } else {
+          console.log('📱 Starting with selected device:', selectedDevice);
+          startCamera(selectedDevice);
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [photo, cameraState, startCamera, selectedDevice, currentCollage]);
+
+  useEffect(() => {
+    if (cameraState === 'error' && currentCollage) {
+      console.log('🔄 Setting up auto-retry for camera error...');
+      const retryTimer = setTimeout(() => {
+        console.log('🔄 Auto-retrying camera initialization...');
+        startCamera(selectedDevice);
+      }, 2000); // Reduced retry delay
+      
+      return () => clearTimeout(retryTimer);
+    }
+  }, [cameraState, startCamera, selectedDevice, currentCollage]);
+
+  useEffect(() => {
+    return () => {
+      console.log('🧹 Component unmounting, cleaning up...');
+      cleanupCamera();
+    };
+  }, [cleanupCamera]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('📱 Page visible, resuming camera...');
+        if (!photo && cameraState === 'idle') {
+          setTimeout(() => startCamera(selectedDevice), 500);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [photo, cameraState, startCamera, selectedDevice]);
+
+  if (loading || (!currentCollage && !storeError)) {
     return (
-      <Layout>
-        <div className="min-h-screen bg-black">
-          <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-              <p className="mt-2 text-gray-400">Loading photobooth...</p>
-              <p className="text-gray-500 text-sm mt-1">
-                Looking for: {normalizedCode}
-              </p>
-            </div>
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+            <p className="text-white">Loading photobooth...</p>
+            <p className="text-gray-400 text-sm mt-2">
+              Looking for collage: {normalizedCode}
+            </p>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
-  if (error || !currentCollage) {
+  if (showError && storeError && !loading && !currentCollage) {
     return (
-      <Layout>
-        <div className="min-h-screen bg-black">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-white mb-4">Photobooth Not Found</h2>
-              <p className="text-gray-400 mb-6">
-                {error || `The photobooth "${normalizedCode}" doesn't exist or might have been removed.`}
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-6">
+              <h2 className="text-xl font-bold text-white mb-4">Collage Not Found</h2>
+              <p className="text-red-200 mb-4">
+                {storeError || `No collage found with code "${normalizedCode}"`}
               </p>
-              <div className="space-x-4">
-                <Link
-                  to="/join"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+              <div className="space-y-3">
+                <button
+                  onClick={() => navigate('/join')}
+                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
                 >
                   Try Another Code
-                </Link>
-                <Link
-                  to="/"
-                  className="inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 hover:text-white hover:border-gray-500"
+                </button>
+                <button
+                  onClick={() => navigate('/')}
+                  className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
                 >
                   Go Home
-                </Link>
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </Layout>
+      </div>
+    );
+  }
+
+  if (!currentCollage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+            <p className="text-white">Loading photobooth...</p>
+            <p className="text-gray-400 text-sm mt-2">
+              Looking for collage: {normalizedCode}
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-black">
-        {/* Header */}
-        <div className="bg-gray-900/95 backdrop-blur border-b border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-4">
-                <Link 
-                  to={`/collage/${currentCollage.code}`}
-                  className="text-gray-400 hover:text-white transition-colors"
+    <div className={`min-h-screen bg-gradient-to-b from-gray-900 to-black text-white ${isMobile ? 'overflow-hidden' : ''}`}>
+      {/* Mobile/Tablet Full-Screen Layout */}
+      {isMobile ? (
+        <div className="relative w-full h-screen overflow-hidden">
+          {/* Header - Fixed at top */}
+          <div className="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/80 to-transparent p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => navigate(`/collage/${currentCollage?.code || ''}`)}
+                  className="text-gray-200 hover:text-white transition-colors"
                 >
                   <ArrowLeft className="w-6 h-6" />
-                </Link>
+                </button>
                 <div>
                   <h1 className="text-lg font-bold text-white flex items-center space-x-2">
                     <Camera className="w-5 h-5 text-purple-400" />
@@ -468,337 +1473,966 @@ const PhotoboothPage: React.FC = () => {
                 </div>
               </div>
               
-              <div className="flex items-center space-x-4">
-                <Link
-                  to={`/collage/${currentCollage.code}`}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm transition-colors"
+              {!photo && devices.length > 1 && (
+                <button
+                  onClick={switchCamera}
+                  className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors backdrop-blur-sm"
+                  title="Switch Camera"
                 >
-                  View Collage
-                </Link>
-              </div>
+                  <SwitchCamera className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Camera/Photo Area */}
-            <div className="lg:col-span-2">
-              <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-hidden">
-                {!photo ? (
-                  <div className="relative">
-                    {/* Webcam */}
-                    <Webcam
-                      ref={webcamRef}
-                      audio={false}
-                      screenshotFormat="image/jpeg"
-                      videoConstraints={videoConstraints}
-                      className="w-full h-auto"
-                      mirrored={true}
-                    />
-                    
-                    {/* Countdown Overlay */}
-                    {countdown !== null && (
-                      <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-8xl font-bold text-white mb-4 animate-pulse">
-                            {countdown > 0 ? countdown : '📸'}
-                          </div>
-                          <p className="text-white text-xl">
-                            {countdown > 0 ? 'Get ready!' : 'Smile!'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Capture Button */}
-                    {!isCapturing && (
-                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+          {/* Error Message */}
+          {error && (
+            <div className={`absolute top-20 left-4 right-4 z-40 p-3 rounded-lg ${
+              error.includes('successfully') 
+                ? 'bg-green-900/80 border border-green-500/50 text-green-200'
+                : 'bg-red-900/80 border border-red-500/50 text-red-200'
+            } backdrop-blur-sm`}>
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Full-Screen Camera/Photo Container */}
+          <div className="w-full h-full">
+            {photo ? (
+              <div ref={photoContainerRef} className="relative w-full h-full">
+                <img 
+                  src={photo} 
+                  alt="Captured photo" 
+                  className="w-full h-full object-cover"
+                />
+                
+                {renderTextElements()}
+                
+                {/* Always show text controls when we have a photo - Mobile */}
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 9998 }}>
+                  {/* Add Text Button - Always visible */}
+                  <button
+                    onClick={addTextElement}
+                    className="w-14 h-14 bg-purple-600/80 backdrop-blur-sm hover:bg-purple-700/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
+                    title="Add Text"
+                    style={{ zIndex: 9999 }}
+                  >
+                    <Type className="w-7 h-7" />
+                  </button>
+
+                  {/* Text editing controls - Show when text is selected */}
+                  {selectedTextId && (
+                    <>
+                      {/* Color Picker Icon - Modified for mobile touch */}
+                      <div className="relative">
                         <button
-                          onClick={startCapture}
-                          className="bg-white text-black px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-colors shadow-lg"
-                        >
-                          📸 Take Photo
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="relative">
-                    {/* Photo Preview with Text Overlay */}
-                    <div 
-                      className="relative w-full"
-                      onMouseMove={handleMouseMove}
-                      onMouseUp={handleMouseUp}
-                      onMouseLeave={handleMouseUp}
-                    >
-                      <img 
-                        src={photo} 
-                        alt="Captured" 
-                        className="w-full h-auto"
-                      />
-                      
-                      {/* Text Elements Overlay */}
-                      {textElements.map(element => (
-                        <div
-                          key={element.id}
-                          className={`absolute cursor-move select-none ${
-                            selectedElement === element.id ? 'ring-2 ring-blue-400' : ''
-                          }`}
-                          style={{
-                            left: `${element.x}%`,
-                            top: `${element.y}%`,
-                            transform: 'translate(-50%, -50%)',
-                            fontSize: `${element.fontSize}px`,
-                            color: element.color,
-                            fontFamily: element.fontFamily,
-                            textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                            pointerEvents: 'auto'
+                          onClick={() => {
+                            // Cycle through colors
+                            const currentElement = textElements.find(el => el.id === selectedTextId);
+                            const currentColorIndex = colorPresets.findIndex(c => c === currentElement?.color);
+                            const nextColorIndex = (currentColorIndex + 1) % colorPresets.length;
+                            updateTextElement(selectedTextId, { color: colorPresets[nextColorIndex] });
                           }}
-                          onMouseDown={(e) => handleMouseDown(e, element.id)}
-                          onClick={() => setSelectedElement(element.id)}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            // Show color palette on touch
+                            const popup = e.currentTarget.parentElement?.querySelector('.color-popup') as HTMLElement;
+                            if (popup) {
+                              popup.style.opacity = '1';
+                              popup.style.pointerEvents = 'auto';
+                              setTimeout(() => {
+                                popup.style.opacity = '0';
+                                popup.style.pointerEvents = 'none';
+                              }, 3000);
+                            }
+                          }}
+                          className="w-14 h-14 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                          style={{ 
+                            backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff',
+                            zIndex: 9999
+                          }}
                         >
-                          {element.text}
+                          <Palette className="w-7 h-7 text-black" />
+                        </button>
+                        
+                        {/* Color Palette Popup - Modified for mobile */}
+                        <div 
+                          className="color-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
+                          style={{ zIndex: 10001 }}
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            {colorPresets.map((color) => (
+                              <button
+                                key={color}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateTextElement(selectedTextId, { color });
+                                  // Hide popup after selection
+                                  const popup = e.currentTarget.closest('.color-popup') as HTMLElement;
+                                  if (popup) {
+                                    popup.style.opacity = '0';
+                                    popup.style.pointerEvents = 'none';
+                                  }
+                                }}
+                                className="w-10 h-10 rounded-full border-2 border-white/40 hover:border-white transition-colors active:scale-95"
+                                style={{ backgroundColor: color, zIndex: 10002 }}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      ))}
+                      </div>
+                      
+                      {/* Text Size Icon with Slider - Modified for mobile */}
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            // Cycle text size on tap
+                            const element = textElements.find(el => el.id === selectedTextId);
+                            if (element) {
+                              const sizes = [16, 24, 32, 40, 48, 56, 64, 72];
+                              const currentIndex = sizes.findIndex(s => s >= element.size);
+                              const nextIndex = (currentIndex + 1) % sizes.length;
+                              updateTextElement(selectedTextId, { size: sizes[nextIndex] });
+                            }
+                          }}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            // Show size controls on touch
+                            const popup = e.currentTarget.parentElement?.querySelector('.size-popup') as HTMLElement;
+                            if (popup) {
+                              popup.style.opacity = '1';
+                              popup.style.pointerEvents = 'auto';
+                              setTimeout(() => {
+                                popup.style.opacity = '0';
+                                popup.style.pointerEvents = 'none';
+                              }, 4000);
+                            }
+                          }}
+                          className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                          style={{ zIndex: 9999 }}
+                        >
+                          <ZoomIn className="w-7 h-7 text-white" />
+                        </button>
+                        
+                        {/* Size Slider Popup - Modified for mobile */}
+                        <div 
+                          className="size-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-4 opacity-0 transition-opacity pointer-events-none"
+                          style={{ zIndex: 10001 }}
+                        >
+                          <div className="flex items-center space-x-3 w-40">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element && selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
+                                }
+                              }}
+                              onTouchEnd={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element && selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
+                                }
+                              }}
+                              className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
+                              style={{ zIndex: 10002 }}
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="16"
+                              max="72"
+                              value={textElements.find(el => el.id === selectedTextId)?.size || 32}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
+                                }
+                              }}
+                              onInput={(e) => {
+                                e.stopPropagation();
+                                if (selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: parseInt((e.target as HTMLInputElement).value) });
+                                }
+                              }}
+                              className="flex-1 h-3 bg-white/30 rounded-full appearance-none cursor-pointer"
+                              style={{ zIndex: 10002 }}
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element && selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
+                                }
+                              }}
+                              onTouchEnd={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element && selectedTextId) {
+                                  updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
+                                }
+                              }}
+                              className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
+                              style={{ zIndex: 10002 }}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="text-white text-sm text-center mt-2 font-medium">
+                            {textElements.find(el => el.id === selectedTextId)?.size || 32}px
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Background/Style Icon - Modified for mobile */}
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            // Cycle through background styles
+                            const currentElement = textElements.find(el => el.id === selectedTextId);
+                            const currentStyleIndex = textStylePresets.findIndex(s => s.name === currentElement?.style.name);
+                            const nextStyleIndex = (currentStyleIndex + 1) % textStylePresets.length;
+                            updateTextElement(selectedTextId, { style: textStylePresets[nextStyleIndex] });
+                          }}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            // Show style options on touch
+                            const popup = e.currentTarget.parentElement?.querySelector('.style-popup') as HTMLElement;
+                            if (popup) {
+                              popup.style.opacity = '1';
+                              popup.style.pointerEvents = 'auto';
+                              setTimeout(() => {
+                                popup.style.opacity = '0';
+                                popup.style.pointerEvents = 'none';
+                              }, 3000);
+                            }
+                          }}
+                          className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                          style={{ zIndex: 9999 }}
+                        >
+                          <Settings className="w-7 h-7 text-white" />
+                        </button>
+                        
+                        {/* Background Style Popup - Modified for mobile */}
+                        <div 
+                          className="style-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
+                          style={{ zIndex: 10001 }}
+                        >
+                          <div className="space-y-2">
+                            {textStylePresets.map((preset) => {
+                              const selectedElement = textElements.find(el => el.id === selectedTextId);
+                              const isSelected = selectedElement?.style.name === preset.name;
+                              return (
+                                <button
+                                  key={preset.name}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateTextElement(selectedTextId, { style: preset });
+                                    // Hide popup after selection
+                                    const popup = e.currentTarget.closest('.style-popup') as HTMLElement;
+                                    if (popup) {
+                                      popup.style.opacity = '0';
+                                      popup.style.pointerEvents = 'none';
+                                    }
+                                  }}
+                                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-all whitespace-nowrap active:scale-95 ${
+                                    isSelected 
+                                      ? 'bg-white text-black' 
+                                      : 'bg-white/30 text-white hover:bg-white/50'
+                                  }`}
+                                  style={{ zIndex: 10002 }}
+                                >
+                                  {preset.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* Delete All Text Button - Show when we have text */}
+                  {textElements.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setTextElements([]);
+                        setSelectedTextId(null);
+                        setIsEditingText(false);
+                        setShowTextStylePanel(false);
+                      }}
+                      className="w-14 h-14 bg-red-600/70 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
+                      title="Delete All Text"
+                      style={{ zIndex: 9999 }}
+                    >
+                      <X className="w-7 h-7" />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Instagram Story-like UI Controls - Top Right - Fixed z-index for mobile */}
+                <div className="absolute top-4 right-4 flex flex-col space-y-3" style={{ zIndex: 9999 }}>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('📥 Download button clicked');
+                      downloadPhoto();
+                    }}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('📥 Download button touch start');
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('📥 Download button touched');
+                      downloadPhoto();
+                    }}
+                    disabled={isDownloading}
+                    className="w-14 h-14 bg-green-600/90 backdrop-blur-sm hover:bg-green-700/90 disabled:bg-gray-600/70 text-white rounded-full flex items-center justify-center border-2 border-white/30 transition-all shadow-xl active:scale-95"
+                    title="Download Photo"
+                    style={{ 
+                      touchAction: 'manipulation',
+                      zIndex: 10000,
+                      WebkitTapHighlightColor: 'transparent',
+                      position: 'relative'
+                    }}
+                  >
+                    {isDownloading ? (
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Download className="w-7 h-7" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Bottom Action Bar */}
+                <div className="absolute bottom-8 left-4 right-4 flex justify-center space-x-4 z-30">
+                  <button
+                    onClick={retakePhoto}
+                    className="px-6 py-3 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20 flex items-center space-x-2"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    <span>Retake</span>
+                  </button>
+                  
+                  <button
+                    onClick={uploadToCollage}
+                    disabled={uploading}
+                    className="px-6 py-3 bg-green-600/80 hover:bg-green-600 disabled:bg-green-800/60 text-white rounded-full transition-colors border border-white/20 flex items-center space-x-2 backdrop-blur-sm"
+                  >
+                    {uploading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        <span>Upload</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative w-full h-full bg-gray-900">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Countdown Overlay - Contained within camera preview */}
+                {isCountingDown && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                    <div className="text-center">
+                      <div 
+                        className="text-8xl md:text-9xl font-bold text-white mb-4 animate-pulse"
+                        style={{
+                          textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.6)',
+                          filter: 'drop-shadow(0 0 10px rgba(0, 0, 0, 0.8))'
+                        }}
+                      >
+                        {countdown}
+                      </div>
+                      <p 
+                        className="text-xl md:text-2xl text-white font-medium"
+                        style={{
+                          textShadow: '0 0 10px rgba(0, 0, 0, 0.8)',
+                          filter: 'drop-shadow(0 0 5px rgba(0, 0, 0, 0.8))'
+                        }}
+                      >
+                        Get ready for your photo!
+                      </p>
                     </div>
                     
-                    {/* Photo Actions */}
-                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
-                      <button
-                        onClick={retakePhoto}
-                        className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                    {/* Progress bar */}
+                    <div className="absolute bottom-8 left-8 right-8">
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div 
+                          className="bg-white h-2 rounded-full transition-all duration-1000 ease-linear"
+                          style={{ width: `${((4 - countdown) / 3) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {cameraState !== 'active' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="text-center text-white">
+                      {cameraState === 'starting' && (
+                        <>
+                          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+                          <p className="text-lg">Starting camera...</p>
+                        </>
+                      )}
+                      {cameraState === 'error' && (
+                        <>
+                          <Camera className="w-12 h-12 mx-auto mb-4 text-red-400" />
+                          <p className="text-red-200 text-lg mb-4">Camera unavailable</p>
+                          <button
+                            onClick={() => startCamera(selectedDevice)}
+                            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full text-lg transition-colors"
+                          >
+                            Retry
+                          </button>
+                        </>
+                      )}
+                      {cameraState === 'idle' && (
+                        <>
+                          <Camera className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                          <p className="text-lg mb-4">Camera not started</p>
+                          <button
+                            onClick={() => {
+                              console.log('🎥 Manual camera start requested');
+                              if (selectedDevice) {
+                                startCamera(selectedDevice);
+                              } else {
+                                startCamera();
+                              }
+                            }}
+                            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-lg transition-colors"
+                          >
+                            Start Camera
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Capture Button - Full Screen */}
+                {cameraState === 'active' && (
+                  <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2">
+                    <button 
+                      onClick={capturePhoto}
+                      disabled={isCountingDown}
+                      className={`w-20 h-20 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all flex items-center justify-center shadow-xl focus:outline-none ${
+                        isCountingDown ? 'animate-pulse' : 'hover:scale-105 active:scale-95'
+                      }`}
+                      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      {isCountingDown ? (
+                        <div className="w-8 h-8 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-300 rounded-full"></div>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+        </div>
+      ) : (
+        /* Desktop Layout - Original Design with viewport optimization */
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate(`/collage/${currentCollage?.code || ''}`)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-white flex items-center space-x-2">
+                  <div className="w-6 h-6 relative">
+                    {/* 3D Rotating sphere */}
+                    <div 
+                      className="w-6 h-6 relative"
+                      style={{
+                        perspective: '100px',
+                        transformStyle: 'preserve-3d'
+                      }}
+                    >
+                      <div 
+                        className="w-6 h-6 rounded-full relative"
+                        style={{
+                          background: 'radial-gradient(circle at 30% 30%, #a855f7, #3b82f6, #1e40af)',
+                          animation: 'rotate3d 3s linear infinite',
+                          transformStyle: 'preserve-3d',
+                          boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.3), 0 0 8px rgba(168,85,247,0.4)'
+                        }}
                       >
-                        <RotateCcw className="w-4 h-4" />
-                        <span>Retake</span>
+                        {/* Highlight for 3D effect */}
+                        <div 
+                          className="absolute top-1 left-1 w-2 h-2 rounded-full opacity-60"
+                          style={{
+                            background: 'radial-gradient(circle, rgba(255,255,255,0.8), transparent)',
+                          }}
+                        ></div>
+                        {/* Ring around sphere */}
+                        <div 
+                          className="absolute inset-0 rounded-full border border-purple-300/30"
+                          style={{
+                            animation: 'rotateRing 2s linear infinite reverse'
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span>See PhotoSphere</span>
+                </h1>
+                <p className="text-gray-400">{currentCollage?.name} • Code: {currentCollage?.code}</p>
+              </div>
+            </div>
+            
+            {!photo && devices.length > 1 && (
+              <button
+                onClick={switchCamera}
+                className="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                title="Switch Camera"
+              >
+                <SwitchCamera className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <div className={`mb-4 p-4 rounded-lg ${
+              error.includes('successfully') 
+                ? 'bg-green-900/30 border border-green-500/50 text-green-200'
+                : 'bg-red-900/30 border border-red-500/50 text-red-200'
+            }`}>
+              {error}
+            </div>
+          )}
+
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start">
+            <div className="flex-1 flex justify-center" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+              <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px] xl:max-w-[400px]">
+                {photo ? (
+                  <div ref={photoContainerRef} className="relative w-full aspect-[9/16]">
+                    <img 
+                      src={photo} 
+                      alt="Captured photo" 
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {renderTextElements()}
+                    
+                    {/* VERTICAL TEXT SETTINGS - LEFT SIDE (Show when text is selected) */}
+                    {selectedTextId && (
+                      <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 50 }}>
+                        {/* Color Picker Icon */}
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              // Cycle through colors
+                              const currentElement = textElements.find(el => el.id === selectedTextId);
+                              const currentColorIndex = colorPresets.findIndex(c => c === currentElement?.color);
+                              const nextColorIndex = (currentColorIndex + 1) % colorPresets.length;
+                              updateTextElement(selectedTextId, { color: colorPresets[nextColorIndex] });
+                            }}
+                            className="w-12 h-12 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                            style={{ 
+                              backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff',
+                              zIndex: 51
+                            }}
+                          >
+                            <Palette className="w-6 h-6 text-black" />
+                          </button>
+                          
+                          {/* Color Palette Popup */}
+                          <div 
+                            className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity"
+                            style={{ zIndex: 52 }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                          >
+                            <div className="grid grid-cols-2 gap-2">
+                              {colorPresets.map((color) => (
+                                <button
+                                  key={color}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateTextElement(selectedTextId, { color });
+                                  }}
+                                  className="w-8 h-8 rounded-full border border-white/40 hover:border-white transition-colors"
+                                  style={{ backgroundColor: color, zIndex: 53 }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Text Size Icon with Slider */}
+                        <div className="relative">
+                          <button
+                            className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                            style={{ zIndex: 51 }}
+                          >
+                            <Type className="w-6 h-6 text-white" />
+                          </button>
+                          
+                          {/* Size Slider Popup */}
+                          <div 
+                            className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity"
+                            style={{ zIndex: 52 }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                          >
+                            <div className="flex items-center space-x-3 w-32">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const element = textElements.find(el => el.id === selectedTextId);
+                                  if (element) {
+                                    updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
+                                  }
+                                }}
+                                className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                                style={{ zIndex: 53 }}
+                              >
+                                -
+                              </button>
+                              <input
+                                type="range"
+                                min="16"
+                                max="72"
+                                value={textElements.find(el => el.id === selectedTextId)?.size || 32}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
+                                }}
+                                className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer"
+                                style={{ zIndex: 53 }}
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const element = textElements.find(el => el.id === selectedTextId);
+                                  if (element) {
+                                    updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
+                                  }
+                                }}
+                                className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                                style={{ zIndex: 53 }}
+                              >
+                                +
+                              </button>
+                            </div>
+                            <div className="text-white text-xs text-center mt-1">
+                              {textElements.find(el => el.id === selectedTextId)?.size || 32}px
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Background/Style Icon */}
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              // Cycle through background styles
+                              const currentElement = textElements.find(el => el.id === selectedTextId);
+                              const currentStyleIndex = textStylePresets.findIndex(s => s.name === currentElement?.style.name);
+                              const nextStyleIndex = (currentStyleIndex + 1) % textStylePresets.length;
+                              updateTextElement(selectedTextId, { style: textStylePresets[nextStyleIndex] });
+                            }}
+                            className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                            style={{ zIndex: 51 }}
+                          >
+                            <Settings className="w-6 h-6 text-white" />
+                          </button>
+                          
+                          {/* Background Style Popup */}
+                          <div 
+                            className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-2 opacity-0 hover:opacity-100 transition-opacity"
+                            style={{ zIndex: 52 }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                          >
+                            <div className="space-y-2">
+                              {textStylePresets.map((preset) => {
+                                const selectedElement = textElements.find(el => el.id === selectedTextId);
+                                const isSelected = selectedElement?.style.name === preset.name;
+                                return (
+                                  <button
+                                    key={preset.name}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateTextElement(selectedTextId, { style: preset });
+                                    }}
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                                      isSelected 
+                                        ? 'bg-white text-black' 
+                                        : 'bg-white/20 text-white hover:bg-white/40'
+                                    }`}
+                                    style={{ zIndex: 53 }}
+                                  >
+                                    {preset.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Instagram Story-like UI Controls - Top Right */}
+                    <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
+                      <button
+                        onClick={addTextElement}
+                        className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                        title="Add Text"
+                      >
+                        <Type className="w-6 h-6" />
                       </button>
                       
                       <button
                         onClick={downloadPhoto}
                         disabled={isDownloading}
-                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                        className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 disabled:bg-gray-600/60 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                        title="Download"
                       >
-                        <Download className="w-4 h-4" />
-                        <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
+                        {isDownloading ? (
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Download className="w-6 h-6" />
+                        )}
                       </button>
                       
-                      <button
-                        onClick={uploadToCollage}
-                        disabled={isUploading}
-                        className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2"
-                      >
-                        <Camera className="w-4 h-4" />
-                        <span>{isUploading ? 'Uploading...' : 'Add to Collage'}</span>
-                      </button>
+                      {/* Delete All Text Button */}
+                      {textElements.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setTextElements([]);
+                            setSelectedTextId(null);
+                            setIsEditingText(false);
+                            setShowTextStylePanel(false);
+                          }}
+                          className="w-12 h-12 bg-red-600/60 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                          title="Delete All Text"
+                        >
+                          <X className="w-6 h-6" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30 flex space-x-4">
+                        <button
+                          onClick={retakePhoto}
+                          className="px-4 py-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20"
+                        >
+                          <RefreshCw className="w-5 h-5" />
+                        </button>
+                        
+                        <button
+                          onClick={uploadToCollage}
+                          disabled={uploading}
+                          className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-full transition-colors border border-white/20"
+                        >
+                          {uploading ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Send className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="relative w-full aspect-[9/16] bg-gray-800">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {cameraState !== 'active' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                        <div className="text-center text-white">
+                          {cameraState === 'starting' && (
+                            <>
+                              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-white mb-2"></div>
+                              <p className="text-sm">Starting camera...</p>
+                            </>
+                          )}
+                          {cameraState === 'error' && (
+                            <>
+                              <Camera className="w-8 h-8 mx-auto mb-2 text-red-400" />
+                              <p className="text-red-200 text-sm mb-2">Camera unavailable</p>
+                              <button
+                                onClick={() => startCamera(selectedDevice)}
+                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
+                              >
+                                Retry
+                              </button>
+                            </>
+                          )}
+                          {cameraState === 'idle' && (
+                            <>
+                              <Camera className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                              <p className="text-sm mb-2">Camera not started</p>
+                              <button
+                                onClick={() => {
+                                  console.log('🎥 Manual camera start requested');
+                                  if (selectedDevice) {
+                                    startCamera(selectedDevice);
+                                  } else {
+                                    startCamera();
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm transition-colors"
+                              >
+                                Start Camera
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* DESKTOP CAPTURE BUTTON - ABSOLUTELY MUST BE HERE */}
+                    {cameraState === 'active' && (
+                      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30">
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            console.log('🖥️ Desktop capture button clicked!');
+                            capturePhoto();
+                          }}
+                          disabled={isCountingDown}
+                          className={`w-12 h-12 bg-white rounded-full border-3 border-gray-300 hover:border-gray-100 transition-all flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50 ${
+                            isCountingDown ? 'animate-pulse' : 'active:scale-95'
+                          }`}
+                          style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                          title="Take Photo"
+                        >
+                          {isCountingDown ? (
+                            <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <div className="w-8 h-8 bg-gray-300 hover:bg-gray-400 rounded-full transition-colors"></div>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
+                
+                <canvas ref={canvasRef} className="hidden" />
               </div>
-              
-              {/* Upload Error */}
-              {uploadError && (
-                <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
-                  <p className="font-medium">Upload Failed</p>
-                  <p className="text-sm">{uploadError}</p>
-                </div>
-              )}
             </div>
 
-            {/* Text Controls Sidebar */}
-            <div className="space-y-6">
-              {/* Add Text Section */}
-              <div className="bg-gray-900/50 rounded-lg border border-gray-700 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                  <Type className="w-5 h-5 mr-2" />
-                  Add Text
-                </h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <input
-                      type="text"
-                      value={newText}
-                      onChange={(e) => setNewText(e.target.value)}
-                      placeholder="Enter your text..."
-                      className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      onKeyPress={(e) => e.key === 'Enter' && addTextElement()}
-                    />
+            <div className="w-full lg:w-72 space-y-4 lg:space-y-6">
+              {devices.length > 1 && (
+                <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
+                  <div className="flex items-center space-x-2 mb-3 lg:mb-4">
+                    <Settings className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
+                    <h3 className="text-base lg:text-lg font-semibold text-white">Camera Settings</h3>
                   </div>
-                  
-                  <button
-                    onClick={addTextElement}
-                    disabled={!newText.trim()}
-                    className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white py-2 px-4 rounded-md transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Text</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Text Elements List */}
-              {textElements.length > 0 && (
-                <div className="bg-gray-900/50 rounded-lg border border-gray-700 p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">Text Elements</h3>
                   
                   <div className="space-y-3">
-                    {textElements.map(element => (
-                      <div
-                        key={element.id}
-                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedElement === element.id
-                            ? 'border-purple-500 bg-purple-500/10'
-                            : 'border-gray-600 hover:border-gray-500'
-                        }`}
-                        onClick={() => setSelectedElement(element.id)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-white text-sm truncate">{element.text}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteTextElement(element.id);
-                            }}
-                            className="text-red-400 hover:text-red-300 p-1"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                    <label className="block text-sm font-medium text-gray-300">
+                      Camera Device
+                      {devices.length > 0 && (
+                        <span className="text-xs text-gray-400 ml-2">
+                          ({devices.length} available)
+                        </span>
+                      )}
+                    </label>
+                    <select
+                      value={selectedDevice}
+                      onChange={(e) => handleDeviceChange(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                      style={{ fontSize: '16px' }}
+                    >
+                      {devices.map((device, index) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || `Camera ${index + 1}`}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
 
-              {/* Text Editing Controls */}
-              {selectedElement && (
-                <div className="bg-gray-900/50 rounded-lg border border-gray-700 p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                    <Palette className="w-5 h-5 mr-2" />
-                    Edit Text
-                  </h3>
-                  
-                  {(() => {
-                    const element = textElements.find(el => el.id === selectedElement);
-                    if (!element) return null;
-
-                    return (
-                      <div className="space-y-4">
-                        {/* Text Content */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-1">Text</label>
-                          <input
-                            type="text"
-                            value={element.text}
-                            onChange={(e) => updateTextElement(element.id, { text: e.target.value })}
-                            className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-
-                        {/* Font Size */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-1">
-                            Font Size: {element.fontSize}px
-                          </label>
-                          <input
-                            type="range"
-                            min="12"
-                            max="72"
-                            value={element.fontSize}
-                            onChange={(e) => updateTextElement(element.id, { fontSize: parseInt(e.target.value) })}
-                            className="w-full"
-                          />
-                        </div>
-
-                        {/* Font Family */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-1">Font</label>
-                          <select
-                            value={element.fontFamily}
-                            onChange={(e) => updateTextElement(element.id, { fontFamily: e.target.value })}
-                            className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          >
-                            {FONT_FAMILIES.map(font => (
-                              <option key={font} value={font}>
-                                {font.split(',')[0]}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Color Picker */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">Color</label>
-                          <div className="grid grid-cols-5 gap-2 mb-2">
-                            {COLOR_PRESETS.map(color => (
-                              <button
-                                key={color}
-                                onClick={() => updateTextElement(element.id, { color })}
-                                className={`w-8 h-8 rounded border-2 ${
-                                  element.color === color ? 'border-white' : 'border-gray-600'
-                                }`}
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                          </div>
-                          <input
-                            type="color"
-                            value={element.color}
-                            onChange={(e) => updateTextElement(element.id, { color: e.target.value })}
-                            className="w-full h-8 rounded border border-gray-600"
-                          />
-                        </div>
-
-                        {/* Position Controls */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">Position</label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-xs text-gray-400 mb-1">X: {element.x.toFixed(0)}%</label>
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={element.x}
-                                onChange={(e) => updateTextElement(element.id, { x: parseFloat(e.target.value) })}
-                                className="w-full"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-400 mb-1">Y: {element.y.toFixed(0)}%</label>
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={element.y}
-                                onChange={(e) => updateTextElement(element.id, { y: parseFloat(e.target.value) })}
-                                className="w-full"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
+              {currentCollage && (
+                <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
+                  <h3 className="text-base lg:text-lg font-semibold text-white mb-3">Collage Info</h3>
+                  <div className="space-y-2 text-sm text-gray-300">
+                    <div className="flex justify-between">
+                      <span>Name:</span>
+                      <span className="text-white truncate ml-2">{currentCollage.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Code:</span>
+                      <span className="text-white font-mono">{currentCollage.code}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Photos:</span>
+                      <span className="text-white">{safePhotos.length}</span>
+                    </div>
+                  </div>
                 </div>
               )}
-
-              {/* Instructions */}
-              <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-                <h4 className="text-blue-300 font-medium mb-2">📸 How to Use</h4>
-                <ul className="text-blue-200 text-sm space-y-1">
-                  <li>• Click "Take Photo" to capture</li>
-                  <li>• Add text overlays to personalize</li>
-                  <li>• Drag text to reposition</li>
-                  <li>• Download or add to collage</li>
-                </ul>
-              </div>
             </div>
           </div>
         </div>
-      </div>
-    </Layout>
+      )}
+      
+      {showVideoRecorder && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-30 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
+          <MobileVideoRecorder 
+            canvasRef={canvasRef} 
+            onClose={() => setShowVideoRecorder(false)}
+            onResolutionChange={(width, height) => setRecordingResolution({ width, height })}
+          />
+        </div>
+      )}
+      
+      {/* Countdown Animation Styles */}
+      <style jsx>{`
+        @keyframes countdownPulse {
+          0% { 
+            transform: scale(1); 
+            opacity: 0.8; 
+          }
+          50% { 
+            transform: scale(1.1); 
+            opacity: 1; 
+          }
+          100% { 
+            transform: scale(1); 
+            opacity: 0.8; 
+          }
+        }
+      `}</style>
+    </div>
   );
 };
 
