@@ -93,39 +93,55 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     return { width: baseWidth, height: baseHeight };
   }, [resolution, aspectRatio]);
 
-  // Get quality-based bitrate
+  // Get quality-based bitrate optimized for Three.js content
   const getBitrate = useCallback(() => {
     const { width, height } = getDimensions();
-    const pixelCount = width * height;
     
-    // Base bitrate per pixel (bits per second per pixel)
-    let bitsPerPixel: number;
+    // Three.js content needs much higher bitrates due to complex 3D rendering
+    // Base bitrates for different resolutions and qualities
+    let baseBitrate: number;
     
-    switch (quality) {
-      case 'ultra':
-        bitsPerPixel = isMobile ? 0.15 : 0.2; // Ultra high quality
-        break;
-      case 'high':
-        bitsPerPixel = isMobile ? 0.1 : 0.15; // High quality
-        break;
-      case 'standard':
-        bitsPerPixel = isMobile ? 0.05 : 0.08; // Standard quality
-        break;
-      default:
-        bitsPerPixel = 0.1;
+    if (resolution === '4k') {
+      switch (quality) {
+        case 'ultra':
+          baseBitrate = isMobile ? 80000000 : 120000000; // 80-120 Mbps for 4K Ultra
+          break;
+        case 'high':
+          baseBitrate = isMobile ? 50000000 : 80000000;  // 50-80 Mbps for 4K High
+          break;
+        case 'standard':
+          baseBitrate = isMobile ? 30000000 : 50000000;  // 30-50 Mbps for 4K Standard
+          break;
+        default:
+          baseBitrate = 50000000;
+      }
+    } else { // 1080p
+      switch (quality) {
+        case 'ultra':
+          baseBitrate = isMobile ? 30000000 : 50000000;  // 30-50 Mbps for 1080p Ultra
+          break;
+        case 'high':
+          baseBitrate = isMobile ? 20000000 : 35000000;  // 20-35 Mbps for 1080p High
+          break;
+        case 'standard':
+          baseBitrate = isMobile ? 12000000 : 20000000;  // 12-20 Mbps for 1080p Standard
+          break;
+        default:
+          baseBitrate = 20000000;
+      }
     }
     
-    const baseBitrate = Math.round(pixelCount * bitsPerPixel);
+    // For 9:16 aspect ratio, maintain similar quality
+    if (aspectRatio === '9:16') {
+      baseBitrate = Math.round(baseBitrate * 0.9); // Slightly reduce for vertical format
+    }
     
-    // Apply mobile optimization
-    const mobileFactor = isMobile ? 0.8 : 1.0;
+    // Ensure we don't exceed browser limits
+    const maxBitrate = isMobile ? 100000000 : 200000000; // 100/200 Mbps maximum
+    const minBitrate = 10000000; // 10 Mbps minimum for Three.js
     
-    // Ensure minimum and maximum bitrates
-    const minBitrate = 2000000; // 2 Mbps minimum
-    const maxBitrate = isMobile ? 50000000 : 100000000; // 50/100 Mbps maximum
-    
-    return Math.max(minBitrate, Math.min(maxBitrate, baseBitrate * mobileFactor));
-  }, [getDimensions, quality, isMobile]);
+    return Math.max(minBitrate, Math.min(maxBitrate, baseBitrate));
+  }, [resolution, quality, aspectRatio, isMobile]);
 
   // Detect mobile device
   useEffect(() => {
@@ -198,9 +214,9 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       chunksRef.current = [];
       
-      // Get the canvas stream with higher frame rate for better quality
+      // Get the canvas stream with higher frame rate for Three.js smoothness
       const canvas = canvasRef.current;
-      const frameRate = quality === 'ultra' ? 60 : quality === 'high' ? 30 : 24;
+      const frameRate = quality === 'ultra' ? 60 : quality === 'high' ? 60 : 30; // Higher framerates for Three.js
       const stream = canvas.captureStream(frameRate);
       streamRef.current = stream;
       
@@ -244,8 +260,8 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         stopRecording();
       };
       
-      // Start recording with smaller timeslices for better quality
-      recorder.start(50);
+      // Start recording with very small timeslices for Three.js smoothness
+      recorder.start(25);
       mediaRecorderRef.current = recorder;
       
       // Start timer
@@ -458,7 +474,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             <div className="text-xs text-gray-300">
               <div>Output: {width} × {height} ({aspectRatio})</div>
               <div>Bitrate: {(getBitrate() / 1000000).toFixed(1)} Mbps</div>
-              <div>Frame Rate: {quality === 'ultra' ? '60' : quality === 'high' ? '30' : '24'} fps</div>
+              <div>Frame Rate: {quality === 'ultra' ? '60' : quality === 'high' ? '60' : '30'} fps</div>
             </div>
           </div>
         </div>
