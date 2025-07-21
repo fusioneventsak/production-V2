@@ -2141,7 +2141,7 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                     
                     <div className="absolute bottom-4 left-4 right-4">
-                      <div className="flex justify-center space-x-3">
+                     <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30 flex space-x-4">
                         <button
                           onClick={retakePhoto}
                           className="px-4 py-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20"
