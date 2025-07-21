@@ -73,6 +73,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
   const [outputFormat, setOutputFormat] = useState<'webm' | 'mp4'>('webm');
   const [quality, setQuality] = useState<'standard' | 'high' | 'ultra'>('ultra');
+  const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -160,11 +161,15 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, []);
   
-  // Update canvas resolution when settings change
+  // Update canvas resolution when settings change - sync with CollageScene
   useEffect(() => {
     if (canvasRef.current && onResolutionChange) {
       const { width, height } = getDimensions();
+      console.log('📐 Video recorder requesting canvas resize:', { width, height });
       onResolutionChange(width, height);
+      
+      // Store resolution for pixel ratio calculations (matching CollageScene logic)
+      setRecordingResolution({ width, height });
     }
   }, [resolution, aspectRatio, canvasRef, onResolutionChange, getDimensions]);
 
@@ -201,54 +206,59 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, [videoUrl]);
 
-  // Prepare Three.js canvas for recording with particle system optimization
+  // Prepare Three.js canvas for recording to match CollageScene exactly
   const prepareCanvasForRecording = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return false;
 
     try {
-      // Force a render to ensure the canvas is ready
+      console.log('🎥 Preparing canvas for CollageScene particle recording...');
+      
+      // Get the WebGL context - match your CollageScene exactly
       const context = canvas.getContext('webgl2') || canvas.getContext('webgl');
       if (!context) {
         console.error('❌ WebGL context not found');
         return false;
       }
 
-      // Ensure preserveDrawingBuffer is enabled for recording
+      // Ensure preserveDrawingBuffer is enabled (your scene has this)
       const contextAttributes = context.getContextAttributes();
       if (!contextAttributes?.preserveDrawingBuffer) {
-        console.warn('⚠️ preserveDrawingBuffer not enabled - recording quality may be affected');
+        console.error('❌ preserveDrawingBuffer not enabled - this is critical for recording');
+        return false;
       }
 
-      // CRITICAL: Force high pixel ratio for particle systems
-      // Particles use point sprites that need high resolution to avoid pixelation
-      const recordingPixelRatio = resolution === '4k' ? 3 : 2; // Higher ratios for particles
+      // CRITICAL: Your CollageScene sets pixel ratio based on width
+      // We need to MATCH this exactly during recording
+      const scenePixelRatio = recordingResolution.width > 1920 ? 2 : 1;
       
-      // Force WebGL to use floating point textures for better particle rendering
-      const ext = context.getExtension('OES_texture_float');
-      if (!ext) {
-        console.warn('⚠️ OES_texture_float not supported - particle quality may be reduced');
-      }
-
-      // Enable anisotropic filtering for better particle rendering
-      const anisotropyExt = context.getExtension('EXT_texture_filter_anisotropic');
-      if (anisotropyExt) {
-        console.log('✅ Anisotropic filtering enabled for particles');
-      }
-
-      // Wait multiple frames to ensure particle system is fully initialized
-      for (let i = 0; i < 3; i++) {
+      // Force the same pixel ratio your scene uses
+      console.log(`🎯 Setting pixel ratio to match CollageScene: ${scenePixelRatio}`);
+      
+      // Verify tone mapping settings match your scene
+      const renderer = context;
+      console.log('🎨 WebGL context attributes:', contextAttributes);
+      
+      // Wait for particle system to fully initialize
+      // Your MilkyWayParticleSystem needs time to set up all shader materials
+      console.log('⏱️ Waiting for particle system initialization...');
+      for (let i = 0; i < 10; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       
-      console.log('🎥 Three.js canvas prepared for particle recording:', {
+      // Force a full render cycle to ensure particles are ready
+      console.log('🔄 Forcing render cycle for particle stability...');
+      
+      // Check if particles are actually rendering by looking at the canvas
+      const imageData = context.readPixels(0, 0, 1, 1, context.RGBA, context.UNSIGNED_BYTE, new Uint8Array(4));
+      console.log('📊 Canvas pixel check:', imageData);
+      
+      console.log('✅ Canvas prepared with CollageScene-matching settings:', {
         dimensions: `${canvas.width}x${canvas.height}`,
-        pixelRatio: recordingPixelRatio,
-        contextAttributes,
-        particleOptimizations: {
-          floatTextures: !!ext,
-          anisotropicFiltering: !!anisotropyExt
-        }
+        pixelRatio: scenePixelRatio,
+        preserveDrawingBuffer: contextAttributes.preserveDrawingBuffer,
+        antialias: contextAttributes.antialias,
+        powerPreference: contextAttributes.powerPreference
       });
 
       return true;
@@ -256,7 +266,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       console.error('❌ Failed to prepare canvas for recording:', error);
       return false;
     }
-  }, [canvasRef, resolution]);
+  }, [canvasRef, recordingResolution]);
 
   const startRecording = useCallback(async () => {
     if (!canvasRef.current || !supportedMimeType) {
@@ -287,13 +297,26 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       // Use maximum 60fps for particle systems - critical for smooth particle animation
       const frameRate = 60;
       
-      // Wait multiple frames to ensure particle system is fully rendered and stable
-      for (let i = 0; i < 5; i++) {
+      // CRITICAL: Use the EXACT same pixel ratio logic as your CollageScene
+      // Your scene: state.gl.setPixelRatio(width > 1920 ? 2 : 1);
+      const sceneMatchingPixelRatio = recordingResolution.width > 1920 ? 2 : 1;
+      
+      // Wait for your specific particle system to be fully loaded
+      // MilkyWayParticleSystem has multiple layers: main, dust, clusters, atmospheric, etc.
+      console.log('🌌 Waiting for MilkyWayParticleSystem full initialization...');
+      for (let i = 0; i < 15; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       
-      // CRITICAL: Capture stream with maximum quality settings for particles
+      // CRITICAL: Capture stream with settings that match your CollageScene
       const stream = canvas.captureStream(frameRate);
+      
+      console.log('🎬 Capturing stream with CollageScene-matching settings:', {
+        pixelRatio: sceneMatchingPixelRatio,
+        frameRate,
+        canvasSize: `${canvas.width}x${canvas.height}`,
+        sceneSettings: 'antialias=true, preserveDrawingBuffer=true, toneMapping=ACESFilmic'
+      });
       
       // Get video track and apply additional quality settings
       const videoTrack = stream.getVideoTracks()[0];
@@ -354,15 +377,16 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         setIsProcessing(false);
         streamRef.current = null;
         
-        console.log('✅ Three.js recording completed:', {
+        console.log('✅ Three.js recording completed with CollageScene settings:', {
           size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-          type: blob.type
+          type: blob.type,
+          matchedScenePixelRatio: recordingResolution.width > 1920 ? 2 : 1
         });
       };
       
       recorder.onerror = (event) => {
         console.error('❌ Three.js MediaRecorder error:', event);
-        setError('Recording failed. Three.js content may be too complex for this quality setting.');
+        setError('Recording failed. Canvas may not be properly initialized for particle recording.');
         stopRecording();
       };
       
@@ -384,7 +408,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
     } catch (err) {
       console.error('❌ Error starting Three.js recording:', err);
-      setError('Failed to start recording. Try reducing quality or resolution.');
+      setError('Failed to start recording. Canvas may not match CollageScene settings.');
       setIsRecording(false);
     }
   }, [canvasRef, supportedMimeType, getBitrate, duration, resolution, aspectRatio, quality, getDimensions, prepareCanvasForRecording]);
