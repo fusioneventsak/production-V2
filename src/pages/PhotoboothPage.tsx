@@ -1,7 +1,7 @@
 // src/pages/PhotoboothPage.tsx - Full-screen mobile experience with desktop layout preserved
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Download, Upload, X, Plus, Minus, RotateCw, Type, Palette, Move, Globe, Settings, ZoomIn, RefreshCw, Send } from 'lucide-react';
+import { ArrowLeft, Camera, Download, Upload, X, Plus, Minus, RotateCw, Type, Palette, Move, Globe } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
@@ -1461,7 +1461,7 @@ const PhotoboothPage: React.FC = () => {
                   className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors backdrop-blur-sm"
                   title="Switch Camera"
                 >
-                  <RotateCw className="w-5 h-5" />
+                  <SwitchCamera className="w-5 h-5" />
                 </button>
               )}
             </div>
@@ -1905,10 +1905,10 @@ const PhotoboothPage: React.FC = () => {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-white flex items-center space-x-3">
-                  <h1 className="text-xl font-bold text-white flex items-center space-x-2">
-                    <Globe className="w-6 h-6 text-purple-400" />
-                    <span>See PhotoSphere</span>
-                  </h1>
+                  <div className="flex items-center space-x-2">
+                    <Globe className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <span>See PhotoSphere</span>
                 </h1>
                 <p className="text-gray-400">{currentCollage?.name} • Code: {currentCollage?.code}</p>
               </div>
@@ -1920,7 +1920,7 @@ const PhotoboothPage: React.FC = () => {
                 className="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
                 title="Switch Camera"
               >
-                <RotateCw className="w-5 h-5" />
+                <SwitchCamera className="w-5 h-5" />
               </button>
             )}
           </div>
