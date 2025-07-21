@@ -2220,7 +2220,7 @@ const PhotoboothPage: React.FC = () => {
                     
                     {/* DESKTOP CAPTURE BUTTON - ABSOLUTELY MUST BE HERE */}
                     {cameraState === 'active' && (
-                      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
+                      <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30">
                         <button 
                           onClick={(e) => {
                             e.preventDefault();
