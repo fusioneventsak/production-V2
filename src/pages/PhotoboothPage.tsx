@@ -1902,9 +1902,39 @@ const PhotoboothPage: React.FC = () => {
               <div>
                 <h1 className="text-2xl font-bold text-white flex items-center space-x-2">
                   <div className="w-6 h-6 relative">
-                    <div className="w-6 h-6 border-2 border-purple-400 rounded-full animate-spin border-t-transparent"></div>
-                    <div className="absolute inset-1 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full opacity-60"></div>
-                  </div>
+                    {/* 3D Rotating sphere */}
+                    <div 
+                      className="w-6 h-6 relative"
+                      style={{
+                        perspective: '100px',
+                        transformStyle: 'preserve-3d'
+                      }}
+                    >
+                      <div 
+                        className="w-6 h-6 rounded-full relative"
+                        style={{
+                          background: 'radial-gradient(circle at 30% 30%, #a855f7, #3b82f6, #1e40af)',
+                          animation: 'rotate3d 3s linear infinite',
+                          transformStyle: 'preserve-3d',
+                          boxShadow: 'inset -2px -2px 4px rgba(0,0,0,0.3), 0 0 8px rgba(168,85,247,0.4)'
+                        }}
+                      >
+                        {/* Highlight for 3D effect */}
+                        <div 
+                          className="absolute top-1 left-1 w-2 h-2 rounded-full opacity-60"
+                          style={{
+                            background: 'radial-gradient(circle, rgba(255,255,255,0.8), transparent)',
+                          }}
+                        ></div>
+                        {/* Ring around sphere */}
+                        <div 
+                          className="absolute inset-0 rounded-full border border-purple-300/30"
+                          style={{
+                            animation: 'rotateRing 2s linear infinite reverse'
+                          }}
+                        ></div>
+                      </div>
+                    </div>
                   <span>See PhotoSphere</span>
                 </h1>
                 <p className="text-gray-400">{currentCollage?.name} • Code: {currentCollage?.code}</p>
