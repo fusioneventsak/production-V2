@@ -21,7 +21,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [duration, setDuration] = useState<15 | 30 | 60>(30);
-  const [quality, setQuality] = useState<'ultra' | 'extreme'>('ultra');
+  const [quality, setQuality] = useState<'ultra' | 'extreme' | 'insane'>('ultra');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -79,8 +79,20 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         }
       }
       
-      // EXTREME bitrates for particle quality
-      const bitrate = quality === 'extreme' ? 500000000 : 200000000; // 200-500 Mbps!
+      // ABSOLUTELY INSANE bitrates for particle quality
+      let bitrate;
+      switch (quality) {
+        case 'insane':
+          bitrate = 1000000000; // 1000 Mbps (1 Gbps!) 
+          break;
+        case 'extreme':
+          bitrate = 500000000;  // 500 Mbps
+          break;
+        case 'ultra':
+        default:
+          bitrate = 200000000;  // 200 Mbps
+          break;
+      }
       
       console.log(`🚀 Recording with INSANE quality:`, {
         bitrate: `${bitrate / 1000000}Mbps`,
@@ -184,7 +196,16 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   };
 
   const remainingTime = duration - recordingTime;
-  const bitrate = quality === 'extreme' ? 500 : 200;
+  const getBitrate = () => {
+    switch (quality) {
+      case 'insane': return 1000;
+      case 'extreme': return 500;
+      case 'ultra': 
+      default: return 200;
+    }
+  };
+  
+  const bitrate = getBitrate();
   const estimatedSize = Math.round((bitrate * duration) / 8);
 
   return (
@@ -272,12 +293,22 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
                 >
                   Extreme (500Mbps)
                 </button>
+                <button
+                  onClick={() => setQuality('insane')}
+                  className={`w-full px-2 py-1 rounded text-xs ${
+                    quality === 'insane' 
+                      ? 'bg-red-600 text-white' 
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  INSANE (1000Mbps)
+                </button>
               </div>
             </div>
           </div>
           
-          <div className="mt-3 p-2 bg-orange-900/20 rounded text-xs text-orange-400">
-            ⚡ Est. file size: ~{estimatedSize}MB | Direct canvas capture
+          <div className="mt-3 p-2 bg-red-900/20 rounded text-xs text-red-400">
+            🔥 Est. file size: ~{estimatedSize}MB | INSANE quality available!
           </div>
         </div>
       )}
