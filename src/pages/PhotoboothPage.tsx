@@ -2225,14 +2225,15 @@ const PhotoboothPage: React.FC = () => {
                       </div>
                     )}
                     
+                    {/* DESKTOP CAPTURE BUTTON - This was missing! */}
                     {cameraState === 'active' && (
                       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
                         <button 
                           onClick={capturePhoto}
-                          className="w-16 h-16 sm:w-14 sm:h-14 lg:w-16 lg:h-16 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-lg focus:outline-none"
+                          className="w-16 h-16 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-lg focus:outline-none"
                           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                         >
-                          <div className="w-12 h-12 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gray-300 rounded-full"></div>
+                          <div className="w-12 h-12 bg-gray-300 rounded-full"></div>
                         </button>
                       </div>
                     )}
