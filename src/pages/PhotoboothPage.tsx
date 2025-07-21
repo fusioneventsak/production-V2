@@ -985,9 +985,15 @@ const PhotoboothPage: React.FC = () => {
   }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, textElements, renderTextToCanvas, cleanupCamera]);
 
   const downloadPhoto = useCallback(async () => {
-    if (!photo || isDownloading) return;
+    console.log('📥 Download function called', { photo: !!photo, isDownloading, textElementsCount: textElements.length });
+    
+    if (!photo || isDownloading) {
+      console.log('❌ Download blocked:', { hasPhoto: !!photo, isDownloading });
+      return;
+    }
 
     setIsDownloading(true);
+    console.log('🔄 Starting download process...');
 
     try {
       let finalPhoto = photo;
@@ -996,65 +1002,93 @@ const PhotoboothPage: React.FC = () => {
       if (textElements.length > 0 && canvasRef.current) {
         console.log('🎨 Rendering text to photo before download...');
         finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+        console.log('✅ Text rendered successfully');
       }
 
-      // Create download link
-      const link = document.createElement('a');
-      link.href = finalPhoto;
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      link.download = `photobooth-${timestamp}.jpg`;
+      // Simple download approach
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
+      const filename = `photobooth-${timestamp}.jpg`;
       
-      // For better mobile compatibility
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      
-      // Trigger download
-      link.click();
-      
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(finalPhoto);
-      }, 100);
-      
-      // Show success message
-      setError('Photo downloaded successfully!');
-      setTimeout(() => setError(null), 2000);
-      
-      console.log('💾 Photo downloaded with text elements');
-    } catch (err) {
-      console.error('❌ Download failed:', err);
-      setError('Download failed. Please try again.');
-      setTimeout(() => setError(null), 3000);
-      
-      // Fallback: Try to open in new tab for manual save
-      try {
-        let finalPhoto = photo;
-        if (textElements.length > 0 && canvasRef.current) {
-          finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
-        }
+      console.log('💾 Creating download with filename:', filename);
+
+      // Try the most compatible download method
+      if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+        // iOS specific handling
+        console.log('📱 iOS detected, using iOS download method');
         const newWindow = window.open();
         if (newWindow) {
           newWindow.document.write(`
             <html>
               <head><title>Download Photo</title></head>
-              <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
-                <div style="text-align:center;">
-                  <img src="${finalPhoto}" style="max-width:100%;max-height:90vh;" />
-                  <div style="color:white;margin-top:20px;">
-                    <p>Right-click the image and select "Save image as..." to download</p>
-                    <p>Or long-press on mobile and select "Save to Photos"</p>
-                  </div>
+              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
+                <img src="${finalPhoto}" style="max-width:90%;max-height:70vh;border-radius:10px;" />
+                <div style="color:white;text-align:center;margin-top:20px;padding:20px;">
+                  <h2>Your Photobooth Picture</h2>
+                  <p>Long-press the image above and select<br/><strong>"Save to Photos"</strong> or <strong>"Add to Photos"</strong></p>
+                  <p style="font-size:14px;opacity:0.8;">Filename: ${filename}</p>
                 </div>
               </body>
             </html>
           `);
+          newWindow.document.close();
+        }
+      } else {
+        // Standard download for other browsers
+        console.log('💻 Standard browser detected, using direct download');
+        const link = document.createElement('a');
+        link.href = finalPhoto;
+        link.download = filename;
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ Download triggered successfully');
+      }
+      
+      // Show success message
+      setError('Photo download started! Check your downloads folder.');
+      setTimeout(() => setError(null), 3000);
+      
+      console.log('✅ Download process completed');
+    } catch (err) {
+      console.error('❌ Download failed:', err);
+      setError('Download failed. Opening photo in new tab...');
+      
+      // Ultimate fallback
+      try {
+        let finalPhoto = photo;
+        if (textElements.length > 0 && canvasRef.current) {
+          finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+        }
+        
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head><title>Your Photobooth Photo</title></head>
+              <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
+                <img src="${finalPhoto}" style="max-width:90%;max-height:70vh;border-radius:10px;" />
+                <div style="color:white;text-align:center;margin-top:20px;padding:20px;">
+                  <h2>Save Your Photo</h2>
+                  <p><strong>Desktop:</strong> Right-click image → "Save image as..."</p>
+                  <p><strong>Mobile:</strong> Long-press image → "Save to Photos"</p>
+                </div>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
         }
       } catch (fallbackErr) {
-        console.error('❌ Fallback also failed:', fallbackErr);
+        console.error('❌ Fallback failed too:', fallbackErr);
+        setError('Could not download photo. Please try again.');
       }
+      
+      setTimeout(() => setError(null), 5000);
     } finally {
       setIsDownloading(false);
+      console.log('🏁 Download process finished');
     }
   }, [photo, textElements, renderTextToCanvas, isDownloading]);
 
@@ -1719,10 +1753,22 @@ const PhotoboothPage: React.FC = () => {
                 {/* Instagram Story-like UI Controls - Top Right - Simplified for mobile */}
                 <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
                   <button
-                    onClick={downloadPhoto}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('📥 Download button clicked');
+                      downloadPhoto();
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('📥 Download button touched');
+                      downloadPhoto();
+                    }}
                     disabled={isDownloading}
-                    className="w-14 h-14 bg-black/70 backdrop-blur-sm hover:bg-black/80 disabled:bg-gray-600/70 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
-                    title="Download"
+                    className="w-14 h-14 bg-green-600/80 backdrop-blur-sm hover:bg-green-700/80 disabled:bg-gray-600/70 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
+                    title="Download Photo"
+                    style={{ touchAction: 'manipulation' }}
                   >
                     {isDownloading ? (
                       <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
