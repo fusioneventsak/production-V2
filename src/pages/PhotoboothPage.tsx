@@ -1492,7 +1492,6 @@ const PhotoboothPage: React.FC = () => {
                 </button>
                 <div>
                   <h1 className="text-lg font-bold text-white flex items-center space-x-2">
-                    <Camera className="w-5 h-5 text-purple-400" />
                     <span>Photobooth</span>
                   </h1>
                   <p className="text-gray-300 text-sm">{currentCollage?.name}</p>
