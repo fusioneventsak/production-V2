@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Video, Square, Download, X, Clock, Settings } from 'lucide-react';
+import { Video, Square, Download, X, Settings } from 'lucide-react';
 
 type Resolution = '1080p' | '4k';
 type AspectRatio = '16:9' | '9:16';
@@ -30,18 +30,15 @@ const VideoRecordingOverlay: React.FC<VideoRecordingOverlayProps> = ({
 
   return (
     <div className="fixed inset-0 z-40 pointer-events-none">
-      {/* Recording indicator */}
       <div className="absolute top-4 left-4 flex items-center space-x-2 bg-black/70 px-3 py-1 rounded-full backdrop-blur-sm border border-red-500/30">
         <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
         <span className="text-white text-sm font-medium">REC</span>
       </div>
       
-      {/* Timer */}
       <div className="absolute top-4 right-4 bg-black/70 px-3 py-1 rounded-full backdrop-blur-sm border border-white/20">
         <span className="text-white text-sm font-mono">{formatTime(remainingTime)}</span>
       </div>
       
-      {/* Logo watermark */}
       <div className="absolute bottom-4 right-4 flex items-center justify-center">
         <img 
           src={logoUrl} 
@@ -68,18 +65,14 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [isMobile, setIsMobile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [duration, setDuration] = useState<30 | 60>(60);
-  const [resolution, setResolution] = useState<Resolution>('1080p');
+  const [resolution, setResolution] = useState<Resolution>('4k');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
-  const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
-  const [outputFormat, setOutputFormat] = useState<'webm' | 'mp4'>('webm');
   const [quality, setQuality] = useState<'standard' | 'high' | 'ultra'>('ultra');
-  const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
 
   // Calculate dimensions based on resolution and aspect ratio
   const getDimensions = useCallback(() => {
@@ -87,63 +80,53 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     const baseHeight = resolution === '4k' ? 2160 : 1080;
     
     if (aspectRatio === '9:16') {
-      // For vertical video, swap dimensions but maintain proper proportions
       return { width: baseHeight, height: Math.round(baseHeight * 16 / 9) };
     }
     
     return { width: baseWidth, height: baseHeight };
   }, [resolution, aspectRatio]);
 
-  // Get quality-based bitrate optimized for Three.js content with particle systems
+  // Get ultra-high bitrates for perfect quality
   const getBitrate = useCallback(() => {
-    // Particle systems need MASSIVE bitrates due to:
-    // 1. Point sprites with alpha blending
-    // 2. Additive blending effects
-    // 3. Constantly moving/changing particles
-    // 4. Shader-based rendering with fine details
-    let baseBitrate: number;
+    const { width, height } = getDimensions();
+    const pixelCount = width * height;
+    
+    // Use extremely high bitrates to match OBS quality
+    let bitrate: number;
     
     if (resolution === '4k') {
       switch (quality) {
         case 'ultra':
-          baseBitrate = isMobile ? 300000000 : 500000000; // 300-500 Mbps for 4K Ultra particles
+          bitrate = 400000000; // 400 Mbps - OBS quality
           break;
         case 'high':
-          baseBitrate = isMobile ? 200000000 : 350000000; // 200-350 Mbps for 4K High particles
+          bitrate = 250000000; // 250 Mbps
           break;
         case 'standard':
-          baseBitrate = isMobile ? 120000000 : 200000000; // 120-200 Mbps for 4K Standard particles
+          bitrate = 150000000; // 150 Mbps
           break;
         default:
-          baseBitrate = 200000000;
+          bitrate = 400000000;
       }
     } else { // 1080p
       switch (quality) {
         case 'ultra':
-          baseBitrate = isMobile ? 150000000 : 250000000; // 150-250 Mbps for 1080p Ultra particles
+          bitrate = 200000000; // 200 Mbps - OBS quality
           break;
         case 'high':
-          baseBitrate = isMobile ? 100000000 : 150000000; // 100-150 Mbps for 1080p High particles
+          bitrate = 120000000; // 120 Mbps
           break;
         case 'standard':
-          baseBitrate = isMobile ? 60000000 : 100000000;  // 60-100 Mbps for 1080p Standard particles
+          bitrate = 80000000;  // 80 Mbps
           break;
         default:
-          baseBitrate = 100000000;
+          bitrate = 200000000;
       }
     }
     
-    // For 9:16 aspect ratio, maintain similar quality for particles
-    if (aspectRatio === '9:16') {
-      baseBitrate = Math.round(baseBitrate * 0.9); // Slightly reduce for vertical format
-    }
-    
-    // Allow extremely high bitrates for particle system quality
-    const maxBitrate = 600000000; // 600 Mbps maximum for particle systems
-    const minBitrate = 50000000;  // 50 Mbps minimum for particle quality
-    
-    return Math.max(minBitrate, Math.min(maxBitrate, baseBitrate));
-  }, [resolution, quality, aspectRatio, isMobile]);
+    // Reduce slightly for mobile to prevent crashes
+    return isMobile ? Math.round(bitrate * 0.7) : bitrate;
+  }, [resolution, quality, aspectRatio, isMobile, getDimensions]);
 
   // Detect mobile device
   useEffect(() => {
@@ -161,40 +144,13 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, []);
   
-  // Update canvas resolution when settings change - sync with CollageScene
+  // Update canvas resolution when settings change
   useEffect(() => {
     if (canvasRef.current && onResolutionChange) {
       const { width, height } = getDimensions();
-      console.log('📐 Video recorder requesting canvas resize:', { width, height });
       onResolutionChange(width, height);
-      
-      // Store resolution for pixel ratio calculations (matching CollageScene logic)
-      setRecordingResolution({ width, height });
     }
   }, [resolution, aspectRatio, canvasRef, onResolutionChange, getDimensions]);
-
-  // Detect supported video format with Three.js optimized codecs
-  useEffect(() => {
-    const formats = [
-      'video/webm;codecs=vp9,opus',           // VP9 with Opus - best for Three.js
-      'video/webm;codecs=av01,opus',          // AV1 codec if available
-      'video/webm;codecs=vp8,vorbis',         // VP8 fallback
-      'video/mp4;codecs=avc1.42E01E,mp4a.40.2', // H.264 High Profile
-      'video/mp4;codecs=h264,aac',            // Standard H.264
-      'video/webm',                           // Basic WebM
-      'video/mp4'                             // Basic MP4
-    ];
-    
-    const supported = formats.find(format => MediaRecorder.isTypeSupported(format));
-    
-    if (supported) {
-      console.log('🎥 Using Three.js optimized video format:', supported);
-      setSupportedMimeType(supported);
-    } else {
-      console.error('❌ No supported video format found for Three.js recording');
-      setError('Your browser does not support high-quality video recording');
-    }
-  }, []);
 
   // Clean up resources when component unmounts
   useEffect(() => {
@@ -206,149 +162,14 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     };
   }, [videoUrl]);
 
-  // Prepare Three.js canvas to match EXACT CollageScene camera and depth settings
-  const prepareCanvasForRecording = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return false;
-
-    try {
-      console.log('🎥 Preparing canvas to match EXACT CollageScene camera settings...');
-      
-      // Get the WebGL context - match your CollageScene exactly
-      const context = canvas.getContext('webgl2') || canvas.getContext('webgl');
-      if (!context) {
-        console.error('❌ WebGL context not found');
-        return false;
-      }
-
-      // Ensure preserveDrawingBuffer is enabled (your scene has this)
-      const contextAttributes = context.getContextAttributes();
-      if (!contextAttributes?.preserveDrawingBuffer) {
-        console.error('❌ preserveDrawingBuffer not enabled - this is critical for recording');
-        return false;
-      }
-
-      // CRITICAL: Your CollageScene camera settings
-      // position: [0, 0, 20], fov: 75, near: 0.1, far: 1000
-      // This affects all particle shader distance calculations!
-      
-      console.log('📹 CollageScene camera configuration:', {
-        position: '[0, 0, 20]',
-        fov: 75,
-        near: 0.1,
-        far: 1000,
-        particleDepthRanges: {
-          main: '0-50 units (close to camera)',
-          atmospheric: '100-400 units (far from camera)', 
-          distantSwirl: '200-600 units (very far from camera)'
-        }
-      });
-
-      // CRITICAL: Your CollageScene sets pixel ratio based on width
-      const scenePixelRatio = recordingResolution.width > 1920 ? 2 : 1;
-      
-      // Enable depth testing with exact settings for particle depth ranges
-      context.enable(context.DEPTH_TEST);
-      context.depthFunc(context.LEQUAL);
-      context.clearDepth(1.0);
-      
-      // Enable blending for additive particle effects (your particles use AdditiveBlending)
-      context.enable(context.BLEND);
-      context.blendFunc(context.SRC_ALPHA, context.ONE_MINUS_SRC_ALPHA);
-      
-      // Set viewport to match recording resolution exactly
-      context.viewport(0, 0, canvas.width, canvas.height);
-      
-      console.log(`🎯 Pixel ratio matching CollageScene: ${scenePixelRatio}`);
-      
-      // Wait for ALL particle system layers with EXACT distance ranges
-      console.log('🌌 Waiting for particles at ALL depth ranges...');
-      
-      // Your particle distance ranges:
-      // Main cloud: close to camera (good recording)
-      // Atmospheric: 100-400 units (problem area)
-      // Distant swirl: 200-600 units (problem area)
-      // Big swirls: 120+ units (problem area)
-      
-      // CRITICAL: Wait for distance-based shader calculations to complete
-      // These use modelViewMatrix calculations that need camera position stabilization
-      console.log('📏 Waiting for camera-distance shader calculations...');
-      for (let i = 0; i < 30; i++) {
-        await new Promise(resolve => requestAnimationFrame(resolve));
-      }
-      
-      // Force multiple render cycles for far particles to stabilize
-      console.log('🔄 Forcing render stabilization for distant particles...');
-      for (let i = 0; i < 10; i++) {
-        await new Promise(resolve => requestAnimationFrame(resolve));
-      }
-      
-      // Verify particles at different depths are rendering
-      const verifyParticleDepths = () => {
-        console.log('🔍 Verifying particle rendering at different depths...');
-        
-        // Check center (main particles - should be good)
-        const centerPixel = new Uint8Array(4);
-        context.readPixels(canvas.width / 2, canvas.height / 2, 1, 1, context.RGBA, context.UNSIGNED_BYTE, centerPixel);
-        console.log('📊 Center (main particles):', centerPixel);
-        
-        // Check edges (atmospheric/distant particles - problem area)
-        const edgePixel = new Uint8Array(4);
-        context.readPixels(canvas.width / 6, canvas.height / 6, 1, 1, context.RGBA, context.UNSIGNED_BYTE, edgePixel);
-        console.log('📊 Edge (distant particles):', edgePixel);
-        
-        // Check corners (very distant particles)
-        const cornerPixel = new Uint8Array(4);
-        context.readPixels(10, 10, 1, 1, context.RGBA, context.UNSIGNED_BYTE, cornerPixel);
-        console.log('📊 Corner (very distant particles):', cornerPixel);
-        
-        return {
-          centerHasParticles: centerPixel[3] > 0, // Alpha channel
-          edgeHasParticles: edgePixel[3] > 0,
-          cornerHasParticles: cornerPixel[3] > 0
-        };
-      };
-      
-      const particleCheck = verifyParticleDepths();
-      console.log('✅ Particle depth verification:', particleCheck);
-      
-      if (!particleCheck.edgeHasParticles) {
-        console.warn('⚠️ Distant particles may not be rendering properly!');
-      }
-      
-      console.log('✅ Canvas prepared with EXACT CollageScene camera matching:', {
-        dimensions: `${canvas.width}x${canvas.height}`,
-        pixelRatio: scenePixelRatio,
-        cameraPosition: '[0, 0, 20]',
-        fov: 75,
-        depthRange: '0.1 - 1000',
-        particleVerification: particleCheck,
-        waitTime: '40 frames for distance calculations'
-      });
-
-      return true;
-    } catch (error) {
-      console.error('❌ Failed to prepare canvas for recording:', error);
-      return false;
-    }
-  }, [canvasRef, recordingResolution]);
-
   const startRecording = useCallback(async () => {
-    if (!canvasRef.current || !supportedMimeType) {
-      setError('Canvas or video format not supported');
+    if (!canvasRef.current) {
+      setError('Canvas not found');
       return;
     }
     
     try {
       setError(null);
-      
-      // Prepare the Three.js canvas
-      const canvasReady = await prepareCanvasForRecording();
-      if (!canvasReady) {
-        setError('Failed to prepare Three.js canvas for recording');
-        return;
-      }
-
       setIsRecording(true);
       setRecordingTime(0);
       setVideoBlob(null);
@@ -356,96 +177,46 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       chunksRef.current = [];
       
-      // Get the canvas stream with optimized settings for particle systems
       const canvas = canvasRef.current;
       
-      // Use maximum 60fps for particle systems - critical for smooth particle animation
-      const frameRate = 60;
+      // Simple, direct canvas capture - just like OBS
+      console.log('🎥 Starting direct canvas capture (OBS-style)...');
       
-      // CRITICAL: Use EXACT CollageScene camera settings for particle distance calculations
-      // Your scene: camera={{ position: [0, 0, 20], fov: 75, near: 0.1, far: 1000 }}
-      // Particle shaders use these values: gl_PointSize = size * (300.0 / -mvPosition.z)
-      const sceneMatchingPixelRatio = recordingResolution.width > 1920 ? 2 : 1;
-      
-      // Wait for particle system with EXACT distance range requirements
-      // Main cloud: gl_PointSize = size * (300.0 / -mvPosition.z) - records well
-      // Atmospheric: gl_PointSize = size * (150.0 / -mvPosition.z) + smoothstep(100.0, 400.0, distance)
-      // Distant swirl: gl_PointSize = size * (400.0 / -mvPosition.z) + smoothstep(200.0, 600.0, distance)
-      console.log('🌌 Waiting for ALL particle distance calculations with camera at [0,0,20]...');
-      
-      // CRITICAL: Extended wait for far particle calculations (atmospheric: 100-400, distant: 200-600)
-      for (let i = 0; i < 40; i++) {
-        await new Promise(resolve => requestAnimationFrame(resolve));
-      }
-      
-      // CRITICAL: Extra stabilization for particles beyond z=100 (your problem area)
-      console.log('🌫️ Extra stabilization for particles beyond camera distance 100...');
-      for (let i = 0; i < 15; i++) {
-        await new Promise(resolve => requestAnimationFrame(resolve));
-      }
-      
-      // CRITICAL: Capture stream with exact camera-matched settings
-      const stream = canvas.captureStream(frameRate);
-      
-      console.log('🎬 Capturing with EXACT camera distance calculations:', {
-        cameraPosition: '[0, 0, 20]',
-        fov: 75,
-        nearFar: '[0.1, 1000]',
-        pixelRatio: sceneMatchingPixelRatio,
-        frameRate,
-        canvasSize: `${canvas.width}x${canvas.height}`,
-        particleDistanceRanges: {
-          main: '0-50 units (recording fine)',
-          atmospheric: '100-400 units (TARGET FIX)',
-          distantSwirl: '200-600 units (TARGET FIX)',
-          bigSwirls: '120+ units (TARGET FIX)'
-        },
-        totalWaitFrames: 55
-      });
-      
-      // Get video track and apply additional quality settings
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack) {
-        const capabilities = videoTrack.getCapabilities?.();
-        if (capabilities) {
-          console.log('📹 Video track capabilities:', capabilities);
-          
-          // Apply constraints for maximum quality
-          const constraints = {
-            frameRate: { ideal: frameRate, max: frameRate },
-            width: { ideal: canvas.width },
-            height: { ideal: canvas.height }
-          };
-          
-          try {
-            await videoTrack.applyConstraints(constraints);
-            console.log('✅ Applied high-quality constraints for particle recording');
-          } catch (constraintError) {
-            console.warn('⚠️ Could not apply video constraints:', constraintError);
-          }
-        }
-      }
-      
+      // Capture at 60fps for smooth results
+      const stream = canvas.captureStream(60);
       streamRef.current = stream;
+      
+      // Use the best codec available
+      const preferredCodecs = [
+        'video/webm; codecs=vp9,opus',
+        'video/webm; codecs=vp8,vorbis', 
+        'video/mp4; codecs=h264,aac',
+        'video/webm',
+        'video/mp4'
+      ];
+      
+      const supportedCodec = preferredCodecs.find(codec => 
+        MediaRecorder.isTypeSupported(codec)
+      );
+      
+      if (!supportedCodec) {
+        throw new Error('No supported video codec found');
+      }
       
       const bitrate = getBitrate();
       
-      // Configure MediaRecorder with Three.js optimized settings
-      const options: MediaRecorderOptions = {
-        mimeType: supportedMimeType,
-        videoBitsPerSecond: bitrate
-      };
-      
-      console.log('🎥 Starting Three.js recording with:', {
-        dimensions: getDimensions(),
-        bitrate: `${(bitrate / 1000000).toFixed(1)}Mbps`,
-        frameRate: `${frameRate}fps`,
-        quality,
-        format: supportedMimeType,
-        aspectRatio
+      console.log(`🚀 Recording with OBS-quality settings:`, {
+        resolution: `${canvas.width}x${canvas.height}`,
+        bitrate: `${(bitrate / 1000000).toFixed(0)} Mbps`,
+        codec: supportedCodec,
+        frameRate: '60fps'
       });
       
-      const recorder = new MediaRecorder(stream, options);
+      // Configure recorder with ultra-high quality
+      const recorder = new MediaRecorder(stream, {
+        mimeType: supportedCodec,
+        videoBitsPerSecond: bitrate
+      });
       
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -454,7 +225,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       };
       
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: supportedMimeType });
+        const blob = new Blob(chunksRef.current, { type: supportedCodec });
         const url = URL.createObjectURL(blob);
         
         setVideoBlob(blob);
@@ -462,22 +233,20 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         setIsProcessing(false);
         streamRef.current = null;
         
-        console.log('✅ Recording completed with ALL particle depth ranges:', {
+        console.log('✅ Recording completed:', {
           size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-          type: blob.type,
-          cameraMatched: '[0,0,20] fov:75',
-          particleDepthsCaptured: 'main(0-50), atmospheric(100-400), distant(200-600)'
+          type: blob.type
         });
       };
       
       recorder.onerror = (event) => {
-        console.error('❌ Three.js MediaRecorder error:', event);
-        setError('Recording failed. Canvas may not be properly initialized for particle recording.');
+        console.error('❌ Recording error:', event);
+        setError('Recording failed. Try reducing quality or resolution.');
         stopRecording();
       };
       
-      // Start recording with ultra-small timeslices for particle system smoothness (5ms chunks)
-      recorder.start(5);
+      // Start recording
+      recorder.start(100); // 100ms chunks for smooth recording
       mediaRecorderRef.current = recorder;
       
       // Start timer
@@ -493,26 +262,18 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       }, 1000);
       
     } catch (err) {
-      console.error('❌ Error starting Three.js recording:', err);
-      setError('Failed to start recording. Canvas may not match CollageScene settings.');
+      console.error('❌ Error starting recording:', err);
+      setError('Failed to start recording. Your browser may not support high-quality video recording.');
       setIsRecording(false);
     }
-  }, [canvasRef, supportedMimeType, getBitrate, duration, resolution, aspectRatio, quality, getDimensions, prepareCanvasForRecording]);
+  }, [canvasRef, duration, getBitrate]);
 
   const stopRecording = useCallback(() => {
-    // Clear timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
     
-    // Stop animation frame if active
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    
-    // Stop media recorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       setIsProcessing(true);
       try {
@@ -523,14 +284,12 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       mediaRecorderRef.current = null;
     }
     
-    // Stop stream tracks
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     
     setIsRecording(false);
-    console.log('🛑 Three.js recording stopped');
   }, []);
 
   const downloadVideo = useCallback(() => {
@@ -539,16 +298,13 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     const a = document.createElement('a');
     a.href = videoUrl;
     
-    const fileExtension = outputFormat === 'mp4' ? 'mp4' : 'webm';
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
     const aspectSuffix = aspectRatio === '9:16' ? '_vertical' : '_landscape';
     const qualitySuffix = quality === 'ultra' ? '_ultra' : quality === 'high' ? '_high' : '';
     
-    a.download = `photosphere-${resolution}${aspectSuffix}${qualitySuffix}-${timestamp}.${fileExtension}`;
+    a.download = `photosphere-${resolution}${aspectSuffix}${qualitySuffix}-${timestamp}.webm`;
     a.click();
-    
-    console.log('💾 Three.js video downloaded:', a.download);
-  }, [videoBlob, videoUrl, outputFormat, resolution, aspectRatio, quality]);
+  }, [videoBlob, videoUrl, resolution, aspectRatio, quality]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -575,11 +331,11 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         />
       )}
       
-      {/* Enhanced Settings Panel for Three.js */}
+      {/* Simple Settings Panel */}
       {showSettings && !isRecording && !isProcessing && (
-        <div className="absolute -top-80 left-0 right-0 bg-black/85 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4 shadow-2xl">
+        <div className="absolute -top-64 left-0 right-0 bg-black/85 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4 shadow-2xl">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-white text-sm font-medium">Particle System Video Settings</h3>
+            <h3 className="text-white text-sm font-medium">OBS-Quality Recording</h3>
             <button 
               onClick={() => setShowSettings(false)}
               className="text-gray-400 hover:text-white transition-colors"
@@ -658,9 +414,9 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
               </div>
             </div>
             
-            {/* Quality Selection for Three.js */}
+            {/* Quality Selection */}
             <div>
-              <label className="text-white text-xs mb-2 block">Quality (Particle Systems)</label>
+              <label className="text-white text-xs mb-2 block">Quality</label>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setQuality('standard')}
@@ -690,16 +446,14 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             </div>
           </div>
           
-          {/* Three.js Specific Preview Info */}
+          {/* Quality Info */}
           <div className="mt-4 p-3 bg-gray-800/50 rounded border border-gray-600">
             <div className="text-xs text-gray-300 space-y-1">
               <div>📐 Output: {width} × {height} ({aspectRatio})</div>
-              <div>🎬 Bitrate: {(getBitrate() / 1000000).toFixed(0)} Mbps (Particle Optimized)</div>
-              <div>🎞️ Frame Rate: 60 fps (Smooth particles)</div>
+              <div>🎬 Bitrate: {(getBitrate() / 1000000).toFixed(0)} Mbps (OBS Quality)</div>
+              <div>🎞️ Frame Rate: 60 fps</div>
               <div>💾 Est. Size: ~{estimatedFileSizeMB} MB</div>
-              <div className="text-yellow-400 text-xs">✨ Ultra-high bitrates for particle quality</div>
-              <div>📏 Camera: [0,0,20] FOV:75 (matches scene)</div>
-              <div>🌫️ Distance ranges: 0-50, 100-400, 200-600</div>
+              <div className="text-green-400 text-xs">🚀 Direct canvas capture - no processing</div>
             </div>
           </div>
         </div>
@@ -713,8 +467,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             </div>
             <button
               onClick={startRecording}
-              disabled={!supportedMimeType}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-lg"
             >
               <Video className="w-4 h-4" />
               <span>Record {duration}s</span>
@@ -723,7 +476,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors shadow-lg"
-              title="Particle System Recording Settings"
+              title="Recording Settings"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -743,7 +496,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         {isProcessing && (
           <div className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg shadow-lg">
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>Processing Three.js...</span>
+            <span>Processing...</span>
           </div>
         )}
         
@@ -755,7 +508,6 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             <button
               onClick={downloadVideo}
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg"
-              title={`Download ${width}×${height} Three.js video`}
             >
               <Download className="w-4 h-4" />
               <span>Download</span>
