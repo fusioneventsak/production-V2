@@ -1361,121 +1361,221 @@ const PhotoboothPage: React.FC = () => {
                 
                 {renderTextElements()}
                 
-                {/* VERTICAL TEXT SETTINGS - LEFT SIDE (Show when text is selected) */}
-                {selectedTextId && (
-                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 50 }}>
-                    {/* Color Picker Icon */}
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          // Cycle through colors
-                          const currentElement = textElements.find(el => el.id === selectedTextId);
-                          const currentColorIndex = colorPresets.findIndex(c => c === currentElement?.color);
-                          const nextColorIndex = (currentColorIndex + 1) % colorPresets.length;
-                          updateTextElement(selectedTextId, { color: colorPresets[nextColorIndex] });
-                        }}
-                        className="w-12 h-12 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-                        style={{ 
-                          backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff',
-                          zIndex: 51
-                        }}
-                      >
-                        <Palette className="w-6 h-6 text-black" />
-                      </button>
-                      
-                      {/* Color Palette Popup */}
-                      <div 
-                        className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity"
-                        style={{ zIndex: 52 }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-                      >
-                        <div className="grid grid-cols-2 gap-2">
-                          {colorPresets.map((color) => (
-                            <button
-                              key={color}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                updateTextElement(selectedTextId, { color });
-                              }}
-                              className="w-8 h-8 rounded-full border border-white/40 hover:border-white transition-colors"
-                              style={{ backgroundColor: color, zIndex: 53 }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Background/Style Icon */}
-                    <div className="relative">
-                      <button
-                        onClick={() => {
-                          // Cycle through background styles
-                          const currentElement = textElements.find(el => el.id === selectedTextId);
-                          const currentStyleIndex = textStylePresets.findIndex(s => s.name === currentElement?.style.name);
-                          const nextStyleIndex = (currentStyleIndex + 1) % textStylePresets.length;
-                          updateTextElement(selectedTextId, { style: textStylePresets[nextStyleIndex] });
-                        }}
-                        className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-                        style={{ zIndex: 51 }}
-                      >
-                        <Settings className="w-6 h-6 text-white" />
-                      </button>
-                      
-                      {/* Background Style Popup */}
-                      <div 
-                        className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-2 opacity-0 hover:opacity-100 transition-opacity"
-                        style={{ zIndex: 52 }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-                      >
-                        <div className="space-y-2">
-                          {textStylePresets.map((preset) => {
-                            const selectedElement = textElements.find(el => el.id === selectedTextId);
-                            const isSelected = selectedElement?.style.name === preset.name;
-                            return (
-                              <button
-                                key={preset.name}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  updateTextElement(selectedTextId, { style: preset });
-                                }}
-                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                                  isSelected 
-                                    ? 'bg-white text-black' 
-                                    : 'bg-white/20 text-white hover:bg-white/40'
-                                }`}
-                                style={{ zIndex: 53 }}
-                              >
-                                {preset.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Instagram Story-like UI Controls - Top Right */}
-                <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
+                {/* Always show text controls when we have a photo - Mobile */}
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 50 }}>
+                  {/* Add Text Button - Always visible */}
                   <button
                     onClick={addTextElement}
-                    className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                    className="w-14 h-14 bg-purple-600/80 backdrop-blur-sm hover:bg-purple-700/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
                     title="Add Text"
                   >
-                    <Type className="w-6 h-6" />
+                    <Type className="w-7 h-7" />
                   </button>
+
+                  {/* Text editing controls - Show when text is selected */}
+                  {selectedTextId && (
+                    <>
+                      {/* Color Picker Icon - Modified for mobile touch */}
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            // Cycle through colors
+                            const currentElement = textElements.find(el => el.id === selectedTextId);
+                            const currentColorIndex = colorPresets.findIndex(c => c === currentElement?.color);
+                            const nextColorIndex = (currentColorIndex + 1) % colorPresets.length;
+                            updateTextElement(selectedTextId, { color: colorPresets[nextColorIndex] });
+                          }}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            // Show color palette on touch
+                            const popup = e.currentTarget.parentElement?.querySelector('.color-popup') as HTMLElement;
+                            if (popup) {
+                              popup.style.opacity = '1';
+                              popup.style.pointerEvents = 'auto';
+                              setTimeout(() => {
+                                popup.style.opacity = '0';
+                                popup.style.pointerEvents = 'none';
+                              }, 3000);
+                            }
+                          }}
+                          className="w-14 h-14 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                          style={{ 
+                            backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff',
+                            zIndex: 51
+                          }}
+                        >
+                          <Palette className="w-7 h-7 text-black" />
+                        </button>
+                        
+                        {/* Color Palette Popup - Modified for mobile */}
+                        <div 
+                          className="color-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
+                          style={{ zIndex: 52 }}
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            {colorPresets.map((color) => (
+                              <button
+                                key={color}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateTextElement(selectedTextId, { color });
+                                  // Hide popup after selection
+                                  const popup = e.currentTarget.closest('.color-popup') as HTMLElement;
+                                  if (popup) {
+                                    popup.style.opacity = '0';
+                                    popup.style.pointerEvents = 'none';
+                                  }
+                                }}
+                                className="w-10 h-10 rounded-full border-2 border-white/40 hover:border-white transition-colors active:scale-95"
+                                style={{ backgroundColor: color, zIndex: 53 }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Text Size Icon with Slider - Modified for mobile */}
+                      <div className="relative">
+                        <button
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            // Show size controls on touch
+                            const popup = e.currentTarget.parentElement?.querySelector('.size-popup') as HTMLElement;
+                            if (popup) {
+                              popup.style.opacity = '1';
+                              popup.style.pointerEvents = 'auto';
+                              setTimeout(() => {
+                                popup.style.opacity = '0';
+                                popup.style.pointerEvents = 'none';
+                              }, 4000);
+                            }
+                          }}
+                          className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                          style={{ zIndex: 51 }}
+                        >
+                          <ZoomIn className="w-7 h-7 text-white" />
+                        </button>
+                        
+                        {/* Size Slider Popup - Modified for mobile */}
+                        <div 
+                          className="size-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-4 opacity-0 transition-opacity pointer-events-none"
+                          style={{ zIndex: 52 }}
+                        >
+                          <div className="flex items-center space-x-3 w-40">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element) {
+                                  updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
+                                }
+                              }}
+                              className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
+                              style={{ zIndex: 53 }}
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="16"
+                              max="72"
+                              value={textElements.find(el => el.id === selectedTextId)?.size || 32}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
+                              }}
+                              className="flex-1 h-3 bg-white/30 rounded-full appearance-none cursor-pointer"
+                              style={{ zIndex: 53 }}
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element) {
+                                  updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
+                                }
+                              }}
+                              className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
+                              style={{ zIndex: 53 }}
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="text-white text-sm text-center mt-2 font-medium">
+                            {textElements.find(el => el.id === selectedTextId)?.size || 32}px
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Background/Style Icon - Modified for mobile */}
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            // Cycle through background styles
+                            const currentElement = textElements.find(el => el.id === selectedTextId);
+                            const currentStyleIndex = textStylePresets.findIndex(s => s.name === currentElement?.style.name);
+                            const nextStyleIndex = (currentStyleIndex + 1) % textStylePresets.length;
+                            updateTextElement(selectedTextId, { style: textStylePresets[nextStyleIndex] });
+                          }}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            // Show style options on touch
+                            const popup = e.currentTarget.parentElement?.querySelector('.style-popup') as HTMLElement;
+                            if (popup) {
+                              popup.style.opacity = '1';
+                              popup.style.pointerEvents = 'auto';
+                              setTimeout(() => {
+                                popup.style.opacity = '0';
+                                popup.style.pointerEvents = 'none';
+                              }, 3000);
+                            }
+                          }}
+                          className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                          style={{ zIndex: 51 }}
+                        >
+                          <Settings className="w-7 h-7 text-white" />
+                        </button>
+                        
+                        {/* Background Style Popup - Modified for mobile */}
+                        <div 
+                          className="style-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
+                          style={{ zIndex: 52 }}
+                        >
+                          <div className="space-y-2">
+                            {textStylePresets.map((preset) => {
+                              const selectedElement = textElements.find(el => el.id === selectedTextId);
+                              const isSelected = selectedElement?.style.name === preset.name;
+                              return (
+                                <button
+                                  key={preset.name}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateTextElement(selectedTextId, { style: preset });
+                                    // Hide popup after selection
+                                    const popup = e.currentTarget.closest('.style-popup') as HTMLElement;
+                                    if (popup) {
+                                      popup.style.opacity = '0';
+                                      popup.style.pointerEvents = 'none';
+                                    }
+                                  }}
+                                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-all whitespace-nowrap active:scale-95 ${
+                                    isSelected 
+                                      ? 'bg-white text-black' 
+                                      : 'bg-white/30 text-white hover:bg-white/50'
+                                  }`}
+                                  style={{ zIndex: 53 }}
+                                >
+                                  {preset.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                   
-                  <button
-                    onClick={downloadPhoto}
-                    className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
-                    title="Download"
-                  >
-                    <Download className="w-6 h-6" />
-                  </button>
-                  
-                  {/* Delete All Text Button */}
+                  {/* Delete All Text Button - Show when we have text */}
                   {textElements.length > 0 && (
                     <button
                       onClick={() => {
@@ -1484,12 +1584,23 @@ const PhotoboothPage: React.FC = () => {
                         setIsEditingText(false);
                         setShowTextStylePanel(false);
                       }}
-                      className="w-12 h-12 bg-red-600/60 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                      className="w-14 h-14 bg-red-600/70 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
                       title="Delete All Text"
                     >
-                      <X className="w-6 h-6" />
+                      <X className="w-7 h-7" />
                     </button>
                   )}
+                </div>
+                
+                {/* Instagram Story-like UI Controls - Top Right - Simplified for mobile */}
+                <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
+                  <button
+                    onClick={downloadPhoto}
+                    className="w-14 h-14 bg-black/70 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
+                    title="Download"
+                  >
+                    <Download className="w-7 h-7" />
+                  </button>
                 </div>
                 
                 {/* Bottom Action Bar */}
