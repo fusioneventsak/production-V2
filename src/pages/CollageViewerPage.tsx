@@ -222,8 +222,6 @@ const CollageViewerPage: React.FC = () => {
                       {currentCollage.name}
                     </h1>
                     <div className="flex items-center space-x-2 text-sm text-white/70">
-                      <span className="backdrop-blur-md">Code: {currentCollage.code}</span>
-                      <span>•</span>
                       <span>{safePhotos.length} photos</span>
                       <span>•</span>
                       <div className="flex items-center space-x-1">
