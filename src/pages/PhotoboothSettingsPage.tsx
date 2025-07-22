@@ -482,11 +482,11 @@ const PhotoboothSettingsPage = () => {
 
                     {/* Mock Preview */}
                     <div className={`mx-auto bg-gray-800 rounded-lg overflow-hidden relative ${
-                      previewMode === 'mobile' ? 'w-64 h-96' : 'w-80 h-60'
+                      previewMode === 'mobile' ? 'w-48 h-96' : 'w-54 h-96'
                     }`}>
                       <div className="relative w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
                         {/* Mock camera view */}
-                        <div className="absolute inset-4 bg-gray-600 rounded-lg flex items-center justify-center">
+                        <div className="absolute inset-2 bg-gray-600 rounded-lg flex items-center justify-center">
                           <Camera className="w-12 h-12 text-gray-400" />
                         </div>
 
