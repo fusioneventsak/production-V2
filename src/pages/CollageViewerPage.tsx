@@ -218,7 +218,7 @@ const CollageViewerPage: React.FC = () => {
                 {/* Left side - Navigation & Title */}
                 <div className="flex items-center space-x-4">
                   <div>
-                    <h1 className="text-lg font-semibold text-white/90 backdrop-blur-md">
+                    <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-blue-200 bg-clip-text text-transparent drop-shadow-lg">
                       {currentCollage.name}
                     </h1>
                     <div className="flex items-center space-x-2 text-sm text-white/70">
