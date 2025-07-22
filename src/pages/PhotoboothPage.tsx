@@ -1523,7 +1523,7 @@ const PhotoboothPage: React.FC = () => {
                 <div>
                   <h1 className="text-lg font-bold text-white flex items-center space-x-2">
                     <span className="text-purple-400">📸</span>
-                    <span>See SelfieSphere</span>
+                    <span>See PhotoSphere</span>
                   </h1>
                   <h2 className="text-base font-semibold text-white flex items-center space-x-2">
                     <Camera className="w-5 h-5 text-purple-400" />
