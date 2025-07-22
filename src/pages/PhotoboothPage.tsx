@@ -122,8 +122,6 @@ const PhotoboothPage: React.FC = () => {
   }, []);
 
   const cleanupCamera = useCallback(() => {
-    console.log('🧹 Cleaning up camera...');
-    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
         track.stop();
@@ -150,10 +148,8 @@ const PhotoboothPage: React.FC = () => {
           label: device.label || `Camera ${device.deviceId}`
         }));
       
-      console.log('📹 Available video devices:', videoDevices);
       return videoDevices;
     } catch (error) {
-      console.warn('⚠️ Could not enumerate devices:', error);
       return [];
     }
   }, []);
@@ -161,28 +157,22 @@ const PhotoboothPage: React.FC = () => {
   const waitForVideoElement = useCallback(async (maxWaitMs: number = 5000): Promise<HTMLVideoElement | null> => {
     const startTime = Date.now();
     
-    console.log('⏳ Waiting for video element to be available...');
     while (Date.now() - startTime < maxWaitMs) {
       if (videoRef.current) {
-        console.log('✅ Video element is available');
         return videoRef.current;
       }
       
-      console.log('⏳ Waiting for video element...');
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    console.error('❌ Video element not available after waiting');
     return null;
   }, []);
 
   const startCamera = useCallback(async (deviceId?: string) => {
     if (isInitializingRef.current) {
-      console.log('🔄 Camera initialization already in progress, skipping...');
       return;
     }
 
-    console.log('🎥 Starting camera initialization with device:', deviceId);
     isInitializingRef.current = true;
     setCameraState('starting');
     setError(null);
@@ -199,8 +189,6 @@ const PhotoboothPage: React.FC = () => {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/.test(navigator.userAgent);
       const isMobileDevice = isIOS || isAndroid;
-      
-      console.log('📱 Platform detected:', { isIOS, isAndroid, isMobileDevice });
       
       let constraints: MediaStreamConstraints;
       
@@ -223,10 +211,7 @@ const PhotoboothPage: React.FC = () => {
         };
       }
       
-      console.log('🔧 Using constraints:', constraints);
-      
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('✅ Got media stream:', mediaStream.active);
       
       const videoDevices = await getVideoDevices();
       setDevices(videoDevices);
@@ -240,7 +225,6 @@ const PhotoboothPage: React.FC = () => {
         );
         
         if (frontCamera) {
-          console.log('📱 Auto-selecting front camera:', frontCamera.label);
           setSelectedDevice(frontCamera.deviceId);
         } else {
           setSelectedDevice(videoDevices[0].deviceId);
@@ -256,32 +240,23 @@ const PhotoboothPage: React.FC = () => {
       
       const video = videoRef.current;
       
-      // Enhanced event handling with better timing
       let hasStartedPlaying = false;
       let eventListeners: { element: HTMLElement, event: string, handler: EventListener }[] = [];
       
-      // Helper function to ensure video plays
       const ensureVideoPlay = async (video: HTMLVideoElement) => {
         try {
-          // Check if video can autoplay
           const playPromise = video.play();
           
           if (playPromise !== undefined) {
             await playPromise;
-            console.log('✅ Video autoplay successful');
             return true;
           }
         } catch (error: any) {
-          console.warn('⚠️ Autoplay prevented:', error.message);
-          
-          // If autoplay fails, try to enable play after user interaction
           if (error.name === 'NotAllowedError') {
-            console.log('👆 Autoplay blocked - waiting for user interaction');
             setError('Camera ready - tap anywhere to start video');
             
             const enablePlay = () => {
               video.play().then(() => {
-                console.log('✅ Video play after interaction successful');
                 setError(null);
                 document.removeEventListener('click', enablePlay);
                 document.removeEventListener('touchstart', enablePlay);
@@ -297,13 +272,11 @@ const PhotoboothPage: React.FC = () => {
         return false;
       };
       
-      // Add event listener with tracking for cleanup
       const addTrackedEventListener = (element: HTMLElement, event: string, handler: EventListener) => {
         element.addEventListener(event, handler);
         eventListeners.push({ element, event, handler });
       };
       
-      // Clean up all tracked event listeners
       const cleanupEventListeners = () => {
         eventListeners.forEach(({ element, event, handler }) => {
           element.removeEventListener(event, handler);
@@ -312,53 +285,44 @@ const PhotoboothPage: React.FC = () => {
       };
       
       const handleLoadedMetadata = async () => {
-        console.log('📹 Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
         if (!hasStartedPlaying && video) {
           const success = await ensureVideoPlay(video);
           if (success) {
             hasStartedPlaying = true;
             streamRef.current = mediaStream;
             setCameraState('active');
-            console.log('✅ Camera active and streaming from loadedmetadata');
             cleanupEventListeners();
           }
         }
       };
       
       const handleCanPlay = async () => {
-        console.log('📹 Video can play - attempting play if not already playing');
         if (!hasStartedPlaying && video && video.paused) {
           const success = await ensureVideoPlay(video);
           if (success) {
             hasStartedPlaying = true;
             streamRef.current = mediaStream;
             setCameraState('active');
-            console.log('✅ Camera active and streaming from canplay');
             cleanupEventListeners();
           }
         }
       };
       
       const handleLoadedData = async () => {
-        console.log('📹 Video data loaded');
-        // Additional attempt to play
         if (!hasStartedPlaying && video && video.readyState >= 2) {
           const success = await ensureVideoPlay(video);
           if (success) {
             hasStartedPlaying = true;
             streamRef.current = mediaStream;
             setCameraState('active');
-            console.log('✅ Camera active and streaming from loadeddata');
             cleanupEventListeners();
           }
         }
       };
       
       const handleError = (event: Event) => {
-        console.error('❌ Video element error:', event);
         const target = event.target as HTMLVideoElement;
         if (target && target.error) {
-          console.error('❌ Video error details:', target.error);
         }
         setCameraState('error');
         setError('Video playback error');
@@ -366,53 +330,31 @@ const PhotoboothPage: React.FC = () => {
         cleanupEventListeners();
       };
       
-      // Add event listeners - removed once: true to allow multiple attempts
       addTrackedEventListener(video, 'loadedmetadata', handleLoadedMetadata);
       addTrackedEventListener(video, 'canplay', handleCanPlay);
       addTrackedEventListener(video, 'loadeddata', handleLoadedData);
       addTrackedEventListener(video, 'error', handleError);
       
-      // Additional debugging events
-      addTrackedEventListener(video, 'loadstart', () => console.log('📹 Video load start'));
-      addTrackedEventListener(video, 'canplaythrough', () => console.log('📹 Video can play through'));
-      
-      console.log('📹 Video element setup complete, waiting for events...');
-      
-      // Set the stream with a small delay to ensure event listeners are ready
       await new Promise(resolve => setTimeout(resolve, 100));
       video.srcObject = mediaStream;
       
-      // AGGRESSIVE FALLBACK: Force camera active after short delay
       setTimeout(() => {
         if (!hasStartedPlaying) {
-          console.log('🚨 FORCING camera active - video events not firing properly');
-          console.log('🚨 Video readyState:', video.readyState);
-          console.log('🚨 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-          console.log('🚨 Video paused:', video.paused);
-          
-          // Force the camera to active state regardless of events
           hasStartedPlaying = true;
           streamRef.current = mediaStream;
           setCameraState('active');
-          console.log('✅ Camera FORCED to active state');
           cleanupEventListeners();
         }
-      }, 1000); // Force after 1 second
+      }, 1000);
       
-      // Force a manual check after setting srcObject
       setTimeout(() => {
         if (!hasStartedPlaying && video && video.readyState >= 1) {
-          console.log('🔧 Manual video state check - readyState:', video.readyState);
-          console.log('🔧 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-          
           if (video.videoWidth > 0 && video.videoHeight > 0) {
-            console.log('✅ Video has dimensions, attempting manual play...');
             ensureVideoPlay(video).then(success => {
               if (success) {
                 hasStartedPlaying = true;
                 streamRef.current = mediaStream;
                 setCameraState('active');
-                console.log('✅ Camera active via manual check');
                 cleanupEventListeners();
               }
             });
@@ -420,24 +362,16 @@ const PhotoboothPage: React.FC = () => {
         }
       }, 500);
       
-      // Force load and play if needed after a short delay
       const forcePlayTimeout = setTimeout(async () => {
         if (!hasStartedPlaying && video && video.readyState >= 1) {
-          console.log('⏰ Forcing video play after timeout...');
-          console.log('⏰ Video readyState:', video.readyState, 'dimensions:', video.videoWidth, 'x', video.videoHeight);
-          
           const success = await ensureVideoPlay(video);
           if (success) {
             hasStartedPlaying = true;
             streamRef.current = mediaStream;
             setCameraState('active');
-            console.log('✅ Camera active and streaming from force play');
             cleanupEventListeners();
           } else {
-            console.error('❌ Forced play failed');
-            // Still set to active if we have video dimensions
             if (video.videoWidth > 0 && video.videoHeight > 0) {
-              console.log('📹 Video has dimensions, setting active anyway');
               hasStartedPlaying = true;
               streamRef.current = mediaStream;
               setCameraState('active');
@@ -452,7 +386,6 @@ const PhotoboothPage: React.FC = () => {
         }
       }, 2000);
       
-      // Cleanup timeout when camera becomes active
       const checkActive = setInterval(() => {
         if (hasStartedPlaying || cameraState === 'active') {
           clearTimeout(forcePlayTimeout);
@@ -462,7 +395,6 @@ const PhotoboothPage: React.FC = () => {
       }, 100);
       
     } catch (err: any) {
-      console.error('❌ Camera initialization failed:', err);
       setCameraState('error');
       
       let errorMessage = 'Failed to access camera. ';
@@ -475,7 +407,6 @@ const PhotoboothPage: React.FC = () => {
         errorMessage = 'Camera is busy. Please close other apps using the camera and try again.';
       } else if (err.name === 'OverconstrainedError') {
         try {
-          console.log('🔄 Trying fallback constraints...');
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: "user" }, 
             audio: false 
@@ -487,14 +418,12 @@ const PhotoboothPage: React.FC = () => {
             streamRef.current = fallbackStream;
             setCameraState('active');
             setError(null);
-            console.log('✅ Fallback camera working');
             return;
           } else {
             fallbackStream.getTracks().forEach(track => track.stop());
             throw new Error('Video element not available for fallback');
           }
         } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError);
           errorMessage = 'Camera not compatible with this device.';
         }
       } else {
@@ -521,7 +450,6 @@ const PhotoboothPage: React.FC = () => {
     setSelectedDevice(newDeviceId);
     
     if (!photo && cameraState !== 'starting') {
-      console.log('📱 Device changed, restarting camera...');
       startCamera(newDeviceId);
     }
   }, [selectedDevice, photo, cameraState, startCamera]);
@@ -581,7 +509,6 @@ const PhotoboothPage: React.FC = () => {
     return Math.atan2(touch2.clientY - touch1.clientY, touch2.clientX - touch1.clientX) * 180 / Math.PI;
   };
 
-  // Handle text interaction start (mouse/touch)
   const handleTextInteractionStart = useCallback((e: React.MouseEvent | React.TouchEvent, textId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -648,7 +575,6 @@ const PhotoboothPage: React.FC = () => {
     document.addEventListener('touchend', endHandler);
   }, [textElements, isResizing, initialDistance, initialRotation, initialScale, updateTextElement]);
 
-  // Handle resize corner drag (desktop only)
   const handleResizeCornerStart = useCallback((e: React.MouseEvent, textId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -665,7 +591,7 @@ const PhotoboothPage: React.FC = () => {
       const deltaX = moveEvent.clientX - startX;
       const deltaY = moveEvent.clientY - startY;
       const delta = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      const scaleChange = 1 + (delta / 100); // Adjust sensitivity
+      const scaleChange = 1 + (delta / 100);
       
       updateTextElement(textId, {
         scale: Math.max(0.5, Math.min(3, initialScale * scaleChange))
@@ -681,7 +607,6 @@ const PhotoboothPage: React.FC = () => {
     document.addEventListener('mouseup', endHandler);
   }, [textElements, initialScale, updateTextElement]);
 
-  // Helper function to wrap text based on maximum width
   const wrapText = useCallback((context: CanvasRenderingContext2D, text: string, maxWidth: number) => {
     const words = text.split(' ');
     const lines: string[] = [];
@@ -711,19 +636,14 @@ const PhotoboothPage: React.FC = () => {
     if (currentCollage?.settings?.photobooth) {
       const photoboothSettings = currentCollage.settings.photobooth;
       
-      // Load selected frame if it exists
       if (photoboothSettings.selectedFrameUrl && photoboothSettings.selectedFrameId !== 'none') {
-        console.log('🖼️ PHOTOBOOTH: Loading custom frame:', photoboothSettings.selectedFrameUrl);
-        console.log('🖼️ PHOTOBOOTH: Frame opacity:', photoboothSettings.frameOpacity);
-        
         setCustomFrame({
           id: photoboothSettings.selectedFrameId,
           url: photoboothSettings.selectedFrameUrl,
           opacity: photoboothSettings.frameOpacity || 80
         });
-        setFrameLoaded(false); // Reset loaded state when frame changes
+        setFrameLoaded(false);
       } else {
-        console.log('🖼️ PHOTOBOOTH: No custom frame selected');
         setCustomFrame(null);
         setFrameLoaded(false);
       }
@@ -733,19 +653,14 @@ const PhotoboothPage: React.FC = () => {
   // Preload frame image to ensure it's ready for capture
   useEffect(() => {
     if (customFrame?.url) {
-      console.log('🖼️ PHOTOBOOTH: Preloading frame image:', customFrame.url);
-      
       const img = new Image();
       img.crossOrigin = 'anonymous';
       
       img.onload = () => {
-        console.log('✅ PHOTOBOOTH: Custom frame preloaded successfully');
         setFrameLoaded(true);
       };
       
       img.onerror = (error) => {
-        console.error('❌ PHOTOBOOTH: Failed to preload custom frame:', error);
-        console.error('❌ PHOTOBOOTH: Frame URL:', customFrame.url);
         setFrameLoaded(false);
       };
       
@@ -757,7 +672,6 @@ const PhotoboothPage: React.FC = () => {
 
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') {
-      console.log('❌ PHOTOBOOTH: Cannot capture - missing refs or camera not active');
       return;
     }
 
@@ -768,18 +682,8 @@ const PhotoboothPage: React.FC = () => {
     const context = canvas.getContext('2d');
 
     if (!context) {
-      console.log('❌ PHOTOBOOTH: Cannot get canvas context');
       return;
     }
-
-    console.log('📸 PHOTOBOOTH: Starting photo capture...');
-    console.log('🖼️ PHOTOBOOTH: Custom frame state:', { 
-      hasFrame: !!customFrame, 
-      frameLoaded, 
-      frameUrl: customFrame?.url,
-      frameOpacity: customFrame?.opacity 
-    });
-    console.log('🎨 PHOTOBOOTH: Text elements available:', textElements.length);
 
     // Always capture in 9:16 aspect ratio for perfect frame fit
     const targetAspectRatio = 9 / 16;
@@ -806,15 +710,11 @@ const PhotoboothPage: React.FC = () => {
     const canvasWidth = 540;
     const canvasHeight = 960;
     
-    console.log('🖼️ PHOTOBOOTH: Setting canvas size to perfect 9:16:', canvasWidth, 'x', canvasHeight);
-    console.log('🖼️ PHOTOBOOTH: Video crop area:', { sourceX, sourceY, sourceWidth, sourceHeight });
-    
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
     // Clear canvas completely
     context.clearRect(0, 0, canvasWidth, canvasHeight);
-    console.log('🧹 PHOTOBOOTH: Canvas cleared');
     
     // Draw cropped video frame to fill entire canvas (perfect 9:16)
     context.drawImage(
@@ -823,19 +723,15 @@ const PhotoboothPage: React.FC = () => {
       0, 0, canvasWidth, canvasHeight
     );
 
-    console.log('📹 PHOTOBOOTH: Video frame drawn to canvas with perfect 9:16 crop');
-
     // Function to complete the capture process
     const completeCapture = () => {
       // Add visual indicator for successful frame application
       if (customFrame?.url && frameLoaded) {
-        console.log('✅ PHOTOBOOTH: Adding green dot - frame successfully applied');
         context.fillStyle = '#00ff00';
         context.beginPath();
         context.arc(canvasWidth - 20, 20, 8, 0, 2 * Math.PI);
         context.fill();
       } else if (customFrame?.url && !frameLoaded) {
-        console.log('🔴 PHOTOBOOTH: Adding red dot - frame failed to load');
         context.fillStyle = '#ff0000';
         context.beginPath();
         context.arc(canvasWidth - 20, 20, 8, 0, 2 * Math.PI);
@@ -843,31 +739,22 @@ const PhotoboothPage: React.FC = () => {
       }
 
       const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-      console.log('📸 PHOTOBOOTH: Photo capture complete with perfect 9:16 aspect ratio');
       setPhoto(dataUrl);
       cleanupCamera();
     };
 
     // Draw custom frame if present and loaded - it will fit perfectly since both are 9:16
     if (customFrame?.url && frameLoaded) {
-      console.log('🖼️ PHOTOBOOTH: Adding custom frame to captured photo...');
-      console.log('🖼️ PHOTOBOOTH: Frame URL:', customFrame.url);
-      console.log('🖼️ PHOTOBOOTH: Frame opacity:', customFrame.opacity);
-      
       const frameImg = new Image();
       frameImg.crossOrigin = 'anonymous';
       
       frameImg.onload = () => {
-        console.log('✅ PHOTOBOOTH: Frame image loaded for capture, drawing to canvas');
-        console.log('🖼️ PHOTOBOOTH: Frame dimensions:', frameImg.width, 'x', frameImg.height);
-        
         // Save current context state
         context.save();
         
         // Set frame opacity
         const opacity = customFrame.opacity / 100;
         context.globalAlpha = opacity;
-        console.log('🎨 PHOTOBOOTH: Applying frame with opacity:', opacity);
         
         // Draw frame covering the entire canvas - perfect fit since both are 9:16
         context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
@@ -875,33 +762,22 @@ const PhotoboothPage: React.FC = () => {
         // Restore context state
         context.restore();
         
-        console.log('🖼️ PHOTOBOOTH: Custom frame successfully added to captured photo with perfect fit');
         completeCapture();
       };
       
       frameImg.onerror = (error) => {
-        console.error('❌ PHOTOBOOTH: Failed to load frame for capture:', error);
-        console.error('❌ PHOTOBOOTH: Frame URL:', customFrame.url);
-        
         // Add red border to indicate frame failure
         context.strokeStyle = '#ff0000';
         context.lineWidth = 8;
         context.strokeRect(4, 4, canvasWidth - 8, canvasHeight - 8);
-        console.log('🔴 PHOTOBOOTH: Added red border to indicate frame failure');
         
         completeCapture();
       };
       
       // Load the frame image
-      console.log('🔄 PHOTOBOOTH: Loading frame image for capture...');
       frameImg.src = customFrame.url;
     } else {
       // No frame to add, complete capture
-      if (customFrame?.url && !frameLoaded) {
-        console.log('⚠️ PHOTOBOOTH: Frame configured but not loaded, proceeding without frame');
-      } else {
-        console.log('📸 PHOTOBOOTH: No custom frame configured, completing capture');
-      }
       completeCapture();
     }
   }, [cameraState, cleanupCamera, customFrame, frameLoaded, textElements]);
@@ -927,29 +803,17 @@ const PhotoboothPage: React.FC = () => {
         if (photoContainerRef.current) {
           const rect = photoContainerRef.current.getBoundingClientRect();
           textScaleFactor = HIGH_RES_WIDTH / rect.width;
-          
-          console.log('📐 Preview container:', rect.width, 'x', rect.height);
-          console.log('📐 Text scale factor:', textScaleFactor);
-          console.log('📐 Output dimensions (perfect 9:16):', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         } else {
           textScaleFactor = HIGH_RES_WIDTH / 360;
-          console.warn('⚠️ Preview container not found, using fallback text scale factor:', textScaleFactor);
         }
-        
-        console.log('📝 PHOTOBOOTH: Text elements available:', textElements.length);
-        console.log('📐 PHOTOBOOTH: Preview container dimensions for scaling reference');
 
         // Function to render text elements
         const renderTextElements = () => {
-          console.log('🎨 PHOTOBOOTH: Rendering', textElements.length, 'text elements to high-resolution 9:16 image');
-
           // Render all text elements with proportional scaling to match preview
           textElements.forEach((element, index) => {
             if (!element.text || element.text.trim() === '') {
               return;
             }
-
-            console.log(`✏️ PHOTOBOOTH: Rendering text element ${index}: "${element.text}"`);
 
             // Calculate positions (these scale with the resolution)
             const x = (element.position.x / 100) * HIGH_RES_WIDTH;
@@ -958,8 +822,6 @@ const PhotoboothPage: React.FC = () => {
             // Scale font size proportionally to match preview appearance
             const baseFontSize = element.size * (element.scale || 1);
             const fontSize = baseFontSize * textScaleFactor;
-            
-            console.log(`📝 PHOTOBOOTH: Element ${index}: preview size ${baseFontSize}px, final size ${fontSize}px (scale: ${textScaleFactor})`);
 
             context.save();
             context.translate(x, y);
@@ -1033,6 +895,34 @@ const PhotoboothPage: React.FC = () => {
 
           // Return the final high-resolution image with text (perfect 9:16)
           const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
+          resolve(finalImageData);
+        };lineWidth = 8 * textScaleFactor;
+                context.strokeStyle = '#000000';
+                context.strokeText(line, 0, lineY);
+              } else {
+                // Standard shadow for non-outline text
+                context.shadowColor = 'rgba(0,0,0,0.8)';
+                context.shadowBlur = 8 * textScaleFactor;
+                context.shadowOffsetX = 3 * textScaleFactor;
+                context.shadowOffsetY = 3 * textScaleFactor;
+              }
+
+              // Draw main text line by line
+              context.fillStyle = element.color;
+              context.fillText(line, 0, lineY);
+
+              // Reset shadow properties after each line
+              context.shadowColor = 'transparent';
+              context.shadowBlur = 0;
+              context.shadowOffsetX = 0;
+              context.shadowOffsetY = 0;
+            });
+
+            context.restore();
+          });
+
+          // Return the final high-resolution image with text (perfect 9:16)
+          const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
           console.log('✅ PHOTOBOOTH: High-res image complete with frame and text (perfect 9:16)');
           console.log('📊 PHOTOBOOTH: Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
           resolve(finalImageData);
@@ -1045,42 +935,29 @@ const PhotoboothPage: React.FC = () => {
         // Clear and draw the original image at high resolution
         context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
         context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
-        console.log('🖼️ PHOTOBOOTH: Base image drawn to high-res canvas (perfect 9:16)');
 
         // Apply frame to high-res image if present, then render text
         if (customFrame?.url && frameLoaded && customFrame.opacity > 0) {
-          console.log('🖼️ PHOTOBOOTH: Adding high-res frame to final upload image...');
-          console.log('🖼️ PHOTOBOOTH: High-res frame URL:', customFrame.url);
-          console.log('🖼️ PHOTOBOOTH: High-res frame opacity:', customFrame.opacity);
-          
           const frameImg = new Image();
           frameImg.crossOrigin = 'anonymous';
           
           frameImg.onload = () => {
-            console.log('✅ PHOTOBOOTH: High-res frame loaded, applying to final image');
-            console.log('🖼️ PHOTOBOOTH: High-res frame dimensions:', frameImg.width, 'x', frameImg.height);
-            
             context.save();
             context.globalAlpha = customFrame.opacity / 100;
             // Perfect fit since both are 9:16
             context.drawImage(frameImg, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
             context.restore();
             
-            console.log('🖼️ PHOTOBOOTH: High-res frame applied with perfect 9:16 fit, now rendering text');
             renderTextElements();
           };
           
           frameImg.onerror = (error) => {
-            console.error('❌ PHOTOBOOTH: Failed to load frame for high-res render:', error);
-            console.error('❌ PHOTOBOOTH: High-res frame URL:', customFrame.url);
-            console.log('📝 PHOTOBOOTH: Proceeding without frame, rendering text only');
             renderTextElements();
           };
           
           frameImg.src = customFrame.url;
         } else {
           // No frame, just render text
-          console.log('📝 PHOTOBOOTH: No frame for final image, rendering text only');
           renderTextElements();
         }
       };
@@ -1101,7 +978,6 @@ const PhotoboothPage: React.FC = () => {
       let finalPhoto = photo;
       
       if (textElements.length > 0 && canvasRef.current) {
-        console.log('🎨 Rendering text to photo before upload...');
         finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
       }
 
@@ -1121,7 +997,6 @@ const PhotoboothPage: React.FC = () => {
         setTimeout(() => setError(null), 3000);
         
         // Ensure camera restarts immediately after upload
-        console.log('🔄 Restarting camera after upload...');
         await cleanupCamera();
         await new Promise(resolve => setTimeout(resolve, 300));
         startCamera(selectedDevice);
@@ -1137,36 +1012,27 @@ const PhotoboothPage: React.FC = () => {
   }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, textElements, renderTextToCanvas, cleanupCamera]);
 
   const downloadPhoto = useCallback(async () => {
-    console.log('📥 Download function called', { photo: !!photo, isDownloading, textElementsCount: textElements.length });
-    
     if (!photo || isDownloading) {
-      console.log('❌ Download blocked:', { hasPhoto: !!photo, isDownloading });
       return;
     }
 
     setIsDownloading(true);
-    console.log('🔄 Starting download process...');
 
     try {
       let finalPhoto = photo;
       
       // Render text to the photo before downloading
       if (textElements.length > 0 && canvasRef.current) {
-        console.log('🎨 Rendering text to photo before download...');
         finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
-        console.log('✅ Text rendered successfully');
       }
 
       // Simple download approach
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
       const filename = `photobooth-${timestamp}.jpg`;
-      
-      console.log('💾 Creating download with filename:', filename);
 
       // Try the most compatible download method
       if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
         // iOS specific handling
-        console.log('📱 iOS detected, using iOS download method');
         const newWindow = window.open();
         if (newWindow) {
           newWindow.document.write(`
@@ -1186,7 +1052,6 @@ const PhotoboothPage: React.FC = () => {
         }
       } else {
         // Standard download for other browsers
-        console.log('💻 Standard browser detected, using direct download');
         const link = document.createElement('a');
         link.href = finalPhoto;
         link.download = filename;
@@ -1195,17 +1060,12 @@ const PhotoboothPage: React.FC = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
-        console.log('✅ Download triggered successfully');
       }
       
       // Show success message
       setError('Photo download started! Check your downloads folder.');
       setTimeout(() => setError(null), 3000);
-      
-      console.log('✅ Download process completed');
     } catch (err) {
-      console.error('❌ Download failed:', err);
       setError('Download failed. Opening photo in new tab...');
       
       // Ultimate fallback
@@ -1233,14 +1093,12 @@ const PhotoboothPage: React.FC = () => {
           newWindow.document.close();
         }
       } catch (fallbackErr) {
-        console.error('❌ Fallback failed too:', fallbackErr);
         setError('Could not download photo. Please try again.');
       }
       
       setTimeout(() => setError(null), 5000);
     } finally {
       setIsDownloading(false);
-      console.log('🏁 Download process finished');
     }
   }, [photo, textElements, renderTextToCanvas, isDownloading]);
 
@@ -1252,7 +1110,6 @@ const PhotoboothPage: React.FC = () => {
     setShowTextStylePanel(false);
     
     // Ensure camera restarts properly
-    console.log('🔄 Restarting camera for retake...');
     cleanupCamera();
     setTimeout(() => {
       startCamera(selectedDevice);
@@ -1287,7 +1144,6 @@ const PhotoboothPage: React.FC = () => {
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          console.log('Text clicked, setting selectedTextId to:', element.id);
           // Single click/tap to select and edit
           setSelectedTextId(element.id);
           // Close style panel when selecting different text
@@ -1436,7 +1292,6 @@ const PhotoboothPage: React.FC = () => {
   
   useEffect(() => {
     if (normalizedCode) {
-      console.log('🔍 Fetching collage with normalized code:', normalizedCode);
       setShowError(false);
       fetchCollageByCode(normalizedCode);
     }
@@ -1447,14 +1302,10 @@ const PhotoboothPage: React.FC = () => {
     if (currentCollage?.settings?.photobooth) {
       const photoboothSettings = currentCollage.settings.photobooth;
       
-      console.log('📸 Loading photobooth settings:', photoboothSettings);
-      
       // Load custom frame if selected
       if (photoboothSettings.selectedFrameId && 
           photoboothSettings.selectedFrameId !== 'none' && 
           photoboothSettings.selectedFrameUrl) {
-        
-        console.log('🖼️ Loading custom frame:', photoboothSettings.selectedFrameUrl);
         
         setCustomFrame({
           url: photoboothSettings.selectedFrameUrl,
@@ -1477,7 +1328,6 @@ const PhotoboothPage: React.FC = () => {
     }
   }, [currentCollage]);
 
-  // Set up ResizeObserver to track video dimensions
   useEffect(() => {
     if (!videoRef.current) return;
 
@@ -1488,21 +1338,17 @@ const PhotoboothPage: React.FC = () => {
           width: rect.width,
           height: rect.height
         });
-        console.log('📐 Video dimensions updated:', rect.width, 'x', rect.height);
       }
     };
 
-    // Initial measurement
     updateVideoDimensions();
 
-    // Set up ResizeObserver
     resizeObserverRef.current = new ResizeObserver(updateVideoDimensions);
     resizeObserverRef.current.observe(videoRef.current);
 
-    // Also listen for window resize and orientation change
     window.addEventListener('resize', updateVideoDimensions);
     window.addEventListener('orientationchange', () => {
-      setTimeout(updateVideoDimensions, 100); // Delay for orientation change
+      setTimeout(updateVideoDimensions, 100);
     });
 
     return () => {
@@ -1528,7 +1374,6 @@ const PhotoboothPage: React.FC = () => {
 
   useEffect(() => {
     if (currentCollage?.id) {
-      console.log('🔄 Setting up realtime subscription in photobooth for collage:', currentCollage.id);
       setupRealtimeSubscription(currentCollage.id);
     }
     
@@ -1539,15 +1384,10 @@ const PhotoboothPage: React.FC = () => {
 
   useEffect(() => {
     if (currentCollage && !photo && cameraState === 'idle' && !isInitializingRef.current) {
-      console.log('🚀 Initializing camera...');
-      
-      // Try to start camera immediately without waiting for device selection
       const timer = setTimeout(() => {
         if (!selectedDevice) {
-          console.log('📱 No device selected, starting with default camera...');
-          startCamera(); // Call without device ID to use default
+          startCamera();
         } else {
-          console.log('📱 Starting with selected device:', selectedDevice);
           startCamera(selectedDevice);
         }
       }, 500);
@@ -1558,11 +1398,9 @@ const PhotoboothPage: React.FC = () => {
 
   useEffect(() => {
     if (cameraState === 'error' && currentCollage) {
-      console.log('🔄 Setting up auto-retry for camera error...');
       const retryTimer = setTimeout(() => {
-        console.log('🔄 Auto-retrying camera initialization...');
         startCamera(selectedDevice);
-      }, 2000); // Reduced retry delay
+      }, 2000);
       
       return () => clearTimeout(retryTimer);
     }
@@ -1570,7 +1408,6 @@ const PhotoboothPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      console.log('🧹 Component unmounting, cleaning up...');
       cleanupCamera();
     };
   }, [cleanupCamera]);
@@ -1578,7 +1415,6 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('📱 Page visible, resuming camera...');
         if (!photo && cameraState === 'idle') {
           setTimeout(() => startCamera(selectedDevice), 500);
         }
@@ -1999,7 +1835,6 @@ const PhotoboothPage: React.FC = () => {
                       onTouchEnd={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('📥 Download button touched');
                         downloadPhoto();
                       }}
                       disabled={isDownloading}
@@ -2065,11 +1900,11 @@ const PhotoboothPage: React.FC = () => {
                       className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                       style={{ 
                         opacity: customFrame.opacity / 100,
-                        zIndex: 10, // Below controls but above video
+                        zIndex: 10,
                         aspectRatio: '9/16'
                       }}
-                      onLoad={() => console.log('✅ PHOTOBOOTH: Frame overlay loaded in preview with perfect 9:16 fit')}
-                      onError={() => console.error('❌ PHOTOBOOTH: Frame overlay failed to load in preview')}
+                      onLoad={() => {}}
+                      onError={() => {}}
                     />
                   )}
 
@@ -2460,11 +2295,11 @@ const PhotoboothPage: React.FC = () => {
                           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                           style={{ 
                             opacity: customFrame.opacity / 100,
-                            zIndex: 10, // Below controls but above video
+                            zIndex: 10,
                             aspectRatio: '9/16'
                           }}
-                          onLoad={() => console.log('✅ PHOTOBOOTH: Frame overlay loaded in preview with perfect 9:16 fit')}
-                          onError={() => console.error('❌ PHOTOBOOTH: Frame overlay failed to load in preview')}
+                          onLoad={() => {}}
+                          onError={() => {}}
                         />
                       )}
 
