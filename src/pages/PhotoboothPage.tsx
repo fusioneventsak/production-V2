@@ -781,27 +781,34 @@ const PhotoboothPage: React.FC = () => {
     });
     console.log('🎨 PHOTOBOOTH: Text elements available:', textElements.length);
 
+    // Always capture in 9:16 aspect ratio for perfect frame fit
     const targetAspectRatio = 9 / 16;
     const videoAspectRatio = video.videoWidth / video.videoHeight;
     
     let sourceWidth, sourceHeight, sourceX, sourceY;
     
+    // Calculate the crop area from video that matches 9:16 aspect ratio
     if (videoAspectRatio > targetAspectRatio) {
+      // Video is wider than 9:16, crop the sides
       sourceHeight = video.videoHeight;
       sourceWidth = sourceHeight * targetAspectRatio;
       sourceX = (video.videoWidth - sourceWidth) / 2;
       sourceY = 0;
     } else {
+      // Video is taller than 9:16, crop top and bottom
       sourceWidth = video.videoWidth;
       sourceHeight = sourceWidth / targetAspectRatio;
       sourceX = 0;
       sourceY = (video.videoHeight - sourceHeight) / 2;
     }
 
+    // Set canvas to exact 9:16 dimensions for perfect frame fit
     const canvasWidth = 540;
     const canvasHeight = 960;
     
-    console.log('🖼️ PHOTOBOOTH: Setting canvas size:', canvasWidth, 'x', canvasHeight);
+    console.log('🖼️ PHOTOBOOTH: Setting canvas size to perfect 9:16:', canvasWidth, 'x', canvasHeight);
+    console.log('🖼️ PHOTOBOOTH: Video crop area:', { sourceX, sourceY, sourceWidth, sourceHeight });
+    
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
@@ -809,14 +816,14 @@ const PhotoboothPage: React.FC = () => {
     context.clearRect(0, 0, canvasWidth, canvasHeight);
     console.log('🧹 PHOTOBOOTH: Canvas cleared');
     
-    // Draw video frame
+    // Draw cropped video frame to fill entire canvas (perfect 9:16)
     context.drawImage(
       video,
       sourceX, sourceY, sourceWidth, sourceHeight,
       0, 0, canvasWidth, canvasHeight
     );
 
-    console.log('📹 PHOTOBOOTH: Video frame drawn to canvas');
+    console.log('📹 PHOTOBOOTH: Video frame drawn to canvas with perfect 9:16 crop');
 
     // Function to complete the capture process
     const completeCapture = () => {
@@ -836,12 +843,12 @@ const PhotoboothPage: React.FC = () => {
       }
 
       const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-      console.log('📸 PHOTOBOOTH: Photo capture complete');
+      console.log('📸 PHOTOBOOTH: Photo capture complete with perfect 9:16 aspect ratio');
       setPhoto(dataUrl);
       cleanupCamera();
     };
 
-    // Draw custom frame if present and loaded
+    // Draw custom frame if present and loaded - it will fit perfectly since both are 9:16
     if (customFrame?.url && frameLoaded) {
       console.log('🖼️ PHOTOBOOTH: Adding custom frame to captured photo...');
       console.log('🖼️ PHOTOBOOTH: Frame URL:', customFrame.url);
@@ -862,13 +869,13 @@ const PhotoboothPage: React.FC = () => {
         context.globalAlpha = opacity;
         console.log('🎨 PHOTOBOOTH: Applying frame with opacity:', opacity);
         
-        // Draw frame covering the entire canvas
+        // Draw frame covering the entire canvas - perfect fit since both are 9:16
         context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
         
         // Restore context state
         context.restore();
         
-        console.log('🖼️ PHOTOBOOTH: Custom frame successfully added to captured photo');
+        console.log('🖼️ PHOTOBOOTH: Custom frame successfully added to captured photo with perfect fit');
         completeCapture();
       };
       
@@ -910,7 +917,7 @@ const PhotoboothPage: React.FC = () => {
 
       const img = new Image();
       img.onload = () => {
-        // High-resolution output dimensions
+        // High-resolution output dimensions - maintaining perfect 9:16
         const HIGH_RES_WIDTH = 1080;
         const HIGH_RES_HEIGHT = 1920;
         
@@ -923,7 +930,7 @@ const PhotoboothPage: React.FC = () => {
           
           console.log('📐 Preview container:', rect.width, 'x', rect.height);
           console.log('📐 Text scale factor:', textScaleFactor);
-          console.log('📐 Output dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
+          console.log('📐 Output dimensions (perfect 9:16):', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         } else {
           textScaleFactor = HIGH_RES_WIDTH / 360;
           console.warn('⚠️ Preview container not found, using fallback text scale factor:', textScaleFactor);
@@ -934,7 +941,7 @@ const PhotoboothPage: React.FC = () => {
 
         // Function to render text elements
         const renderTextElements = () => {
-          console.log('🎨 PHOTOBOOTH: Rendering', textElements.length, 'text elements to high-resolution image');
+          console.log('🎨 PHOTOBOOTH: Rendering', textElements.length, 'text elements to high-resolution 9:16 image');
 
           // Render all text elements with proportional scaling to match preview
           textElements.forEach((element, index) => {
@@ -1024,21 +1031,21 @@ const PhotoboothPage: React.FC = () => {
             context.restore();
           });
 
-          // Return the final high-resolution image with text
+          // Return the final high-resolution image with text (perfect 9:16)
           const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-          console.log('✅ PHOTOBOOTH: High-res image complete with frame and text');
+          console.log('✅ PHOTOBOOTH: High-res image complete with frame and text (perfect 9:16)');
           console.log('📊 PHOTOBOOTH: Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
           resolve(finalImageData);
         };
 
-        // Set high-resolution canvas dimensions
+        // Set high-resolution canvas dimensions (perfect 9:16)
         canvas.width = HIGH_RES_WIDTH;
         canvas.height = HIGH_RES_HEIGHT;
 
         // Clear and draw the original image at high resolution
         context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
         context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
-        console.log('🖼️ PHOTOBOOTH: Base image drawn to high-res canvas');
+        console.log('🖼️ PHOTOBOOTH: Base image drawn to high-res canvas (perfect 9:16)');
 
         // Apply frame to high-res image if present, then render text
         if (customFrame?.url && frameLoaded && customFrame.opacity > 0) {
@@ -1055,10 +1062,11 @@ const PhotoboothPage: React.FC = () => {
             
             context.save();
             context.globalAlpha = customFrame.opacity / 100;
+            // Perfect fit since both are 9:16
             context.drawImage(frameImg, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
             context.restore();
             
-            console.log('🖼️ PHOTOBOOTH: High-res frame applied, now rendering text');
+            console.log('🖼️ PHOTOBOOTH: High-res frame applied with perfect 9:16 fit, now rendering text');
             renderTextElements();
           };
           
@@ -1696,14 +1704,15 @@ const PhotoboothPage: React.FC = () => {
               </div>
             )}
 
-            {/* Full-Screen Camera/Photo Container */}
-            <div className="w-full h-full">
+            {/* Full-Screen Camera/Photo Container with perfect 9:16 aspect ratio */}
+            <div className="w-full h-full flex items-center justify-center bg-black">
               {photo ? (
-                <div ref={photoContainerRef} className="relative w-full h-full">
+                <div ref={photoContainerRef} className="relative w-full max-w-full" style={{ aspectRatio: '9/16', maxHeight: '100vh' }}>
                   <img 
                     src={photo} 
                     alt="Captured photo" 
                     className="w-full h-full object-cover"
+                    style={{ aspectRatio: '9/16' }}
                   />
                   
                   {renderTextElements()}
@@ -2038,16 +2047,17 @@ const PhotoboothPage: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="relative w-full h-full bg-gray-900">
+                <div className="relative w-full max-w-full bg-gray-900" style={{ aspectRatio: '9/16', maxHeight: '100vh' }}>
                   <video
                     ref={videoRef}
                     autoPlay
                     muted
                     playsInline
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover"
+                    style={{ aspectRatio: '9/16' }}
                   />
                   
-                  {/* Custom Frame Overlay - shows in live preview */}
+                  {/* Custom Frame Overlay - shows in live preview with perfect fit */}
                   {customFrame?.url && frameLoaded && (
                     <img
                       src={customFrame.url}
@@ -2055,9 +2065,10 @@ const PhotoboothPage: React.FC = () => {
                       className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                       style={{ 
                         opacity: customFrame.opacity / 100,
-                        zIndex: 10 // Below controls but above video
+                        zIndex: 10, // Below controls but above video
+                        aspectRatio: '9/16'
                       }}
-                      onLoad={() => console.log('✅ PHOTOBOOTH: Frame overlay loaded in preview')}
+                      onLoad={() => console.log('✅ PHOTOBOOTH: Frame overlay loaded in preview with perfect 9:16 fit')}
                       onError={() => console.error('❌ PHOTOBOOTH: Frame overlay failed to load in preview')}
                     />
                   )}
@@ -2152,7 +2163,7 @@ const PhotoboothPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Desktop Layout - Original Design with viewport optimization */
+          /* Desktop Layout - Updated with perfect 9:16 aspect ratio */
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -2197,13 +2208,14 @@ const PhotoboothPage: React.FC = () => {
 
             <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start">
               <div className="flex-1 flex justify-center" style={{ maxHeight: 'calc(100vh - 180px)' }}>
-                <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px] xl:max-w-[400px]">
+                <div className="bg-gray-900 rounded-lg overflow-hidden" style={{ width: '360px', aspectRatio: '9/16' }}>
                   {photo ? (
-                    <div ref={photoContainerRef} className="relative w-full aspect-[9/16]">
+                    <div ref={photoContainerRef} className="relative w-full h-full" style={{ aspectRatio: '9/16' }}>
                       <img 
                         src={photo} 
                         alt="Captured photo" 
                         className="w-full h-full object-cover"
+                        style={{ aspectRatio: '9/16' }}
                       />
                       
                       {renderTextElements()}
@@ -2430,17 +2442,17 @@ const PhotoboothPage: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="relative w-full aspect-[9/16] bg-gray-800">
+                    <div className="relative w-full h-full bg-gray-800" style={{ aspectRatio: '9/16' }}>
                       <video
                         ref={videoRef}
                         autoPlay
                         muted
                         playsInline
-                        style={{ objectFit: 'cover', width: '100%', height: '100%' }}
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-cover"
+                        style={{ aspectRatio: '9/16' }}
                       />
                       
-                      {/* Custom Frame Overlay - shows in live preview */}
+                      {/* Custom Frame Overlay - shows in live preview with perfect 9:16 fit */}
                       {customFrame?.url && frameLoaded && (
                         <img
                           src={customFrame.url}
@@ -2448,9 +2460,10 @@ const PhotoboothPage: React.FC = () => {
                           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                           style={{ 
                             opacity: customFrame.opacity / 100,
-                            zIndex: 10 // Below controls but above video
+                            zIndex: 10, // Below controls but above video
+                            aspectRatio: '9/16'
                           }}
-                          onLoad={() => console.log('✅ PHOTOBOOTH: Frame overlay loaded in preview')}
+                          onLoad={() => console.log('✅ PHOTOBOOTH: Frame overlay loaded in preview with perfect 9:16 fit')}
                           onError={() => console.error('❌ PHOTOBOOTH: Frame overlay failed to load in preview')}
                         />
                       )}
@@ -2526,7 +2539,7 @@ const PhotoboothPage: React.FC = () => {
                         </div>
                       )}
                       
-                      {/* DESKTOP CAPTURE BUTTON - ABSOLUTELY MUST BE HERE */}
+                      {/* DESKTOP CAPTURE BUTTON - With perfect positioning for 9:16 */}
                       {cameraState === 'active' && (
                         <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30">
                           <button 
@@ -2593,6 +2606,7 @@ const PhotoboothPage: React.FC = () => {
                     <div className="text-purple-200 text-sm space-y-1">
                       <div>Opacity: {customFrame.opacity}%</div>
                       <div>Status: {frameLoaded ? 'Loaded' : 'Loading...'}</div>
+                      <div className="text-xs text-purple-300">Perfect 9:16 fit enabled</div>
                     </div>
                   </div>
                 )}
@@ -2612,6 +2626,10 @@ const PhotoboothPage: React.FC = () => {
                       <div className="flex justify-between">
                         <span>Photos:</span>
                         <span className="text-white">{safePhotos.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Format:</span>
+                        <span className="text-green-400 text-xs">9:16 Portrait</span>
                       </div>
                     </div>
                   </div>
