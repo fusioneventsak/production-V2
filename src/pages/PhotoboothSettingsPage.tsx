@@ -215,15 +215,6 @@ const PhotoboothSettingsPage = () => {
       alert('Failed to delete frame. Please try again.');
     }
   };
-    setUploadedFrames(prev => prev.filter(frame => frame.id !== frameId));
-    if (settings.selectedFrameId === frameId) {
-      setSettings(prev => ({ 
-        ...prev, 
-        selectedFrameId: 'none',
-        selectedFrameUrl: null
-      }));
-    }
-  };
 
   const saveSettings = async () => {
     if (!currentCollage) return;
