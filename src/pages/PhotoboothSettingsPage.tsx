@@ -86,6 +86,8 @@ const PhotoboothSettingsPage = () => {
       
       // Load existing photobooth settings from collage settings
       if (currentCollage.settings?.photobooth) {
+        console.log('📋 Loading existing photobooth settings:', currentCollage.settings.photobooth);
+        
         setSettings(prev => ({
           ...prev,
           ...currentCollage.settings.photobooth
@@ -93,11 +95,45 @@ const PhotoboothSettingsPage = () => {
         
         // Load uploaded frames if they exist
         if (currentCollage.settings.photobooth.uploadedFrames) {
+          console.log('🖼️ Loading uploaded frames:', currentCollage.settings.photobooth.uploadedFrames);
           setUploadedFrames(currentCollage.settings.photobooth.uploadedFrames);
         }
       }
     }
   }, [currentCollage]);
+
+  // Helper function to save settings to database
+  const saveToDatabase = async (photoboothSettings) => {
+    if (!currentCollage?.id) return false;
+
+    try {
+      const updatedSettings = {
+        ...currentCollage.settings,
+        photobooth: photoboothSettings
+      };
+
+      console.log('💾 Saving to database:', updatedSettings);
+
+      const { error } = await supabase
+        .from('collage_settings')
+        .upsert({
+          collage_id: currentCollage.id,
+          settings: updatedSettings,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('❌ Database save error:', error);
+        throw error;
+      }
+
+      console.log('✅ Settings saved to database successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to save to database:', error);
+      return false;
+    }
+  };
 
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
@@ -108,6 +144,7 @@ const PhotoboothSettingsPage = () => {
     }
     
     setUploading(true);
+    let newFrames = [];
     
     for (const file of files) {
       if (file.type.startsWith('image/')) {
@@ -147,12 +184,30 @@ const PhotoboothSettingsPage = () => {
             storagePath: fileName
           };
           
-          setUploadedFrames(prev => [...prev, newFrame]);
+          newFrames.push(newFrame);
           
         } catch (error) {
           console.error('Failed to upload frame:', error);
           alert(`Failed to upload ${file.name}. Please try again.`);
         }
+      }
+    }
+    
+    if (newFrames.length > 0) {
+      const updatedFrames = [...uploadedFrames, ...newFrames];
+      setUploadedFrames(updatedFrames);
+      
+      // **AUTO-SAVE: Save uploaded frames immediately**
+      const photoboothSettings = {
+        ...settings,
+        uploadedFrames: updatedFrames
+      };
+
+      const saveSuccess = await saveToDatabase(photoboothSettings);
+      if (saveSuccess) {
+        console.log('✅ Uploaded frames auto-saved');
+      } else {
+        console.error('❌ Failed to auto-save uploaded frames');
       }
     }
     
@@ -168,15 +223,34 @@ const PhotoboothSettingsPage = () => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleFrameSelect = (frameId) => {
+  const handleFrameSelect = async (frameId) => {
     const allFrames = [...defaultFrames, ...uploadedFrames];
     const selectedFrame = allFrames.find(f => f.id === frameId);
     
-    setSettings(prev => ({
-      ...prev,
+    const newSettings = {
+      ...settings,
       selectedFrameId: frameId,
       selectedFrameUrl: selectedFrame?.url || selectedFrame?.preview || null
-    }));
+    };
+    
+    setSettings(newSettings);
+    
+    // **AUTO-SAVE: Immediately save frame selection**
+    if (currentCollage?.id) {
+      console.log('🖼️ Auto-saving frame selection:', frameId);
+      
+      const photoboothSettings = {
+        ...newSettings,
+        uploadedFrames: uploadedFrames
+      };
+
+      const saveSuccess = await saveToDatabase(photoboothSettings);
+      if (saveSuccess) {
+        console.log('✅ Frame selection auto-saved');
+      } else {
+        console.error('❌ Failed to auto-save frame selection');
+      }
+    }
   };
 
   const deleteCustomFrame = async (frameId) => {
@@ -199,15 +273,31 @@ const PhotoboothSettingsPage = () => {
       }
       
       // Remove from local state
-      setUploadedFrames(prev => prev.filter(frame => frame.id !== frameId));
+      const updatedFrames = uploadedFrames.filter(frame => frame.id !== frameId);
+      setUploadedFrames(updatedFrames);
       
       // Reset selection if this frame was selected
+      let updatedSettings = settings;
       if (settings.selectedFrameId === frameId) {
-        setSettings(prev => ({ 
-          ...prev, 
+        updatedSettings = { 
+          ...settings, 
           selectedFrameId: 'none',
           selectedFrameUrl: null
-        }));
+        };
+        setSettings(updatedSettings);
+      }
+      
+      // **AUTO-SAVE: Save after deletion**
+      const photoboothSettings = {
+        ...updatedSettings,
+        uploadedFrames: updatedFrames
+      };
+
+      const saveSuccess = await saveToDatabase(photoboothSettings);
+      if (saveSuccess) {
+        console.log('✅ Frame deletion auto-saved');
+      } else {
+        console.error('❌ Failed to auto-save after frame deletion');
       }
       
     } catch (error) {
@@ -227,24 +317,19 @@ const PhotoboothSettingsPage = () => {
         uploadedFrames: uploadedFrames
       };
 
-      // Update collage settings with photobooth configuration
-      const updatedSettings = {
-        ...currentCollage.settings,
-        photobooth: photoboothSettings
-      };
+      console.log('💾 Manual save - photobooth settings for collage:', currentCollage.id);
+      console.log('📋 Settings to save:', photoboothSettings);
 
-      // Save to your store (you'll need to implement updateCollageSettings)
-      // await updateCollageSettings(currentCollage.id, updatedSettings);
+      const saveSuccess = await saveToDatabase(photoboothSettings);
       
-      // For now, just log the settings - implement the actual save later
-      console.log('Saving photobooth settings for collage:', currentCollage.id);
-      console.log('Settings:', photoboothSettings);
-      
-      // Show success message
-      alert('Photobooth settings saved successfully!');
+      if (saveSuccess) {
+        alert('Photobooth settings saved successfully!');
+      } else {
+        throw new Error('Failed to save to database');
+      }
       
     } catch (error) {
-      console.error('Failed to save photobooth settings:', error);
+      console.error('❌ Failed to save photobooth settings:', error);
       alert('Failed to save settings. Please try again.');
     } finally {
       setSaving(false);
@@ -309,6 +394,13 @@ const PhotoboothSettingsPage = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
+                <Link
+                  to={`/photobooth/${currentCollage.code}`}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-all duration-200"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span>Test PhotoBooth</span>
+                </Link>
                 <button
                   onClick={() => setShowPreview(!showPreview)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-all duration-200"
@@ -622,10 +714,12 @@ const PhotoboothSettingsPage = () => {
             
             {/* Upload Progress/Status */}
             {uploading && (
-              <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-blue-300 text-sm">Uploading frames to storage...</span>
+              <div className="lg:col-span-3">
+                <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-blue-300 text-sm">Uploading frames to storage...</span>
+                  </div>
                 </div>
               </div>
             )}
