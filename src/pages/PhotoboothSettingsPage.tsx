@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Upload, Save, Trash2, Eye, EyeOff, Palette, Image, Frame, Camera, ChevronLeft, Smartphone, Tablet } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
+import { supabase } from '../lib/supabase';
 import Layout from '../components/layout/Layout';
 
 const PhotoboothSettingsPage = () => {
@@ -13,6 +14,7 @@ const PhotoboothSettingsPage = () => {
   const [previewMode, setPreviewMode] = useState('mobile');
   const [showPreview, setShowPreview] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   // Load collage data on mount
@@ -99,23 +101,67 @@ const PhotoboothSettingsPage = () => {
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
-    files.forEach(file => {
+    
+    if (!currentCollage?.id) {
+      alert('No collage selected for frame upload');
+      return;
+    }
+    
+    setUploading(true);
+    
+    for (const file of files) {
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
+        try {
+          // Upload to Supabase Storage in the new structure
+          const fileExt = file.name.split('.').pop();
+          const fileName = `photobooth-frames/${currentCollage.id}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+          
+          console.log('📤 Uploading frame to:', fileName);
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('photos')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw uploadError;
+          }
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('photos')
+            .getPublicUrl(fileName);
+
+          console.log('✅ Frame uploaded successfully:', publicUrl);
+
+          // Add to uploaded frames
           const newFrame = {
             id: Date.now() + Math.random(),
             name: file.name.replace(/\.[^/.]+$/, ''),
-            preview: e.target.result,
-            url: e.target.result, // For now, use base64. In production, upload to storage
+            preview: publicUrl,
+            url: publicUrl,
             type: 'custom',
-            file: file
+            storagePath: fileName
           };
+          
           setUploadedFrames(prev => [...prev, newFrame]);
-        };
-        reader.readAsDataURL(file);
+          
+        } catch (error) {
+          console.error('Failed to upload frame:', error);
+          alert(`Failed to upload ${file.name}. Please try again.`);
+        }
       }
-    });
+    }
+    
+    setUploading(false);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSettingChange = (key, value) => {
@@ -133,7 +179,42 @@ const PhotoboothSettingsPage = () => {
     }));
   };
 
-  const deleteCustomFrame = (frameId) => {
+  const deleteCustomFrame = async (frameId) => {
+    const frameToDelete = uploadedFrames.find(frame => frame.id === frameId);
+    if (!frameToDelete) return;
+    
+    try {
+      // Delete from storage if it has a storage path
+      if (frameToDelete.storagePath) {
+        console.log('🗑️ Deleting frame from storage:', frameToDelete.storagePath);
+        
+        const { error: deleteError } = await supabase.storage
+          .from('photos')
+          .remove([frameToDelete.storagePath]);
+        
+        if (deleteError) {
+          console.warn('Failed to delete from storage:', deleteError);
+          // Continue with local deletion even if storage deletion fails
+        }
+      }
+      
+      // Remove from local state
+      setUploadedFrames(prev => prev.filter(frame => frame.id !== frameId));
+      
+      // Reset selection if this frame was selected
+      if (settings.selectedFrameId === frameId) {
+        setSettings(prev => ({ 
+          ...prev, 
+          selectedFrameId: 'none',
+          selectedFrameUrl: null
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Error deleting frame:', error);
+      alert('Failed to delete frame. Please try again.');
+    }
+  };
     setUploadedFrames(prev => prev.filter(frame => frame.id !== frameId));
     if (settings.selectedFrameId === frameId) {
       setSettings(prev => ({ 
@@ -288,10 +369,20 @@ const PhotoboothSettingsPage = () => {
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
                     className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
                   >
-                    <Upload className="w-4 h-4" />
-                    <span>Upload Custom Frames</span>
+                    {uploading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        <span>Upload Custom Frames</span>
+                      </>
+                    )}
                   </button>
                 </div>
 
@@ -332,6 +423,7 @@ const PhotoboothSettingsPage = () => {
                             deleteCustomFrame(frame.id);
                           }}
                           className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete custom frame"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -533,6 +625,16 @@ const PhotoboothSettingsPage = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Upload Progress/Status */}
+            {uploading && (
+              <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-blue-300 text-sm">Uploading frames to storage...</span>
                 </div>
               </div>
             )}
