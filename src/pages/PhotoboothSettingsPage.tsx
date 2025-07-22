@@ -26,7 +26,7 @@ const PhotoboothSettingsPage = () => {
 
   // Only "No Frame" option - no stock frames
   const defaultFrames = [
-    { id: 'none', name: 'No Frame', preview: null, type: 'default' }
+    { id: 'none', name: 'No Frame', preview: null, type: 'default' },
     { 
       id: 'gradient-purple', 
       name: 'Purple Glow', 
