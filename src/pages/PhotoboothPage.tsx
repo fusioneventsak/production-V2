@@ -1672,12 +1672,15 @@ const PhotoboothPage: React.FC = () => {
                   ref={photoContainerRef} 
                   className="relative w-full max-w-full" 
                   style={{ 
-                    aspectRatio: '9/16', 
-                    maxHeight: '100vh',
-                    // iPad gets larger preview while maintaining aspect ratio
-                    ...(isIPad && {
-                      maxWidth: 'calc(100vh * 9/16)',
-                      height: '100vh'
+                    aspectRatio: '9/16',
+                    // iPad gets optimized sizing for vertical orientation
+                    ...(isIPad ? {
+                      width: '100vw',
+                      height: '100vh',
+                      maxWidth: 'none',
+                      maxHeight: 'none'
+                    } : {
+                      maxHeight: '100vh'
                     })
                   }}
                 >
@@ -2029,12 +2032,15 @@ const PhotoboothPage: React.FC = () => {
                 <div 
                   className="relative w-full max-w-full bg-gray-900" 
                   style={{ 
-                    aspectRatio: '9/16', 
-                    maxHeight: '100vh',
-                    // iPad gets larger preview while maintaining aspect ratio
-                    ...(isIPad && {
-                      maxWidth: 'calc(100vh * 9/16)',
-                      height: '100vh'
+                    aspectRatio: '9/16',
+                    // iPad gets optimized sizing for vertical orientation
+                    ...(isIPad ? {
+                      width: '100vw',
+                      height: '100vh',
+                      maxWidth: 'none',
+                      maxHeight: 'none'
+                    } : {
+                      maxHeight: '100vh'
                     })
                   }}
                 >
@@ -2152,9 +2158,9 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Capture Button - Full Screen with iPad optimizations */}
+                  {/* Capture Button - Full Screen with iPad optimizations - moved higher */}
                   {cameraState === 'active' && !isCapturing && (
-                    <div className={`absolute ${isIPad ? 'bottom-16' : 'bottom-12'} left-1/2 transform -translate-x-1/2`}>
+                    <div className={`absolute ${isIPad ? 'bottom-24' : 'bottom-12'} left-1/2 transform -translate-x-1/2`}>
                       <button 
                         onClick={startCountdownAndCapture}
                         className={`${isIPad ? 'w-24 h-24' : 'w-20 h-20'} bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-xl focus:outline-none`}
