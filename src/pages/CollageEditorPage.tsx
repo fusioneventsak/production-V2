@@ -306,11 +306,12 @@ const CollageEditorPage: React.FC = () => {
                     />
                   ) : (
                     <h1 
-                      className="text-xl font-bold text-white cursor-pointer hover:text-purple-300 transition-colors"
+                      className="text-xl font-bold text-white cursor-pointer hover:text-purple-300 transition-colors flex items-center group"
                       onClick={handleTitleEdit}
                       title="Click to edit title"
                     >
-                      {currentCollage.name}
+                      <span>{currentCollage.name}</span>
+                      <Pencil className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-60 transition-opacity" />
                     </h1>
                   )}
                   <div className="flex items-center space-x-2 text-gray-400 text-sm">
