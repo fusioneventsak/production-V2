@@ -1661,27 +1661,23 @@ const PhotoboothPage: React.FC = () => {
                   ref={photoContainerRef} 
                   className="relative w-full max-w-full" 
                   style={{ 
-                    // Remove fixed aspect ratio - let photo determine its own dimensions
+                    aspectRatio: '9/16',
+                    // iPad gets optimized sizing with small border to fit properly
                     ...(isIPad ? {
                       width: 'calc(100vw - 32px)',
                       height: 'calc(100vh - 64px)',
-                      maxWidth: 'calc(100vw - 32px)',
+                      maxWidth: 'calc((100vh - 64px) * 9/16)',
                       maxHeight: 'calc(100vh - 64px)'
                     } : {
-                      maxHeight: '100vh',
-                      maxWidth: '100vw'
+                      maxHeight: '100vh'
                     })
                   }}
                 >
                   <img 
                     src={photo} 
                     alt="Captured photo" 
-                    className={`w-full h-full object-contain ${isIPad ? 'rounded-lg' : ''}`}
-                    style={{ 
-                      // Remove forced aspect ratio - let image display naturally
-                      width: '100%',
-                      height: '100%'
-                    }}
+                    className="w-full h-full object-contain rounded-lg"
+                    style={{ aspectRatio: '9/16' }}
                   />
                   
                   {renderTextElements()}
@@ -1690,7 +1686,8 @@ const PhotoboothPage: React.FC = () => {
                   {showConfetti && (
                     <canvas
                       ref={confettiCanvasRef}
-                      className={`absolute inset-0 pointer-events-none z-30 w-full h-full ${isIPad ? 'rounded-lg' : ''}`}
+                      className="absolute inset-0 pointer-events-none z-30 w-full h-full rounded-lg"
+                      style={{ aspectRatio: '9/16' }}
                     />
                   )}
                   
