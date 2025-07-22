@@ -52,56 +52,6 @@ const FrameOverlay: React.FC<FrameOverlayProps> = ({
         transition: 'opacity 0.3s ease-in-out'
       }}
     >
-      {/* Visual fallback for frame loading errors */}
-      {frameError && (
-        <div 
-          style={{
-            position: 'absolute',
-            top: '10px',
-            left: '10px',
-            right: '10px',
-            bottom: '10px',
-            border: '4px dashed #ff0000',
-            backgroundColor: 'rgba(255, 0, 0, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ff0000',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            zIndex: 20
-          }}
-        >
-          FRAME LOAD ERROR
-        </div>
-      )}
-      
-      {/* Loading indicator */}
-      {!frameLoaded && !frameError && (
-        <div 
-          style={{
-            position: 'absolute',
-            top: '10px',
-            left: '10px',
-            right: '10px',
-            bottom: '10px',
-            border: '4px dashed #ffaa00',
-            backgroundColor: 'rgba(255, 170, 0, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffaa00',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            zIndex: 20
-          }}
-        >
-          LOADING FRAME...
-        </div>
-      )}
-      
       <img
         src={frameUrl}
         alt="Photo frame overlay"
