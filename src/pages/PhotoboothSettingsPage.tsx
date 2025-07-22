@@ -99,7 +99,7 @@ const PhotoboothSettingsPage = () => {
     }
   }, [currentCollage]);
 
-  const handleFileUpload = (event) => {
+  const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
     
     if (!currentCollage?.id) {
