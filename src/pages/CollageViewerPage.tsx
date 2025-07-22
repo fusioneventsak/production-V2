@@ -52,6 +52,8 @@ const CollageViewerPage: React.FC = () => {
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const hideControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
 
   // Close modal when clicking outside
@@ -84,6 +86,16 @@ const CollageViewerPage: React.FC = () => {
       await refreshPhotos(currentCollage.id);
     }
   }, [currentCollage?.id, refreshPhotos]);
+
+  // Reset hide timer - clears existing timeout and sets new one
+  const resetHideTimer = useCallback(() => {
+    if (hideControlsTimeoutRef.current) {
+      clearTimeout(hideControlsTimeoutRef.current);
+    }
+    hideControlsTimeoutRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 3000);
+  }, []);
 
   // Handle fullscreen toggle
   const toggleFullscreen = async () => {
@@ -119,25 +131,75 @@ const CollageViewerPage: React.FC = () => {
   // Show/hide controls in fullscreen
   useEffect(() => {
     if (isFullscreen) {
-      const showControls = () => {
+      // Initially show controls and start hide timer
+      setControlsVisible(true);
+      resetHideTimer();
+
+      // Handle header hover to prevent flickering
+      const handleHeaderMouseEnter = () => {
         setControlsVisible(true);
-        setTimeout(() => setControlsVisible(false), 3000);
+        if (hideControlsTimeoutRef.current) {
+          clearTimeout(hideControlsTimeoutRef.current);
+          hideControlsTimeoutRef.current = null;
+        }
       };
 
-      const handleMouseMove = () => showControls();
-      const handleKeyPress = () => showControls();
+      const handleHeaderMouseLeave = () => {
+        resetHideTimer();
+      };
 
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('keydown', handleKeyPress);
-      document.addEventListener('click', handleMouseMove);
+      // Handle general document interactions
+      const handleDocumentInteraction = () => {
+        setControlsVisible(true);
+        resetHideTimer();
+      };
+
+      // Attach header-specific listeners
+      if (headerRef.current) {
+        headerRef.current.addEventListener('mouseenter', handleHeaderMouseEnter);
+        headerRef.current.addEventListener('mouseleave', handleHeaderMouseLeave);
+      }
+
+      // Attach document listeners for general interactions
+      document.addEventListener('mousemove', handleDocumentInteraction);
+      document.addEventListener('keydown', handleDocumentInteraction);
+      document.addEventListener('click', handleDocumentInteraction);
 
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('keydown', handleKeyPress);
-        document.removeEventListener('click', handleMouseMove);
+        // Clean up header listeners
+        if (headerRef.current) {
+          headerRef.current.removeEventListener('mouseenter', handleHeaderMouseEnter);
+          headerRef.current.removeEventListener('mouseleave', handleHeaderMouseLeave);
+        }
+        
+        // Clean up document listeners
+        document.removeEventListener('mousemove', handleDocumentInteraction);
+        document.removeEventListener('keydown', handleDocumentInteraction);
+        document.removeEventListener('click', handleDocumentInteraction);
+        
+        // Clean up timeout
+        if (hideControlsTimeoutRef.current) {
+          clearTimeout(hideControlsTimeoutRef.current);
+          hideControlsTimeoutRef.current = null;
+        }
       };
+    } else {
+      // Clean up timeout when not in fullscreen
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
+        hideControlsTimeoutRef.current = null;
+      }
     }
-  }, [isFullscreen]);
+  }, [isFullscreen, resetHideTimer]);
+
+  // Clean up timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -211,7 +273,7 @@ const CollageViewerPage: React.FC = () => {
 
       {/* Transparent Header - Only shown when controls are visible */}
       {controlsVisible && (
-        <div className="absolute top-0 left-0 right-0 z-20">
+        <div ref={headerRef} className="absolute top-0 left-0 right-0 z-20">
           <div className="bg-black/20 backdrop-blur-sm border-b border-white/5">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-16">
