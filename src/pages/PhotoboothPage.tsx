@@ -47,6 +47,7 @@ const PhotoboothPage: React.FC = () => {
   
   // Frame overlay state
   const [customFrame, setCustomFrame] = useState<{
+    id: string;
     url: string;
     opacity: number;
   } | null>(null);
@@ -705,9 +706,58 @@ const PhotoboothPage: React.FC = () => {
     return lines;
   }, []);
 
+  // Load custom frame from collage settings
+  useEffect(() => {
+    if (currentCollage?.settings?.photobooth) {
+      const photoboothSettings = currentCollage.settings.photobooth;
+      
+      // Load selected frame if it exists
+      if (photoboothSettings.selectedFrameUrl && photoboothSettings.selectedFrameId !== 'none') {
+        console.log('🖼️ PHOTOBOOTH: Loading custom frame:', photoboothSettings.selectedFrameUrl);
+        console.log('🖼️ PHOTOBOOTH: Frame opacity:', photoboothSettings.frameOpacity);
+        
+        setCustomFrame({
+          id: photoboothSettings.selectedFrameId,
+          url: photoboothSettings.selectedFrameUrl,
+          opacity: photoboothSettings.frameOpacity || 80
+        });
+        setFrameLoaded(false); // Reset loaded state when frame changes
+      } else {
+        console.log('🖼️ PHOTOBOOTH: No custom frame selected');
+        setCustomFrame(null);
+        setFrameLoaded(false);
+      }
+    }
+  }, [currentCollage]);
+
+  // Preload frame image to ensure it's ready for capture
+  useEffect(() => {
+    if (customFrame?.url) {
+      console.log('🖼️ PHOTOBOOTH: Preloading frame image:', customFrame.url);
+      
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        console.log('✅ PHOTOBOOTH: Custom frame preloaded successfully');
+        setFrameLoaded(true);
+      };
+      
+      img.onerror = (error) => {
+        console.error('❌ PHOTOBOOTH: Failed to preload custom frame:', error);
+        console.error('❌ PHOTOBOOTH: Frame URL:', customFrame.url);
+        setFrameLoaded(false);
+      };
+      
+      img.src = customFrame.url;
+    } else {
+      setFrameLoaded(false);
+    }
+  }, [customFrame]);
+
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') {
-      console.log('❌ Cannot capture: missing refs or camera not active');
+      console.log('❌ PHOTOBOOTH: Cannot capture - missing refs or camera not active');
       return;
     }
 
@@ -718,17 +768,18 @@ const PhotoboothPage: React.FC = () => {
     const context = canvas.getContext('2d');
 
     if (!context) {
-      console.log('❌ Cannot get canvas context');
+      console.log('❌ PHOTOBOOTH: Cannot get canvas context');
       return;
     }
 
-    console.log('📸 Starting photo capture with frame...');
-    console.log('🖼️ Custom frame state:', {
-      hasFrame: !!customFrame,
+    console.log('📸 PHOTOBOOTH: Starting photo capture...');
+    console.log('🖼️ PHOTOBOOTH: Custom frame state:', { 
+      hasFrame: !!customFrame, 
+      frameLoaded, 
       frameUrl: customFrame?.url,
-      frameOpacity: customFrame?.opacity,
-      frameLoaded: frameLoaded
+      frameOpacity: customFrame?.opacity 
     });
+    console.log('🎨 PHOTOBOOTH: Text elements available:', textElements.length);
 
     const targetAspectRatio = 9 / 16;
     const videoAspectRatio = video.videoWidth / video.videoHeight;
@@ -750,12 +801,13 @@ const PhotoboothPage: React.FC = () => {
     const canvasWidth = 540;
     const canvasHeight = 960;
     
-    console.log('🖼️ Setting canvas size:', canvasWidth, 'x', canvasHeight);
+    console.log('🖼️ PHOTOBOOTH: Setting canvas size:', canvasWidth, 'x', canvasHeight);
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
     // Clear canvas completely
     context.clearRect(0, 0, canvasWidth, canvasHeight);
+    console.log('🧹 PHOTOBOOTH: Canvas cleared');
     
     // Draw video frame
     context.drawImage(
@@ -763,94 +815,89 @@ const PhotoboothPage: React.FC = () => {
       sourceX, sourceY, sourceWidth, sourceHeight,
       0, 0, canvasWidth, canvasHeight
     );
-    console.log('📹 Video frame drawn to canvas');
 
-    // Function to complete photo capture
-    const completeCapture = (finalContext) => {
-      // Add visual indicator if frame was supposed to be applied but failed
-      if (customFrame?.url && !frameLoaded) {
-        console.warn('⚠️ Frame was configured but not loaded - adding error indicator');
-        finalContext.save();
-        finalContext.strokeStyle = '#ff0000';
-        finalContext.lineWidth = 10;
-        finalContext.strokeRect(5, 5, canvasWidth - 10, canvasHeight - 10);
-        finalContext.restore();
+    console.log('📹 PHOTOBOOTH: Video frame drawn to canvas');
+
+    // Function to complete the capture process
+    const completeCapture = () => {
+      // Add visual indicator for successful frame application
+      if (customFrame?.url && frameLoaded) {
+        console.log('✅ PHOTOBOOTH: Adding green dot - frame successfully applied');
+        context.fillStyle = '#00ff00';
+        context.beginPath();
+        context.arc(canvasWidth - 20, 20, 8, 0, 2 * Math.PI);
+        context.fill();
+      } else if (customFrame?.url && !frameLoaded) {
+        console.log('🔴 PHOTOBOOTH: Adding red dot - frame failed to load');
+        context.fillStyle = '#ff0000';
+        context.beginPath();
+        context.arc(canvasWidth - 20, 20, 8, 0, 2 * Math.PI);
+        context.fill();
       }
-      
+
       const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-      console.log('📸 Photo capture complete, dataUrl length:', dataUrl.length);
+      console.log('📸 PHOTOBOOTH: Photo capture complete');
       setPhoto(dataUrl);
       cleanupCamera();
     };
 
-    // Draw frame overlay if present
+    // Draw custom frame if present and loaded
     if (customFrame?.url && frameLoaded) {
-      console.log('🖼️ Frame conditions met - attempting to add frame to captured photo');
-      console.log('🖼️ Frame URL:', customFrame.url);
-      console.log('🖼️ Frame opacity:', customFrame.opacity);
+      console.log('🖼️ PHOTOBOOTH: Adding custom frame to captured photo...');
+      console.log('🖼️ PHOTOBOOTH: Frame URL:', customFrame.url);
+      console.log('🖼️ PHOTOBOOTH: Frame opacity:', customFrame.opacity);
       
       const frameImg = new Image();
       frameImg.crossOrigin = 'anonymous';
       
       frameImg.onload = () => {
-        console.log('✅ Frame image loaded successfully for capture');
-        console.log('🖼️ Frame image dimensions:', frameImg.width, 'x', frameImg.height);
+        console.log('✅ PHOTOBOOTH: Frame image loaded for capture, drawing to canvas');
+        console.log('🖼️ PHOTOBOOTH: Frame dimensions:', frameImg.width, 'x', frameImg.height);
         
-        // Save the current context state
+        // Save current context state
         context.save();
         
         // Set frame opacity
         const opacity = customFrame.opacity / 100;
         context.globalAlpha = opacity;
-        console.log('🎨 Setting frame opacity to:', opacity);
+        console.log('🎨 PHOTOBOOTH: Applying frame with opacity:', opacity);
         
         // Draw frame covering the entire canvas
         context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
-        console.log('🖼️ Frame drawn to canvas at full size');
-        
-        // Add visual confirmation that frame was applied
-        context.globalAlpha = 1;
-        context.fillStyle = '#00ff00';
-        context.fillRect(canvasWidth - 20, 10, 10, 10);
-        console.log('✅ Green indicator added to confirm frame was applied');
         
         // Restore context state
         context.restore();
         
-        console.log('🖼️ Frame overlay successfully added to captured photo');
-        completeCapture(context);
+        console.log('🖼️ PHOTOBOOTH: Custom frame successfully added to captured photo');
+        completeCapture();
       };
       
       frameImg.onerror = (error) => {
-        console.error('❌ Failed to load frame image for capture:', error);
-        console.error('❌ Frame URL that failed:', customFrame.url);
+        console.error('❌ PHOTOBOOTH: Failed to load frame for capture:', error);
+        console.error('❌ PHOTOBOOTH: Frame URL:', customFrame.url);
         
-        // Add red indicator to show frame failed
-        context.save();
-        context.fillStyle = '#ff0000';
-        context.fillRect(canvasWidth - 20, 10, 10, 10);
-        context.restore();
+        // Add red border to indicate frame failure
+        context.strokeStyle = '#ff0000';
+        context.lineWidth = 8;
+        context.strokeRect(4, 4, canvasWidth - 8, canvasHeight - 8);
+        console.log('🔴 PHOTOBOOTH: Added red border to indicate frame failure');
         
-        completeCapture(context);
+        completeCapture();
       };
       
       // Load the frame image
-      console.log('🔄 Loading frame image:', customFrame.url);
+      console.log('🔄 PHOTOBOOTH: Loading frame image for capture...');
       frameImg.src = customFrame.url;
     } else {
-      // No frame or frame not loaded
+      // No frame to add, complete capture
       if (customFrame?.url && !frameLoaded) {
-        console.warn('⚠️ Frame URL exists but frameLoaded is false');
-        console.warn('⚠️ Frame URL:', customFrame.url);
-        console.warn('⚠️ frameLoaded:', frameLoaded);
-      } else if (!customFrame?.url) {
-        console.log('📸 No custom frame configured');
+        console.log('⚠️ PHOTOBOOTH: Frame configured but not loaded, proceeding without frame');
+      } else {
+        console.log('📸 PHOTOBOOTH: No custom frame configured, completing capture');
       }
-      
-      console.log('📸 Proceeding without frame');
-      completeCapture(context);
+      completeCapture();
     }
-  }, [cameraState, cleanupCamera, customFrame, frameLoaded]);
+  }, [cameraState, cleanupCamera, customFrame, frameLoaded, textElements]);
 
   // Enhanced renderTextToCanvas that also handles frames for final upload
   const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, imageData: string) => {
@@ -882,17 +929,12 @@ const PhotoboothPage: React.FC = () => {
           console.warn('⚠️ Preview container not found, using fallback text scale factor:', textScaleFactor);
         }
         
-        // Set high-resolution canvas dimensions
-        canvas.width = HIGH_RES_WIDTH;
-        canvas.height = HIGH_RES_HEIGHT;
+        console.log('📝 PHOTOBOOTH: Text elements available:', textElements.length);
+        console.log('📐 PHOTOBOOTH: Preview container dimensions for scaling reference');
 
-        // Clear and draw the original image at high resolution
-        context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
-        context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
-
-        // Function to render text after frame is applied
+        // Function to render text elements
         const renderTextElements = () => {
-          console.log('🎨 Rendering', textElements.length, 'text elements to high-resolution image');
+          console.log('🎨 PHOTOBOOTH: Rendering', textElements.length, 'text elements to high-resolution image');
 
           // Render all text elements with proportional scaling to match preview
           textElements.forEach((element, index) => {
@@ -900,7 +942,7 @@ const PhotoboothPage: React.FC = () => {
               return;
             }
 
-            console.log(`✏️ Rendering text element ${index}: "${element.text}"`);
+            console.log(`✏️ PHOTOBOOTH: Rendering text element ${index}: "${element.text}"`);
 
             // Calculate positions (these scale with the resolution)
             const x = (element.position.x / 100) * HIGH_RES_WIDTH;
@@ -910,7 +952,7 @@ const PhotoboothPage: React.FC = () => {
             const baseFontSize = element.size * (element.scale || 1);
             const fontSize = baseFontSize * textScaleFactor;
             
-            console.log(`📝 Element ${index}: preview size ${baseFontSize}px, final size ${fontSize}px (scale: ${textScaleFactor})`);
+            console.log(`📝 PHOTOBOOTH: Element ${index}: preview size ${baseFontSize}px, final size ${fontSize}px (scale: ${textScaleFactor})`);
 
             context.save();
             context.translate(x, y);
@@ -984,48 +1026,53 @@ const PhotoboothPage: React.FC = () => {
 
           // Return the final high-resolution image with text
           const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-          console.log('✅ Text rendered to high-resolution image with proper wrapping');
-          console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
+          console.log('✅ PHOTOBOOTH: High-res image complete with frame and text');
+          console.log('📊 PHOTOBOOTH: Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
           resolve(finalImageData);
         };
 
+        // Set high-resolution canvas dimensions
+        canvas.width = HIGH_RES_WIDTH;
+        canvas.height = HIGH_RES_HEIGHT;
+
+        // Clear and draw the original image at high resolution
+        context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+        context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+        console.log('🖼️ PHOTOBOOTH: Base image drawn to high-res canvas');
+
         // Apply frame to high-res image if present, then render text
         if (customFrame?.url && frameLoaded && customFrame.opacity > 0) {
-          console.log('🖼️ Adding high-res frame to final upload image...');
-          console.log('🖼️ High-res frame URL:', customFrame.url);
-          console.log('🖼️ High-res frame opacity:', customFrame.opacity);
+          console.log('🖼️ PHOTOBOOTH: Adding high-res frame to final upload image...');
+          console.log('🖼️ PHOTOBOOTH: High-res frame URL:', customFrame.url);
+          console.log('🖼️ PHOTOBOOTH: High-res frame opacity:', customFrame.opacity);
           
           const frameImg = new Image();
           frameImg.crossOrigin = 'anonymous';
           
           frameImg.onload = () => {
-            console.log('✅ High-res frame loaded successfully');
-            console.log('🖼️ High-res frame dimensions:', frameImg.width, 'x', frameImg.height);
+            console.log('✅ PHOTOBOOTH: High-res frame loaded, applying to final image');
+            console.log('🖼️ PHOTOBOOTH: High-res frame dimensions:', frameImg.width, 'x', frameImg.height);
             
             context.save();
             context.globalAlpha = customFrame.opacity / 100;
             context.drawImage(frameImg, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
             context.restore();
             
-            console.log('🖼️ High-res frame applied, now rendering text');
+            console.log('🖼️ PHOTOBOOTH: High-res frame applied, now rendering text');
             renderTextElements();
           };
           
           frameImg.onerror = (error) => {
-            console.error('❌ Failed to load frame for high-res render:', error);
-            console.error('❌ High-res frame URL that failed:', customFrame.url);
+            console.error('❌ PHOTOBOOTH: Failed to load frame for high-res render:', error);
+            console.error('❌ PHOTOBOOTH: High-res frame URL:', customFrame.url);
+            console.log('📝 PHOTOBOOTH: Proceeding without frame, rendering text only');
             renderTextElements();
           };
           
           frameImg.src = customFrame.url;
         } else {
           // No frame, just render text
-          if (customFrame?.url && !frameLoaded) {
-            console.warn('⚠️ High-res: Frame URL exists but not loaded');
-          } else if (!customFrame?.url) {
-            console.log('📝 High-res: No frame configured');
-          }
-          console.log('📝 High-res: Rendering text without frame');
+          console.log('📝 PHOTOBOOTH: No frame for final image, rendering text only');
           renderTextElements();
         }
       };
@@ -1999,13 +2046,18 @@ const PhotoboothPage: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
                 
-                {/* Custom Frame Overlay */}
-                {customFrame && (
-                  <FrameOverlay
-                    frameUrl={customFrame.url}
-                    frameOpacity={customFrame.opacity}
-                    videoDimensions={videoDimensions}
-                    className="frame-overlay"
+                {/* Custom Frame Overlay - shows in live preview */}
+                {customFrame?.url && frameLoaded && (
+                  <img
+                    src={customFrame.url}
+                    alt="Custom frame overlay"
+                    className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                    style={{ 
+                      opacity: customFrame.opacity / 100,
+                      zIndex: 10 // Below controls but above video
+                    }}
+                    onLoad={() => console.log('✅ PHOTOBOOTH: Frame overlay loaded in preview')}
+                    onError={() => console.error('❌ PHOTOBOOTH: Frame overlay failed to load in preview')}
                   />
                 )}
 
@@ -2387,13 +2439,18 @@ const PhotoboothPage: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                     
-                    {/* Custom Frame Overlay */}
-                    {customFrame && (
-                      <FrameOverlay
-                        frameUrl={customFrame.url}
-                        frameOpacity={customFrame.opacity}
-                        videoDimensions={videoDimensions}
-                        className="frame-overlay"
+                    {/* Custom Frame Overlay - shows in live preview */}
+                    {customFrame?.url && frameLoaded && (
+                      <img
+                        src={customFrame.url}
+                        alt="Custom frame overlay"
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                        style={{ 
+                          opacity: customFrame.opacity / 100,
+                          zIndex: 10 // Below controls but above video
+                        }}
+                        onLoad={() => console.log('✅ PHOTOBOOTH: Frame overlay loaded in preview')}
+                        onError={() => console.error('❌ PHOTOBOOTH: Frame overlay failed to load in preview')}
                       />
                     )}
 
