@@ -70,8 +70,7 @@ const DashboardPage = () => {
   };
 
   const navigateToPhotobooth = (id: string) => {
-    // For now, navigate to edit page - you can add photobooth route later
-    navigate(`/dashboard/collage/${id}`);
+    navigate(`/dashboard/collage/${id}/photobooth-settings`);
   };
 
   if (loading && collages.length === 0) {
