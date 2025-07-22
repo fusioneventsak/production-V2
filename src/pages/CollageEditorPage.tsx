@@ -47,6 +47,7 @@ const CollageEditorPage: React.FC = () => {
     photos, 
     fetchCollageById, 
     updateCollageSettings, 
+    updateCollageName,
     loading, 
     error, 
     setupRealtimeSubscription, 
@@ -59,6 +60,9 @@ const CollageEditorPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('settings');
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitleValue, setEditingTitleValue] = useState('');
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
@@ -93,6 +97,7 @@ const CollageEditorPage: React.FC = () => {
     if (currentCollage?.settings) {
       console.log('🎨 EDITOR: Syncing collage settings to scene store:', currentCollage.settings);
       updateSettings(currentCollage.settings);
+      setEditingTitleValue(currentCollage.name);
     }
   }, [currentCollage?.settings, updateSettings]);
 
@@ -129,6 +134,39 @@ const CollageEditorPage: React.FC = () => {
       }
     };
   }, []);
+
+  // Handle title editing
+  const handleTitleEdit = () => {
+    if (!currentCollage) return;
+    setEditingTitleValue(currentCollage.name);
+    setIsEditingTitle(true);
+  };
+
+  const handleTitleSave = async () => {
+    if (!currentCollage || isSavingTitle) return;
+    
+    const newName = editingTitleValue.trim();
+    if (!newName || newName === currentCollage.name) {
+      setIsEditingTitle(false);
+      setEditingTitleValue(currentCollage.name);
+      return;
+    }
+
+    setIsSavingTitle(true);
+    try {
+      await updateCollageName(currentCollage.id, newName);
+      console.log('✅ Title updated successfully');
+      setIsEditingTitle(false);
+    } catch (error) {
+      console.error('❌ Failed to update title:', error);
+      // Revert to original name on error
+      setEditingTitleValue(currentCollage.name);
+      setIsEditingTitle(false);
+      alert('Failed to update title. Please try again.');
+    } finally {
+      setIsSavingTitle(false);
+    }
+  };
 
   // Manual refresh function for when realtime fails
   const handleManualRefresh = async () => {
@@ -248,7 +286,33 @@ const CollageEditorPage: React.FC = () => {
                   <ChevronLeft className="w-6 h-6" />
                 </Link>
                 <div>
-                  <h1 className="text-xl font-bold text-white">{currentCollage.name}</h1>
+                  {isEditingTitle ? (
+                    <input
+                      type="text"
+                      value={editingTitleValue}
+                      onChange={(e) => setEditingTitleValue(e.target.value)}
+                      onBlur={handleTitleSave}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTitleSave();
+                        } else if (e.key === 'Escape') {
+                          setIsEditingTitle(false);
+                          setEditingTitleValue(currentCollage.name);
+                        }
+                      }}
+                      className="text-xl font-bold text-white bg-transparent border-b-2 border-purple-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      autoFocus
+                      maxLength={100}
+                    />
+                  ) : (
+                    <h1 
+                      className="text-xl font-bold text-white cursor-pointer hover:text-purple-300 transition-colors"
+                      onClick={handleTitleEdit}
+                      title="Click to edit title"
+                    >
+                      {currentCollage.name}
+                    </h1>
+                  )}
                   <div className="flex items-center space-x-2 text-gray-400 text-sm">
                     <span>Code: {currentCollage.code}</span>
                     <span>•</span>
