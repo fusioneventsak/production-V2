@@ -1608,16 +1608,15 @@ const PhotoboothPage: React.FC = () => {
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => navigate(`/collage/${currentCollage?.code || ''}`)}
+                    className="text-gray-200 hover:text-white transition-colors"
+                  >
+                    <ArrowLeft className="w-6 h-6" />
                   </button>
                   <div>
                     <h1 className="text-lg font-bold text-white flex items-center space-x-2">
                       <span className="text-purple-400">📸</span>
                       <span>See PhotoSphere</span>
                     </h1>
-                    <h2 className="text-base font-semibold text-white flex items-center space-x-2">
-                      <Camera className="w-5 h-5 text-purple-400" />
-                      <span>Photobooth</span>
-                    </h2>
                     <p className="text-gray-300 text-sm">{currentCollage?.name}</p>
                   </div>
                 </div>
