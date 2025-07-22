@@ -1,8 +1,3 @@
-import React, { useEffect } from 'react';
-import { useCollageStore, type Collage } from '../store/collageStore';
-import { Image, ExternalLink, Edit, Trash2, Pencil, Camera } from 'lucide-react';
-import CollageNameModal from '../components/collage/CollageNameModal';
-
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollageStore, type Collage } from '../store/collageStore';
@@ -13,9 +8,9 @@ import Layout from '../components/layout/Layout';
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { collages, loading, error, fetchCollages, deleteCollage, createCollage } = useCollageStore();
-  const [selectedCollage, setSelectedCollage] = React.useState<Collage | null>(null);
-  const [isRenameModalOpen, setIsRenameModalOpen] = React.useState(false);
-  const [isDeleting, setIsDeleting] = React.useState<string | null>(null);
+  const [selectedCollage, setSelectedCollage] = useState<Collage | null>(null);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newCollageName, setNewCollageName] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
