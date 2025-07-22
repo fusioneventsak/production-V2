@@ -734,8 +734,11 @@ const PhotoboothSettingsPage = () => {
                           <img
                             src={settings.selectedFrameUrl}
                             alt="Frame overlay"
-                            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                            style={{ opacity: settings.frameOpacity / 100 }}
+                            className="absolute inset-0 w-full h-full pointer-events-none"
+                            style={{ 
+                              opacity: settings.frameOpacity / 100,
+                              objectFit: 'fill'
+                            }}
                           />
                         )}
 
