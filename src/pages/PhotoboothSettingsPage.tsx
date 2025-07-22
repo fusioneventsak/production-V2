@@ -27,6 +27,57 @@ const PhotoboothSettingsPage = () => {
   // Only "No Frame" option - no stock frames
   const defaultFrames = [
     { id: 'none', name: 'No Frame', preview: null, type: 'default' }
+    { 
+      id: 'gradient-purple', 
+      name: 'Purple Glow', 
+      preview: 'data:image/svg+xml;base64,' + btoa(`
+        <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+              <stop offset="50%" style="stop-color:#A855F7;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#C084FC;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="400" height="600" fill="none" stroke="url(#purpleGrad)" stroke-width="20" rx="15"/>
+        </svg>
+      `),
+      type: 'default' 
+    },
+    { 
+      id: 'gradient-cyan', 
+      name: 'Cyan Wave', 
+      preview: 'data:image/svg+xml;base64,' + btoa(`
+        <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#06B6D4;stop-opacity:1" />
+              <stop offset="50%" style="stop-color:#0891B2;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#67E8F9;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="400" height="600" fill="none" stroke="url(#cyanGrad)" stroke-width="20" rx="15"/>
+        </svg>
+      `),
+      type: 'default' 
+    },
+    { 
+      id: 'gradient-sunset', 
+      name: 'Sunset Glow', 
+      preview: 'data:image/svg+xml;base64,' + btoa(`
+        <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="sunsetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#F59E0B;stop-opacity:1" />
+              <stop offset="50%" style="stop-color:#EF4444;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#EC4899;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="400" height="600" fill="none" stroke="url(#sunsetGrad)" stroke-width="20" rx="15"/>
+        </svg>
+      `),
+      type: 'default' 
+    }
   ];
 
   const [settings, setSettings] = useState({
