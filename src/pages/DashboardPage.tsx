@@ -3,7 +3,7 @@ import { useCollageStore, type Collage } from '../store/collageStore';
 import { Image, ExternalLink, Edit, Trash2, Pencil, Camera } from 'lucide-react';
 import CollageNameModal from '../components/collage/CollageNameModal';
 
-const CollageList: React.FC = () => {
+const DashboardPage: React.FC = () => {
   const { collages, loading, error, fetchCollages, deleteCollage } = useCollageStore();
   const [selectedCollage, setSelectedCollage] = React.useState<Collage | null>(null);
   const [isRenameModalOpen, setIsRenameModalOpen] = React.useState(false);
@@ -185,4 +185,4 @@ const CollageList: React.FC = () => {
   );
 };
 
-export default Dashboard;
+export default DashboardPage;
