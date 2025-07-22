@@ -129,22 +129,6 @@ const FrameOverlay: React.FC<FrameOverlayProps> = ({
         draggable={false}
       />
 
-      {/* Success indicator - green dot when frame loads successfully */}
-      {frameLoaded && !frameError && (
-        <div 
-          style={{
-            position: 'absolute', 
-            top: '10px', 
-            right: '10px',
-            width: '12px',
-            height: '12px',
-            backgroundColor: '#00ff00',
-            borderRadius: '50%',
-            zIndex: 30,
-            boxShadow: '0 0 4px rgba(0, 255, 0, 0.5)'
-          }}
-        />
-      )}
     </div>
   );
 };
