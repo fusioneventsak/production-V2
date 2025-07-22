@@ -1656,11 +1656,14 @@ const PhotoboothPage: React.FC = () => {
           <div className="w-full h-full">
             {photo ? (
               <div ref={photoContainerRef} className="relative w-full h-full">
-                <img 
-                  src={photo} 
-                  alt="Captured photo" 
-                  className="w-full h-full object-cover"
-                />
+                {/* Photo with embedded frame - no additional overlay needed */}
+                <div className="relative w-full h-full">
+                  <img
+                    src={photo}
+                    alt="Captured photo with frame"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 
                 {renderTextElements()}
                 
@@ -2101,6 +2104,15 @@ const PhotoboothPage: React.FC = () => {
             
             <canvas ref={canvasRef} className="hidden" />
           </div>
+
+          {/* Debug frame state - only in development */}
+          {process.env.NODE_ENV === 'development' && customFrame && (
+            <div className="mt-2 p-2 bg-black/50 rounded text-xs text-white/70">
+              <div>Frame: {customFrame.url ? '✅ Loaded' : '❌ No URL'}</div>
+              <div>Opacity: {customFrame.opacity}%</div>
+              <div>Frame Loaded: {frameLoaded ? '✅' : '❌'}</div>
+            </div>
+          )}
         </div>
       ) : (
         /* Desktop Layout - Original Design with viewport optimization */
@@ -2151,11 +2163,14 @@ const PhotoboothPage: React.FC = () => {
               <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px] xl:max-w-[400px]">
                 {photo ? (
                   <div ref={photoContainerRef} className="relative w-full aspect-[9/16]">
-                    <img 
-                      src={photo} 
-                      alt="Captured photo" 
-                      className="w-full h-full object-cover"
-                    />
+                    {/* Photo with embedded frame - no additional overlay needed */}
+                    <div className="relative w-full h-full">
+                      <img
+                        src={photo}
+                        alt="Captured photo with frame"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     
                     {renderTextElements()}
                     
@@ -2494,6 +2509,15 @@ const PhotoboothPage: React.FC = () => {
                 
                 <canvas ref={canvasRef} className="hidden" />
               </div>
+
+              {/* Debug frame state - only in development */}
+              {process.env.NODE_ENV === 'development' && customFrame && (
+                <div className="mt-2 p-2 bg-black/50 rounded text-xs text-white/70">
+                  <div>Frame: {customFrame.url ? '✅ Loaded' : '❌ No URL'}</div>
+                  <div>Opacity: {customFrame.opacity}%</div>
+                  <div>Frame Loaded: {frameLoaded ? '✅' : '❌'}</div>
+                </div>
+              )}
             </div>
 
             <div className="w-full lg:w-72 space-y-4 lg:space-y-6">
