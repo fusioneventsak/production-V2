@@ -705,189 +705,6 @@ const PhotoboothPage: React.FC = () => {
     return lines;
   }, []);
 
-  // Function to render text elements onto a canvas with high-resolution scaling
-  const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, imageData: string) => {
-    return new Promise<string>((resolve) => {
-      const context = canvas.getContext('2d');
-      if (!context) {
-        resolve(imageData);
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        // High-resolution output dimensions
-        const HIGH_RES_WIDTH = 1080;
-        const HIGH_RES_HEIGHT = 1920;
-        
-        // Calculate proper scaling factor to match preview appearance
-        let textScaleFactor = 1;
-        
-        if (photoContainerRef.current) {
-          const rect = photoContainerRef.current.getBoundingClientRect();
-          // Scale text proportionally to how the image is scaled
-          textScaleFactor = HIGH_RES_WIDTH / rect.width;
-          
-          console.log('📐 Preview container:', rect.width, 'x', rect.height);
-          console.log('📐 Text scale factor:', textScaleFactor);
-          console.log('📐 Output dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
-        } else {
-          // Fallback: assume typical mobile preview width
-          textScaleFactor = HIGH_RES_WIDTH / 360;
-          console.warn('⚠️ Preview container not found, using fallback text scale factor:', textScaleFactor);
-        }
-        
-        // Set high-resolution canvas dimensions
-        canvas.width = HIGH_RES_WIDTH;
-        canvas.height = HIGH_RES_HEIGHT;
-
-        // Clear and draw the original image at high resolution
-        context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
-        
-        // Draw the base image (which already includes frame and default text)
-        context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
-
-        console.log('🎨 Rendering', textElements.length, 'text elements to high-resolution image');
-
-        // Add user-added text elements on top
-        textElements.forEach((element, index) => {
-          if (!element.text || element.text.trim() === '') {
-            return;
-          }
-
-          console.log(`✏️ Rendering text element ${index}: "${element.text}"`);
-
-          // Calculate positions (these scale with the resolution)
-          const x = (element.position.x / 100) * HIGH_RES_WIDTH;
-          const y = (element.position.y / 100) * HIGH_RES_HEIGHT;
-          
-          // Scale font size proportionally to match preview appearance
-          const baseFontSize = element.size * (element.scale || 1);
-          const fontSize = baseFontSize * textScaleFactor;
-          
-          console.log(`📝 Element ${index}: preview size ${baseFontSize}px, final size ${fontSize}px (scale: ${textScaleFactor})`);
-
-          context.save();
-          context.translate(x, y);
-          context.rotate((element.rotation || 0) * Math.PI / 180);
-
-          context.font = `bold ${fontSize}px ${element.style.fontFamily || 'Arial'}`;
-          context.textAlign = element.style.align || 'center';
-          context.textBaseline = 'middle';
-
-          // Calculate maximum width for text wrapping (scale the 280px constraint)
-          const maxTextWidth = 280 * textScaleFactor;
-
-          // Process text - handle both manual line breaks and automatic wrapping
-          let allLines: string[] = [];
-          const manualLines = element.text.split('\n');
-          
-          manualLines.forEach(line => {
-            if (line.trim() === '') {
-              allLines.push(''); // Preserve empty lines
-            } else {
-              // Wrap each manual line if it's too long
-              const wrappedLines = wrapText(context, line, maxTextWidth);
-              allLines = allLines.concat(wrappedLines);
-            }
-          });
-
-          const lineHeight = fontSize * 1.2;
-          const totalTextHeight = allLines.length * lineHeight;
-          const startY = -(totalTextHeight - lineHeight) / 2;
-
-          console.log(`📝 Element ${index}: ${allLines.length} lines after wrapping, lineHeight: ${lineHeight}px`);
-          console.log(`📝 Lines: ${allLines.map((line, i) => `${i}: "${line}"`).join(', ')}`);
-
-          // Draw background if needed with proportionally scaled padding
-          if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
-            const scaledPadding = element.style.padding * textScaleFactor;
-            const opacity = element.style.backgroundOpacity || 0.7;
-            context.fillStyle = `${element.style.backgroundColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
-
-            // Calculate background for all lines combined
-            let maxWidth = 0;
-            allLines.forEach(line => {
-              if (line) {
-                const metrics = context.measureText(line);
-                maxWidth = Math.max(maxWidth, metrics.width);
-              }
-            });
-
-            let bgX = -maxWidth/2 - scaledPadding;
-            if (element.style.align === 'left') bgX = -scaledPadding;
-            if (element.style.align === 'right') bgX = -maxWidth - scaledPadding;
-
-            context.fillRect(
-              bgX,
-              startY - fontSize/2 - scaledPadding,
-              maxWidth + scaledPadding * 2,
-              totalTextHeight + scaledPadding * 2
-            );
-          }
-
-          // Draw each line separately with proportionally scaled shadows
-          allLines.forEach((line, lineIndex) => {
-            const lineY = startY + lineIndex * lineHeight;
-
-            console.log(`📝 Rendering line ${lineIndex}: "${line}" at y: ${lineY}`);
-
-            // Skip empty lines for rendering but preserve spacing
-            if (!line) return;
-
-            // Scale shadow effects proportionally
-            if (element.style.outline) {
-              // Primary shadow
-              context.shadowColor = 'rgba(0,0,0,0.9)';
-              context.shadowBlur = 12 * textScaleFactor;
-              context.shadowOffsetX = 4 * textScaleFactor;
-              context.shadowOffsetY = 4 * textScaleFactor;
-
-              context.strokeStyle = 'black';
-              context.lineWidth = fontSize * 0.12;
-              context.strokeText(line, 0, lineY);
-
-              // Secondary shadow
-              context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 6 * textScaleFactor;
-              context.shadowOffsetX = 2 * textScaleFactor;
-              context.shadowOffsetY = 2 * textScaleFactor;
-              context.strokeStyle = 'rgba(0,0,0,0.8)';
-              context.lineWidth = fontSize * 0.06;
-              context.strokeText(line, 0, lineY);
-            } else {
-              // Standard shadow for non-outline text
-              context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 8 * textScaleFactor;
-              context.shadowOffsetX = 3 * textScaleFactor;
-              context.shadowOffsetY = 3 * textScaleFactor;
-            }
-
-            // Draw main text line by line
-            context.fillStyle = element.color;
-            context.fillText(line, 0, lineY);
-
-            // Reset shadow properties after each line
-            context.shadowColor = 'transparent';
-            context.shadowBlur = 0;
-            context.shadowOffsetX = 0;
-            context.shadowOffsetY = 0;
-          });
-
-          context.restore();
-        });
-
-        // Return the final high-resolution image with text
-        const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-        console.log('✅ Text rendered to high-resolution image with proper wrapping');
-        console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
-        resolve(finalImageData);
-      };
-
-      img.src = imageData;
-    });
-  }, [textElements, photoContainerRef, wrapText]);
-
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') {
       console.log('❌ Cannot capture: missing refs or camera not active');
@@ -906,6 +723,12 @@ const PhotoboothPage: React.FC = () => {
     }
 
     console.log('📸 Starting photo capture with frame...');
+    console.log('🖼️ Custom frame state:', {
+      hasFrame: !!customFrame,
+      frameUrl: customFrame?.url,
+      frameOpacity: customFrame?.opacity,
+      frameLoaded: frameLoaded
+    });
 
     const targetAspectRatio = 9 / 16;
     const videoAspectRatio = video.videoWidth / video.videoHeight;
@@ -927,10 +750,11 @@ const PhotoboothPage: React.FC = () => {
     const canvasWidth = 540;
     const canvasHeight = 960;
     
+    console.log('🖼️ Setting canvas size:', canvasWidth, 'x', canvasHeight);
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
-    
-    // Clear canvas
+
+    // Clear canvas completely
     context.clearRect(0, 0, canvasWidth, canvasHeight);
     
     // Draw video frame
@@ -939,104 +763,276 @@ const PhotoboothPage: React.FC = () => {
       sourceX, sourceY, sourceWidth, sourceHeight,
       0, 0, canvasWidth, canvasHeight
     );
+    console.log('📹 Video frame drawn to canvas');
 
-    // Draw custom frame overlay if present
-    if (customFrame?.url && frameLoaded) {
-      try {
-        console.log('🖼️ Drawing custom frame overlay on captured photo');
-        
-        // Create a temporary image element to load the frame
-        const frameImg = new Image();
-        frameImg.crossOrigin = 'anonymous';
-        
-        frameImg.onload = () => {
-          // Apply frame opacity
-          context.globalAlpha = (customFrame.opacity || 80) / 100;
-          
-          // Draw frame covering entire canvas (object-fit: cover behavior)
-          context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
-          
-          // Reset alpha
-          context.globalAlpha = 1.0;
-          
-          console.log('✅ Custom frame applied to captured photo');
-          
-          // Draw default text overlay if enabled
-          if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
-            drawTextOverlay(context, canvasWidth, canvasHeight);
-          }
-          
-          // Finalize the photo
-          finalizePhoto();
-        };
-        
-        frameImg.onerror = () => {
-          console.error('❌ Failed to apply frame to captured photo');
-          // Continue without frame
-          if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
-            drawTextOverlay(context, canvasWidth, canvasHeight);
-          }
-          finalizePhoto();
-        };
-        
-        frameImg.src = customFrame.url;
-      } catch (error) {
-        console.error('❌ Failed to apply frame to captured photo:', error);
-        // Continue without frame
-        if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
-          drawTextOverlay(context, canvasWidth, canvasHeight);
-        }
-        finalizePhoto();
-      }
-    } else {
-      // No frame, just add text overlay if enabled
-      if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
-        drawTextOverlay(context, canvasWidth, canvasHeight);
-      }
-      finalizePhoto();
-    }
-
-    function drawTextOverlay(ctx, width, height) {
-      ctx.save();
-      
-      // Set up text styling
-      ctx.font = `bold ${frameSettings.textSize}px Arial`;
-      ctx.fillStyle = frameSettings.textColor;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      // Add text shadow
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
-      
-      // Calculate text position
-      let textY;
-      if (frameSettings.textPosition === 'top') {
-        textY = frameSettings.textSize + 20;
-      } else if (frameSettings.textPosition === 'center') {
-        textY = height / 2;
-      } else {
-        textY = height - frameSettings.textSize - 20;
+    // Function to complete photo capture
+    const completeCapture = (finalContext) => {
+      // Add visual indicator if frame was supposed to be applied but failed
+      if (customFrame?.url && !frameLoaded) {
+        console.warn('⚠️ Frame was configured but not loaded - adding error indicator');
+        finalContext.save();
+        finalContext.strokeStyle = '#ff0000';
+        finalContext.lineWidth = 10;
+        finalContext.strokeRect(5, 5, canvasWidth - 10, canvasHeight - 10);
+        finalContext.restore();
       }
       
-      // Draw text
-      ctx.fillText(frameSettings.defaultText, width / 2, textY);
-      
-      ctx.restore();
-    }
-
-    function finalizePhoto() {
-      // Continue with existing text elements rendering
-      const currentTextElements = textElements;
       const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+      console.log('📸 Photo capture complete, dataUrl length:', dataUrl.length);
       setPhoto(dataUrl);
       cleanupCamera();
-      console.log('✅ Photo capture complete with frame and overlays');
-    }
+    };
 
-  }, [textElements, cameraState, cleanupCamera, frameSettings, customFrame, frameLoaded]);
+    // Draw frame overlay if present
+    if (customFrame?.url && frameLoaded) {
+      console.log('🖼️ Frame conditions met - attempting to add frame to captured photo');
+      console.log('🖼️ Frame URL:', customFrame.url);
+      console.log('🖼️ Frame opacity:', customFrame.opacity);
+      
+      const frameImg = new Image();
+      frameImg.crossOrigin = 'anonymous';
+      
+      frameImg.onload = () => {
+        console.log('✅ Frame image loaded successfully for capture');
+        console.log('🖼️ Frame image dimensions:', frameImg.width, 'x', frameImg.height);
+        
+        // Save the current context state
+        context.save();
+        
+        // Set frame opacity
+        const opacity = customFrame.opacity / 100;
+        context.globalAlpha = opacity;
+        console.log('🎨 Setting frame opacity to:', opacity);
+        
+        // Draw frame covering the entire canvas
+        context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
+        console.log('🖼️ Frame drawn to canvas at full size');
+        
+        // Add visual confirmation that frame was applied
+        context.globalAlpha = 1;
+        context.fillStyle = '#00ff00';
+        context.fillRect(canvasWidth - 20, 10, 10, 10);
+        console.log('✅ Green indicator added to confirm frame was applied');
+        
+        // Restore context state
+        context.restore();
+        
+        console.log('🖼️ Frame overlay successfully added to captured photo');
+        completeCapture(context);
+      };
+      
+      frameImg.onerror = (error) => {
+        console.error('❌ Failed to load frame image for capture:', error);
+        console.error('❌ Frame URL that failed:', customFrame.url);
+        
+        // Add red indicator to show frame failed
+        context.save();
+        context.fillStyle = '#ff0000';
+        context.fillRect(canvasWidth - 20, 10, 10, 10);
+        context.restore();
+        
+        completeCapture(context);
+      };
+      
+      // Load the frame image
+      console.log('🔄 Loading frame image:', customFrame.url);
+      frameImg.src = customFrame.url;
+    } else {
+      // No frame or frame not loaded
+      if (customFrame?.url && !frameLoaded) {
+        console.warn('⚠️ Frame URL exists but frameLoaded is false');
+        console.warn('⚠️ Frame URL:', customFrame.url);
+        console.warn('⚠️ frameLoaded:', frameLoaded);
+      } else if (!customFrame?.url) {
+        console.log('📸 No custom frame configured');
+      }
+      
+      console.log('📸 Proceeding without frame');
+      completeCapture(context);
+    }
+  }, [cameraState, cleanupCamera, customFrame, frameLoaded]);
+
+  // Enhanced renderTextToCanvas that also handles frames for final upload
+  const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, imageData: string) => {
+    return new Promise<string>((resolve) => {
+      const context = canvas.getContext('2d');
+      if (!context) {
+        resolve(imageData);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        // High-resolution output dimensions
+        const HIGH_RES_WIDTH = 1080;
+        const HIGH_RES_HEIGHT = 1920;
+        
+        // Calculate proper scaling factor to match preview appearance
+        let textScaleFactor = 1;
+        
+        if (photoContainerRef.current) {
+          const rect = photoContainerRef.current.getBoundingClientRect();
+          textScaleFactor = HIGH_RES_WIDTH / rect.width;
+          
+          console.log('📐 Preview container:', rect.width, 'x', rect.height);
+          console.log('📐 Text scale factor:', textScaleFactor);
+          console.log('📐 Output dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
+        } else {
+          textScaleFactor = HIGH_RES_WIDTH / 360;
+          console.warn('⚠️ Preview container not found, using fallback text scale factor:', textScaleFactor);
+        }
+        
+        // Set high-resolution canvas dimensions
+        canvas.width = HIGH_RES_WIDTH;
+        canvas.height = HIGH_RES_HEIGHT;
+
+        // Clear and draw the original image at high resolution
+        context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+        context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+
+        // Function to render text after frame is applied
+        const renderTextElements = () => {
+          console.log('🎨 Rendering', textElements.length, 'text elements to high-resolution image');
+
+          // Render all text elements with proportional scaling to match preview
+          textElements.forEach((element, index) => {
+            if (!element.text || element.text.trim() === '') {
+              return;
+            }
+
+            console.log(`✏️ Rendering text element ${index}: "${element.text}"`);
+
+            // Calculate positions (these scale with the resolution)
+            const x = (element.position.x / 100) * HIGH_RES_WIDTH;
+            const y = (element.position.y / 100) * HIGH_RES_HEIGHT;
+            
+            // Scale font size proportionally to match preview appearance
+            const baseFontSize = element.size * (element.scale || 1);
+            const fontSize = baseFontSize * textScaleFactor;
+            
+            console.log(`📝 Element ${index}: preview size ${baseFontSize}px, final size ${fontSize}px (scale: ${textScaleFactor})`);
+
+            context.save();
+            context.translate(x, y);
+            context.rotate((element.rotation || 0) * Math.PI / 180);
+
+            context.font = `bold ${fontSize}px ${element.style.fontFamily || 'Arial'}`;
+            context.textAlign = element.style.align || 'center';
+            context.textBaseline = 'middle';
+
+            // Calculate maximum width for text wrapping (scale the 280px constraint)
+            const maxTextWidth = 280 * textScaleFactor;
+
+            // Process text - handle both manual line breaks and automatic wrapping
+            let allLines: string[] = [];
+            const manualLines = element.text.split('\n');
+            
+            manualLines.forEach(line => {
+              if (line.trim() === '') {
+                allLines.push(''); // Preserve empty lines
+              } else {
+                // Wrap each manual line if it's too long
+                const wrappedLines = wrapText(context, line, maxTextWidth);
+                allLines = allLines.concat(wrappedLines);
+              }
+            });
+
+            const lineHeight = fontSize * 1.2;
+            const totalTextHeight = allLines.length * lineHeight;
+            const startY = -(totalTextHeight - lineHeight) / 2;
+
+            // Draw background if needed
+            if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent') {
+              const padding = 8 * textScaleFactor;
+              const bgWidth = Math.max(...allLines.map(line => context.measureText(line).width)) + padding * 2;
+              const bgHeight = totalTextHeight + padding * 2;
+              
+              context.fillStyle = element.style.backgroundColor;
+              context.fillRect(-bgWidth/2, startY - padding, bgWidth, bgHeight);
+            }
+
+            // Draw each line of text
+            allLines.forEach((line, lineIndex) => {
+              const lineY = startY + (lineIndex * lineHeight);
+
+              // Outline text style
+              if (element.style.name === 'Bold Outline') {
+                context.lineWidth = 8 * textScaleFactor;
+                context.strokeStyle = '#000000';
+                context.strokeText(line, 0, lineY);
+              } else {
+                // Standard shadow for non-outline text
+                context.shadowColor = 'rgba(0,0,0,0.8)';
+                context.shadowBlur = 8 * textScaleFactor;
+                context.shadowOffsetX = 3 * textScaleFactor;
+                context.shadowOffsetY = 3 * textScaleFactor;
+              }
+
+              // Draw main text line by line
+              context.fillStyle = element.color;
+              context.fillText(line, 0, lineY);
+
+              // Reset shadow properties after each line
+              context.shadowColor = 'transparent';
+              context.shadowBlur = 0;
+              context.shadowOffsetX = 0;
+              context.shadowOffsetY = 0;
+            });
+
+            context.restore();
+          });
+
+          // Return the final high-resolution image with text
+          const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
+          console.log('✅ Text rendered to high-resolution image with proper wrapping');
+          console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
+          resolve(finalImageData);
+        };
+
+        // Apply frame to high-res image if present, then render text
+        if (customFrame?.url && frameLoaded && customFrame.opacity > 0) {
+          console.log('🖼️ Adding high-res frame to final upload image...');
+          console.log('🖼️ High-res frame URL:', customFrame.url);
+          console.log('🖼️ High-res frame opacity:', customFrame.opacity);
+          
+          const frameImg = new Image();
+          frameImg.crossOrigin = 'anonymous';
+          
+          frameImg.onload = () => {
+            console.log('✅ High-res frame loaded successfully');
+            console.log('🖼️ High-res frame dimensions:', frameImg.width, 'x', frameImg.height);
+            
+            context.save();
+            context.globalAlpha = customFrame.opacity / 100;
+            context.drawImage(frameImg, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+            context.restore();
+            
+            console.log('🖼️ High-res frame applied, now rendering text');
+            renderTextElements();
+          };
+          
+          frameImg.onerror = (error) => {
+            console.error('❌ Failed to load frame for high-res render:', error);
+            console.error('❌ High-res frame URL that failed:', customFrame.url);
+            renderTextElements();
+          };
+          
+          frameImg.src = customFrame.url;
+        } else {
+          // No frame, just render text
+          if (customFrame?.url && !frameLoaded) {
+            console.warn('⚠️ High-res: Frame URL exists but not loaded');
+          } else if (!customFrame?.url) {
+            console.log('📝 High-res: No frame configured');
+          }
+          console.log('📝 High-res: Rendering text without frame');
+          renderTextElements();
+        }
+      };
+
+      img.src = imageData;
+    });
+  }, [textElements, photoContainerRef, wrapText, customFrame, frameLoaded]);
 
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
@@ -1656,14 +1652,11 @@ const PhotoboothPage: React.FC = () => {
           <div className="w-full h-full">
             {photo ? (
               <div ref={photoContainerRef} className="relative w-full h-full">
-                {/* Photo with embedded frame - no additional overlay needed */}
-                <div className="relative w-full h-full">
-                  <img
-                    src={photo}
-                    alt="Captured photo with frame"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <img 
+                  src={photo} 
+                  alt="Captured photo" 
+                  className="w-full h-full object-cover"
+                />
                 
                 {renderTextElements()}
                 
@@ -2104,15 +2097,6 @@ const PhotoboothPage: React.FC = () => {
             
             <canvas ref={canvasRef} className="hidden" />
           </div>
-
-          {/* Debug frame state - only in development */}
-          {process.env.NODE_ENV === 'development' && customFrame && (
-            <div className="mt-2 p-2 bg-black/50 rounded text-xs text-white/70">
-              <div>Frame: {customFrame.url ? '✅ Loaded' : '❌ No URL'}</div>
-              <div>Opacity: {customFrame.opacity}%</div>
-              <div>Frame Loaded: {frameLoaded ? '✅' : '❌'}</div>
-            </div>
-          )}
         </div>
       ) : (
         /* Desktop Layout - Original Design with viewport optimization */
@@ -2163,14 +2147,11 @@ const PhotoboothPage: React.FC = () => {
               <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px] xl:max-w-[400px]">
                 {photo ? (
                   <div ref={photoContainerRef} className="relative w-full aspect-[9/16]">
-                    {/* Photo with embedded frame - no additional overlay needed */}
-                    <div className="relative w-full h-full">
-                      <img
-                        src={photo}
-                        alt="Captured photo with frame"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                    <img 
+                      src={photo} 
+                      alt="Captured photo" 
+                      className="w-full h-full object-cover"
+                    />
                     
                     {renderTextElements()}
                     
@@ -2509,15 +2490,6 @@ const PhotoboothPage: React.FC = () => {
                 
                 <canvas ref={canvasRef} className="hidden" />
               </div>
-
-              {/* Debug frame state - only in development */}
-              {process.env.NODE_ENV === 'development' && customFrame && (
-                <div className="mt-2 p-2 bg-black/50 rounded text-xs text-white/70">
-                  <div>Frame: {customFrame.url ? '✅ Loaded' : '❌ No URL'}</div>
-                  <div>Opacity: {customFrame.opacity}%</div>
-                  <div>Frame Loaded: {frameLoaded ? '✅' : '❌'}</div>
-                </div>
-              )}
             </div>
 
             <div className="w-full lg:w-72 space-y-4 lg:space-y-6">

@@ -19,12 +19,21 @@ const FrameOverlay: React.FC<FrameOverlayProps> = ({
   // Reset loading state when frame URL changes
   useEffect(() => {
     if (frameUrl) {
+      console.log('🖼️ FrameOverlay: Frame URL changed to:', frameUrl);
       setFrameLoaded(false);
       setFrameError(false);
+    } else {
+      console.log('🖼️ FrameOverlay: Frame URL cleared');
     }
   }, [frameUrl]);
 
+  // Log opacity changes
+  useEffect(() => {
+    console.log('🎨 FrameOverlay: Opacity changed to:', frameOpacity);
+  }, [frameOpacity]);
+
   if (!frameUrl) {
+    console.log('🖼️ FrameOverlay: No frame URL provided, not rendering');
     return null;
   }
 
@@ -43,16 +52,70 @@ const FrameOverlay: React.FC<FrameOverlayProps> = ({
         transition: 'opacity 0.3s ease-in-out'
       }}
     >
+      {/* Visual fallback for frame loading errors */}
+      {frameError && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            right: '10px',
+            bottom: '10px',
+            border: '4px dashed #ff0000',
+            backgroundColor: 'rgba(255, 0, 0, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ff0000',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            zIndex: 20
+          }}
+        >
+          FRAME LOAD ERROR
+        </div>
+      )}
+      
+      {/* Loading indicator */}
+      {!frameLoaded && !frameError && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            right: '10px',
+            bottom: '10px',
+            border: '4px dashed #ffaa00',
+            backgroundColor: 'rgba(255, 170, 0, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ffaa00',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            zIndex: 20
+          }}
+        >
+          LOADING FRAME...
+        </div>
+      )}
+      
       <img
         src={frameUrl}
         alt="Photo frame overlay"
         onLoad={() => {
-          console.log('📸 Frame loaded successfully:', frameUrl);
+          console.log('✅ FrameOverlay: Frame image loaded successfully');
+          console.log('🖼️ FrameOverlay: Frame URL:', frameUrl);
+          console.log('🎨 FrameOverlay: Frame opacity will be:', frameOpacity / 100);
           setFrameLoaded(true);
           setFrameError(false);
         }}
         onError={(e) => {
-          console.error('❌ Frame failed to load:', frameUrl);
+          console.error('❌ FrameOverlay: Frame image failed to load');
+          console.error('❌ FrameOverlay: Failed URL:', frameUrl);
+          console.error('❌ FrameOverlay: Error details:', e);
           setFrameError(true);
           setFrameLoaded(false);
         }}
@@ -65,24 +128,22 @@ const FrameOverlay: React.FC<FrameOverlayProps> = ({
         }}
         draggable={false}
       />
-      
-      {/* Debug info - only in development */}
-      {process.env.NODE_ENV === 'development' && frameLoaded && (
+
+      {/* Success indicator - green dot when frame loads successfully */}
+      {frameLoaded && !frameError && (
         <div 
           style={{
-            position: 'absolute',
-            top: '10px',
-            left: '10px',
-            background: 'rgba(0,0,0,0.7)',
-            color: 'white',
-            padding: '4px 8px',
-            fontSize: '10px',
-            borderRadius: '4px',
-            pointerEvents: 'none'
+            position: 'absolute', 
+            top: '10px', 
+            right: '10px',
+            width: '12px',
+            height: '12px',
+            backgroundColor: '#00ff00',
+            borderRadius: '50%',
+            zIndex: 30,
+            boxShadow: '0 0 4px rgba(0, 255, 0, 0.5)'
           }}
-        >
-          Frame: {videoDimensions.width}x{videoDimensions.height}
-        </div>
+        />
       )}
     </div>
   );
