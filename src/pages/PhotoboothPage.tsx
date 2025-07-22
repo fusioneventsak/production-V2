@@ -824,80 +824,119 @@ const PhotoboothPage: React.FC = () => {
       return;
     }
 
-    // Wait for video metadata to be fully loaded before capturing
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      // Video dimensions not ready yet, wait a bit and try again
-      setTimeout(() => capturePhoto(), 100);
-      return;
-    }
-
-    // Ensure video is actually playing and has valid dimensions
-    if (video.readyState < 2) {
-      // Video not ready, wait for it to load
-      setTimeout(() => capturePhoto(), 100);
-      return;
-    }
-
-    // Capture the full video frame without cropping for preview
-    const canvasWidth = video.videoWidth;
-    const canvasHeight = video.videoHeight;
-    
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-
-    // Clear canvas completely
-    context.clearRect(0, 0, canvasWidth, canvasHeight);
-    
-    // Draw the full video frame without any cropping
-    context.drawImage(video, 0, 0, canvasWidth, canvasHeight);
-
-    // Function to complete the capture process
-    const completeCapture = () => {
-      const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-      setPhoto(dataUrl);
-      
-      // Trigger confetti when photo is captured and preview is shown
-      setShowConfetti(true);
-      setTimeout(() => {
-        createConfettiBurst();
-      }, 100); // Small delay to ensure canvas is ready
-      
-      setTimeout(() => setShowConfetti(false), 5000); // Show confetti for 5 seconds
-      
-      cleanupCamera();
+    // More robust checks for video readiness, especially important for iOS
+    const isVideoReady = () => {
+      return (
+        video.videoWidth > 0 && 
+        video.videoHeight > 0 && 
+        video.readyState >= 2 && 
+        !video.seeking &&
+        video.currentTime > 0
+      );
     };
 
-    // Draw custom frame if present and loaded - scale frame to match video dimensions
-    if (customFrame?.url && frameLoaded) {
-      const frameImg = new Image();
-      frameImg.crossOrigin = 'anonymous';
+    // If video isn't ready, wait and try again
+    if (!isVideoReady()) {
+      console.log('Video not ready, retrying...', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        seeking: video.seeking,
+        currentTime: video.currentTime
+      });
       
-      frameImg.onload = () => {
-        // Save current context state
-        context.save();
+      // Wait longer on iOS devices for video to stabilize
+      const waitTime = /iPad|iPhone|iPod/.test(navigator.userAgent) ? 200 : 100;
+      setTimeout(() => capturePhoto(), waitTime);
+      return;
+    }
+
+    // Additional iOS-specific check: ensure video dimensions are stable
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+      // Store current dimensions and check again after a short delay
+      const currentWidth = video.videoWidth;
+      const currentHeight = video.videoHeight;
+      
+      setTimeout(() => {
+        if (video.videoWidth !== currentWidth || video.videoHeight !== currentHeight) {
+          console.log('Video dimensions changed, waiting for stability...');
+          setTimeout(() => capturePhoto(), 150);
+          return;
+        }
         
-        // Set frame opacity
-        const opacity = customFrame.opacity / 100;
-        context.globalAlpha = opacity;
+        // Dimensions are stable, proceed with capture
+        performCapture();
+      }, 50);
+      return;
+    }
+
+    // For non-iOS devices, proceed immediately if video is ready
+    performCapture();
+
+    function performCapture() {
+      // Capture the full video frame without cropping for preview
+      const canvasWidth = video.videoWidth;
+      const canvasHeight = video.videoHeight;
+      
+      console.log('Capturing with dimensions:', canvasWidth, 'x', canvasHeight);
+      
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      // Clear canvas completely
+      context.clearRect(0, 0, canvasWidth, canvasHeight);
+      
+      // Draw the full video frame without any cropping
+      context.drawImage(video, 0, 0, canvasWidth, canvasHeight);
+
+      // Function to complete the capture process
+      const completeCapture = () => {
+        const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+        setPhoto(dataUrl);
         
-        // Draw frame covering the entire canvas - scale to match video dimensions
-        context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
+        // Trigger confetti when photo is captured and preview is shown
+        setShowConfetti(true);
+        setTimeout(() => {
+          createConfettiBurst();
+        }, 100); // Small delay to ensure canvas is ready
         
-        // Restore context state
-        context.restore();
+        setTimeout(() => setShowConfetti(false), 5000); // Show confetti for 5 seconds
         
-        completeCapture();
+        cleanupCamera();
       };
-      
-      frameImg.onerror = (error) => {
+
+      // Draw custom frame if present and loaded - scale frame to match video dimensions
+      if (customFrame?.url && frameLoaded) {
+        const frameImg = new Image();
+        frameImg.crossOrigin = 'anonymous';
+        
+        frameImg.onload = () => {
+          // Save current context state
+          context.save();
+          
+          // Set frame opacity
+          const opacity = customFrame.opacity / 100;
+          context.globalAlpha = opacity;
+          
+          // Draw frame covering the entire canvas - scale to match video dimensions
+          context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
+          
+          // Restore context state
+          context.restore();
+          
+          completeCapture();
+        };
+        
+        frameImg.onerror = (error) => {
+          completeCapture();
+        };
+        
+        // Load the frame image
+        frameImg.src = customFrame.url;
+      } else {
+        // No frame to add, complete capture
         completeCapture();
-      };
-      
-      // Load the frame image
-      frameImg.src = customFrame.url;
-    } else {
-      // No frame to add, complete capture
-      completeCapture();
+      }
     }
   }, [cameraState, cleanupCamera, customFrame, frameLoaded, textElements]);
 
