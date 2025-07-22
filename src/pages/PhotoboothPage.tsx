@@ -80,6 +80,7 @@ const PhotoboothPage: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
   const textOverlayRef = useRef<HTMLDivElement>(null);
@@ -608,6 +609,103 @@ const PhotoboothPage: React.FC = () => {
     document.addEventListener('mouseup', endHandler);
   }, [textElements, initialScale, updateTextElement]);
 
+  // Confetti animation function
+  const createConfettiBurst = useCallback(() => {
+    const canvas = confettiCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size to match container
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    const particles: Array<{
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      rotation: number;
+      rotationSpeed: number;
+      color: string;
+      size: number;
+      gravity: number;
+      life: number;
+      maxLife: number;
+    }> = [];
+
+    // Create confetti particles
+    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#fd79a8', '#00b894', '#e17055'];
+    const particleCount = 100;
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        vx: (Math.random() - 0.5) * 15,
+        vy: (Math.random() - 0.5) * 15 - 8, // Bias upward
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 10,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 8 + 4,
+        gravity: 0.3,
+        life: 0,
+        maxLife: 60 + Math.random() * 40
+      });
+    }
+
+    let animationId: number;
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach((particle, index) => {
+        // Update particle physics
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vy += particle.gravity;
+        particle.rotation += particle.rotationSpeed;
+        particle.life++;
+
+        // Remove particles that are off screen or too old
+        if (particle.y > canvas.height + 50 || particle.life > particle.maxLife) {
+          particles.splice(index, 1);
+          return;
+        }
+
+        // Calculate opacity based on life
+        const opacity = Math.max(0, 1 - (particle.life / particle.maxLife));
+
+        // Draw confetti piece
+        ctx.save();
+        ctx.translate(particle.x, particle.y);
+        ctx.rotate((particle.rotation * Math.PI) / 180);
+        ctx.globalAlpha = opacity;
+        ctx.fillStyle = particle.color;
+        
+        // Draw rectangle confetti piece
+        ctx.fillRect(-particle.size / 2, -particle.size / 4, particle.size, particle.size / 2);
+        
+        ctx.restore();
+      });
+
+      if (particles.length > 0) {
+        animationId = requestAnimationFrame(animate);
+      }
+    };
+
+    animate();
+
+    // Cleanup function
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, []);
+
   const wrapText = useCallback((context: CanvasRenderingContext2D, text: string, maxWidth: number) => {
     const words = text.split(' ');
     const lines: string[] = [];
@@ -765,7 +863,11 @@ const PhotoboothPage: React.FC = () => {
       
       // Trigger confetti when photo is captured and preview is shown
       setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 3000); // Show confetti for 3 seconds
+      setTimeout(() => {
+        createConfettiBurst();
+      }, 100); // Small delay to ensure canvas is ready
+      
+      setTimeout(() => setShowConfetti(false), 4000); // Show confetti for 4 seconds
       
       cleanupCamera();
     };
@@ -1496,23 +1598,6 @@ const PhotoboothPage: React.FC = () => {
             75% { opacity: 1; }
             100% { opacity: 0; }
           }
-          @keyframes confettiBurst {
-            0% { 
-              transform: translate(-50%, -50%) rotate(var(--rotation)) scale(0);
-              opacity: 1;
-            }
-            15% {
-              transform: translate(-50%, -50%) rotate(var(--rotation)) scale(1);
-            }
-            100% { 
-              transform: translate(-50%, -50%) 
-                       rotate(calc(var(--rotation) + 180deg)) 
-                       scale(0.3)
-                       translateX(calc(cos(var(--angle)) * var(--velocity)))
-                       translateY(calc(sin(var(--angle)) * var(--velocity) + 150px));
-              opacity: 0;
-            }
-          }
         `}</style>
         {/* Mobile/Tablet Full-Screen Layout */}
         {isMobile ? (
@@ -1576,33 +1661,13 @@ const PhotoboothPage: React.FC = () => {
                   
                   {renderTextElements()}
                   
-                  {/* Confetti Animation */}
+                  {/* Confetti Canvas */}
                   {showConfetti && (
-                    <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
-                      {/* Confetti burst from center */}
-                      {[...Array(60)].map((_, i) => {
-                        const angle = (i / 60) * 360;
-                        const velocity = 100 + Math.random() * 150;
-                        const size = Math.random() > 0.5 ? 'w-3 h-1' : 'w-1 h-3'; // Rectangle shapes
-                        return (
-                          <div
-                            key={i}
-                            className={`absolute ${size} opacity-90`}
-                            style={{
-                              backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#fd79a8', '#00b894', '#e17055'][i % 10],
-                              left: '50%',
-                              top: '50%',
-                              animation: `confettiBurst 2s ease-out forwards`,
-                              animationDelay: `${Math.random() * 0.3}s`,
-                              '--angle': `${angle}deg`,
-                              '--velocity': `${velocity}px`,
-                              '--rotation': `${Math.random() * 360}deg`,
-                              transform: 'translate(-50%, -50%)'
-                            } as React.CSSProperties}
-                          />
-                        );
-                      })}
-                    </div>
+                    <canvas
+                      ref={confettiCanvasRef}
+                      className="absolute inset-0 pointer-events-none z-30 w-full h-full"
+                      style={{ aspectRatio: '9/16' }}
+                    />
                   )}
                   
                   {/* Always show text controls when we have a photo - Mobile */}
@@ -2126,33 +2191,13 @@ const PhotoboothPage: React.FC = () => {
                       
                       {renderTextElements()}
                       
-                      {/* Confetti Animation */}
+                      {/* Confetti Canvas */}
                       {showConfetti && (
-                        <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
-                          {/* Confetti burst from center */}
-                          {[...Array(50)].map((_, i) => {
-                            const angle = (i / 50) * 360;
-                            const velocity = 80 + Math.random() * 120;
-                            const size = Math.random() > 0.5 ? 'w-3 h-1' : 'w-1 h-3'; // Rectangle shapes
-                            return (
-                              <div
-                                key={i}
-                                className={`absolute ${size} opacity-90`}
-                                style={{
-                                  backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#fd79a8', '#00b894', '#e17055'][i % 10],
-                                  left: '50%',
-                                  top: '50%',
-                                  animation: `confettiBurst 2s ease-out forwards`,
-                                  animationDelay: `${Math.random() * 0.3}s`,
-                                  '--angle': `${angle}deg`,
-                                  '--velocity': `${velocity}px`,
-                                  '--rotation': `${Math.random() * 360}deg`,
-                                  transform: 'translate(-50%, -50%)'
-                                } as React.CSSProperties}
-                              />
-                            );
-                          })}
-                        </div>
+                        <canvas
+                          ref={confettiCanvasRef}
+                          className="absolute inset-0 pointer-events-none z-30 w-full h-full"
+                          style={{ aspectRatio: '9/16' }}
+                        />
                       )}
                       
                       {/* VERTICAL TEXT SETTINGS - LEFT SIDE (Show when text is selected) */}
