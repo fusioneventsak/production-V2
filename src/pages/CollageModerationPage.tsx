@@ -184,7 +184,7 @@ const CollageModerationPage: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
             <Link 
-              to="/join" 
+              to={`/dashboard/collage/${currentCollage.id}`}
               className="text-gray-400 hover:text-white transition-colors"
             >
               <ChevronLeft className="w-6 h-6" />
