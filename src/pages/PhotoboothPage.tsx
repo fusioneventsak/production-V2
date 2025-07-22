@@ -1,5 +1,3 @@
-PhotBooth PAGE
-
 // src/pages/PhotoboothPage.tsx - Full-screen mobile experience with desktop layout preserved
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
