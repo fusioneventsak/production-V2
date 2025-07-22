@@ -1,9 +1,10 @@
 // src/pages/PhotoboothPage.tsx - Full-screen mobile experience with desktop layout preserved
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Download, Upload, X, Plus, Minus, RotateCw, Type, Palette, Move, Globe, RefreshCw, Send, Settings, ZoomIn, SwitchCamera } from 'lucide-react';
+import { ArrowLeft, Camera, Download, Upload, X, Plus, Minus, RotateCw, Type, Palette, Move, Globe, RefreshCw, Send, Settings, ZoomIn, SwitchCamera, Frame } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
+import FrameOverlay from '../components/photobooth/FrameOverlay';
 
 type VideoDevice = {
   deviceId: string;
@@ -28,6 +29,7 @@ const PhotoboothPage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const isInitializingRef = useRef(false);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   
   const [devices, setDevices] = useState<VideoDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
@@ -42,6 +44,14 @@ const PhotoboothPage: React.FC = () => {
   const [textShadow, setTextShadow] = useState(true);
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
+  
+  // Frame overlay state
+  const [customFrame, setCustomFrame] = useState<{
+    url: string;
+    opacity: number;
+  } | null>(null);
+  const [frameLoaded, setFrameLoaded] = useState(false);
+  const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   
   // New Instagram Story-like states
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
@@ -919,6 +929,8 @@ const PhotoboothPage: React.FC = () => {
     
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
+    
+    // Clear canvas
     context.clearRect(0, 0, canvasWidth, canvasHeight);
     
     // Draw video frame
@@ -928,25 +940,54 @@ const PhotoboothPage: React.FC = () => {
       0, 0, canvasWidth, canvasHeight
     );
 
-    // Draw frame overlay if selected
-    if (frameSettings.selectedFrameId !== 'none' && frameSettings.selectedFrameUrl) {
-      const frameImg = new Image();
-      frameImg.crossOrigin = 'anonymous';
-      frameImg.onload = () => {
-        // Apply frame with opacity
-        context.globalAlpha = frameSettings.frameOpacity / 100;
-        context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
-        context.globalAlpha = 1.0; // Reset alpha
+    // Draw custom frame overlay if present
+    if (customFrame?.url && frameLoaded) {
+      try {
+        console.log('🖼️ Drawing custom frame overlay on captured photo');
         
-        // Draw default text overlay if enabled
+        // Create a temporary image element to load the frame
+        const frameImg = new Image();
+        frameImg.crossOrigin = 'anonymous';
+        
+        frameImg.onload = () => {
+          // Apply frame opacity
+          context.globalAlpha = (customFrame.opacity || 80) / 100;
+          
+          // Draw frame covering entire canvas (object-fit: cover behavior)
+          context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
+          
+          // Reset alpha
+          context.globalAlpha = 1.0;
+          
+          console.log('✅ Custom frame applied to captured photo');
+          
+          // Draw default text overlay if enabled
+          if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
+            drawTextOverlay(context, canvasWidth, canvasHeight);
+          }
+          
+          // Finalize the photo
+          finalizePhoto();
+        };
+        
+        frameImg.onerror = () => {
+          console.error('❌ Failed to apply frame to captured photo');
+          // Continue without frame
+          if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
+            drawTextOverlay(context, canvasWidth, canvasHeight);
+          }
+          finalizePhoto();
+        };
+        
+        frameImg.src = customFrame.url;
+      } catch (error) {
+        console.error('❌ Failed to apply frame to captured photo:', error);
+        // Continue without frame
         if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
           drawTextOverlay(context, canvasWidth, canvasHeight);
         }
-        
-        // Finalize the photo
         finalizePhoto();
-      };
-      frameImg.src = frameSettings.selectedFrameUrl;
+      }
     } else {
       // No frame, just add text overlay if enabled
       if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
@@ -995,7 +1036,7 @@ const PhotoboothPage: React.FC = () => {
       console.log('✅ Photo capture complete with frame and overlays');
     }
 
-  }, [textElements, cameraState, cleanupCamera, frameSettings]);
+  }, [textElements, cameraState, cleanupCamera, frameSettings, customFrame, frameLoaded]);
 
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
@@ -1354,6 +1395,24 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     if (currentCollage?.settings?.photobooth) {
       const photoboothSettings = currentCollage.settings.photobooth;
+      
+      console.log('📸 Loading photobooth settings:', photoboothSettings);
+      
+      // Load custom frame if selected
+      if (photoboothSettings.selectedFrameId && 
+          photoboothSettings.selectedFrameId !== 'none' && 
+          photoboothSettings.selectedFrameUrl) {
+        
+        console.log('🖼️ Loading custom frame:', photoboothSettings.selectedFrameUrl);
+        
+        setCustomFrame({
+          url: photoboothSettings.selectedFrameUrl,
+          opacity: photoboothSettings.frameOpacity || 80
+        });
+      } else {
+        setCustomFrame(null);
+      }
+      
       setFrameSettings({
         selectedFrameId: photoboothSettings.selectedFrameId || 'none',
         selectedFrameUrl: photoboothSettings.selectedFrameUrl || null,
@@ -1366,6 +1425,43 @@ const PhotoboothPage: React.FC = () => {
       });
     }
   }, [currentCollage]);
+
+  // Set up ResizeObserver to track video dimensions
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    const updateVideoDimensions = () => {
+      if (videoRef.current) {
+        const rect = videoRef.current.getBoundingClientRect();
+        setVideoDimensions({
+          width: rect.width,
+          height: rect.height
+        });
+        console.log('📐 Video dimensions updated:', rect.width, 'x', rect.height);
+      }
+    };
+
+    // Initial measurement
+    updateVideoDimensions();
+
+    // Set up ResizeObserver
+    resizeObserverRef.current = new ResizeObserver(updateVideoDimensions);
+    resizeObserverRef.current.observe(videoRef.current);
+
+    // Also listen for window resize and orientation change
+    window.addEventListener('resize', updateVideoDimensions);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(updateVideoDimensions, 100); // Delay for orientation change
+    });
+
+    return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+      window.removeEventListener('resize', updateVideoDimensions);
+      window.removeEventListener('orientationchange', updateVideoDimensions);
+    };
+  }, [streamRef.current]);
 
   useEffect(() => {
     if (storeError && !loading && !currentCollage) {
@@ -1907,13 +2003,13 @@ const PhotoboothPage: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
                 
-                {/* Frame Overlay */}
-                {frameSettings.selectedFrameId !== 'none' && frameSettings.selectedFrameUrl && (
-                  <img
-                    src={frameSettings.selectedFrameUrl}
-                    alt="Photo frame"
-                    className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10"
-                    style={{ opacity: frameSettings.frameOpacity / 100 }}
+                {/* Custom Frame Overlay */}
+                {customFrame && (
+                  <FrameOverlay
+                    frameUrl={customFrame.url}
+                    frameOpacity={customFrame.opacity}
+                    videoDimensions={videoDimensions}
+                    className="frame-overlay"
                   />
                 )}
 
@@ -1932,6 +2028,15 @@ const PhotoboothPage: React.FC = () => {
                     }}
                   >
                     {frameSettings.defaultText}
+                  </div>
+                )}
+                
+                {/* Frame Status Indicator */}
+                {customFrame && (
+                  <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1">
+                    <Frame className="w-3 h-3" />
+                    <span>Frame Active</span>
+                    {!frameLoaded && <span className="text-yellow-400">(Loading...)</span>}
                   </div>
                 )}
                 
@@ -2286,13 +2391,13 @@ const PhotoboothPage: React.FC = () => {
                       className="w-full h-full object-cover"
                     />
                     
-                    {/* Frame Overlay */}
-                    {frameSettings.selectedFrameId !== 'none' && frameSettings.selectedFrameUrl && (
-                      <img
-                        src={frameSettings.selectedFrameUrl}
-                        alt="Photo frame"
-                        className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10"
-                        style={{ opacity: frameSettings.frameOpacity / 100 }}
+                    {/* Custom Frame Overlay */}
+                    {customFrame && (
+                      <FrameOverlay
+                        frameUrl={customFrame.url}
+                        frameOpacity={customFrame.opacity}
+                        videoDimensions={videoDimensions}
+                        className="frame-overlay"
                       />
                     )}
 
@@ -2311,6 +2416,15 @@ const PhotoboothPage: React.FC = () => {
                         }}
                       >
                         {frameSettings.defaultText}
+                      </div>
+                    )}
+                    
+                    {/* Frame Status Indicator */}
+                    {customFrame && (
+                      <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1">
+                        <Frame className="w-3 h-3" />
+                        <span>Frame Active</span>
+                        {!frameLoaded && <span className="text-yellow-400">(Loading...)</span>}
                       </div>
                     )}
                     
@@ -2411,6 +2525,20 @@ const PhotoboothPage: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Frame Settings Display */}
+              {customFrame && (
+                <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3">
+                  <h4 className="text-purple-300 font-medium mb-2 flex items-center">
+                    <Frame className="w-4 h-4 mr-2" />
+                    Custom Frame Active
+                  </h4>
+                  <div className="text-purple-200 text-sm space-y-1">
+                    <div>Opacity: {customFrame.opacity}%</div>
+                    <div>Status: {frameLoaded ? 'Loaded' : 'Loading...'}</div>
                   </div>
                 </div>
               )}

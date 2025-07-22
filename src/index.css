@@ -53,3 +53,49 @@
     transform: rotateZ(360deg) rotateX(60deg); 
   }
 }
+
+/* Frame Overlay Styles for Photobooth */
+.frame-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.frame-overlay img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ensures full coverage of the video area */
+  object-position: center;
+  display: block;
+}
+
+/* iPad specific optimizations */
+@media screen and (min-device-width: 768px) and (max-device-width: 1024px) {
+  .frame-overlay img {
+    object-fit: cover; /* Keep cover for consistent behavior */
+  }
+}
+
+/* Large tablet and desktop optimizations */
+@media screen and (min-width: 1024px) {
+  .frame-overlay img {
+    object-fit: cover; /* Maintain cover for all sizes */
+  }
+}
+
+/* Ensure frame overlay works in both orientations */
+@media screen and (orientation: landscape) {
+  .frame-overlay img {
+    object-fit: cover;
+  }
+}
+
+@media screen and (orientation: portrait) {
+  .frame-overlay img {
+    object-fit: cover;
+  }
+}
