@@ -273,7 +273,7 @@ const CollageViewerPage: React.FC = () => {
                   {/* Fullscreen */}
                   <button
                     onClick={toggleFullscreen}
-                    className="p-2 bg-white/15 hover:bg-white/25 text-white/90 rounded-lg transition-colors backdrop-blur-md border border-white/20"
+                    className="hidden md:block p-2 bg-white/15 hover:bg-white/25 text-white/90 rounded-lg transition-colors backdrop-blur-md border border-white/20"
                   >
                     <Maximize2 className="w-4 h-4" />
                   </button>
