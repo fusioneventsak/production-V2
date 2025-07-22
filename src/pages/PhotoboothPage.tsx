@@ -638,21 +638,21 @@ const PhotoboothPage: React.FC = () => {
 
     // Create confetti particles
     const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#fd79a8', '#00b894', '#e17055'];
-    const particleCount = 100;
+    const particleCount = 200; // Increased from 100
 
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: canvas.width / 2,
         y: canvas.height / 2,
-        vx: (Math.random() - 0.5) * 15,
-        vy: (Math.random() - 0.5) * 15 - 8, // Bias upward
+        vx: (Math.random() - 0.5) * 20, // Increased velocity range
+        vy: (Math.random() - 0.5) * 20 - 10, // Bias upward with more force
         rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 10,
+        rotationSpeed: (Math.random() - 0.5) * 15, // Faster rotation
         color: colors[Math.floor(Math.random() * colors.length)],
-        size: Math.random() * 8 + 4,
-        gravity: 0.3,
+        size: Math.random() * 10 + 3, // Slightly larger pieces
+        gravity: 0.25, // Slightly less gravity for longer hang time
         life: 0,
-        maxLife: 60 + Math.random() * 40
+        maxLife: 80 + Math.random() * 60 // Longer life for more coverage
       });
     }
 
@@ -867,7 +867,7 @@ const PhotoboothPage: React.FC = () => {
         createConfettiBurst();
       }, 100); // Small delay to ensure canvas is ready
       
-      setTimeout(() => setShowConfetti(false), 4000); // Show confetti for 4 seconds
+      setTimeout(() => setShowConfetti(false), 5000); // Show confetti for 5 seconds
       
       cleanupCamera();
     };
