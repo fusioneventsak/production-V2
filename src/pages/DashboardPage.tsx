@@ -190,16 +190,17 @@ const DashboardPage = () => {
                         </button>
                       </div>
 
-                      {/* Secondary actions - smaller, organized in grid */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
+                      {/* Camera Settings - Full width button */}
+                      <button
                           onClick={() => navigateToPhotobooth(collage.id)}
-                          className="inline-flex items-center justify-center text-xs text-purple-300 hover:text-purple-200 bg-purple-600/20 hover:bg-purple-600/30 px-2 py-2 rounded-lg border border-purple-500/30 transition-colors whitespace-nowrap"
+                          className="w-full inline-flex items-center justify-center text-sm text-green-300 hover:text-green-200 bg-green-600/20 hover:bg-green-600/30 px-3 py-2.5 rounded-lg border border-green-500/30 transition-colors font-medium"
                         >
-                          <Camera className="h-3 w-3 mr-1" />
-                          Camera
+                          <Camera className="h-4 w-4 mr-2" />
+                          Photobooth Settings
                         </button>
 
+                      {/* Secondary actions - smaller, organized in 2-column grid */}
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={(e) => handleRename(collage, e)}
                           className="inline-flex items-center justify-center text-xs text-blue-300 hover:text-blue-200 bg-blue-600/20 hover:bg-blue-600/30 px-2 py-2 rounded-lg border border-blue-500/30 transition-colors"
