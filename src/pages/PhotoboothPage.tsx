@@ -2210,7 +2210,7 @@ const PhotoboothPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Desktop Layout - Updated with natural aspect ratios */
+          /* Desktop Layout - Updated with perfect 9:16 aspect ratio and repositioned buttons */
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -2265,13 +2265,14 @@ const PhotoboothPage: React.FC = () => {
 
             <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start">
               <div className="flex-1 flex justify-center" style={{ maxHeight: 'calc(100vh - 180px)' }}>
-                <div className="bg-gray-900 rounded-lg overflow-hidden" style={{ width: '360px', maxHeight: 'calc(100vh - 200px)' }}>
+                <div className="bg-gray-900 rounded-lg overflow-hidden" style={{ width: '360px', aspectRatio: '9/16' }}>
                   {photo ? (
-                    <div ref={photoContainerRef} className="relative w-full h-full">
+                    <div ref={photoContainerRef} className="relative w-full h-full" style={{ aspectRatio: '9/16' }}>
                       <img 
                         src={photo} 
                         alt="Captured photo" 
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-cover"
+                        style={{ aspectRatio: '9/16' }}
                       />
                       
                       {renderTextElements()}
@@ -2281,6 +2282,7 @@ const PhotoboothPage: React.FC = () => {
                         <canvas
                           ref={confettiCanvasRef}
                           className="absolute inset-0 pointer-events-none z-30 w-full h-full"
+                          style={{ aspectRatio: '9/16' }}
                         />
                       )}
                       
@@ -2509,24 +2511,26 @@ const PhotoboothPage: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="relative w-full h-full bg-gray-800">
+                    <div className="relative w-full h-full bg-gray-800" style={{ aspectRatio: '9/16' }}>
                       <video
                         ref={videoRef}
                         autoPlay
                         muted
                         playsInline
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-cover"
+                        style={{ aspectRatio: '9/16' }}
                       />
                       
-                      {/* Custom Frame Overlay - shows in live preview */}
+                      {/* Custom Frame Overlay - shows in live preview with perfect 9:16 fit */}
                       {customFrame?.url && frameLoaded && (
                         <img
                           src={customFrame.url}
                           alt="Custom frame overlay"
-                          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                           style={{ 
                             opacity: customFrame.opacity / 100,
-                            zIndex: 10
+                            zIndex: 10,
+                            aspectRatio: '9/16'
                           }}
                           onLoad={() => {}}
                           onError={() => {}}
@@ -2622,13 +2626,13 @@ const PhotoboothPage: React.FC = () => {
                         </div>
                       )}
                       
-                      {/* DESKTOP CAPTURE BUTTON - With perfect positioning */}
+                      {/* DESKTOP CAPTURE BUTTON - With perfect positioning for 9:16 */}
                       {cameraState === 'active' && !isCapturing && (
-                        <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-50">
+                        <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-30">
                           <button 
                             onClick={startCountdownAndCapture}
                             className="w-12 h-12 bg-white rounded-full border-3 border-gray-300 hover:border-gray-100 transition-all active:scale-95 flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50"
-                            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', zIndex: 60 }}
+                            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                             title="Take Photo"
                           >
                             <div className="w-8 h-8 bg-gray-300 hover:bg-gray-400 rounded-full transition-colors"></div>
