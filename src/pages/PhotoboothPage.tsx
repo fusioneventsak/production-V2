@@ -1673,12 +1673,12 @@ const PhotoboothPage: React.FC = () => {
                   className="relative w-full max-w-full" 
                   style={{ 
                     aspectRatio: '9/16',
-                    // iPad gets optimized sizing for vertical orientation
+                    // iPad gets optimized sizing with small border to fit properly
                     ...(isIPad ? {
-                      width: '100vw',
-                      height: '100vh',
-                      maxWidth: 'none',
-                      maxHeight: 'none'
+                      width: 'calc(100vw - 32px)',
+                      height: 'calc(100vh - 64px)',
+                      maxWidth: 'calc((100vh - 64px) * 9/16)',
+                      maxHeight: 'calc(100vh - 64px)'
                     } : {
                       maxHeight: '100vh'
                     })
@@ -1687,7 +1687,7 @@ const PhotoboothPage: React.FC = () => {
                   <img 
                     src={photo} 
                     alt="Captured photo" 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover rounded-lg"
                     style={{ aspectRatio: '9/16' }}
                   />
                   
@@ -1697,7 +1697,7 @@ const PhotoboothPage: React.FC = () => {
                   {showConfetti && (
                     <canvas
                       ref={confettiCanvasRef}
-                      className="absolute inset-0 pointer-events-none z-30 w-full h-full"
+                      className="absolute inset-0 pointer-events-none z-30 w-full h-full rounded-lg"
                       style={{ aspectRatio: '9/16' }}
                     />
                   )}
@@ -2033,12 +2033,12 @@ const PhotoboothPage: React.FC = () => {
                   className="relative w-full max-w-full bg-gray-900" 
                   style={{ 
                     aspectRatio: '9/16',
-                    // iPad gets optimized sizing for vertical orientation
+                    // iPad gets optimized sizing with small border to fit properly
                     ...(isIPad ? {
-                      width: '100vw',
-                      height: '100vh',
-                      maxWidth: 'none',
-                      maxHeight: 'none'
+                      width: 'calc(100vw - 32px)',
+                      height: 'calc(100vh - 64px)',
+                      maxWidth: 'calc((100vh - 64px) * 9/16)',
+                      maxHeight: 'calc(100vh - 64px)'
                     } : {
                       maxHeight: '100vh'
                     })
@@ -2049,7 +2049,7 @@ const PhotoboothPage: React.FC = () => {
                     autoPlay
                     muted
                     playsInline
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${isIPad ? 'rounded-lg' : ''}`}
                     style={{ aspectRatio: '9/16' }}
                   />
                   
@@ -2058,7 +2058,7 @@ const PhotoboothPage: React.FC = () => {
                     <img
                       src={customFrame.url}
                       alt="Custom frame overlay"
-                      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                      className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${isIPad ? 'rounded-lg' : ''}`}
                       style={{ 
                         opacity: customFrame.opacity / 100,
                         zIndex: 10,
