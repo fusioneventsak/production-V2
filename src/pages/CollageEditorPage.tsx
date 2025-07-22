@@ -1,7 +1,7 @@
 // src/pages/CollageEditorPage.tsx - UPDATED: Left-side settings panel with improved styling
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Settings, Image, Shield, Video, Pencil } from 'lucide-react';
+import { ChevronLeft, Settings, Image, Shield, Video, Pencil, Camera } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { useSceneStore } from '../store/sceneStore';
 import { ErrorBoundary } from 'react-error-boundary';
