@@ -1,7 +1,7 @@
 // src/pages/PhotoboothPage.tsx - Full-screen mobile experience with desktop layout preserved
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Download, Upload, X, Plus, Minus, RotateCw, Type, Palette, Move, Globe, RefreshCw, Send, Settings, ZoomIn } from 'lucide-react';
+import { ArrowLeft, Camera, Download, Upload, X, Plus, Minus, RotateCw, Type, Palette, Move, Globe, RefreshCw, Send, Settings, ZoomIn, SwitchCamera } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
@@ -72,6 +72,18 @@ const PhotoboothPage: React.FC = () => {
   
   const safePhotos = Array.isArray(photos) ? photos : [];
   const normalizedCode = code?.toUpperCase();
+
+  // Frame-related state
+  const [frameSettings, setFrameSettings] = useState({
+    selectedFrameId: 'none',
+    selectedFrameUrl: null,
+    frameOpacity: 80,
+    enableTextOverlay: true,
+    defaultText: '',
+    textColor: '#FFFFFF',
+    textSize: 24,
+    textPosition: 'bottom'
+  });
 
   // Text style presets
   const textStylePresets = [
@@ -721,11 +733,13 @@ const PhotoboothPage: React.FC = () => {
 
         // Clear and draw the original image at high resolution
         context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+        
+        // Draw the base image (which already includes frame and default text)
         context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
 
         console.log('🎨 Rendering', textElements.length, 'text elements to high-resolution image');
 
-        // Render all text elements with proportional scaling to match preview
+        // Add user-added text elements on top
         textElements.forEach((element, index) => {
           if (!element.text || element.text.trim() === '') {
             return;
@@ -881,9 +895,7 @@ const PhotoboothPage: React.FC = () => {
       return;
     }
 
-    console.log('📸 Starting photo capture...');
-    console.log('🎨 Text elements available:', textElements.length);
-    console.log('🎨 Current textElements state:', textElements);
+    console.log('📸 Starting photo capture with frame...');
 
     const targetAspectRatio = 9 / 16;
     const videoAspectRatio = video.videoWidth / video.videoHeight;
@@ -905,13 +917,9 @@ const PhotoboothPage: React.FC = () => {
     const canvasWidth = 540;
     const canvasHeight = 960;
     
-    console.log('🖼️ Setting canvas size:', canvasWidth, 'x', canvasHeight);
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
-
-    // Clear canvas completely
     context.clearRect(0, 0, canvasWidth, canvasHeight);
-    console.log('🧹 Canvas cleared');
     
     // Draw video frame
     context.drawImage(
@@ -919,22 +927,75 @@ const PhotoboothPage: React.FC = () => {
       sourceX, sourceY, sourceWidth, sourceHeight,
       0, 0, canvasWidth, canvasHeight
     );
-    console.log('📹 Video frame drawn to canvas');
 
-    // Since textElements might not be captured in closure, let's capture current state
-    const currentTextElements = textElements;
-    console.log('📝 Using current text elements:', currentTextElements.length);
+    // Draw frame overlay if selected
+    if (frameSettings.selectedFrameId !== 'none' && frameSettings.selectedFrameUrl) {
+      const frameImg = new Image();
+      frameImg.crossOrigin = 'anonymous';
+      frameImg.onload = () => {
+        // Apply frame with opacity
+        context.globalAlpha = frameSettings.frameOpacity / 100;
+        context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
+        context.globalAlpha = 1.0; // Reset alpha
+        
+        // Draw default text overlay if enabled
+        if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
+          drawTextOverlay(context, canvasWidth, canvasHeight);
+        }
+        
+        // Finalize the photo
+        finalizePhoto();
+      };
+      frameImg.src = frameSettings.selectedFrameUrl;
+    } else {
+      // No frame, just add text overlay if enabled
+      if (frameSettings.enableTextOverlay && frameSettings.defaultText) {
+        drawTextOverlay(context, canvasWidth, canvasHeight);
+      }
+      finalizePhoto();
+    }
 
-    // Create photo with text elements stored for later rendering
-    const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-    console.log('📸 Basic canvas converted to data URL');
-    
-    setPhoto(dataUrl);
-    // Keep text elements for post-capture editing - DON'T reset them
-    cleanupCamera();
-    
-    console.log('✅ Photo capture complete, text elements preserved for editing');
-  }, [textElements, cameraState, cleanupCamera]);
+    function drawTextOverlay(ctx, width, height) {
+      ctx.save();
+      
+      // Set up text styling
+      ctx.font = `bold ${frameSettings.textSize}px Arial`;
+      ctx.fillStyle = frameSettings.textColor;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // Add text shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+      
+      // Calculate text position
+      let textY;
+      if (frameSettings.textPosition === 'top') {
+        textY = frameSettings.textSize + 20;
+      } else if (frameSettings.textPosition === 'center') {
+        textY = height / 2;
+      } else {
+        textY = height - frameSettings.textSize - 20;
+      }
+      
+      // Draw text
+      ctx.fillText(frameSettings.defaultText, width / 2, textY);
+      
+      ctx.restore();
+    }
+
+    function finalizePhoto() {
+      // Continue with existing text elements rendering
+      const currentTextElements = textElements;
+      const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+      setPhoto(dataUrl);
+      cleanupCamera();
+      console.log('✅ Photo capture complete with frame and overlays');
+    }
+
+  }, [textElements, cameraState, cleanupCamera, frameSettings]);
 
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
@@ -1288,6 +1349,23 @@ const PhotoboothPage: React.FC = () => {
       fetchCollageByCode(normalizedCode);
     }
   }, [normalizedCode, fetchCollageByCode]);
+
+  // Load frame settings when collage loads
+  useEffect(() => {
+    if (currentCollage?.settings?.photobooth) {
+      const photoboothSettings = currentCollage.settings.photobooth;
+      setFrameSettings({
+        selectedFrameId: photoboothSettings.selectedFrameId || 'none',
+        selectedFrameUrl: photoboothSettings.selectedFrameUrl || null,
+        frameOpacity: photoboothSettings.frameOpacity || 80,
+        enableTextOverlay: photoboothSettings.enableTextOverlay || false,
+        defaultText: photoboothSettings.defaultText || currentCollage.name,
+        textColor: photoboothSettings.textColor || '#FFFFFF',
+        textSize: photoboothSettings.textSize || 24,
+        textPosition: photoboothSettings.textPosition || 'bottom'
+      });
+    }
+  }, [currentCollage]);
 
   useEffect(() => {
     if (storeError && !loading && !currentCollage) {
@@ -1829,6 +1907,34 @@ const PhotoboothPage: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
                 
+                {/* Frame Overlay */}
+                {frameSettings.selectedFrameId !== 'none' && frameSettings.selectedFrameUrl && (
+                  <img
+                    src={frameSettings.selectedFrameUrl}
+                    alt="Photo frame"
+                    className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10"
+                    style={{ opacity: frameSettings.frameOpacity / 100 }}
+                  />
+                )}
+
+                {/* Default Text Overlay */}
+                {frameSettings.enableTextOverlay && frameSettings.defaultText && (
+                  <div 
+                    className={`absolute left-4 right-4 text-center z-20 ${
+                      frameSettings.textPosition === 'top' ? 'top-4' :
+                      frameSettings.textPosition === 'center' ? 'top-1/2 transform -translate-y-1/2' :
+                      'bottom-4'
+                    }`}
+                    style={{ 
+                      color: frameSettings.textColor,
+                      fontSize: `${frameSettings.textSize}px`,
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
+                    }}
+                  >
+                    {frameSettings.defaultText}
+                  </div>
+                )}
+                
                 {cameraState !== 'active' && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="text-center text-white">
@@ -2179,6 +2285,34 @@ const PhotoboothPage: React.FC = () => {
                       style={{ objectFit: 'cover', width: '100%', height: '100%' }}
                       className="w-full h-full object-cover"
                     />
+                    
+                    {/* Frame Overlay */}
+                    {frameSettings.selectedFrameId !== 'none' && frameSettings.selectedFrameUrl && (
+                      <img
+                        src={frameSettings.selectedFrameUrl}
+                        alt="Photo frame"
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10"
+                        style={{ opacity: frameSettings.frameOpacity / 100 }}
+                      />
+                    )}
+
+                    {/* Default Text Overlay */}
+                    {frameSettings.enableTextOverlay && frameSettings.defaultText && (
+                      <div 
+                        className={`absolute left-4 right-4 text-center z-20 ${
+                          frameSettings.textPosition === 'top' ? 'top-4' :
+                          frameSettings.textPosition === 'center' ? 'top-1/2 transform -translate-y-1/2' :
+                          'bottom-4'
+                        }`}
+                        style={{ 
+                          color: frameSettings.textColor,
+                          fontSize: `${frameSettings.textSize}px`,
+                          textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
+                        }}
+                      >
+                        {frameSettings.defaultText}
+                      </div>
+                    )}
                     
                     {cameraState !== 'active' && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">
