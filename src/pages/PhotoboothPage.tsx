@@ -2052,9 +2052,6 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Frame Status Indicator */}
-                  {/* Removed frame status indicator */}
-                  
                   {cameraState !== 'active' && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                       <div className="text-center text-white">
@@ -2669,3 +2666,6 @@ const PhotoboothPage: React.FC = () => {
       </div>
     </>
   );
+};
+
+export default PhotoboothPage;
