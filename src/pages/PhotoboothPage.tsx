@@ -79,6 +79,7 @@ const PhotoboothPage: React.FC = () => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
   const textOverlayRef = useRef<HTMLDivElement>(null);
@@ -761,6 +762,11 @@ const PhotoboothPage: React.FC = () => {
     const completeCapture = () => {
       const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
       setPhoto(dataUrl);
+      
+      // Trigger confetti when photo is captured and preview is shown
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000); // Show confetti for 3 seconds
+      
       cleanupCamera();
     };
 
@@ -1094,6 +1100,7 @@ const PhotoboothPage: React.FC = () => {
     setSelectedTextId(null);
     setIsEditingText(false);
     setShowTextStylePanel(false);
+    setShowConfetti(false); // Hide confetti when retaking
     
     // Ensure camera restarts properly
     cleanupCamera();
@@ -1488,6 +1495,16 @@ const PhotoboothPage: React.FC = () => {
             50% { opacity: 0.9; }
             100% { opacity: 0; }
           }
+          @keyframes confettiFall {
+            0% { 
+              transform: translateY(-10px) rotate(0deg); 
+              opacity: 1; 
+            }
+            100% { 
+              transform: translateY(100vh) rotate(720deg); 
+              opacity: 0; 
+            }
+          }
         `}</style>
         {/* Mobile/Tablet Full-Screen Layout */}
         {isMobile ? (
@@ -1550,6 +1567,26 @@ const PhotoboothPage: React.FC = () => {
                   />
                   
                   {renderTextElements()}
+                  
+                  {/* Confetti Animation */}
+                  {showConfetti && (
+                    <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
+                      {[...Array(50)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="absolute w-2 h-2 rounded-full animate-pulse"
+                          style={{
+                            backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'][i % 7],
+                            left: `${Math.random() * 100}%`,
+                            top: `-10px`,
+                            animation: `confettiFall ${2 + Math.random() * 2}s linear forwards`,
+                            animationDelay: `${Math.random() * 1}s`,
+                            transform: `rotate(${Math.random() * 360}deg)`
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
                   
                   {/* Always show text controls when we have a photo - Mobile */}
                   <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 9998 }}>
@@ -2071,6 +2108,26 @@ const PhotoboothPage: React.FC = () => {
                       />
                       
                       {renderTextElements()}
+                      
+                      {/* Confetti Animation */}
+                      {showConfetti && (
+                        <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
+                          {[...Array(40)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="absolute w-2 h-2 rounded-full animate-pulse"
+                              style={{
+                                backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'][i % 7],
+                                left: `${Math.random() * 100}%`,
+                                top: `-10px`,
+                                animation: `confettiFall ${2 + Math.random() * 2}s linear forwards`,
+                                animationDelay: `${Math.random() * 1}s`,
+                                transform: `rotate(${Math.random() * 360}deg)`
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                       
                       {/* VERTICAL TEXT SETTINGS - LEFT SIDE (Show when text is selected) */}
                       {selectedTextId && (
