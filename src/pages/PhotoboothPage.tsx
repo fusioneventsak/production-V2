@@ -78,6 +78,7 @@ const PhotoboothPage: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [showFlash, setShowFlash] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
   const textOverlayRef = useRef<HTMLDivElement>(null);
@@ -681,11 +682,20 @@ const PhotoboothPage: React.FC = () => {
       setCountdown(prev => {
         if (prev === null || prev <= 1) {
           clearInterval(countdownInterval);
-          // Capture after countdown finishes
+          // Flash and capture after countdown finishes
           setTimeout(() => {
+            // Trigger flash effect
+            setShowFlash(true);
+            
+            // Capture photo immediately when flash starts
             capturePhoto();
-            setCountdown(null);
-            setIsCapturing(false);
+            
+            // Hide flash after a brief moment
+            setTimeout(() => {
+              setShowFlash(false);
+              setCountdown(null);
+              setIsCapturing(false);
+            }, 300); // Flash duration
           }, 1000); // Wait 1 second after "1" before capturing
           return null;
         }
@@ -1473,6 +1483,11 @@ const PhotoboothPage: React.FC = () => {
             50% { transform: scale(1.1); opacity: 1; }
             100% { transform: scale(1); opacity: 0.8; }
           }
+          @keyframes flash {
+            0% { opacity: 0; }
+            50% { opacity: 0.9; }
+            100% { opacity: 0; }
+          }
         `}</style>
         {/* Mobile/Tablet Full-Screen Layout */}
         {isMobile ? (
@@ -1953,6 +1968,16 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   )}
                   
+                  {/* Flash Effect */}
+                  {showFlash && (
+                    <div 
+                      className="absolute inset-0 bg-white z-40 pointer-events-none"
+                      style={{
+                        animation: 'flash 0.3s ease-out forwards'
+                      }}
+                    />
+                  )}
+                  
                   {/* Countdown Overlay */}
                   {countdown !== null && (
                     <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
@@ -2357,6 +2382,16 @@ const PhotoboothPage: React.FC = () => {
                             )}
                           </div>
                         </div>
+                      )}
+                      
+                      {/* Flash Effect */}
+                      {showFlash && (
+                        <div 
+                          className="absolute inset-0 bg-white z-40 pointer-events-none"
+                          style={{
+                            animation: 'flash 0.3s ease-out forwards'
+                          }}
+                        />
                       )}
                       
                       {/* Countdown Overlay */}
