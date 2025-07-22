@@ -114,14 +114,6 @@ const Header: React.FC = () => {
               Home
             </Link>
             <Link 
-              to="/pricing" 
-              className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <DollarSign className="h-8 w-8 mr-4" />
-              Pricing
-            </Link>
-            <Link 
               to="/blog" 
               className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
               onClick={() => setIsMenuOpen(false)}
