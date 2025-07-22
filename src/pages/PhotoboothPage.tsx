@@ -260,7 +260,7 @@ const PhotoboothPage: React.FC = () => {
                 setError(null);
                 document.removeEventListener('click', enablePlay);
                 document.removeEventListener('touchstart', enablePlay);
-              }).catch(err => console.error('❌ Play after interaction failed:', err));
+              }).catch(err => {});
             };
             
             document.addEventListener('click', enablePlay, { once: true });
@@ -321,9 +321,6 @@ const PhotoboothPage: React.FC = () => {
       };
       
       const handleError = (event: Event) => {
-        const target = event.target as HTMLVideoElement;
-        if (target && target.error) {
-        }
         setCameraState('error');
         setError('Video playback error');
         mediaStream.getTracks().forEach(track => track.stop());
@@ -1794,13 +1791,11 @@ const PhotoboothPage: React.FC = () => {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('📥 Download button clicked');
                         downloadPhoto();
                       }}
                       onTouchStart={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('📥 Download button touch start');
                       }}
                       onTouchEnd={(e) => {
                         e.preventDefault();
@@ -1932,7 +1927,6 @@ const PhotoboothPage: React.FC = () => {
                             <p className="text-lg mb-4">Camera not started</p>
                             <button
                               onClick={() => {
-                                console.log('🎥 Manual camera start requested');
                                 if (selectedDevice) {
                                   startCamera(selectedDevice);
                                 } else {
@@ -2327,7 +2321,6 @@ const PhotoboothPage: React.FC = () => {
                                 <p className="text-sm mb-2">Camera not started</p>
                                 <button
                                   onClick={() => {
-                                    console.log('🎥 Manual camera start requested');
                                     if (selectedDevice) {
                                       startCamera(selectedDevice);
                                     } else {
@@ -2350,7 +2343,6 @@ const PhotoboothPage: React.FC = () => {
                           <button 
                             onClick={(e) => {
                               e.preventDefault();
-                              console.log('🖥️ Desktop capture button clicked!');
                               capturePhoto();
                             }}
                             className="w-12 h-12 bg-white rounded-full border-3 border-gray-300 hover:border-gray-100 transition-all active:scale-95 flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50"
@@ -2408,4 +2400,54 @@ const PhotoboothPage: React.FC = () => {
                       <Frame className="w-4 h-4 mr-2" />
                       Custom Frame Active
                     </h4>
-                    <div className="text-purple
+                    <div className="text-purple-200 text-sm space-y-1">
+                      <div>Opacity: {customFrame.opacity}%</div>
+                      <div>Status: {frameLoaded ? 'Loaded' : 'Loading...'}</div>
+                      <div className="text-xs text-purple-300">Perfect 9:16 fit enabled</div>
+                    </div>
+                  </div>
+                )}
+
+                {currentCollage && (
+                  <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
+                    <h3 className="text-base lg:text-lg font-semibold text-white mb-3">Collage Info</h3>
+                    <div className="space-y-2 text-sm text-gray-300">
+                      <div className="flex justify-between">
+                        <span>Name:</span>
+                        <span className="text-white truncate ml-2">{currentCollage.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Code:</span>
+                        <span className="text-white font-mono">{currentCollage.code}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Photos:</span>
+                        <span className="text-white">{safePhotos.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Format:</span>
+                        <span className="text-green-400 text-xs">9:16 Portrait</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {showVideoRecorder && (
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-30 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
+            <MobileVideoRecorder 
+              canvasRef={canvasRef} 
+              onClose={() => setShowVideoRecorder(false)}
+              onResolutionChange={(width, height) => setRecordingResolution({ width, height })}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
+export default PhotoboothPage;
