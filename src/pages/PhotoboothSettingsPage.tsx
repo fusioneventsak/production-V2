@@ -24,12 +24,9 @@ const PhotoboothSettingsPage = () => {
     }
   }, [id, fetchCollageById]);
 
-  // Default frame options
+  // Only "No Frame" option - no stock frames
   const defaultFrames = [
-    { id: 'none', name: 'No Frame', preview: null, type: 'default' },
-    { id: 'classic', name: 'Classic Border', preview: 'https://images.pexels.com/photos/821651/pexels-photo-821651.jpeg?auto=compress&cs=tinysrgb&w=300', type: 'default' },
-    { id: 'wedding', name: 'Wedding Elegant', preview: 'https://images.pexels.com/photos/1444442/pexels-photo-1444442.jpeg?auto=compress&cs=tinysrgb&w=300', type: 'default' },
-    { id: 'party', name: 'Party Fun', preview: 'https://images.pexels.com/photos/1983037/pexels-photo-1983037.jpeg?auto=compress&cs=tinysrgb&w=300', type: 'default' }
+    { id: 'none', name: 'No Frame', preview: null, type: 'default' }
   ];
 
   const [settings, setSettings] = useState({
