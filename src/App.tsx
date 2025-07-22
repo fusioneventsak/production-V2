@@ -6,7 +6,6 @@ import {
   createRoutesFromElements,
   Navigate
 } from 'react-router-dom';
-
 // Pages
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -17,13 +16,13 @@ import CollageEditorPage from './pages/CollageEditorPage';
 import CollageViewerPage from './pages/CollageViewerPage';
 import CollageModerationPage from './pages/CollageModerationPage';
 import PhotoboothPage from './pages/PhotoboothPage';
+import PhotoboothSettingsPage from './pages/PhotoboothSettingsPage';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
 import BlogPostAI from './pages/BlogPostAI';
 import BlogPostPricing from './pages/BlogPostPricing';
 import JoinCollage from './pages/JoinCollage';
 import Custom404Page from './pages/404';
-
 // Create router with future flag enabled
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -50,6 +49,7 @@ const router = createBrowserRouter(
       {/* Protected routes - require authentication */}
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/dashboard/collage/:id" element={<CollageEditorPage />} />
+      <Route path="/dashboard/collage/:id/photobooth-settings" element={<PhotoboothSettingsPage />} />
       <Route path="/collage/:id/moderation" element={<CollageModerationPage />} />
       <Route path="/moderation/:id" element={<CollageModerationPage />} />
     </Route>
@@ -61,11 +61,9 @@ const router = createBrowserRouter(
     }
   }
 );
-
 function App() {
   return (
     <RouterProvider router={router} />
   );
 }
-
 export default App;
