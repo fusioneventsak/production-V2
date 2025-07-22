@@ -1608,9 +1608,6 @@ const PhotoboothPage: React.FC = () => {
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => navigate(`/collage/${currentCollage?.code || ''}`)}
-                    className="text-gray-200 hover:text-white transition-colors"
-                  >
-                    <ArrowLeft className="w-6 h-6" />
                   </button>
                   <div>
                     <h1 className="text-lg font-bold text-white flex items-center space-x-2">
