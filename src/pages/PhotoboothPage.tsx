@@ -2159,7 +2159,17 @@ const PhotoboothPage: React.FC = () => {
                 <div>
                   <h1 className="text-xl font-bold text-white flex items-center space-x-3">
                     <div className="flex items-center space-x-2">
-                      <Globe className="w-5 h-5 text-purple-400" />
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-purple-500 rounded-full blur-sm opacity-40 animate-pulse"></div>
+                        <div 
+                          className="relative w-5 h-5 rounded-full"
+                          style={{
+                            background: 'linear-gradient(45deg, #8b5cf6, #ec4899, #3b82f6, #10b981)',
+                            backgroundSize: '200% 200%',
+                            animation: 'gradientShift 3s ease-in-out infinite'
+                          }}
+                        ></div>
+                      </div>
                     </div>
                     <span>See PhotoSphere</span>
                   </h1>
