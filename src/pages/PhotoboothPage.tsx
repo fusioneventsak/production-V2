@@ -696,7 +696,7 @@ const PhotoboothPage: React.FC = () => {
               setShowFlash(false);
               setCountdown(null);
               setIsCapturing(false);
-            }, 300); // Flash duration
+            }, 400); // Flash duration - increased to be more visible
           }, 1000); // Wait 1 second after "1" before capturing
           return null;
         }
@@ -1492,17 +1492,25 @@ const PhotoboothPage: React.FC = () => {
           }
           @keyframes flash {
             0% { opacity: 0; }
-            50% { opacity: 0.9; }
+            25% { opacity: 1; }
+            75% { opacity: 1; }
             100% { opacity: 0; }
           }
-          @keyframes confettiFall {
+          @keyframes confettiBurst {
             0% { 
-              transform: translateY(-10px) rotate(0deg); 
-              opacity: 1; 
+              transform: translate(-50%, -50%) rotate(var(--rotation)) scale(0);
+              opacity: 1;
+            }
+            15% {
+              transform: translate(-50%, -50%) rotate(var(--rotation)) scale(1);
             }
             100% { 
-              transform: translateY(100vh) rotate(720deg); 
-              opacity: 0; 
+              transform: translate(-50%, -50%) 
+                       rotate(calc(var(--rotation) + 180deg)) 
+                       scale(0.3)
+                       translateX(calc(cos(var(--angle)) * var(--velocity)))
+                       translateY(calc(sin(var(--angle)) * var(--velocity) + 150px));
+              opacity: 0;
             }
           }
         `}</style>
@@ -1571,20 +1579,29 @@ const PhotoboothPage: React.FC = () => {
                   {/* Confetti Animation */}
                   {showConfetti && (
                     <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
-                      {[...Array(50)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="absolute w-2 h-2 rounded-full animate-pulse"
-                          style={{
-                            backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'][i % 7],
-                            left: `${Math.random() * 100}%`,
-                            top: `-10px`,
-                            animation: `confettiFall ${2 + Math.random() * 2}s linear forwards`,
-                            animationDelay: `${Math.random() * 1}s`,
-                            transform: `rotate(${Math.random() * 360}deg)`
-                          }}
-                        />
-                      ))}
+                      {/* Confetti burst from center */}
+                      {[...Array(60)].map((_, i) => {
+                        const angle = (i / 60) * 360;
+                        const velocity = 100 + Math.random() * 150;
+                        const size = Math.random() > 0.5 ? 'w-3 h-1' : 'w-1 h-3'; // Rectangle shapes
+                        return (
+                          <div
+                            key={i}
+                            className={`absolute ${size} opacity-90`}
+                            style={{
+                              backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#fd79a8', '#00b894', '#e17055'][i % 10],
+                              left: '50%',
+                              top: '50%',
+                              animation: `confettiBurst 2s ease-out forwards`,
+                              animationDelay: `${Math.random() * 0.3}s`,
+                              '--angle': `${angle}deg`,
+                              '--velocity': `${velocity}px`,
+                              '--rotation': `${Math.random() * 360}deg`,
+                              transform: 'translate(-50%, -50%)'
+                            } as React.CSSProperties}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                   
@@ -2112,20 +2129,29 @@ const PhotoboothPage: React.FC = () => {
                       {/* Confetti Animation */}
                       {showConfetti && (
                         <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
-                          {[...Array(40)].map((_, i) => (
-                            <div
-                              key={i}
-                              className="absolute w-2 h-2 rounded-full animate-pulse"
-                              style={{
-                                backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'][i % 7],
-                                left: `${Math.random() * 100}%`,
-                                top: `-10px`,
-                                animation: `confettiFall ${2 + Math.random() * 2}s linear forwards`,
-                                animationDelay: `${Math.random() * 1}s`,
-                                transform: `rotate(${Math.random() * 360}deg)`
-                              }}
-                            />
-                          ))}
+                          {/* Confetti burst from center */}
+                          {[...Array(50)].map((_, i) => {
+                            const angle = (i / 50) * 360;
+                            const velocity = 80 + Math.random() * 120;
+                            const size = Math.random() > 0.5 ? 'w-3 h-1' : 'w-1 h-3'; // Rectangle shapes
+                            return (
+                              <div
+                                key={i}
+                                className={`absolute ${size} opacity-90`}
+                                style={{
+                                  backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#fd79a8', '#00b894', '#e17055'][i % 10],
+                                  left: '50%',
+                                  top: '50%',
+                                  animation: `confettiBurst 2s ease-out forwards`,
+                                  animationDelay: `${Math.random() * 0.3}s`,
+                                  '--angle': `${angle}deg`,
+                                  '--velocity': `${velocity}px`,
+                                  '--rotation': `${Math.random() * 360}deg`,
+                                  transform: 'translate(-50%, -50%)'
+                                } as React.CSSProperties}
+                              />
+                            );
+                          })}
                         </div>
                       )}
                       
