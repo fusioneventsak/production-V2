@@ -76,6 +76,8 @@ const PhotoboothPage: React.FC = () => {
   const [showError, setShowError] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
   const textOverlayRef = useRef<HTMLDivElement>(null);
@@ -666,6 +668,31 @@ const PhotoboothPage: React.FC = () => {
       setFrameLoaded(false);
     }
   }, [customFrame]);
+
+  const startCountdownAndCapture = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current || cameraState !== 'active' || isCapturing) {
+      return;
+    }
+
+    setIsCapturing(true);
+    setCountdown(3);
+
+    const countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(countdownInterval);
+          // Capture after countdown finishes
+          setTimeout(() => {
+            capturePhoto();
+            setCountdown(null);
+            setIsCapturing(false);
+          }, 1000); // Wait 1 second after "1" before capturing
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [cameraState, isCapturing]);
 
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') {
@@ -1440,6 +1467,13 @@ const PhotoboothPage: React.FC = () => {
   return (
     <>
       <div className={`min-h-screen bg-gradient-to-b from-gray-900 to-black text-white ${isMobile ? 'overflow-hidden' : ''}`}>
+        <style jsx>{`
+          @keyframes countdownPulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+          }
+        `}</style>
         {/* Mobile/Tablet Full-Screen Layout */}
         {isMobile ? (
           <div className="relative w-full h-screen overflow-hidden">
@@ -1919,11 +1953,29 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   )}
                   
+                  {/* Countdown Overlay */}
+                  {countdown !== null && (
+                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                      <div className="text-center">
+                        <div 
+                          className="text-8xl font-bold text-white animate-pulse"
+                          style={{
+                            textShadow: '4px 4px 8px rgba(0,0,0,0.8)',
+                            animation: 'countdownPulse 1s ease-in-out infinite'
+                          }}
+                        >
+                          {countdown}
+                        </div>
+                        <p className="text-white text-xl mt-4 font-medium">Get ready!</p>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Capture Button - Full Screen */}
-                  {cameraState === 'active' && (
+                  {cameraState === 'active' && !isCapturing && (
                     <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2">
                       <button 
-                        onClick={capturePhoto}
+                        onClick={startCountdownAndCapture}
                         className="w-20 h-20 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-xl focus:outline-none"
                         style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                       >
@@ -2307,14 +2359,29 @@ const PhotoboothPage: React.FC = () => {
                         </div>
                       )}
                       
+                      {/* Countdown Overlay */}
+                      {countdown !== null && (
+                        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                          <div className="text-center">
+                            <div 
+                              className="text-6xl font-bold text-white animate-pulse"
+                              style={{
+                                textShadow: '4px 4px 8px rgba(0,0,0,0.8)',
+                                animation: 'countdownPulse 1s ease-in-out infinite'
+                              }}
+                            >
+                              {countdown}
+                            </div>
+                            <p className="text-white text-lg mt-3 font-medium">Get ready!</p>
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* DESKTOP CAPTURE BUTTON - With perfect positioning for 9:16 */}
-                      {cameraState === 'active' && (
+                      {cameraState === 'active' && !isCapturing && (
                         <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30">
                           <button 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              capturePhoto();
-                            }}
+                            onClick={startCountdownAndCapture}
                             className="w-12 h-12 bg-white rounded-full border-3 border-gray-300 hover:border-gray-100 transition-all active:scale-95 flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50"
                             style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                             title="Take Photo"
