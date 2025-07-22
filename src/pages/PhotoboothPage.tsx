@@ -2145,7 +2145,7 @@ const PhotoboothPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Desktop Layout - Updated with perfect 9:16 aspect ratio */
+          /* Desktop Layout - Updated with perfect 9:16 aspect ratio and repositioned buttons */
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -2419,27 +2419,30 @@ const PhotoboothPage: React.FC = () => {
                         )}
                       </div>
                       
-                      <div className="absolute bottom-4 left-4 right-4">
-                        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30 flex space-x-4">
-                          <button
-                            onClick={retakePhoto}
-                            className="px-4 py-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20"
-                          >
-                            <RefreshCw className="w-5 h-5" />
-                          </button>
-                          
-                          <button
-                            onClick={uploadToCollage}
-                            disabled={uploading}
-                            className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-full transition-colors border border-white/20"
-                          >
-                            {uploading ? (
-                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            ) : (
+                      {/* MOVED: Bottom Action Buttons - Now positioned closer to bottom */}
+                      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30 flex space-x-4">
+                        <button
+                          onClick={retakePhoto}
+                          className="px-4 py-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20 flex items-center space-x-2"
+                        >
+                          <RefreshCw className="w-5 h-5" />
+                          <span>Retake</span>
+                        </button>
+                        
+                        <button
+                          onClick={uploadToCollage}
+                          disabled={uploading}
+                          className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-full transition-colors border border-white/20 flex items-center space-x-2"
+                        >
+                          {uploading ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <>
                               <Send className="w-5 h-5" />
-                            )}
-                          </button>
-                        </div>
+                              <span>Upload</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -2486,9 +2489,6 @@ const PhotoboothPage: React.FC = () => {
                           {frameSettings.defaultText}
                         </div>
                       )}
-                      
-                      {/* Frame Status Indicator */}
-                      {/* Removed frame status indicator */}
                       
                       {cameraState !== 'active' && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -2563,7 +2563,7 @@ const PhotoboothPage: React.FC = () => {
                       
                       {/* DESKTOP CAPTURE BUTTON - With perfect positioning for 9:16 */}
                       {cameraState === 'active' && !isCapturing && (
-                        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30">
+                        <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-30">
                           <button 
                             onClick={startCountdownAndCapture}
                             className="w-12 h-12 bg-white rounded-full border-3 border-gray-300 hover:border-gray-100 transition-all active:scale-95 flex items-center justify-center shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50"
@@ -2669,6 +2669,3 @@ const PhotoboothPage: React.FC = () => {
       </div>
     </>
   );
-};
-
-export default PhotoboothPage;
