@@ -1598,6 +1598,10 @@ const PhotoboothPage: React.FC = () => {
             75% { opacity: 1; }
             100% { opacity: 0; }
           }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
         `}</style>
         {/* Mobile/Tablet Full-Screen Layout */}
         {isMobile ? (
@@ -1614,7 +1618,23 @@ const PhotoboothPage: React.FC = () => {
                   </button>
                   <div>
                     <h1 className="text-lg font-bold text-white flex items-center space-x-2">
-                      <span className="text-purple-400">📸</span>
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-purple-500 rounded-full blur-md opacity-50 animate-pulse"></div>
+                        <div className="relative bg-gradient-to-br from-purple-400 to-pink-500 p-2 rounded-full">
+                          <svg 
+                            className="w-5 h-5 text-white animate-spin" 
+                            style={{ animation: 'spin 4s linear infinite' }}
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <circle cx="12" cy="12" r="10" strokeWidth="2" className="opacity-30"/>
+                            <circle cx="12" cy="12" r="6" strokeWidth="2" className="opacity-60"/>
+                            <circle cx="12" cy="12" r="2" strokeWidth="2"/>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2v4m0 12v4m10-10h-4M6 12H2m15.364-6.364l-2.828 2.828M8.464 15.536l-2.828 2.828m12.728 0l-2.828-2.828M8.464 8.464L5.636 5.636"/>
+                          </svg>
+                        </div>
+                      </div>
                       <span>See PhotoSphere</span>
                     </h1>
                     <p className="text-gray-300 text-sm">{currentCollage?.name}</p>
