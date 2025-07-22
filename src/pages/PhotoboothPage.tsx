@@ -2224,3 +2224,4 @@ const PhotoboothPage: React.FC = () => {
 };
 
 export default PhotoboothPage;
+        
