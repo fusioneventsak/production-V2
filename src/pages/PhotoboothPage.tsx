@@ -1955,7 +1955,7 @@ const PhotoboothPage: React.FC = () => {
                   
                   {/* Countdown Overlay */}
                   {countdown !== null && (
-                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
                       <div className="text-center">
                         <div 
                           className="text-8xl font-bold text-white animate-pulse"
@@ -2361,7 +2361,7 @@ const PhotoboothPage: React.FC = () => {
                       
                       {/* Countdown Overlay */}
                       {countdown !== null && (
-                        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
                           <div className="text-center">
                             <div 
                               className="text-6xl font-bold text-white animate-pulse"
