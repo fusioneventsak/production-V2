@@ -3,14 +3,14 @@ import { useCollageStore, type Collage } from '../store/collageStore';
 import { Image, ExternalLink, Edit, Trash2, Pencil, Camera } from 'lucide-react';
 import CollageNameModal from '../components/collage/CollageNameModal';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCollageStore, type Collage } from '../store/collageStore';
 import { Image, ExternalLink, Edit, Trash2, Pencil, Camera, Plus } from 'lucide-react';
 import CollageNameModal from '../components/collage/CollageNameModal';
 import Layout from '../components/layout/Layout';
 
-const DashboardPage: React.FC = () => {
+const DashboardPage = () => {
   const navigate = useNavigate();
   const { collages, loading, error, fetchCollages, deleteCollage, createCollage } = useCollageStore();
   const [selectedCollage, setSelectedCollage] = React.useState<Collage | null>(null);
