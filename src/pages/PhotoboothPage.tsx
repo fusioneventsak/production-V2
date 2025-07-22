@@ -912,18 +912,20 @@ const PhotoboothPage: React.FC = () => {
 
       const img = new Image();
       img.onload = () => {
-        // High-resolution output dimensions - maintaining perfect 9:16
-        const HIGH_RES_WIDTH = 1080;
-        const HIGH_RES_HEIGHT = 1920;
+        // Use the actual image dimensions instead of forcing specific dimensions
+        const imageWidth = img.width;
+        const imageHeight = img.height;
         
         // Calculate proper scaling factor to match preview appearance
         let textScaleFactor = 1;
         
         if (photoContainerRef.current) {
           const rect = photoContainerRef.current.getBoundingClientRect();
-          textScaleFactor = HIGH_RES_WIDTH / rect.width;
-        } else {
-          textScaleFactor = HIGH_RES_WIDTH / 360;
+          // Scale based on the actual container size vs image size
+          textScaleFactor = Math.min(
+            imageWidth / rect.width,
+            imageHeight / rect.height
+          );
         }
 
         // Function to render text elements
@@ -934,9 +936,9 @@ const PhotoboothPage: React.FC = () => {
               return;
             }
 
-            // Calculate positions (these scale with the resolution)
-            const x = (element.position.x / 100) * HIGH_RES_WIDTH;
-            const y = (element.position.y / 100) * HIGH_RES_HEIGHT;
+            // Calculate positions based on actual image dimensions
+            const x = (element.position.x / 100) * imageWidth;
+            const y = (element.position.y / 100) * imageHeight;
             
             // Scale font size proportionally to match preview appearance
             const baseFontSize = element.size * (element.scale || 1);
@@ -950,8 +952,8 @@ const PhotoboothPage: React.FC = () => {
             context.textAlign = element.style.align || 'center';
             context.textBaseline = 'middle';
 
-            // Calculate maximum width for text wrapping (scale the 280px constraint)
-            const maxTextWidth = 280 * textScaleFactor;
+            // Calculate maximum width for text wrapping based on image width
+            const maxTextWidth = (280 / 360) * imageWidth; // Scale proportionally
 
             // Process text - handle both manual line breaks and automatic wrapping
             let allLines: string[] = [];
@@ -1012,20 +1014,20 @@ const PhotoboothPage: React.FC = () => {
             context.restore();
           });
 
-          // Return the final high-resolution image with text (perfect 9:16)
+          // Return the final image with text using original dimensions
           const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
           resolve(finalImageData);
         };
 
-        // Set high-resolution canvas dimensions (perfect 9:16)
-        canvas.width = HIGH_RES_WIDTH;
-        canvas.height = HIGH_RES_HEIGHT;
+        // Set canvas dimensions to match the original image
+        canvas.width = imageWidth;
+        canvas.height = imageHeight;
 
-        // Clear and draw the original image at high resolution
-        context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
-        context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+        // Clear and draw the original image at its native resolution
+        context.clearRect(0, 0, imageWidth, imageHeight);
+        context.drawImage(img, 0, 0, imageWidth, imageHeight);
 
-        // Apply frame to high-res image if present, then render text
+        // Apply frame to image if present, then render text
         if (customFrame?.url && frameLoaded && customFrame.opacity > 0) {
           const frameImg = new Image();
           frameImg.crossOrigin = 'anonymous';
@@ -1033,8 +1035,8 @@ const PhotoboothPage: React.FC = () => {
           frameImg.onload = () => {
             context.save();
             context.globalAlpha = customFrame.opacity / 100;
-            // Perfect fit since both are 9:16
-            context.drawImage(frameImg, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+            // Scale frame to match image dimensions
+            context.drawImage(frameImg, 0, 0, imageWidth, imageHeight);
             context.restore();
             
             renderTextElements();
@@ -1661,23 +1663,27 @@ const PhotoboothPage: React.FC = () => {
                   ref={photoContainerRef} 
                   className="relative w-full max-w-full" 
                   style={{ 
-                    aspectRatio: '9/16',
-                    // iPad gets optimized sizing with small border to fit properly
+                    // Remove fixed aspect ratio - let photo determine its own dimensions
                     ...(isIPad ? {
                       width: 'calc(100vw - 32px)',
                       height: 'calc(100vh - 64px)',
-                      maxWidth: 'calc((100vh - 64px) * 9/16)',
+                      maxWidth: 'calc(100vw - 32px)',
                       maxHeight: 'calc(100vh - 64px)'
                     } : {
-                      maxHeight: '100vh'
+                      maxHeight: '100vh',
+                      maxWidth: '100vw'
                     })
                   }}
                 >
                   <img 
                     src={photo} 
                     alt="Captured photo" 
-                    className="w-full h-full object-contain rounded-lg"
-                    style={{ aspectRatio: '9/16' }}
+                    className={`w-full h-full object-contain ${isIPad ? 'rounded-lg' : ''}`}
+                    style={{ 
+                      // Remove forced aspect ratio - let image display naturally
+                      width: '100%',
+                      height: '100%'
+                    }}
                   />
                   
                   {renderTextElements()}
@@ -1686,8 +1692,7 @@ const PhotoboothPage: React.FC = () => {
                   {showConfetti && (
                     <canvas
                       ref={confettiCanvasRef}
-                      className="absolute inset-0 pointer-events-none z-30 w-full h-full rounded-lg"
-                      style={{ aspectRatio: '9/16' }}
+                      className={`absolute inset-0 pointer-events-none z-30 w-full h-full ${isIPad ? 'rounded-lg' : ''}`}
                     />
                   )}
                   
