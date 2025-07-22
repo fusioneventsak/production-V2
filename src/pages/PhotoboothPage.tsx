@@ -1913,6 +1913,7 @@ const PhotoboothPage: React.FC = () => {
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                       <div className="text-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+                        </div>
                         <p className="text-white">Starting camera...</p>
                       </div>
                     </div>
