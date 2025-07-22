@@ -824,23 +824,30 @@ const PhotoboothPage: React.FC = () => {
       return;
     }
 
-    // Wait for video metadata to be fully loaded before capturing
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      // Video dimensions not ready yet, wait a bit and try again
-      setTimeout(() => capturePhoto(), 100);
-      return;
+    // Always capture in 9:16 aspect ratio for perfect frame fit
+    const targetAspectRatio = 9 / 16;
+    const videoAspectRatio = video.videoWidth / video.videoHeight;
+    
+    let sourceWidth, sourceHeight, sourceX, sourceY;
+    
+    // Calculate the crop area from video that matches 9:16 aspect ratio
+    if (videoAspectRatio > targetAspectRatio) {
+      // Video is wider than 9:16, crop the sides
+      sourceHeight = video.videoHeight;
+      sourceWidth = sourceHeight * targetAspectRatio;
+      sourceX = (video.videoWidth - sourceWidth) / 2;
+      sourceY = 0;
+    } else {
+      // Video is taller than 9:16, crop top and bottom
+      sourceWidth = video.videoWidth;
+      sourceHeight = sourceWidth / targetAspectRatio;
+      sourceX = 0;
+      sourceY = (video.videoHeight - sourceHeight) / 2;
     }
 
-    // Ensure video is actually playing and has valid dimensions
-    if (video.readyState < 2) {
-      // Video not ready, wait for it to load
-      setTimeout(() => capturePhoto(), 100);
-      return;
-    }
-
-    // Capture the full video frame without cropping for preview
-    const canvasWidth = video.videoWidth;
-    const canvasHeight = video.videoHeight;
+    // Set canvas to exact 9:16 dimensions for perfect frame fit
+    const canvasWidth = 540;
+    const canvasHeight = 960;
     
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
@@ -848,8 +855,12 @@ const PhotoboothPage: React.FC = () => {
     // Clear canvas completely
     context.clearRect(0, 0, canvasWidth, canvasHeight);
     
-    // Draw the full video frame without any cropping
-    context.drawImage(video, 0, 0, canvasWidth, canvasHeight);
+    // Draw cropped video frame to fill entire canvas (perfect 9:16)
+    context.drawImage(
+      video,
+      sourceX, sourceY, sourceWidth, sourceHeight,
+      0, 0, canvasWidth, canvasHeight
+    );
 
     // Function to complete the capture process
     const completeCapture = () => {
@@ -867,7 +878,7 @@ const PhotoboothPage: React.FC = () => {
       cleanupCamera();
     };
 
-    // Draw custom frame if present and loaded - scale frame to match video dimensions
+    // Draw custom frame if present and loaded - it will fit perfectly since both are 9:16
     if (customFrame?.url && frameLoaded) {
       const frameImg = new Image();
       frameImg.crossOrigin = 'anonymous';
@@ -880,7 +891,7 @@ const PhotoboothPage: React.FC = () => {
         const opacity = customFrame.opacity / 100;
         context.globalAlpha = opacity;
         
-        // Draw frame covering the entire canvas - scale to match video dimensions
+        // Draw frame covering the entire canvas - perfect fit since both are 9:16
         context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
         
         // Restore context state
