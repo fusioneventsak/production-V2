@@ -2044,7 +2044,7 @@ const PhotoboothPage: React.FC = () => {
                     autoPlay
                     muted
                     playsInline
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                   
                   {/* Custom Frame Overlay - shows in live preview */}
@@ -2437,7 +2437,7 @@ const PhotoboothPage: React.FC = () => {
                         muted
                         playsInline
                         style={{ objectFit: 'cover', width: '100%', height: '100%' }}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                       
                       {/* Custom Frame Overlay - shows in live preview */}
