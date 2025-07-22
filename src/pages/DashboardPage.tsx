@@ -194,10 +194,10 @@ const DashboardPage = () => {
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => navigateToPhotobooth(collage.id)}
-                          className="inline-flex items-center justify-center text-xs text-purple-300 hover:text-purple-200 bg-purple-600/20 hover:bg-purple-600/30 px-3 py-2 rounded-lg border border-purple-500/30 transition-colors whitespace-nowrap"
+                          className="inline-flex items-center justify-center text-xs text-purple-300 hover:text-purple-200 bg-purple-600/20 hover:bg-purple-600/30 px-2 py-2 rounded-lg border border-purple-500/30 transition-colors whitespace-nowrap"
                         >
                           <Camera className="h-3 w-3 mr-1" />
-                          Settings
+                          Camera
                         </button>
 
                         <button
