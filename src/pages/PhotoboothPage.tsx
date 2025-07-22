@@ -1820,9 +1820,7 @@ const PhotoboothPage: React.FC = () => {
                             <ZoomIn className="w-7 h-7 text-white" />
                           </button>
                           
-                          {/* Size Slider Popup - Modified for mobile */}
-                          <div 
-                            className="size-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none flex items-center space-x-2"style={{ zIndex: 10001 }}
+                          {/* Size Slider Popupstyle={{ zIndex: 10001 }}
                           >
                             <input
                               type="range"
@@ -2032,15 +2030,15 @@ const PhotoboothPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="flex-1">
-                <div ref={photoContainerRef} className="relative w-full max-w-[1080px] aspect-[9/16] mx-auto bg-black rounded-lg overflow-hidden">
+            <div className="flex flex-col lg:flex-row gap-6 justify-center items-center">
+              <div className="flex-1 flex justify-center items-center">
+                <div ref={photoContainerRef} className="relative w-full max-w-[540px] max-h-[calc(100vh-200px)] aspect-[9/16] mx-auto bg-black rounded-lg overflow-hidden">
                   {photo ? (
                     <>
                       <img 
                         src={photo} 
                         alt="Captured photo" 
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                       {renderTextElements()}
                     </>
@@ -2050,7 +2048,7 @@ const PhotoboothPage: React.FC = () => {
                         ref={videoRef}
                         autoPlay
                         playsInline
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                         muted
                       />
                       {customFrame && frameLoaded && (
@@ -2070,57 +2068,6 @@ const PhotoboothPage: React.FC = () => {
                         </div>
                       )}
                     </>
-                  )}
-                </div>
-
-                <div className="mt-4 flex justify-center space-x-4">
-                  {photo ? (
-                    <>
-                      <button
-                        onClick={retakePhoto}
-                        className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center space-x-2"
-                      >
-                        <RefreshCw className="w-5 h-5" />
-                        <span>Retake</span>
-                      </button>
-                      <button
-                        onClick={downloadPhoto}
-                        disabled={isDownloading}
-                        className={`px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center space-x-2 ${
-                          isDownloading ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                      >
-                        <Download className="w-5 h-5" />
-                        <span>Download</span>
-                      </button>
-                      <button
-                        onClick={uploadToCollage}
-                        disabled={uploading}
-                        className={`px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 ${
-                          uploading ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                      >
-                        {uploading ? (
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        ) : (
-                          <>
-                            <Send className="w-5 h-5" />
-                            <span>Upload</span>
-                          </>
-                        )}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={capturePhoto}
-                      disabled={cameraState !== 'active'}
-                      className={`px-8 py-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors flex items-center space-x-2 ${
-                        cameraState !== 'active' ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                    >
-                      <Camera className="w-6 h-6" />
-                      <span>Take Photo</span>
-                    </button>
                   )}
                 </div>
               </div>
@@ -2206,6 +2153,57 @@ const PhotoboothPage: React.FC = () => {
                     )}
                   </div>
                 </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex justify-center space-x-4">
+              {photo ? (
+                <>
+                  <button
+                    onClick={retakePhoto}
+                    className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    <span>Retake</span>
+                  </button>
+                  <button
+                    onClick={downloadPhoto}
+                    disabled={isDownloading}
+                    className={`px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center space-x-2 ${
+                      isDownloading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <Download className="w-5 h-5" />
+                    <span>Download</span>
+                  </button>
+                  <button
+                    onClick={uploadToCollage}
+                    disabled={uploading}
+                    className={`px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 ${
+                      uploading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {uploading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        <span>Upload</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={capturePhoto}
+                  disabled={cameraState !== 'active'}
+                  className={`px-8 py-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors flex items-center space-x-2 ${
+                    cameraState !== 'active' ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <Camera className="w-6 h-6" />
+                  <span>Take Photo</span>
+                </button>
               )}
             </div>
           </div>
