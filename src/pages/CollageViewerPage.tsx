@@ -217,12 +217,6 @@ const CollageViewerPage: React.FC = () => {
               <div className="flex items-center justify-between h-16">
                 {/* Left side - Navigation & Title */}
                 <div className="flex items-center space-x-4">
-                  <Link 
-                    to="/join" 
-                    className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-full backdrop-blur-md bg-white/10 border border-white/20"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </Link>
                   <div>
                     <h1 className="text-lg font-semibold text-white/90 backdrop-blur-md">
                       {currentCollage.name}
