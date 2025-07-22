@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { useCollageStore, type Collage } from '../../store/collageStore';
+import { useCollageStore, type Collage } from '../store/collageStore';
 import { Image, ExternalLink, Edit, Trash2, Pencil, Camera } from 'lucide-react';
-import CollageNameModal from './CollageNameModal';
+import CollageNameModal from '../components/collage/CollageNameModal';
 
 const CollageList: React.FC = () => {
   const { collages, loading, error, fetchCollages, deleteCollage } = useCollageStore();
