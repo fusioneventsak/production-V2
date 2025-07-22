@@ -2060,12 +2060,6 @@ const PhotoboothPage: React.FC = () => {
                     onError={() => console.error('❌ PHOTOBOOTH: Frame overlay failed to load in preview')}
                   />
                 )}
-
-                {/* Default Text Overlay */}
-                {frameSettings.enableTextOverlay && frameSettings.defaultText && (
-                  <div 
-                    className={`absolute left-4 right-4 text-center z-20 ${
-                      frameSettings.textPosition === 'top' ? 'top-4' :
                       frameSettings.textPosition === 'center' ? 'top-1/2 transform -translate-y-1/2' :
                       'bottom-4'
                     }`}
