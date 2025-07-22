@@ -896,36 +896,6 @@ const PhotoboothPage: React.FC = () => {
           // Return the final high-resolution image with text (perfect 9:16)
           const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
           resolve(finalImageData);
-        };lineWidth = 8 * textScaleFactor;
-                context.strokeStyle = '#000000';
-                context.strokeText(line, 0, lineY);
-              } else {
-                // Standard shadow for non-outline text
-                context.shadowColor = 'rgba(0,0,0,0.8)';
-                context.shadowBlur = 8 * textScaleFactor;
-                context.shadowOffsetX = 3 * textScaleFactor;
-                context.shadowOffsetY = 3 * textScaleFactor;
-              }
-
-              // Draw main text line by line
-              context.fillStyle = element.color;
-              context.fillText(line, 0, lineY);
-
-              // Reset shadow properties after each line
-              context.shadowColor = 'transparent';
-              context.shadowBlur = 0;
-              context.shadowOffsetX = 0;
-              context.shadowOffsetY = 0;
-            });
-
-            context.restore();
-          });
-
-          // Return the final high-resolution image with text (perfect 9:16)
-          const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-          console.log('✅ PHOTOBOOTH: High-res image complete with frame and text (perfect 9:16)');
-          console.log('📊 PHOTOBOOTH: Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
-          resolve(finalImageData);
         };
 
         // Set high-resolution canvas dimensions (perfect 9:16)
