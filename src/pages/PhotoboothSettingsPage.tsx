@@ -114,20 +114,55 @@ const PhotoboothSettingsPage = () => {
 
       console.log('💾 Saving to database:', updatedSettings);
 
-      const { error } = await supabase
+      // First, try to get existing settings
+      const { data: existingSettings, error: fetchError } = await supabase
         .from('collage_settings')
-        .upsert({
-          collage_id: currentCollage.id,
-          settings: updatedSettings,
-          updated_at: new Date().toISOString()
-        });
+        .select('*')
+        .eq('collage_id', currentCollage.id)
+        .single();
 
-      if (error) {
-        console.error('❌ Database save error:', error);
-        throw error;
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        // Error other than "not found"
+        console.error('❌ Error fetching existing settings:', fetchError);
+        throw fetchError;
+      }
+
+      let result;
+      if (existingSettings) {
+        // Update existing record
+        console.log('📝 Updating existing settings record');
+        result = await supabase
+          .from('collage_settings')
+          .update({
+            settings: updatedSettings,
+            updated_at: new Date().toISOString()
+          })
+          .eq('collage_id', currentCollage.id);
+      } else {
+        // Insert new record
+        console.log('➕ Creating new settings record');
+        result = await supabase
+          .from('collage_settings')
+          .insert({
+            collage_id: currentCollage.id,
+            settings: updatedSettings,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+      }
+
+      if (result.error) {
+        console.error('❌ Database save error:', result.error);
+        throw result.error;
       }
 
       console.log('✅ Settings saved to database successfully');
+      
+      // Update the current collage in memory with the new settings
+      if (currentCollage) {
+        currentCollage.settings = updatedSettings;
+      }
+      
       return true;
     } catch (error) {
       console.error('❌ Failed to save to database:', error);
