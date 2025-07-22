@@ -721,7 +721,7 @@ const PhotoboothSettingsPage = () => {
 
                     {/* Mock Preview */}
                     <div className={`mx-auto bg-gray-800 rounded-lg overflow-hidden relative ${
-                      previewMode === 'mobile' ? 'w-48 h-96' : 'w-54 h-96'
+                      previewMode === 'mobile' ? 'w-full max-w-[12rem] aspect-[9/16]' : 'w-full max-w-sm aspect-[9/16]'
                     }`}>
                       <div className="relative w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
                         {/* Mock camera view */}
