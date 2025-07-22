@@ -80,6 +80,7 @@ const PhotoboothPage: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isIPad, setIsIPad] = useState(false);
   const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
@@ -117,8 +118,13 @@ const PhotoboothPage: React.FC = () => {
   // Check if device is mobile/tablet
   useEffect(() => {
     const checkMobile = () => {
+      const isIPadDevice = /iPad/.test(navigator.userAgent) || 
+                          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isMobileDevice = window.innerWidth < 1024; // lg breakpoint
-      setIsMobile(isMobileDevice);
+      
+      setIsIPad(isIPadDevice);
+      // iPad gets special treatment - use mobile layout but with optimizations
+      setIsMobile(isMobileDevice || isIPadDevice);
     };
 
     checkMobile();
@@ -1606,23 +1612,23 @@ const PhotoboothPage: React.FC = () => {
         `}</style>
         {/* Mobile/Tablet Full-Screen Layout */}
         {isMobile ? (
-          <div className="relative w-full h-screen overflow-hidden">
-            {/* Header - Fixed at top */}
-            <div className="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/80 to-transparent p-4">
+          <div className={`relative w-full h-screen overflow-hidden ${isIPad ? 'bg-black' : ''}`}>
+            {/* Header - Fixed at top with iPad optimizations */}
+            <div className={`absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/80 to-transparent ${isIPad ? 'p-6' : 'p-4'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => navigate(`/collage/${currentCollage?.code || ''}`)}
                     className="text-gray-200 hover:text-white transition-colors"
                   >
-                    <ArrowLeft className="w-6 h-6" />
+                    <ArrowLeft className={`${isIPad ? 'w-8 h-8' : 'w-6 h-6'}`} />
                   </button>
                   <div>
-                    <h1 className="text-lg font-bold text-white flex items-center space-x-2">
+                    <h1 className={`${isIPad ? 'text-2xl' : 'text-lg'} font-bold text-white flex items-center space-x-2`}>
                       <div className="relative">
                         <div className="absolute inset-0 bg-purple-500 rounded-full blur-sm opacity-40 animate-pulse"></div>
                         <div 
-                          className="relative w-4 h-4 rounded-full"
+                          className={`relative ${isIPad ? 'w-6 h-6' : 'w-4 h-4'} rounded-full`}
                           style={{
                             background: 'linear-gradient(45deg, #8b5cf6, #ec4899, #3b82f6, #10b981)',
                             backgroundSize: '200% 200%',
@@ -1632,17 +1638,17 @@ const PhotoboothPage: React.FC = () => {
                       </div>
                       <span>See PhotoSphere</span>
                     </h1>
-                    <p className="text-gray-300 text-sm">{currentCollage?.name}</p>
+                    <p className={`text-gray-300 ${isIPad ? 'text-base' : 'text-sm'}`}>{currentCollage?.name}</p>
                   </div>
                 </div>
                 
                 {!photo && devices.length > 1 && (
                   <button
                     onClick={switchCamera}
-                    className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors backdrop-blur-sm"
+                    className={`${isIPad ? 'p-4' : 'p-3'} bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors backdrop-blur-sm`}
                     title="Switch Camera"
                   >
-                    <RotateCw className="w-5 h-5" />
+                    <RotateCw className={`${isIPad ? 'w-6 h-6' : 'w-5 h-5'}`} />
                   </button>
                 )}
               </div>
@@ -1650,19 +1656,31 @@ const PhotoboothPage: React.FC = () => {
 
             {/* Error Message */}
             {error && (
-              <div className={`absolute top-20 left-4 right-4 z-40 p-3 rounded-lg ${
+              <div className={`absolute ${isIPad ? 'top-24' : 'top-20'} left-4 right-4 z-40 p-3 rounded-lg ${
                 error.includes('successfully') 
                   ? 'bg-green-900/80 border border-green-500/50 text-green-200'
                   : 'bg-red-900/80 border border-red-500/50 text-red-200'
               } backdrop-blur-sm`}>
-                <p className="text-sm">{error}</p>
+                <p className={`${isIPad ? 'text-base' : 'text-sm'}`}>{error}</p>
               </div>
             )}
 
-            {/* Full-Screen Camera/Photo Container with perfect 9:16 aspect ratio */}
+            {/* Full-Screen Camera/Photo Container with iPad optimizations */}
             <div className="w-full h-full flex items-center justify-center bg-black">
               {photo ? (
-                <div ref={photoContainerRef} className="relative w-full max-w-full" style={{ aspectRatio: '9/16', maxHeight: '100vh' }}>
+                <div 
+                  ref={photoContainerRef} 
+                  className="relative w-full max-w-full" 
+                  style={{ 
+                    aspectRatio: '9/16', 
+                    maxHeight: '100vh',
+                    // iPad gets larger preview while maintaining aspect ratio
+                    ...(isIPad && {
+                      maxWidth: 'calc(100vh * 9/16)',
+                      height: '100vh'
+                    })
+                  }}
+                >
                   <img 
                     src={photo} 
                     alt="Captured photo" 
@@ -1681,16 +1699,16 @@ const PhotoboothPage: React.FC = () => {
                     />
                   )}
                   
-                  {/* Always show text controls when we have a photo - Mobile */}
-                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 9998 }}>
-                    {/* Add Text Button - Always visible */}
+                  {/* Always show text controls when we have a photo - Mobile/iPad */}
+                  <div className={`absolute ${isIPad ? 'left-6' : 'left-4'} top-1/2 transform -translate-y-1/2 flex flex-col space-y-4`} style={{ zIndex: 9998 }}>
+                    {/* Add Text Button - Always visible with iPad sizing */}
                     <button
                       onClick={addTextElement}
-                      className="w-14 h-14 bg-purple-600/80 backdrop-blur-sm hover:bg-purple-700/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
+                      className={`${isIPad ? 'w-16 h-16' : 'w-14 h-14'} bg-purple-600/80 backdrop-blur-sm hover:bg-purple-700/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95`}
                       title="Add Text"
                       style={{ zIndex: 9999 }}
                     >
-                      <Type className="w-7 h-7" />
+                      <Type className={`${isIPad ? 'w-8 h-8' : 'w-7 h-7'}`} />
                     </button>
 
                     {/* Text editing controls - Show when text is selected */}
@@ -1719,21 +1737,21 @@ const PhotoboothPage: React.FC = () => {
                                 }, 3000);
                               }
                             }}
-                            className="w-14 h-14 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                            className={`${isIPad ? 'w-16 h-16' : 'w-14 h-14'} rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform active:scale-95`}
                             style={{ 
                               backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff',
                               zIndex: 9999
                             }}
                           >
-                            <Palette className="w-7 h-7 text-black" />
+                            <Palette className={`${isIPad ? 'w-8 h-8' : 'w-7 h-7'} text-black`} />
                           </button>
                           
-                          {/* Color Palette Popup - Modified for mobile */}
+                          {/* Color Palette Popup - Modified for mobile/iPad */}
                           <div 
-                            className="color-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
+                            className={`color-popup absolute ${isIPad ? 'left-20' : 'left-16'} top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none`}
                             style={{ zIndex: 10001 }}
                           >
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className={`grid grid-cols-2 ${isIPad ? 'gap-4' : 'gap-3'}`}>
                               {colorPresets.map((color) => (
                                 <button
                                   key={color}
@@ -1747,7 +1765,7 @@ const PhotoboothPage: React.FC = () => {
                                       popup.style.pointerEvents = 'none';
                                     }
                                   }}
-                                  className="w-10 h-10 rounded-full border-2 border-white/40 hover:border-white transition-colors active:scale-95"
+                                  className={`${isIPad ? 'w-12 h-12' : 'w-10 h-10'} rounded-full border-2 border-white/40 hover:border-white transition-colors active:scale-95`}
                                   style={{ backgroundColor: color, zIndex: 10002 }}
                                 />
                               ))}
@@ -1755,7 +1773,7 @@ const PhotoboothPage: React.FC = () => {
                           </div>
                         </div>
                         
-                        {/* Text Size Icon with Slider - Modified for mobile */}
+                        {/* Text Size Icon with Slider - Modified for mobile/iPad */}
                         <div className="relative">
                           <button
                             onClick={() => {
@@ -1781,18 +1799,18 @@ const PhotoboothPage: React.FC = () => {
                                 }, 4000);
                               }
                             }}
-                            className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                            className={`${isIPad ? 'w-16 h-16' : 'w-14 h-14'} bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95`}
                             style={{ zIndex: 9999 }}
                           >
-                            <ZoomIn className="w-7 h-7 text-white" />
+                            <ZoomIn className={`${isIPad ? 'w-8 h-8' : 'w-7 h-7'} text-white`} />
                           </button>
                           
-                          {/* Size Slider Popup - Modified for mobile */}
+                          {/* Size Slider Popup - Modified for mobile/iPad */}
                           <div 
-                            className="size-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-4 opacity-0 transition-opacity pointer-events-none"
+                            className={`size-popup absolute ${isIPad ? 'left-20' : 'left-16'} top-0 bg-black/95 backdrop-blur-md rounded-lg p-4 opacity-0 transition-opacity pointer-events-none`}
                             style={{ zIndex: 10001 }}
                           >
-                            <div className="flex items-center space-x-3 w-40">
+                            <div className={`flex items-center space-x-3 ${isIPad ? 'w-48' : 'w-40'}`}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1808,7 +1826,7 @@ const PhotoboothPage: React.FC = () => {
                                     updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
                                   }
                                 }}
-                                className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
+                                className={`${isIPad ? 'w-10 h-10' : 'w-8 h-8'} bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95`}
                                 style={{ zIndex: 10002 }}
                               >
                                 -
@@ -1830,7 +1848,7 @@ const PhotoboothPage: React.FC = () => {
                                     updateTextElement(selectedTextId, { size: parseInt((e.target as HTMLInputElement).value) });
                                   }
                                 }}
-                                className="flex-1 h-3 bg-white/30 rounded-full appearance-none cursor-pointer"
+                                className={`flex-1 ${isIPad ? 'h-4' : 'h-3'} bg-white/30 rounded-full appearance-none cursor-pointer`}
                                 style={{ zIndex: 10002 }}
                               />
                               <button
@@ -1848,19 +1866,19 @@ const PhotoboothPage: React.FC = () => {
                                     updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
                                   }
                                 }}
-                                className="w-8 h-8 bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95"
+                                className={`${isIPad ? 'w-10 h-10' : 'w-8 h-8'} bg-white/30 hover:bg-white/50 text-white rounded-full flex items-center justify-center text-lg font-bold active:scale-95`}
                                 style={{ zIndex: 10002 }}
                               >
                                 +
                               </button>
                             </div>
-                            <div className="text-white text-sm text-center mt-2 font-medium">
+                            <div className={`text-white ${isIPad ? 'text-base' : 'text-sm'} text-center mt-2 font-medium`}>
                               {textElements.find(el => el.id === selectedTextId)?.size || 32}px
                             </div>
                           </div>
                         </div>
                         
-                        {/* Background/Style Icon - Modified for mobile */}
+                        {/* Background/Style Icon - Modified for mobile/iPad */}
                         <div className="relative">
                           <button
                             onClick={() => {
@@ -1883,15 +1901,15 @@ const PhotoboothPage: React.FC = () => {
                                 }, 3000);
                               }
                             }}
-                            className="w-14 h-14 bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                            className={`${isIPad ? 'w-16 h-16' : 'w-14 h-14'} bg-black/70 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform active:scale-95`}
                             style={{ zIndex: 9999 }}
                           >
-                            <Settings className="w-7 h-7 text-white" />
+                            <Settings className={`${isIPad ? 'w-8 h-8' : 'w-7 h-7'} text-white`} />
                           </button>
                           
-                          {/* Background Style Popup - Modified for mobile */}
+                          {/* Background Style Popup - Modified for mobile/iPad */}
                           <div 
-                            className="style-popup absolute left-16 top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none"
+                            className={`style-popup absolute ${isIPad ? 'left-20' : 'left-16'} top-0 bg-black/95 backdrop-blur-md rounded-lg p-3 opacity-0 transition-opacity pointer-events-none`}
                             style={{ zIndex: 10001 }}
                           >
                             <div className="space-y-2">
@@ -1911,7 +1929,7 @@ const PhotoboothPage: React.FC = () => {
                                         popup.style.pointerEvents = 'none';
                                       }
                                     }}
-                                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-all whitespace-nowrap active:scale-95 ${
+                                    className={`${isIPad ? 'px-5 py-4 text-base' : 'px-4 py-3 text-sm'} rounded-lg font-medium transition-all whitespace-nowrap active:scale-95 ${
                                       isSelected 
                                         ? 'bg-white text-black' 
                                         : 'bg-white/30 text-white hover:bg-white/50'
@@ -1937,17 +1955,17 @@ const PhotoboothPage: React.FC = () => {
                           setIsEditingText(false);
                           setShowTextStylePanel(false);
                         }}
-                        className="w-14 h-14 bg-red-600/70 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95"
+                        className={`${isIPad ? 'w-16 h-16' : 'w-14 h-14'} bg-red-600/70 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all shadow-lg active:scale-95`}
                         title="Delete All Text"
                         style={{ zIndex: 9999 }}
                       >
-                        <X className="w-7 h-7" />
+                        <X className={`${isIPad ? 'w-8 h-8' : 'w-7 h-7'}`} />
                       </button>
                     )}
                   </div>
                   
-                  {/* Instagram Story-like UI Controls - Top Right - Fixed z-index for mobile */}
-                  <div className="absolute top-4 right-4 flex flex-col space-y-3" style={{ zIndex: 9999 }}>
+                  {/* Instagram Story-like UI Controls - Top Right - Fixed z-index for mobile/iPad */}
+                  <div className={`absolute top-4 ${isIPad ? 'right-6' : 'right-4'} flex flex-col space-y-3`} style={{ zIndex: 9999 }}>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -1964,7 +1982,7 @@ const PhotoboothPage: React.FC = () => {
                         downloadPhoto();
                       }}
                       disabled={isDownloading}
-                      className="w-14 h-14 bg-green-600/90 backdrop-blur-sm hover:bg-green-700/90 disabled:bg-gray-600/70 text-white rounded-full flex items-center justify-center border-2 border-white/30 transition-all shadow-xl active:scale-95"
+                      className={`${isIPad ? 'w-16 h-16' : 'w-14 h-14'} bg-green-600/90 backdrop-blur-sm hover:bg-green-700/90 disabled:bg-gray-600/70 text-white rounded-full flex items-center justify-center border-2 border-white/30 transition-all shadow-xl active:scale-95`}
                       title="Download Photo"
                       style={{ 
                         touchAction: 'manipulation',
@@ -1974,33 +1992,33 @@ const PhotoboothPage: React.FC = () => {
                       }}
                     >
                       {isDownloading ? (
-                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <div className={`${isIPad ? 'w-8 h-8' : 'w-6 h-6'} border-2 border-white border-t-transparent rounded-full animate-spin`} />
                       ) : (
-                        <Download className="w-7 h-7" />
+                        <Download className={`${isIPad ? 'w-8 h-8' : 'w-7 h-7'}`} />
                       )}
                     </button>
                   </div>
                   
-                  {/* Bottom Action Bar */}
-                  <div className="absolute bottom-8 left-4 right-4 flex justify-center space-x-4 z-30">
+                  {/* Bottom Action Bar with iPad optimizations */}
+                  <div className={`absolute ${isIPad ? 'bottom-12' : 'bottom-8'} left-4 right-4 flex justify-center space-x-4 z-30`}>
                     <button
                       onClick={retakePhoto}
-                      className="px-6 py-3 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20 flex items-center space-x-2"
+                      className={`${isIPad ? 'px-8 py-4 text-lg' : 'px-6 py-3'} bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20 flex items-center space-x-2`}
                     >
-                      <RefreshCw className="w-5 h-5" />
+                      <RefreshCw className={`${isIPad ? 'w-6 h-6' : 'w-5 h-5'}`} />
                       <span>Retake</span>
                     </button>
                     
                     <button
                       onClick={uploadToCollage}
                       disabled={uploading}
-                      className="px-6 py-3 bg-green-600/80 hover:bg-green-600 disabled:bg-green-800/60 text-white rounded-full transition-colors border border-white/20 flex items-center space-x-2 backdrop-blur-sm"
+                      className={`${isIPad ? 'px-8 py-4 text-lg' : 'px-6 py-3'} bg-green-600/80 hover:bg-green-600 disabled:bg-green-800/60 text-white rounded-full transition-colors border border-white/20 flex items-center space-x-2 backdrop-blur-sm`}
                     >
                       {uploading ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <div className={`${isIPad ? 'w-6 h-6' : 'w-5 h-5'} border-2 border-white border-t-transparent rounded-full animate-spin`} />
                       ) : (
                         <>
-                          <Send className="w-5 h-5" />
+                          <Send className={`${isIPad ? 'w-6 h-6' : 'w-5 h-5'}`} />
                           <span>Upload</span>
                         </>
                       )}
@@ -2008,7 +2026,18 @@ const PhotoboothPage: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="relative w-full max-w-full bg-gray-900" style={{ aspectRatio: '9/16', maxHeight: '100vh' }}>
+                <div 
+                  className="relative w-full max-w-full bg-gray-900" 
+                  style={{ 
+                    aspectRatio: '9/16', 
+                    maxHeight: '100vh',
+                    // iPad gets larger preview while maintaining aspect ratio
+                    ...(isIPad && {
+                      maxWidth: 'calc(100vh * 9/16)',
+                      height: '100vh'
+                    })
+                  }}
+                >
                   <video
                     ref={videoRef}
                     autoPlay
@@ -2057,17 +2086,17 @@ const PhotoboothPage: React.FC = () => {
                       <div className="text-center text-white">
                         {cameraState === 'starting' && (
                           <>
-                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
-                            <p className="text-lg">Starting camera...</p>
+                            <div className={`inline-block animate-spin rounded-full ${isIPad ? 'h-10 w-10' : 'h-8 w-8'} border-b-2 border-white mb-4`}></div>
+                            <p className={`${isIPad ? 'text-xl' : 'text-lg'}`}>Starting camera...</p>
                           </>
                         )}
                         {cameraState === 'error' && (
                           <>
-                            <Camera className="w-12 h-12 mx-auto mb-4 text-red-400" />
-                            <p className="text-red-200 text-lg mb-4">Camera unavailable</p>
+                            <Camera className={`${isIPad ? 'w-16 h-16' : 'w-12 h-12'} mx-auto mb-4 text-red-400`} />
+                            <p className={`text-red-200 ${isIPad ? 'text-xl' : 'text-lg'} mb-4`}>Camera unavailable</p>
                             <button
                               onClick={() => startCamera(selectedDevice)}
-                              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full text-lg transition-colors"
+                              className={`${isIPad ? 'px-8 py-4 text-lg' : 'px-6 py-3 text-lg'} bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors`}
                             >
                               Retry
                             </button>
@@ -2075,8 +2104,8 @@ const PhotoboothPage: React.FC = () => {
                         )}
                         {cameraState === 'idle' && (
                           <>
-                            <Camera className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                            <p className="text-lg mb-4">Camera not started</p>
+                            <Camera className={`${isIPad ? 'w-16 h-16' : 'w-12 h-12'} mx-auto mb-4 text-gray-400`} />
+                            <p className={`${isIPad ? 'text-xl' : 'text-lg'} mb-4`}>Camera not started</p>
                             <button
                               onClick={() => {
                                 if (selectedDevice) {
@@ -2085,7 +2114,7 @@ const PhotoboothPage: React.FC = () => {
                                   startCamera();
                                 }
                               }}
-                              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full text-lg transition-colors"
+                              className={`${isIPad ? 'px-8 py-4 text-lg' : 'px-6 py-3 text-lg'} bg-purple-600 hover:bg-purple-700 text-white rounded-full transition-colors`}
                             >
                               Start Camera
                             </button>
@@ -2105,12 +2134,12 @@ const PhotoboothPage: React.FC = () => {
                     />
                   )}
                   
-                  {/* Countdown Overlay */}
+                  {/* Countdown Overlay with iPad optimizations */}
                   {countdown !== null && (
                     <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
                       <div className="text-center">
                         <div 
-                          className="text-8xl font-bold text-white animate-pulse"
+                          className={`${isIPad ? 'text-9xl' : 'text-8xl'} font-bold text-white animate-pulse`}
                           style={{
                             textShadow: '4px 4px 8px rgba(0,0,0,0.8)',
                             animation: 'countdownPulse 1s ease-in-out infinite'
@@ -2118,20 +2147,20 @@ const PhotoboothPage: React.FC = () => {
                         >
                           {countdown}
                         </div>
-                        <p className="text-white text-xl mt-4 font-medium">Get ready!</p>
+                        <p className={`text-white ${isIPad ? 'text-2xl mt-6' : 'text-xl mt-4'} font-medium`}>Get ready!</p>
                       </div>
                     </div>
                   )}
                   
-                  {/* Capture Button - Full Screen */}
+                  {/* Capture Button - Full Screen with iPad optimizations */}
                   {cameraState === 'active' && !isCapturing && (
-                    <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2">
+                    <div className={`absolute ${isIPad ? 'bottom-16' : 'bottom-12'} left-1/2 transform -translate-x-1/2`}>
                       <button 
                         onClick={startCountdownAndCapture}
-                        className="w-20 h-20 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-xl focus:outline-none"
+                        className={`${isIPad ? 'w-24 h-24' : 'w-20 h-20'} bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-xl focus:outline-none`}
                         style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                       >
-                        <div className="w-16 h-16 bg-gray-300 rounded-full"></div>
+                        <div className={`${isIPad ? 'w-20 h-20' : 'w-16 h-16'} bg-gray-300 rounded-full`}></div>
                       </button>
                     </div>
                   )}
