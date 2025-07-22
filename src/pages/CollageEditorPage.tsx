@@ -348,6 +348,17 @@ const CollageEditorPage: React.FC = () => {
                   <span>Record</span>
                 </button>
                 <Link
+                  to={`/dashboard/collage/${currentCollage.id}/photobooth-settings`}
+                  className="relative px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm transition-colors flex items-center space-x-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Photobooth Settings</span>
+                  {/* NEW badge */}
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                    NEW
+                  </div>
+                </Link>
+                <Link
                   to={`/collage/${currentCollage.id}/moderation`}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm transition-colors flex items-center space-x-2"
                 >
