@@ -3,11 +3,22 @@ import { useCollageStore, type Collage } from '../store/collageStore';
 import { Image, ExternalLink, Edit, Trash2, Pencil, Camera } from 'lucide-react';
 import CollageNameModal from '../components/collage/CollageNameModal';
 
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useCollageStore, type Collage } from '../store/collageStore';
+import { Image, ExternalLink, Edit, Trash2, Pencil, Camera, Plus } from 'lucide-react';
+import CollageNameModal from '../components/collage/CollageNameModal';
+import Layout from '../components/layout/Layout';
+
 const DashboardPage: React.FC = () => {
-  const { collages, loading, error, fetchCollages, deleteCollage } = useCollageStore();
+  const navigate = useNavigate();
+  const { collages, loading, error, fetchCollages, deleteCollage, createCollage } = useCollageStore();
   const [selectedCollage, setSelectedCollage] = React.useState<Collage | null>(null);
   const [isRenameModalOpen, setIsRenameModalOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newCollageName, setNewCollageName] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   useEffect(() => {
     fetchCollages();
@@ -38,150 +49,257 @@ const DashboardPage: React.FC = () => {
     setIsRenameModalOpen(true);
   };
 
-  // Navigation helper functions (you'll need to implement these with your router)
+  const handleCreateCollage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCollageName.trim()) return;
+
+    setIsCreating(true);
+    try {
+      await createCollage(newCollageName);
+      setNewCollageName('');
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Failed to create collage:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Navigation helper functions with proper React Router navigation
   const navigateToEdit = (id: string) => {
-    // Replace with your navigation: navigate(`/dashboard/collage/${id}`)
-    console.log('Navigate to edit:', id);
+    navigate(`/dashboard/collage/${id}`);
   };
 
   const navigateToView = (code: string) => {
-    // Replace with your navigation: window.open(`/collage/${code}`, '_blank')
-    console.log('Navigate to view:', code);
+    window.open(`/collage/${code}`, '_blank');
   };
 
   const navigateToPhotobooth = (id: string) => {
-    // Replace with your navigation: navigate(`/dashboard/collage/${id}/photobooth-settings`)
-    console.log('Navigate to photobooth settings:', id);
+    // For now, navigate to edit page - you can add photobooth route later
+    navigate(`/dashboard/collage/${id}`);
   };
 
   if (loading && collages.length === 0) {
     return (
-      <div className="p-8 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white/20 mx-auto"></div>
-        <p className="mt-4 text-white/60">Loading your collages...</p>
-      </div>
+      <Layout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white/20 mx-auto"></div>
+            <p className="mt-4 text-white/60">Loading your collages...</p>
+          </div>
+        </div>
+      </Layout>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-red-400">Error loading collages. Please try again later.</p>
-      </div>
-    );
-  }
-
-  if (collages.length === 0) {
-    return (
-      <div className="p-8 text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/5 mb-4">
-          <Image className="w-6 h-6 text-white/40" />
+      <Layout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="p-8 text-center">
+            <p className="text-red-400">Error loading collages. Please try again later.</p>
+          </div>
         </div>
-        <h3 className="text-lg font-medium text-white mb-2">No Collages Yet</h3>
-        <p className="text-white/60 mb-4">Create your first collage to get started!</p>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Improved grid layout for better organization of many collages */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {collages.map((collage) => (
-          <div 
-            key={collage.id} 
-            className="relative group rounded-lg overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all duration-200 hover:border-white/20"
-          >
-            {/* Improved card content with better spacing */}
-            <div className="p-5">
-              {/* Header section - name and code with better layout */}
-              <div className="mb-4">
-                <h3 className="text-lg font-medium text-white mb-2 truncate group-hover:text-purple-300 transition-colors">
-                  {collage.name}
-                </h3>
-                <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
-                  <div className="inline-flex items-center px-2 py-1 rounded bg-white/5 text-white/60 text-xs">
-                    <Image className="w-3 h-3 mr-1" />
-                    Code: {collage.code}
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-3xl font-bold text-white mb-2">
+                My PhotoSpheres
+              </h1>
+              <p className="text-sm text-gray-400">
+                Create and manage your 3D photo collages
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Create PhotoSphere
+            </button>
+          </div>
+        </div>
+
+        {collages.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 mb-6">
+              <Image className="w-8 h-8 text-white/40" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">No PhotoSpheres Yet</h3>
+            <p className="text-gray-400 mb-6 max-w-md mx-auto">
+              Create your first 3D photo collage to get started! Your guests will be able to upload photos in real-time.
+            </p>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Create Your First PhotoSphere
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Improved grid layout for better organization of many collages */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {collages.map((collage) => (
+                <div 
+                  key={collage.id} 
+                  className="relative group rounded-xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all duration-200 hover:border-white/20 hover:shadow-lg hover:shadow-purple-500/10"
+                >
+                  {/* Improved card content with better spacing */}
+                  <div className="p-5">
+                    {/* Header section - name and code with better layout */}
+                    <div className="mb-4">
+                      <h3 className="text-lg font-medium text-white mb-2 truncate group-hover:text-purple-300 transition-colors">
+                        {collage.name}
+                      </h3>
+                      <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
+                        <div className="inline-flex items-center px-2 py-1 rounded bg-white/5 text-white/60 text-xs border border-white/10">
+                          <Image className="w-3 h-3 mr-1" />
+                          Code: {collage.code}
+                        </div>
+                        {collage.photoCount !== undefined && (
+                          <span className="text-xs text-gray-400">{collage.photoCount} photos</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Created: {new Date(collage.created_at || collage.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    
+                    {/* Reorganized action buttons with better hierarchy */}
+                    <div className="space-y-3">
+                      {/* Primary actions - larger and more prominent */}
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => navigateToEdit(collage.id)}
+                          className="flex-1 inline-flex items-center justify-center text-sm text-white bg-purple-600 hover:bg-purple-700 px-3 py-2.5 rounded-lg border border-purple-500/50 transition-colors font-medium"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </button>
+                        
+                        <button
+                          onClick={() => navigateToView(collage.code)}
+                          className="flex-1 inline-flex items-center justify-center text-sm text-white bg-blue-600 hover:bg-blue-700 px-3 py-2.5 rounded-lg border border-blue-500/50 transition-colors font-medium"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          View
+                        </button>
+                      </div>
+
+                      {/* Secondary actions - smaller, organized in grid */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => navigateToPhotobooth(collage.id)}
+                          className="inline-flex items-center justify-center text-xs text-purple-300 hover:text-purple-200 bg-purple-600/20 hover:bg-purple-600/30 px-2 py-2 rounded-lg border border-purple-500/30 transition-colors"
+                        >
+                          <Camera className="h-3 w-3 mr-1" />
+                          Photobooth
+                        </button>
+
+                        <button
+                          onClick={(e) => handleRename(collage, e)}
+                          className="inline-flex items-center justify-center text-xs text-blue-300 hover:text-blue-200 bg-blue-600/20 hover:bg-blue-600/30 px-2 py-2 rounded-lg border border-blue-500/30 transition-colors"
+                        >
+                          <Pencil className="h-3 w-3 mr-1" />
+                          Rename
+                        </button>
+                        
+                        <button
+                          onClick={(e) => handleDelete(collage.id, e)}
+                          disabled={isDeleting === collage.id}
+                          className="inline-flex items-center justify-center text-xs text-red-300 hover:text-red-200 bg-red-600/20 hover:bg-red-600/30 px-2 py-2 rounded-lg border border-red-500/30 transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting === collage.id ? (
+                            <span className="h-3 w-3 mr-1 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3 mr-1" />
+                          )}
+                          Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  {collage.photoCount !== undefined && (
-                    <span className="text-xs">{collage.photoCount} photos</span>
-                  )}
                 </div>
-                <p className="text-xs text-gray-400">
-                  Created: {new Date(collage.created_at || collage.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-              
-              {/* Reorganized action buttons with better hierarchy */}
-              <div className="space-y-3">
-                {/* Primary actions - larger and more prominent */}
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => navigateToEdit(collage.id)}
-                    className="flex-1 inline-flex items-center justify-center text-sm text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 px-3 py-2.5 rounded border border-purple-500/20 transition-colors"
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                  </button>
-                  
-                  <button
-                    onClick={() => navigateToView(collage.code)}
-                    className="flex-1 inline-flex items-center justify-center text-sm text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-2.5 rounded border border-blue-500/20 transition-colors"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    View
-                  </button>
-                </div>
-
-                {/* Secondary actions - smaller, organized in grid */}
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => navigateToPhotobooth(collage.id)}
-                    className="inline-flex items-center justify-center text-xs text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-2 rounded border border-purple-500/20 transition-colors"
-                  >
-                    <Camera className="h-3 w-3 mr-1" />
-                    Photobooth
-                  </button>
-
-                  <button
-                    onClick={(e) => handleRename(collage, e)}
-                    className="inline-flex items-center justify-center text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-2 rounded border border-blue-500/20 transition-colors"
-                  >
-                    <Pencil className="h-3 w-3 mr-1" />
-                    Rename
-                  </button>
-                  
-                  <button
-                    onClick={(e) => handleDelete(collage.id, e)}
-                    disabled={isDeleting === collage.id}
-                    className="inline-flex items-center justify-center text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2 py-2 rounded border border-red-500/20 transition-colors disabled:opacity-50"
-                  >
-                    {isDeleting === collage.id ? (
-                      <span className="h-3 w-3 mr-1 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3 w-3 mr-1" />
-                    )}
-                    Delete
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
-        ))}
+        )}
+
+        {/* Create Collage Modal */}
+        {showCreateForm && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-900 rounded-xl p-8 max-w-md w-full mx-4 border border-gray-700 shadow-2xl">
+              <h2 className="text-2xl font-bold text-white mb-6">Create New PhotoSphere</h2>
+              <form onSubmit={handleCreateCollage} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    PhotoSphere Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newCollageName}
+                    onChange={(e) => setNewCollageName(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Enter PhotoSphere name..."
+                    required
+                  />
+                </div>
+                <div className="flex items-center justify-end space-x-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setNewCollageName('');
+                    }}
+                    className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreating || !newCollageName.trim()}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2"
+                  >
+                    {isCreating ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        <span>Create PhotoSphere</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        
+        {selectedCollage && (
+          <CollageNameModal
+            collage={selectedCollage}
+            isOpen={isRenameModalOpen}
+            onClose={() => {
+              setIsRenameModalOpen(false);
+              setSelectedCollage(null);
+            }}
+          />
+        )}
       </div>
-      
-      {selectedCollage && (
-        <CollageNameModal
-          collage={selectedCollage}
-          isOpen={isRenameModalOpen}
-          onClose={() => {
-            setIsRenameModalOpen(false);
-            setSelectedCollage(null);
-          }}
-        />
-      )}
-    </div>
+    </Layout>
   );
 };
 
