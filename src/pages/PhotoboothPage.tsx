@@ -824,30 +824,9 @@ const PhotoboothPage: React.FC = () => {
       return;
     }
 
-    // Always capture in 9:16 aspect ratio for perfect frame fit
-    const targetAspectRatio = 9 / 16;
-    const videoAspectRatio = video.videoWidth / video.videoHeight;
-    
-    let sourceWidth, sourceHeight, sourceX, sourceY;
-    
-    // Calculate the crop area from video that matches 9:16 aspect ratio
-    if (videoAspectRatio > targetAspectRatio) {
-      // Video is wider than 9:16, crop the sides
-      sourceHeight = video.videoHeight;
-      sourceWidth = sourceHeight * targetAspectRatio;
-      sourceX = (video.videoWidth - sourceWidth) / 2;
-      sourceY = 0;
-    } else {
-      // Video is taller than 9:16, crop top and bottom
-      sourceWidth = video.videoWidth;
-      sourceHeight = sourceWidth / targetAspectRatio;
-      sourceX = 0;
-      sourceY = (video.videoHeight - sourceHeight) / 2;
-    }
-
-    // Set canvas to exact 9:16 dimensions for perfect frame fit
-    const canvasWidth = 540;
-    const canvasHeight = 960;
+    // Capture the full video frame without cropping for preview
+    const canvasWidth = video.videoWidth;
+    const canvasHeight = video.videoHeight;
     
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
@@ -855,12 +834,8 @@ const PhotoboothPage: React.FC = () => {
     // Clear canvas completely
     context.clearRect(0, 0, canvasWidth, canvasHeight);
     
-    // Draw cropped video frame to fill entire canvas (perfect 9:16)
-    context.drawImage(
-      video,
-      sourceX, sourceY, sourceWidth, sourceHeight,
-      0, 0, canvasWidth, canvasHeight
-    );
+    // Draw the full video frame without any cropping
+    context.drawImage(video, 0, 0, canvasWidth, canvasHeight);
 
     // Function to complete the capture process
     const completeCapture = () => {
@@ -878,7 +853,7 @@ const PhotoboothPage: React.FC = () => {
       cleanupCamera();
     };
 
-    // Draw custom frame if present and loaded - it will fit perfectly since both are 9:16
+    // Draw custom frame if present and loaded - scale frame to match video dimensions
     if (customFrame?.url && frameLoaded) {
       const frameImg = new Image();
       frameImg.crossOrigin = 'anonymous';
@@ -891,7 +866,7 @@ const PhotoboothPage: React.FC = () => {
         const opacity = customFrame.opacity / 100;
         context.globalAlpha = opacity;
         
-        // Draw frame covering the entire canvas - perfect fit since both are 9:16
+        // Draw frame covering the entire canvas - scale to match video dimensions
         context.drawImage(frameImg, 0, 0, canvasWidth, canvasHeight);
         
         // Restore context state
@@ -1687,7 +1662,7 @@ const PhotoboothPage: React.FC = () => {
                   <img 
                     src={photo} 
                     alt="Captured photo" 
-                    className="w-full h-full object-cover rounded-lg"
+                    className="w-full h-full object-contain rounded-lg"
                     style={{ aspectRatio: '9/16' }}
                   />
                   
@@ -2158,13 +2133,13 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Capture Button - Full Screen with iPad optimizations - moved higher */}
+                  {/* Capture Button - Full Screen with iPad optimizations - moved higher with proper z-index */}
                   {cameraState === 'active' && !isCapturing && (
-                    <div className={`absolute ${isIPad ? 'bottom-24' : 'bottom-12'} left-1/2 transform -translate-x-1/2`}>
+                    <div className={`absolute ${isIPad ? 'bottom-24' : 'bottom-12'} left-1/2 transform -translate-x-1/2 z-50`}>
                       <button 
                         onClick={startCountdownAndCapture}
                         className={`${isIPad ? 'w-24 h-24' : 'w-20 h-20'} bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-xl focus:outline-none`}
-                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', zIndex: 60 }}
                       >
                         <div className={`${isIPad ? 'w-20 h-20' : 'w-16 h-16'} bg-gray-300 rounded-full`}></div>
                       </button>
