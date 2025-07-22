@@ -2611,20 +2611,7 @@ const PhotoboothPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Frame Settings Display */}
-                {customFrame && (
-                  <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3">
-                    <h4 className="text-purple-300 font-medium mb-2 flex items-center">
-                      <Frame className="w-4 h-4 mr-2" />
-                      Custom Frame Active
-                    </h4>
-                    <div className="text-purple-200 text-sm space-y-1">
-                      <div>Opacity: {customFrame.opacity}%</div>
-                      <div>Status: {frameLoaded ? 'Loaded' : 'Loading...'}</div>
-                      <div className="text-xs text-purple-300">Perfect 9:16 fit enabled</div>
-                    </div>
-                  </div>
-                )}
+
 
                 {currentCollage && (
                   <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
