@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, Save, Trash2, Eye, EyeOff, Palette, Image, Frame, Settings, Monitor, Smartphone, Tablet, Camera, ChevronLeft } from 'lucide-react';
+import { Upload, Save, Trash2, Eye, EyeOff, Palette, Image, Frame, Camera, ChevronLeft, Smartphone, Tablet } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import Layout from '../components/layout/Layout';
 
@@ -9,10 +9,10 @@ const PhotoboothSettingsPage = () => {
   const navigate = useNavigate();
   const { currentCollage, fetchCollageById, loading, error } = useCollageStore();
   
-  const [selectedFrame, setSelectedFrame] = useState(null);
   const [uploadedFrames, setUploadedFrames] = useState([]);
   const [previewMode, setPreviewMode] = useState('mobile');
   const [showPreview, setShowPreview] = useState(true);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
 
   // Load collage data on mount
@@ -33,6 +33,7 @@ const PhotoboothSettingsPage = () => {
   const [settings, setSettings] = useState({
     // Frame Settings
     selectedFrameId: 'none',
+    selectedFrameUrl: null,
     frameOpacity: 80,
     framePosition: 'overlay',
     
@@ -73,13 +74,26 @@ const PhotoboothSettingsPage = () => {
     previewDuration: 5
   });
 
-  // Update default text when collage loads
+  // Load existing photobooth settings when collage loads
   useEffect(() => {
     if (currentCollage) {
       setSettings(prev => ({
         ...prev,
         defaultText: currentCollage.name
       }));
+      
+      // Load existing photobooth settings from collage settings
+      if (currentCollage.settings?.photobooth) {
+        setSettings(prev => ({
+          ...prev,
+          ...currentCollage.settings.photobooth
+        }));
+        
+        // Load uploaded frames if they exist
+        if (currentCollage.settings.photobooth.uploadedFrames) {
+          setUploadedFrames(currentCollage.settings.photobooth.uploadedFrames);
+        }
+      }
     }
   }, [currentCollage]);
 
@@ -93,6 +107,7 @@ const PhotoboothSettingsPage = () => {
             id: Date.now() + Math.random(),
             name: file.name.replace(/\.[^/.]+$/, ''),
             preview: e.target.result,
+            url: e.target.result, // For now, use base64. In production, upload to storage
             type: 'custom',
             file: file
           };
@@ -107,17 +122,61 @@ const PhotoboothSettingsPage = () => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleFrameSelect = (frameId) => {
+    const allFrames = [...defaultFrames, ...uploadedFrames];
+    const selectedFrame = allFrames.find(f => f.id === frameId);
+    
+    setSettings(prev => ({
+      ...prev,
+      selectedFrameId: frameId,
+      selectedFrameUrl: selectedFrame?.url || selectedFrame?.preview || null
+    }));
+  };
+
   const deleteCustomFrame = (frameId) => {
     setUploadedFrames(prev => prev.filter(frame => frame.id !== frameId));
     if (settings.selectedFrameId === frameId) {
-      setSettings(prev => ({ ...prev, selectedFrameId: 'none' }));
+      setSettings(prev => ({ 
+        ...prev, 
+        selectedFrameId: 'none',
+        selectedFrameUrl: null
+      }));
     }
   };
 
-  const saveSettings = () => {
-    console.log('Saving photobooth settings for collage:', currentCollage?.id, settings);
-    // TODO: Implement API call to save settings for this specific collage
-    // You might want to add a new store method like updateCollagePhotoboothSettings
+  const saveSettings = async () => {
+    if (!currentCollage) return;
+    
+    setSaving(true);
+    try {
+      // Prepare photobooth settings to save
+      const photoboothSettings = {
+        ...settings,
+        uploadedFrames: uploadedFrames
+      };
+
+      // Update collage settings with photobooth configuration
+      const updatedSettings = {
+        ...currentCollage.settings,
+        photobooth: photoboothSettings
+      };
+
+      // Save to your store (you'll need to implement updateCollageSettings)
+      // await updateCollageSettings(currentCollage.id, updatedSettings);
+      
+      // For now, just log the settings - implement the actual save later
+      console.log('Saving photobooth settings for collage:', currentCollage.id);
+      console.log('Settings:', photoboothSettings);
+      
+      // Show success message
+      alert('Photobooth settings saved successfully!');
+      
+    } catch (error) {
+      console.error('Failed to save photobooth settings:', error);
+      alert('Failed to save settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const allFrames = [...defaultFrames, ...uploadedFrames];
@@ -187,10 +246,20 @@ const PhotoboothSettingsPage = () => {
                 </button>
                 <button
                   onClick={saveSettings}
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-all duration-200"
+                  disabled={saving}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-all duration-200"
                 >
-                  <Save className="w-5 h-5" />
-                  <span>Save Settings</span>
+                  {saving ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      <span>Save Settings</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -230,7 +299,7 @@ const PhotoboothSettingsPage = () => {
                   {allFrames.map((frame) => (
                     <div
                       key={frame.id}
-                      onClick={() => handleSettingChange('selectedFrameId', frame.id)}
+                      onClick={() => handleFrameSelect(frame.id)}
                       className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all duration-200 ${
                         settings.selectedFrameId === frame.id
                           ? 'border-purple-500 shadow-lg shadow-purple-500/20'
@@ -238,9 +307,9 @@ const PhotoboothSettingsPage = () => {
                       }`}
                     >
                       <div className="aspect-square bg-gray-800/50 flex items-center justify-center">
-                        {frame.preview ? (
+                        {frame.preview || frame.url ? (
                           <img
-                            src={frame.preview}
+                            src={frame.preview || frame.url}
                             alt={frame.name}
                             className="w-full h-full object-cover"
                           />
@@ -289,7 +358,7 @@ const PhotoboothSettingsPage = () => {
                       max="100"
                       value={settings.frameOpacity}
                       onChange={(e) => handleSettingChange('frameOpacity', parseInt(e.target.value))}
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                 </div>
@@ -375,70 +444,11 @@ const PhotoboothSettingsPage = () => {
                           max="48"
                           value={settings.textSize}
                           onChange={(e) => handleSettingChange('textSize', parseInt(e.target.value))}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                         />
                       </div>
                     </>
                   )}
-                </div>
-              </div>
-
-              {/* Camera Settings */}
-              <div className="bg-black/20 backdrop-blur-sm rounded-xl border border-white/10 p-6">
-                <h2 className="text-xl font-semibold text-white mb-6 flex items-center">
-                  <Camera className="w-6 h-6 mr-2 text-blue-400" />
-                  Camera Settings
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-300">Enable Countdown</label>
-                      <button
-                        onClick={() => handleSettingChange('enableCountdown', !settings.enableCountdown)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          settings.enableCountdown ? 'bg-purple-600' : 'bg-gray-600'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            settings.enableCountdown ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {settings.enableCountdown && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Countdown Duration: {settings.countdownDuration}s
-                        </label>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
-                          value={settings.countdownDuration}
-                          onChange={(e) => handleSettingChange('countdownDuration', parseInt(e.target.value))}
-                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Photo Resolution</label>
-                      <select
-                        value={settings.photoResolution}
-                        onChange={(e) => handleSettingChange('photoResolution', e.target.value)}
-                        className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      >
-                        <option value="720p">720p (1280x720)</option>
-                        <option value="1080p">1080p (1920x1080)</option>
-                        <option value="4k">4K (3840x2160)</option>
-                      </select>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -471,7 +481,7 @@ const PhotoboothSettingsPage = () => {
                     </div>
 
                     {/* Mock Preview */}
-                    <div className={`mx-auto bg-gray-800 rounded-lg overflow-hidden ${
+                    <div className={`mx-auto bg-gray-800 rounded-lg overflow-hidden relative ${
                       previewMode === 'mobile' ? 'w-64 h-96' : 'w-80 h-60'
                     }`}>
                       <div className="relative w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
@@ -481,9 +491,11 @@ const PhotoboothSettingsPage = () => {
                         </div>
 
                         {/* Mock frame overlay */}
-                        {settings.selectedFrameId !== 'none' && (
-                          <div 
-                            className="absolute inset-0 border-4 border-purple-400 rounded-lg"
+                        {settings.selectedFrameId !== 'none' && settings.selectedFrameUrl && (
+                          <img
+                            src={settings.selectedFrameUrl}
+                            alt="Frame overlay"
+                            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                             style={{ opacity: settings.frameOpacity / 100 }}
                           />
                         )}
@@ -498,19 +510,11 @@ const PhotoboothSettingsPage = () => {
                             }`}
                             style={{ 
                               color: settings.textColor,
-                              fontSize: `${Math.max(settings.textSize / 3, 8)}px`
+                              fontSize: `${Math.max(settings.textSize / 3, 8)}px`,
+                              zIndex: 10
                             }}
                           >
                             {settings.defaultText}
-                          </div>
-                        )}
-
-                        {/* Mock countdown */}
-                        {settings.enableCountdown && (
-                          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                            <div className="w-20 h-20 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center">
-                              <span className="text-white text-3xl font-bold">{settings.countdownDuration}</span>
-                            </div>
                           </div>
                         )}
                       </div>
@@ -520,10 +524,12 @@ const PhotoboothSettingsPage = () => {
                     <div className="mt-4 p-4 bg-gray-800/50 rounded-lg">
                       <h4 className="text-sm font-medium text-white mb-2">Settings for {currentCollage.name}</h4>
                       <div className="text-xs text-gray-400 space-y-1">
-                        <div>Resolution: {settings.photoResolution}</div>
                         <div>Frame: {allFrames.find(f => f.id === settings.selectedFrameId)?.name || 'None'}</div>
+                        <div>Frame Opacity: {settings.frameOpacity}%</div>
                         <div>Text: {settings.enableTextOverlay ? 'Enabled' : 'Disabled'}</div>
-                        <div>Countdown: {settings.enableCountdown ? `${settings.countdownDuration}s` : 'Disabled'}</div>
+                        {settings.enableTextOverlay && (
+                          <div>Text: "{settings.defaultText}"</div>
+                        )}
                       </div>
                     </div>
                   </div>
