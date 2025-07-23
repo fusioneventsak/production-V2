@@ -23,7 +23,7 @@ interface MilkyWayParticleSystemProps {
   intensity?: number;
   enabled?: boolean;
   photoPositions?: Array<{ position: [number, number, number] }>;
-  isRecording?: boolean;
+  isRecording?: boolean; // NEW: Add recording state for optimization
 }
 
 const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({ 
@@ -39,9 +39,10 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const atmosphericRef = useRef<THREE.Points>(null);
   const distantSwirlRef = useRef<THREE.Points>(null);
   const bigSwirlsRef = useRef<THREE.Group>(null);
+  // NEW: Christmas theme specific refs
   const snowParticlesRef = useRef<THREE.Points>(null);
   const twinkleParticlesRef = useRef<THREE.Points>(null);
-  const geometricSnowflakesRef = useRef<THREE.Group>(null);
+  const geometricSnowflakesRef = useRef<THREE.Group>(null); // NEW: For geometric snowflakes
   
   // Use consistent particle counts regardless of theme to avoid buffer resize issues
   const recordingMultiplier = isRecording ? 1.2 : 1.0;
@@ -52,8 +53,10 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const ATMOSPHERIC_COUNT = Math.floor(3000 * intensity * recordingMultiplier);
   const DISTANT_SWIRL_COUNT = Math.floor(1500 * intensity * recordingMultiplier);
   const BIG_SWIRLS_COUNT = Math.floor(4 * intensity);
+  // Use consistent counts for special particles to avoid buffer issues
   const SNOW_COUNT = Math.floor(2000 * intensity * recordingMultiplier);
   const TWINKLE_COUNT = Math.floor(500 * intensity * recordingMultiplier);
+  // NEW: Geometric snowflakes - fewer but much more detailed
   const GEOMETRIC_SNOWFLAKES_COUNT = Math.floor(80 * intensity * recordingMultiplier);
   
   // Determine if we're using special themes
@@ -67,23 +70,29 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     const vertices = [];
     const indices = [];
     
+    // Create a 6-pointed snowflake with intricate details
     const branches = 6;
-    const size = 0.8 + Math.random() * 1.2;
+    const size = 0.8 + Math.random() * 1.2; // Varied sizes
     
+    // Center point
     vertices.push(0, 0, 0);
     
+    // Create main branches
     for (let i = 0; i < branches; i++) {
       const angle = (i / branches) * Math.PI * 2;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
       
+      // Main branch points
       const branchLength = size;
       vertices.push(cos * branchLength, sin * branchLength, 0);
       
+      // Create sub-branches at different points along main branch
       for (let j = 0.3; j <= 0.9; j += 0.3) {
         const subLength = branchLength * j;
         const subBranchSize = (1 - j) * 0.4 * size;
         
+        // Left sub-branch
         const leftAngle = angle - Math.PI / 6;
         vertices.push(
           cos * subLength + Math.cos(leftAngle) * subBranchSize,
@@ -91,6 +100,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           0
         );
         
+        // Right sub-branch
         const rightAngle = angle + Math.PI / 6;
         vertices.push(
           cos * subLength + Math.cos(rightAngle) * subBranchSize,
@@ -98,27 +108,433 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           0
         );
         
+        // Connect sub-branches to main branch
         const mainIndex = 1 + i;
         const leftIndex = vertices.length / 3 - 2;
         const rightIndex = vertices.length / 3 - 1;
         
         indices.push(0, mainIndex, leftIndex);
         indices.push(0, mainIndex, rightIndex);
-      }
+      // NEW: Animate geometric snowflakes
+    if (isChristmasTheme && geometricSnowflakesRef.current) {
+      geometricSnowflakesRef.current.children.forEach((snowflake, index) => {
+        if (index < geometricSnowflakesData.length) {
+          const data = geometricSnowflakesData[index];
+          
+          // Update position
+          snowflake.position.y -= data.fallSpeed * animationSpeed;
+          
+          // Add swaying motion
+          const swayTime = time * data.swaySpeed;
+          snowflake.position.x += Math.sin(swayTime) * data.swayAmount * animationSpeed;
+          snowflake.position.z += Math.cos(swayTime * 0.7) * data.swayAmount * animationSpeed;
+          
+          // Gentle rotation
+          snowflake.rotation.z += data.rotationSpeed * animationSpeed;
+          
+          // Add subtle tumbling
+          snowflake.rotation.x += data.rotationSpeed * 0.3 * animationSpeed;
+          snowflake.rotation.y += data.rotationSpeed * 0.5 * animationSpeed;
+          
+          // Recycle when snowflake falls too far
+          if (snowflake.position.y < -100) {
+            snowflake.position.y = 300 + Math.random() * 100;
+            snowflake.position.x = (Math.random() - 0.5) * 500;
+            snowflake.position.z = (Math.random() - 0.5) * 500;
+            snowflake.rotation.set(0, 0, Math.random() * Math.PI * 2);
+          }
+          
+          // Boundary wrapping
+          if (Math.abs(snowflake.position.x) > 300) {
+            snowflake.position.x = -Math.sign(snowflake.position.x) * 100;
+          }
+          if (Math.abs(snowflake.position.z) > 300) {
+            snowflake.position.z = -Math.sign(snowflake.position.z) * 100;
+          }
+        }
+      });
+    }
+  });
+
+  if (!enabled || intensity === 0) {
+    return null;
+  }
+
+  const particleKey = `particles-${enabled ? 1 : 0}-${intensity.toFixed(1)}-${colorTheme.name}`;
+
+  // Enhanced shader for better recording quality
+  const recordingVertexShader = `
+    attribute float size;
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      vColor = color;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size * (${isRecording ? '350.0' : '300.0'} / -mvPosition.z);
+      gl_Position = projectionMatrix * mvPosition;
       
+      float distance = length(mvPosition.xyz);
+      vOpacity = 1.0 - smoothstep(50.0, 200.0, distance);
+    }
+  `;
+
+  const recordingFragmentShader = `
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+      if (distanceToCenter > 0.5) discard;
+      
+      float alpha = 1.0 - (distanceToCenter * 2.0);
+      alpha = smoothstep(0.0, 1.0, alpha);
+      
+      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.9' : '0.8'});
+    }
+  `;
+
+  return (
+    <group key={particleKey}>
+      {/* Main Milky Way Cloud */}
+      <points ref={mainCloudRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.main.positions}
+            count={particleData.main.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.main.colors}
+            count={particleData.main.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.main.sizes}
+            count={particleData.main.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={recordingVertexShader}
+          fragmentShader={recordingFragmentShader}
+        />
+      </points>
+      
+      {/* Cosmic dust cloud */}
+      <points ref={dustCloudRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.dust.positions}
+            count={particleData.dust.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.dust.colors}
+            count={particleData.dust.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.dust.sizes}
+            count={particleData.dust.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '220.0' : '200.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(30.0, 100.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.7' : '0.6'});
+            }
+          `}
+        />
+      </points>
+      
+      {/* Star clusters */}
+      <group ref={clustersRef}>
+        {particleData.clusters.map((cluster, index) => (
+          <points key={`${particleKey}-cluster-${index}`}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                array={cluster.positions}
+                count={PARTICLES_PER_CLUSTER}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-color"
+                array={cluster.colors}
+                count={PARTICLES_PER_CLUSTER}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-size"
+                array={cluster.sizes}
+                count={PARTICLES_PER_CLUSTER}
+                itemSize={1}
+              />
+            </bufferGeometry>
+            <shaderMaterial
+              transparent
+              vertexColors
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (${isRecording ? '270.0' : '250.0'} / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
+                }
+              `}
+            />
+          </points>
+        ))}
+      </group>
+      
+      {/* Atmospheric particles */}
+      <points ref={atmosphericRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.atmospheric.positions}
+            count={particleData.atmospheric.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.atmospheric.colors}
+            count={particleData.atmospheric.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.atmospheric.sizes}
+            count={particleData.atmospheric.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '170.0' : '150.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.4' : '0.3'});
+            }
+          `}
+        />
+      </points>
+      
+      {/* Distant swirl particles */}
+      <points ref={distantSwirlRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.distantSwirl.positions}
+            count={particleData.distantSwirl.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.distantSwirl.colors}
+            count={particleData.distantSwirl.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.distantSwirl.sizes}
+            count={particleData.distantSwirl.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '420.0' : '400.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(200.0, 600.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.6' : '0.5'});
+            }
+          `}
+        />
+      </points>
+      
+      {/* Big swirls */}
+      <group ref={bigSwirlsRef}>
+        {particleData.bigSwirls.map((swirl, index) => (
+          <points key={`${particleKey}-bigswirl-${index}`}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                array={swirl.positions}
+                count={800}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-color"
+                array={swirl.colors}
+                count={800}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-size"
+                array={swirl.sizes}
+                count={800}
+                itemSize={1}
+              />
+            </bufferGeometry>
+            <shaderMaterial
+              transparent
+              vertexColors
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (${isRecording ? '520.0' : '500.0'} / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(150.0, 500.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.5' : '0.4'});
+                }
+              `}
+            />
+          </points>
+        ))}
+      </group>
+      
+      // Connect center to main branch
       indices.push(0, 1 + i, 1 + ((i + 1) % branches));
     }
     
+    // Add crystalline details - inner hexagon
     const innerSize = size * 0.3;
     const innerStartIndex = vertices.length / 3;
     for (let i = 0; i < branches; i++) {
-      const angle = (i / branches) * Math.PI * 2 + Math.PI / 6;
+      const angle = (i / branches) * Math.PI * 2 + Math.PI / 6; // Offset for star pattern
       vertices.push(
         Math.cos(angle) * innerSize,
         Math.sin(angle) * innerSize,
         0
       );
       
+      // Connect inner hexagon
       indices.push(0, innerStartIndex + i, innerStartIndex + ((i + 1) % branches));
     }
     
@@ -139,9 +555,9 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
 
   const getChristmasColor = (index: number) => {
     const rand = Math.random();
-    if (rand < 0.4) return new THREE.Color('#dc2626');
-    if (rand < 0.8) return new THREE.Color('#16a34a');
-    return new THREE.Color('#ffffff');
+    if (rand < 0.4) return new THREE.Color('#dc2626'); // Red
+    if (rand < 0.8) return new THREE.Color('#16a34a'); // Green
+    return new THREE.Color('#ffffff'); // White
   };
 
   // Create geometric snowflakes data
@@ -152,14 +568,14 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       snowflakes.push({
         id: i,
         position: [
-          (Math.random() - 0.5) * 500,
-          Math.random() * 300 + 100,
+          (Math.random() - 0.5) * 500, // Wider spread
+          Math.random() * 300 + 100,   // Start high
           (Math.random() - 0.5) * 500
         ] as [number, number, number],
         rotation: [0, 0, Math.random() * Math.PI * 2] as [number, number, number],
-        scale: 0.5 + Math.random() * 1.5,
-        fallSpeed: 0.008 + Math.random() * 0.012,
-        rotationSpeed: (Math.random() - 0.5) * 0.02,
+        scale: 0.5 + Math.random() * 1.5, // Varied sizes
+        fallSpeed: 0.008 + Math.random() * 0.012, // Different fall speeds
+        rotationSpeed: (Math.random() - 0.5) * 0.02, // Gentle rotation
         swaySpeed: Math.random() * 0.5 + 0.3,
         swayAmount: Math.random() * 0.002 + 0.001,
         geometry: createSnowflakeGeometry(1 + Math.random())
@@ -168,7 +584,6 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     
     return snowflakes;
   }, [GEOMETRIC_SNOWFLAKES_COUNT, isChristmasTheme]);
-
   // Create realistic particle distribution with new theme support
   const particleData = useMemo(() => {
     if (!enabled || intensity === 0) {
@@ -383,7 +798,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       });
     }
     
-    // Snow particles
+    // NEW: Enhanced Snow particles - Always create buffers to avoid resize issues
     const snowPositions = new Float32Array(SNOW_COUNT * 3);
     const snowColors = new Float32Array(SNOW_COUNT * 3);
     const snowSizes = new Float32Array(SNOW_COUNT);
@@ -391,6 +806,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     
     for (let i = 0; i < SNOW_COUNT; i++) {
       if (isChristmasTheme) {
+        // Active snow particles for Christmas theme
         snowPositions[i * 3] = (Math.random() - 0.5) * 400;
         snowPositions[i * 3 + 1] = Math.random() * 200 + 100;
         snowPositions[i * 3 + 2] = (Math.random() - 0.5) * 400;
@@ -408,19 +824,20 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           snowSizes[i] = 2.0 + Math.random() * 2.0;
         }
       } else {
+        // Hidden/inactive snow particles for other themes
         snowPositions[i * 3] = 0;
-        snowPositions[i * 3 + 1] = -1000;
+        snowPositions[i * 3 + 1] = -1000; // Hide far below
         snowPositions[i * 3 + 2] = 0;
         
         snowVelocities[i * 3] = 0;
         snowVelocities[i * 3 + 1] = 0;
         snowVelocities[i * 3 + 2] = 0;
         
-        snowSizes[i] = 0.1;
+        snowSizes[i] = 0.1; // Minimal size
       }
     }
     
-    // Twinkle particles
+    // NEW: Twinkle particles - Always create buffers to avoid resize issues
     const twinklePositions = new Float32Array(TWINKLE_COUNT * 3);
     const twinkleColors = new Float32Array(TWINKLE_COUNT * 3);
     const twinkleSizes = new Float32Array(TWINKLE_COUNT);
@@ -429,6 +846,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     
     for (let i = 0; i < TWINKLE_COUNT; i++) {
       if (isChristmasTheme) {
+        // Active twinkle particles for Christmas theme
         twinklePositions[i * 3] = (Math.random() - 0.5) * 250;
         twinklePositions[i * 3 + 1] = Math.random() * 100 - 10;
         twinklePositions[i * 3 + 2] = (Math.random() - 0.5) * 250;
@@ -440,15 +858,16 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         twinkleSizes[i] = 1 + Math.random() * 3;
         twinklePhases[i] = Math.random() * Math.PI * 2;
       } else {
+        // Hidden/inactive twinkle particles for other themes
         twinklePositions[i * 3] = 0;
-        twinklePositions[i * 3 + 1] = -1000;
+        twinklePositions[i * 3 + 1] = -1000; // Hide far below
         twinklePositions[i * 3 + 2] = 0;
         
         twinkleVelocities[i * 3] = 0;
         twinkleVelocities[i * 3 + 1] = 0;
         twinkleVelocities[i * 3 + 2] = 0;
         
-        twinkleSizes[i] = 0.1;
+        twinkleSizes[i] = 0.1; // Minimal size
         twinklePhases[i] = 0;
       }
     }
@@ -500,9 +919,9 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         count: TWINKLE_COUNT
       }
     };
-  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT, SNOW_COUNT, TWINKLE_COUNT, isRecording, isChristmasTheme]);
+  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT, SNOW_COUNT, TWINKLE_COUNT, isRecording]);
 
-  // Update colors when theme changes
+  // Update colors when theme changes - ENHANCED for new themes
   React.useEffect(() => {
     if (!enabled || !mainCloudRef.current || !dustCloudRef.current || !clustersRef.current || 
         !atmosphericRef.current || !distantSwirlRef.current || !bigSwirlsRef.current) return;
@@ -545,10 +964,191 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       mainCloudRef.current.geometry.attributes.color.needsUpdate = true;
     }
     
-    // Update other particle colors (dust, clusters, atmospheric, etc.)
-    // Similar color updates for other particle systems...
+    // Update dust cloud colors
+    if (particleData.dust.count > 0) {
+      const dustColors = dustCloudRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.dust.count; i++) {
+        let particleColor: THREE.Color;
+        
+        if (isRainbowTheme) {
+          particleColor = getRainbowColor(i, particleData.dust.count);
+          particleColor.multiplyScalar(0.7);
+        } else if (isWhiteTheme) {
+          particleColor = new THREE.Color('#f8f8ff');
+          const brightness = 0.5 + Math.random() * 0.3;
+          particleColor.multiplyScalar(brightness);
+        } else if (isChristmasTheme) {
+          particleColor = getChristmasColor(i);
+          particleColor.multiplyScalar(0.8);
+        } else {
+          const baseColor = new THREE.Color(colorTheme.secondary);
+          const hsl = { h: 0, s: 0, l: 0 };
+          baseColor.getHSL(hsl);
+          
+          particleColor = new THREE.Color();
+          particleColor.setHSL(
+            (hsl.h + (Math.random() - 0.5) * 0.15 + 1) % 1,
+            Math.min(1, hsl.s * (0.5 + Math.random() * 0.5)),
+            Math.min(1, hsl.l * (0.4 + Math.random() * 0.6))
+          );
+        }
+        
+        dustColors[i * 3] = particleColor.r;
+        dustColors[i * 3 + 1] = particleColor.g;
+        dustColors[i * 3 + 2] = particleColor.b;
+      }
+      dustCloudRef.current.geometry.attributes.color.needsUpdate = true;
+    }
     
-    // Update snow colors
+    // Update cluster colors
+    clustersRef.current.children.forEach((cluster, clusterIndex) => {
+      if (cluster instanceof THREE.Points && clusterIndex < particleData.clusters.length) {
+        const clusterColors = cluster.geometry.attributes.color.array as Float32Array;
+        
+        for (let i = 0; i < PARTICLES_PER_CLUSTER; i++) {
+          let particleColor: THREE.Color;
+          
+          if (isRainbowTheme) {
+            particleColor = getRainbowColor(i + clusterIndex * PARTICLES_PER_CLUSTER, particleData.clusters.length * PARTICLES_PER_CLUSTER);
+          } else if (isWhiteTheme) {
+            particleColor = new THREE.Color('#ffffff');
+            const brightness = 0.8 + Math.random() * 0.2;
+            particleColor.multiplyScalar(brightness);
+          } else if (isChristmasTheme) {
+            particleColor = getChristmasColor(i + clusterIndex);
+          } else {
+            const clusterColorBase = [colorTheme.primary, colorTheme.secondary, colorTheme.accent][clusterIndex % 3];
+            const baseColor = new THREE.Color(clusterColorBase);
+            const hsl = { h: 0, s: 0, l: 0 };
+            baseColor.getHSL(hsl);
+            
+            particleColor = new THREE.Color();
+            particleColor.setHSL(
+              (hsl.h + (Math.random() - 0.5) * 0.08 + 1) % 1,
+              Math.min(1, hsl.s * (0.7 + Math.random() * 0.6)),
+              Math.min(1, hsl.l * (0.5 + Math.random() * 0.5))
+            );
+          }
+          
+          clusterColors[i * 3] = particleColor.r;
+          clusterColors[i * 3 + 1] = particleColor.g;
+          clusterColors[i * 3 + 2] = particleColor.b;
+        }
+        cluster.geometry.attributes.color.needsUpdate = true;
+      }
+    });
+    
+    // Update atmospheric colors
+    if (particleData.atmospheric.count > 0) {
+      const atmosphericColors = atmosphericRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.atmospheric.count; i++) {
+        let particleColor: THREE.Color;
+        
+        if (isRainbowTheme) {
+          particleColor = getRainbowColor(i, particleData.atmospheric.count);
+          particleColor.multiplyScalar(0.4);
+        } else if (isWhiteTheme) {
+          particleColor = new THREE.Color('#fffff0');
+          const brightness = 0.3 + Math.random() * 0.4;
+          particleColor.multiplyScalar(brightness);
+        } else if (isChristmasTheme) {
+          particleColor = getChristmasColor(i);
+          particleColor.multiplyScalar(0.5);
+        } else {
+          const baseColor = new THREE.Color(colorTheme.accent);
+          const hsl = { h: 0, s: 0, l: 0 };
+          baseColor.getHSL(hsl);
+          
+          particleColor = new THREE.Color();
+          particleColor.setHSL(
+            (hsl.h + (Math.random() - 0.5) * 0.2 + 1) % 1,
+            Math.min(1, hsl.s * (0.3 + Math.random() * 0.4)),
+            Math.min(1, hsl.l * (0.2 + Math.random() * 0.5))
+          );
+        }
+        
+        atmosphericColors[i * 3] = particleColor.r;
+        atmosphericColors[i * 3 + 1] = particleColor.g;
+        atmosphericColors[i * 3 + 2] = particleColor.b;
+      }
+      atmosphericRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+    
+    // Update distant swirl colors
+    if (particleData.distantSwirl.count > 0) {
+      const distantColors = distantSwirlRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.distantSwirl.count; i++) {
+        let particleColor: THREE.Color;
+        
+        if (isRainbowTheme) {
+          particleColor = getRainbowColor(i, particleData.distantSwirl.count);
+          particleColor.multiplyScalar(0.6);
+        } else if (isWhiteTheme) {
+          particleColor = new THREE.Color('#ffffff');
+          const brightness = 0.4 + Math.random() * 0.4;
+          particleColor.multiplyScalar(brightness);
+        } else if (isChristmasTheme) {
+          particleColor = getChristmasColor(i);
+          particleColor.multiplyScalar(0.7);
+        } else {
+          const baseColor = new THREE.Color(colorTheme.primary);
+          const hsl = { h: 0, s: 0, l: 0 };
+          baseColor.getHSL(hsl);
+          
+          particleColor = new THREE.Color();
+          particleColor.setHSL(
+            (hsl.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
+            Math.min(1, hsl.s * (0.6 + Math.random() * 0.4)),
+            Math.min(1, hsl.l * (0.4 + Math.random() * 0.4))
+          );
+        }
+        
+        distantColors[i * 3] = particleColor.r;
+        distantColors[i * 3 + 1] = particleColor.g;
+        distantColors[i * 3 + 2] = particleColor.b;
+      }
+      distantSwirlRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+    
+    // Update big swirl colors
+    bigSwirlsRef.current.children.forEach((swirl, swirlIndex) => {
+      if (swirl instanceof THREE.Points && swirlIndex < particleData.bigSwirls.length) {
+        const swirlColors = swirl.geometry.attributes.color.array as Float32Array;
+        
+        for (let i = 0; i < 800; i++) {
+          let particleColor: THREE.Color;
+          
+          if (isRainbowTheme) {
+            particleColor = getRainbowColor(i + swirlIndex * 800, particleData.bigSwirls.length * 800);
+          } else if (isWhiteTheme) {
+            particleColor = new THREE.Color('#ffffff');
+            const brightness = 0.5 + Math.random() * 0.3;
+            particleColor.multiplyScalar(brightness);
+          } else if (isChristmasTheme) {
+            particleColor = getChristmasColor(i + swirlIndex);
+          } else {
+            const swirlColorBase = [colorTheme.primary, colorTheme.secondary, colorTheme.accent][swirlIndex % 3];
+            const baseColor = new THREE.Color(swirlColorBase);
+            const hsl = { h: 0, s: 0, l: 0 };
+            baseColor.getHSL(hsl);
+            
+            particleColor = new THREE.Color();
+            particleColor.setHSL(
+              (hsl.h + (Math.random() - 0.5) * 0.15 + 1) % 1,
+              Math.min(1, hsl.s * (0.5 + Math.random() * 0.5)),
+              Math.min(1, hsl.l * (0.3 + Math.random() * 0.4))
+            );
+          }
+          
+          swirlColors[i * 3] = particleColor.r;
+          swirlColors[i * 3 + 1] = particleColor.g;
+          swirlColors[i * 3 + 2] = particleColor.b;
+        }
+        swirl.geometry.attributes.color.needsUpdate = true;
+      }
+    });
+    
+    // NEW: Update snow colors - Always update regardless of theme
     if (particleData.snow.count > 0 && snowParticlesRef.current) {
       const snowColors = snowParticlesRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.snow.count; i++) {
@@ -557,6 +1157,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           snowColors[i * 3 + 1] = 1;
           snowColors[i * 3 + 2] = 1;
         } else {
+          // Make invisible for other themes
           snowColors[i * 3] = 0;
           snowColors[i * 3 + 1] = 0;
           snowColors[i * 3 + 2] = 0;
@@ -565,7 +1166,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       snowParticlesRef.current.geometry.attributes.color.needsUpdate = true;
     }
     
-    // Update twinkle colors
+    // NEW: Update twinkle colors - Always update regardless of theme
     if (particleData.twinkle.count > 0 && twinkleParticlesRef.current) {
       const twinkleColors = twinkleParticlesRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.twinkle.count; i++) {
@@ -575,6 +1176,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           twinkleColors[i * 3 + 1] = particleColor.g;
           twinkleColors[i * 3 + 2] = particleColor.b;
         } else {
+          // Make invisible for other themes
           twinkleColors[i * 3] = 0;
           twinkleColors[i * 3 + 1] = 0;
           twinkleColors[i * 3 + 2] = 0;
@@ -584,45 +1186,12 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     }
   }, [colorTheme, particleData, enabled, isRainbowTheme, isWhiteTheme, isChristmasTheme]);
 
-  // Animation system
+  // Animation system - ENHANCED for new themes and recording optimization
   useFrame((state) => {
     if (!enabled) return;
     
     const time = state.clock.getElapsedTime();
     const animationSpeed = isRecording ? 0.5 : 1.0;
-    
-    // Animate geometric snowflakes
-    if (isChristmasTheme && geometricSnowflakesRef.current) {
-      geometricSnowflakesRef.current.children.forEach((snowflake, index) => {
-        if (index < geometricSnowflakesData.length) {
-          const data = geometricSnowflakesData[index];
-          
-          snowflake.position.y -= data.fallSpeed * animationSpeed;
-          
-          const swayTime = time * data.swaySpeed;
-          snowflake.position.x += Math.sin(swayTime) * data.swayAmount * animationSpeed;
-          snowflake.position.z += Math.cos(swayTime * 0.7) * data.swayAmount * animationSpeed;
-          
-          snowflake.rotation.z += data.rotationSpeed * animationSpeed;
-          snowflake.rotation.x += data.rotationSpeed * 0.3 * animationSpeed;
-          snowflake.rotation.y += data.rotationSpeed * 0.5 * animationSpeed;
-          
-          if (snowflake.position.y < -100) {
-            snowflake.position.y = 300 + Math.random() * 100;
-            snowflake.position.x = (Math.random() - 0.5) * 500;
-            snowflake.position.z = (Math.random() - 0.5) * 500;
-            snowflake.rotation.set(0, 0, Math.random() * Math.PI * 2);
-          }
-          
-          if (Math.abs(snowflake.position.x) > 300) {
-            snowflake.position.x = -Math.sign(snowflake.position.x) * 100;
-          }
-          if (Math.abs(snowflake.position.z) > 300) {
-            snowflake.position.z = -Math.sign(snowflake.position.z) * 100;
-          }
-        }
-      });
-    }
     
     // Animate main cloud with rainbow color cycling
     if (mainCloudRef.current && particleData.main.count > 0) {
@@ -655,6 +1224,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         const bobFreq = time * 0.5 * animationSpeed + i * 0.1;
         mainPositions[i3 + 1] += Math.sin(bobFreq) * 0.003 * animationSpeed;
         
+        // NEW: Rainbow color cycling
         if (isRainbowTheme) {
           const hue = ((time * 0.1 + i * 0.01) % 1);
           const color = new THREE.Color();
@@ -672,7 +1242,275 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       mainCloudRef.current.rotation.y = time * 0.003 * animationSpeed;
     }
     
-    // Animate snow particles
+    // Animate dust cloud
+    if (dustCloudRef.current && particleData.dust.count > 0) {
+      const dustPositions = dustCloudRef.current.geometry.attributes.position.array as Float32Array;
+      const dustColors = dustCloudRef.current.geometry.attributes.color.array as Float32Array;
+      
+      for (let i = 0; i < particleData.dust.count; i++) {
+        const i3 = i * 3;
+        
+        dustPositions[i3] += particleData.dust.velocities[i3] * animationSpeed;
+        dustPositions[i3 + 1] += particleData.dust.velocities[i3 + 1] * animationSpeed;
+        dustPositions[i3 + 2] += particleData.dust.velocities[i3 + 2] * animationSpeed;
+        
+        const turbulenceFreq = time * 0.1 * animationSpeed + i * 0.05;
+        dustPositions[i3] += Math.sin(turbulenceFreq) * 0.003 * animationSpeed;
+        dustPositions[i3 + 1] += Math.cos(turbulenceFreq * 1.3) * 0.002 * animationSpeed;
+        dustPositions[i3 + 2] += Math.sin(turbulenceFreq * 0.8) * 0.003 * animationSpeed;
+        
+        const dustFloatFreq = time * 0.3 * animationSpeed + i * 0.08;
+        dustPositions[i3] += Math.cos(dustFloatFreq) * 0.001 * animationSpeed;
+        dustPositions[i3 + 1] += Math.sin(dustFloatFreq * 0.6) * 0.002 * animationSpeed;
+        
+        // Rainbow color cycling for dust
+        if (isRainbowTheme) {
+          const hue = ((time * 0.08 + i * 0.02) % 1);
+          const color = new THREE.Color();
+          color.setHSL(hue, 0.8, 0.4);
+          dustColors[i3] = color.r;
+          dustColors[i3 + 1] = color.g;
+          dustColors[i3 + 2] = color.b;
+        }
+        
+        if (dustPositions[i3 + 1] > 15) {
+          dustPositions[i3 + 1] = -15;
+          dustPositions[i3] = (Math.random() - 0.5) * 70;
+          dustPositions[i3 + 2] = (Math.random() - 0.5) * 70;
+        }
+        
+        if (Math.abs(dustPositions[i3]) > 80) {
+          dustPositions[i3] = -Math.sign(dustPositions[i3]) * 20;
+        }
+        if (Math.abs(dustPositions[i3 + 2]) > 80) {
+          dustPositions[i3 + 2] = -Math.sign(dustPositions[i3 + 2]) * 20;
+        }
+      }
+      
+      dustCloudRef.current.geometry.attributes.position.needsUpdate = true;
+      if (isRainbowTheme) {
+        dustCloudRef.current.geometry.attributes.color.needsUpdate = true;
+      }
+      dustCloudRef.current.rotation.y = time * 0.005 * animationSpeed;
+    }
+    
+    // Animate clusters
+    if (clustersRef.current) {
+      clustersRef.current.children.forEach((cluster, clusterIndex) => {
+        if (cluster instanceof THREE.Points && clusterIndex < particleData.clusters.length) {
+          const positions = cluster.geometry.attributes.position.array as Float32Array;
+          const colors = cluster.geometry.attributes.color.array as Float32Array;
+          const velocities = particleData.clusters[clusterIndex].velocities;
+          const expectedLength = PARTICLES_PER_CLUSTER * 3;
+          const clusterCenter = particleData.clusters[clusterIndex].center;
+          
+          if (positions.length === expectedLength && velocities.length === expectedLength) {
+            for (let i = 0; i < PARTICLES_PER_CLUSTER; i++) {
+              const i3 = i * 3;
+              
+              positions[i3] += velocities[i3] * animationSpeed;
+              positions[i3 + 1] += velocities[i3 + 1] * animationSpeed;
+              positions[i3 + 2] += velocities[i3 + 2] * animationSpeed;
+              
+              const dx = clusterCenter.x - positions[i3];
+              const dy = clusterCenter.y - positions[i3 + 1];
+              const dz = clusterCenter.z - positions[i3 + 2];
+              const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+              
+              if (distance > 0) {
+                const gravitationalForce = 0.00001;
+                positions[i3] += (dx / distance) * gravitationalForce * animationSpeed;
+                positions[i3 + 1] += (dy / distance) * gravitationalForce * animationSpeed;
+                positions[i3 + 2] += (dz / distance) * gravitationalForce * animationSpeed;
+              }
+              
+              const clusterWave = time * 0.03 * animationSpeed + clusterIndex + i * 0.1;
+              positions[i3] += Math.sin(clusterWave) * 0.001 * animationSpeed;
+              positions[i3 + 1] += Math.cos(clusterWave * 0.8) * 0.0008 * animationSpeed;
+              positions[i3 + 2] += Math.sin(clusterWave * 1.2) * 0.001 * animationSpeed;
+              
+              const clusterFloatFreq = time * 0.4 * animationSpeed + clusterIndex * 2 + i * 0.05;
+              positions[i3 + 1] += Math.sin(clusterFloatFreq) * 0.002 * animationSpeed;
+              
+              // Rainbow color cycling for clusters
+              if (isRainbowTheme) {
+                const hue = ((time * 0.05 + clusterIndex * 0.3 + i * 0.01) % 1);
+                const color = new THREE.Color();
+                color.setHSL(hue, 0.9, 0.7);
+                colors[i3] = color.r;
+                colors[i3 + 1] = color.g;
+                colors[i3 + 2] = color.b;
+              }
+            }
+            
+            cluster.geometry.attributes.position.needsUpdate = true;
+            if (isRainbowTheme) {
+              cluster.geometry.attributes.color.needsUpdate = true;
+            }
+            cluster.rotation.x = time * 0.001 * animationSpeed * (clusterIndex % 2 ? 1 : -1);
+            cluster.rotation.z = time * 0.0015 * animationSpeed * (clusterIndex % 3 ? 1 : -1);
+          }
+        }
+      });
+    }
+    
+    // Animate atmospheric particles
+    if (atmosphericRef.current && particleData.atmospheric.count > 0) {
+      const atmosphericPositions = atmosphericRef.current.geometry.attributes.position.array as Float32Array;
+      const atmosphericColors = atmosphericRef.current.geometry.attributes.color.array as Float32Array;
+      
+      for (let i = 0; i < particleData.atmospheric.count; i++) {
+        const i3 = i * 3;
+        
+        atmosphericPositions[i3] += particleData.atmospheric.velocities[i3] * animationSpeed;
+        atmosphericPositions[i3 + 1] += particleData.atmospheric.velocities[i3 + 1] * animationSpeed;
+        atmosphericPositions[i3 + 2] += particleData.atmospheric.velocities[i3 + 2] * animationSpeed;
+        
+        const floatFreq = time * 0.05 * animationSpeed + i * 0.02;
+        atmosphericPositions[i3] += Math.sin(floatFreq) * 0.002 * animationSpeed;
+        atmosphericPositions[i3 + 1] += Math.cos(floatFreq * 0.7) * 0.003 * animationSpeed;
+        atmosphericPositions[i3 + 2] += Math.sin(floatFreq * 1.1) * 0.002 * animationSpeed;
+        
+        const atmosphericBobFreq = time * 0.8 * animationSpeed + i * 0.15;
+        atmosphericPositions[i3 + 1] += Math.sin(atmosphericBobFreq) * 0.001 * animationSpeed;
+        
+        // Rainbow color cycling for atmospheric
+        if (isRainbowTheme) {
+          const hue = ((time * 0.03 + i * 0.005) % 1);
+          const color = new THREE.Color();
+          color.setHSL(hue, 0.6, 0.3);
+          atmosphericColors[i3] = color.r;
+          atmosphericColors[i3 + 1] = color.g;
+          atmosphericColors[i3 + 2] = color.b;
+        }
+        
+        // Boundary wrapping
+        if (Math.abs(atmosphericPositions[i3]) > 120) {
+          atmosphericPositions[i3] = -Math.sign(atmosphericPositions[i3]) * 50;
+        }
+        if (atmosphericPositions[i3 + 1] > 90) {
+          atmosphericPositions[i3 + 1] = 5;
+        }
+        if (atmosphericPositions[i3 + 1] < -5) {
+          atmosphericPositions[i3 + 1] = 85;
+        }
+        if (Math.abs(atmosphericPositions[i3 + 2]) > 120) {
+          atmosphericPositions[i3 + 2] = -Math.sign(atmosphericPositions[i3 + 2]) * 50;
+        }
+      }
+      
+      atmosphericRef.current.geometry.attributes.position.needsUpdate = true;
+      if (isRainbowTheme) {
+        atmosphericRef.current.geometry.attributes.color.needsUpdate = true;
+      }
+      atmosphericRef.current.rotation.y = time * 0.001 * animationSpeed;
+    }
+    
+    // Animate distant swirl
+    if (distantSwirlRef.current && particleData.distantSwirl.count > 0) {
+      const distantPositions = distantSwirlRef.current.geometry.attributes.position.array as Float32Array;
+      const distantColors = distantSwirlRef.current.geometry.attributes.color.array as Float32Array;
+      
+      for (let i = 0; i < particleData.distantSwirl.count; i++) {
+        const i3 = i * 3;
+        
+        distantPositions[i3] += particleData.distantSwirl.velocities[i3] * animationSpeed;
+        distantPositions[i3 + 1] += particleData.distantSwirl.velocities[i3 + 1] * animationSpeed;
+        distantPositions[i3 + 2] += particleData.distantSwirl.velocities[i3 + 2] * animationSpeed;
+        
+        const x = distantPositions[i3];
+        const z = distantPositions[i3 + 2];
+        const distanceFromCenter = Math.sqrt(x * x + z * z);
+        
+        const orbitalSpeed = distanceFromCenter > 0 ? 0.00005 / Math.sqrt(distanceFromCenter + 20) : 0;
+        const angle = Math.atan2(z, x);
+        const newAngle = angle + orbitalSpeed * animationSpeed;
+        
+        distantPositions[i3] += Math.cos(newAngle) * orbitalSpeed * 0.05 * animationSpeed;
+        distantPositions[i3 + 2] += Math.sin(newAngle) * orbitalSpeed * 0.05 * animationSpeed;
+        
+        const waveFreq = time * 0.01 * animationSpeed + i * 0.001;
+        distantPositions[i3 + 1] += Math.sin(waveFreq) * 0.005 * animationSpeed;
+        
+        const distantDriftFreq = time * 0.02 * animationSpeed + i * 0.003;
+        distantPositions[i3] += Math.cos(distantDriftFreq) * 0.001 * animationSpeed;
+        distantPositions[i3 + 2] += Math.sin(distantDriftFreq * 1.3) * 0.001 * animationSpeed;
+        
+        // Rainbow color cycling for distant swirl
+        if (isRainbowTheme) {
+          const hue = ((time * 0.04 + i * 0.008) % 1);
+          const color = new THREE.Color();
+          color.setHSL(hue, 0.8, 0.5);
+          distantColors[i3] = color.r;
+          distantColors[i3 + 1] = color.g;
+          distantColors[i3 + 2] = color.b;
+        }
+      }
+      
+      distantSwirlRef.current.geometry.attributes.position.needsUpdate = true;
+      if (isRainbowTheme) {
+        distantSwirlRef.current.geometry.attributes.color.needsUpdate = true;
+      }
+      distantSwirlRef.current.rotation.y = time * 0.002 * animationSpeed;
+    }
+    
+    // Animate big swirls
+    if (bigSwirlsRef.current) {
+      bigSwirlsRef.current.children.forEach((swirl, swirlIndex) => {
+        if (swirl instanceof THREE.Points && swirlIndex < particleData.bigSwirls.length) {
+          const positions = swirl.geometry.attributes.position.array as Float32Array;
+          const colors = swirl.geometry.attributes.color.array as Float32Array;
+          const velocities = particleData.bigSwirls[swirlIndex].velocities;
+          const swirlCenter = particleData.bigSwirls[swirlIndex].center;
+          
+          for (let i = 0; i < 800; i++) {
+            const i3 = i * 3;
+            
+            positions[i3] += velocities[i3] * animationSpeed;
+            positions[i3 + 1] += velocities[i3 + 1] * animationSpeed;
+            positions[i3 + 2] += velocities[i3 + 2] * animationSpeed;
+            
+            const dx = positions[i3] - swirlCenter.x;
+            const dz = positions[i3 + 2] - swirlCenter.z;
+            const radius = Math.sqrt(dx * dx + dz * dz);
+            
+            if (radius > 0.1) {
+              const swirlSpeed = 0.0002 * animationSpeed;
+              const currentAngle = Math.atan2(dz, dx);
+              const newAngle = currentAngle + swirlSpeed;
+              
+              positions[i3] = swirlCenter.x + Math.cos(newAngle) * radius;
+              positions[i3 + 2] = swirlCenter.z + Math.sin(newAngle) * radius;
+            }
+            
+            const oscillation = time * 0.02 * animationSpeed + swirlIndex + i * 0.01;
+            positions[i3 + 1] += Math.sin(oscillation) * 0.003 * animationSpeed;
+            
+            const bigSwirlFloatFreq = time * 0.06 * animationSpeed + swirlIndex * 3 + i * 0.02;
+            positions[i3] += Math.cos(bigSwirlFloatFreq) * 0.0008 * animationSpeed;
+            positions[i3 + 2] += Math.sin(bigSwirlFloatFreq * 0.9) * 0.0008 * animationSpeed;
+            
+            // Rainbow color cycling for big swirls
+            if (isRainbowTheme) {
+              const hue = ((time * 0.06 + swirlIndex * 0.2 + i * 0.003) % 1);
+              const color = new THREE.Color();
+              color.setHSL(hue, 0.9, 0.6);
+              colors[i3] = color.r;
+              colors[i3 + 1] = color.g;
+              colors[i3 + 2] = color.b;
+            }
+          }
+          
+          swirl.geometry.attributes.position.needsUpdate = true;
+          if (isRainbowTheme) {
+            swirl.geometry.attributes.color.needsUpdate = true;
+          }
+          swirl.rotation.y = time * 0.003 * animationSpeed * (swirlIndex % 2 ? 1 : -1);
+        }
+      });
+    }
+    
+    // NEW: Enhanced Christmas snow animation - Always animate but only visible for Christmas theme
     if (snowParticlesRef.current && particleData.snow.count > 0) {
       const snowPositions = snowParticlesRef.current.geometry.attributes.position.array as Float32Array;
       
@@ -680,10 +1518,12 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         const i3 = i * 3;
         
         if (isChristmasTheme) {
+          // Animate snow particles for Christmas theme
           snowPositions[i3] += particleData.snow.velocities[i3] * animationSpeed;
           snowPositions[i3 + 1] += particleData.snow.velocities[i3 + 1] * animationSpeed;
           snowPositions[i3 + 2] += particleData.snow.velocities[i3 + 2] * animationSpeed;
           
+          // Enhanced swaying motion with multiple frequencies
           const swayFreq1 = time * 0.3 + i * 0.05;
           const swayFreq2 = time * 0.7 + i * 0.1;
           snowPositions[i3] += Math.sin(swayFreq1) * 0.003 * animationSpeed;
@@ -691,20 +1531,24 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           snowPositions[i3 + 2] += Math.cos(swayFreq1 * 0.8) * 0.003 * animationSpeed;
           snowPositions[i3 + 2] += Math.sin(swayFreq2 * 0.6) * 0.001 * animationSpeed;
           
+          // Add turbulence for more realistic movement
           const turbulence = time * 0.5 + i * 0.02;
           snowPositions[i3] += Math.sin(turbulence * 3) * 0.0008 * animationSpeed;
           snowPositions[i3 + 2] += Math.cos(turbulence * 2.5) * 0.0008 * animationSpeed;
           
+          // Recycle snow particles with wider spawn area
           if (snowPositions[i3 + 1] < -80) {
             snowPositions[i3 + 1] = 200 + Math.random() * 100;
             snowPositions[i3] = (Math.random() - 0.5) * 400;
             snowPositions[i3 + 2] = (Math.random() - 0.5) * 400;
             
+            // Reset velocity with some variation
             particleData.snow.velocities[i3] = (Math.random() - 0.5) * 0.004;
             particleData.snow.velocities[i3 + 1] = -Math.random() * 0.012 - 0.003;
             particleData.snow.velocities[i3 + 2] = (Math.random() - 0.5) * 0.004;
           }
           
+          // Wrap horizontal boundaries
           if (Math.abs(snowPositions[i3]) > 250) {
             snowPositions[i3] = -Math.sign(snowPositions[i3]) * 100;
           }
@@ -712,6 +1556,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             snowPositions[i3 + 2] = -Math.sign(snowPositions[i3 + 2]) * 100;
           }
         } else {
+          // Keep particles hidden for non-Christmas themes
           snowPositions[i3] = 0;
           snowPositions[i3 + 1] = -1000;
           snowPositions[i3 + 2] = 0;
@@ -721,7 +1566,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       snowParticlesRef.current.geometry.attributes.position.needsUpdate = true;
     }
     
-    // Animate twinkle particles
+    // NEW: Enhanced Christmas twinkle animation - Always animate but only visible for Christmas theme
     if (twinkleParticlesRef.current && particleData.twinkle.count > 0) {
       const twinklePositions = twinkleParticlesRef.current.geometry.attributes.position.array as Float32Array;
       const twinkleColors = twinkleParticlesRef.current.geometry.attributes.color.array as Float32Array;
@@ -731,21 +1576,24 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         const i3 = i * 3;
         
         if (isChristmasTheme) {
+          // Animate twinkle particles for Christmas theme
           twinklePositions[i3] += particleData.twinkle.velocities[i3] * animationSpeed;
           twinklePositions[i3 + 1] += particleData.twinkle.velocities[i3 + 1] * animationSpeed;
           twinklePositions[i3 + 2] += particleData.twinkle.velocities[i3 + 2] * animationSpeed;
           
+          // Twinkling effect
           const twinklePhase = time * 2 + particleData.twinkle.phases[i];
           const twinkleIntensity = (Math.sin(twinklePhase) + 1) * 0.5;
           
+          // Change colors during twinkle
           const rand = (Math.sin(time * 0.5 + i) + 1) * 0.5;
           let twinkleColor: THREE.Color;
           if (rand < 0.33) {
-            twinkleColor = new THREE.Color('#dc2626');
+            twinkleColor = new THREE.Color('#dc2626'); // Red
           } else if (rand < 0.66) {
-            twinkleColor = new THREE.Color('#16a34a');
+            twinkleColor = new THREE.Color('#16a34a'); // Green
           } else {
-            twinkleColor = new THREE.Color('#ffffff');
+            twinkleColor = new THREE.Color('#ffffff'); // White
           }
           
           twinkleColor.multiplyScalar(twinkleIntensity);
@@ -753,13 +1601,16 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           twinkleColors[i3 + 1] = twinkleColor.g;
           twinkleColors[i3 + 2] = twinkleColor.b;
           
+          // Size variation for twinkling
           const baseSizes = particleData.twinkle.sizes;
           twinkleSizes[i] = baseSizes[i] * (0.5 + twinkleIntensity * 0.8);
         } else {
+          // Keep particles hidden for non-Christmas themes
           twinklePositions[i3] = 0;
           twinklePositions[i3 + 1] = -1000;
           twinklePositions[i3 + 2] = 0;
           
+          // Make colors transparent
           twinkleColors[i3] = 0;
           twinkleColors[i3 + 1] = 0;
           twinkleColors[i3 + 2] = 0;
@@ -779,6 +1630,36 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   }
 
   const particleKey = `particles-${enabled ? 1 : 0}-${intensity.toFixed(1)}-${colorTheme.name}`;
+
+  // Enhanced shader for better recording quality
+  const recordingVertexShader = `
+    attribute float size;
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      vColor = color;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size * (${isRecording ? '350.0' : '300.0'} / -mvPosition.z);
+      gl_Position = projectionMatrix * mvPosition;
+      
+      float distance = length(mvPosition.xyz);
+      vOpacity = 1.0 - smoothstep(50.0, 200.0, distance);
+    }
+  `;
+
+  const recordingFragmentShader = `
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+      if (distanceToCenter > 0.5) discard;
+      
+      float alpha = 1.0 - (distanceToCenter * 2.0);
+      alpha = smoothstep(0.0, 1.0, alpha);
+      
+      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.9' : '0.8'});
+    }
+  `;
 
   return (
     <group key={particleKey}>
@@ -809,6 +1690,38 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           vertexColors
           blending={THREE.AdditiveBlending}
           depthWrite={false}
+          vertexShader={recordingVertexShader}
+          fragmentShader={recordingFragmentShader}
+        />
+      </points>
+      
+      {/* Cosmic dust cloud */}
+      <points ref={dustCloudRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.dust.positions}
+            count={particleData.dust.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.dust.colors}
+            count={particleData.dust.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.dust.sizes}
+            count={particleData.dust.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
           vertexShader={`
             attribute float size;
             varying vec3 vColor;
@@ -816,11 +1729,11 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             void main() {
               vColor = color;
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (${isRecording ? '350.0' : '300.0'} / -mvPosition.z);
+              gl_PointSize = size * (${isRecording ? '220.0' : '200.0'} / -mvPosition.z);
               gl_Position = projectionMatrix * mvPosition;
               
               float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(50.0, 200.0, distance);
+              vOpacity = 1.0 - smoothstep(30.0, 100.0, distance);
             }
           `}
           fragmentShader={`
@@ -833,13 +1746,249 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               float alpha = 1.0 - (distanceToCenter * 2.0);
               alpha = smoothstep(0.0, 1.0, alpha);
               
-              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.9' : '0.8'});
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.7' : '0.6'});
             }
           `}
         />
       </points>
       
-      {/* Geometric Snowflakes for Christmas Theme */}
+      {/* Star clusters */}
+      <group ref={clustersRef}>
+        {particleData.clusters.map((cluster, index) => (
+          <points key={`${particleKey}-cluster-${index}`}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                array={cluster.positions}
+                count={PARTICLES_PER_CLUSTER}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-color"
+                array={cluster.colors}
+                count={PARTICLES_PER_CLUSTER}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-size"
+                array={cluster.sizes}
+                count={PARTICLES_PER_CLUSTER}
+                itemSize={1}
+              />
+            </bufferGeometry>
+            <shaderMaterial
+              transparent
+              vertexColors
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (${isRecording ? '270.0' : '250.0'} / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
+                }
+              `}
+            />
+          </points>
+        ))}
+      </group>
+      
+      {/* Atmospheric particles */}
+      <points ref={atmosphericRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.atmospheric.positions}
+            count={particleData.atmospheric.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.atmospheric.colors}
+            count={particleData.atmospheric.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.atmospheric.sizes}
+            count={particleData.atmospheric.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '170.0' : '150.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.4' : '0.3'});
+            }
+          `}
+        />
+      </points>
+      
+      {/* Distant swirl particles */}
+      <points ref={distantSwirlRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.distantSwirl.positions}
+            count={particleData.distantSwirl.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.distantSwirl.colors}
+            count={particleData.distantSwirl.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.distantSwirl.sizes}
+            count={particleData.distantSwirl.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '420.0' : '400.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(200.0, 600.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.6' : '0.5'});
+            }
+          `}
+        />
+      </points>
+      
+      {/* Big swirls */}
+      <group ref={bigSwirlsRef}>
+        {particleData.bigSwirls.map((swirl, index) => (
+          <points key={`${particleKey}-bigswirl-${index}`}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                array={swirl.positions}
+                count={800}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-color"
+                array={swirl.colors}
+                count={800}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-size"
+                array={swirl.sizes}
+                count={800}
+                itemSize={1}
+              />
+            </bufferGeometry>
+            <shaderMaterial
+              transparent
+              vertexColors
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (${isRecording ? '520.0' : '500.0'} / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(150.0, 500.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.5' : '0.4'});
+                }
+              `}
+            />
+          </points>
+        ))}
+      </group>
+      
+      {/* NEW: Geometric Snowflakes for Christmas Theme */}
       <group ref={geometricSnowflakesRef}>
         {isChristmasTheme && geometricSnowflakesData.map((snowflakeData, index) => (
           <mesh
@@ -861,7 +2010,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         ))}
       </group>
       
-      {/* Snow and Twinkle Particles */}
+      {/* Snow and Twinkle Particles - Always rendered, visibility controlled by material and position */}
       <points ref={snowParticlesRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -892,8 +2041,10 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             attribute float size;
             varying vec3 vColor;
             varying float vOpacity;
+            varying vec2 vUv;
             void main() {
               vColor = color;
+              vUv = uv;
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
               gl_PointSize = size * (${isRecording ? '250.0' : '220.0'} / -mvPosition.z);
               gl_Position = projectionMatrix * mvPosition;
@@ -906,6 +2057,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             varying vec3 vColor;
             varying float vOpacity;
             void main() {
+              // Skip rendering if color is black (hidden particles)
               if (length(vColor) < 0.1) discard;
               
               vec2 center = gl_PointCoord - vec2(0.5);
@@ -913,19 +2065,25 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               
               if (distanceToCenter > 0.5) discard;
               
+              // Enhanced snowflake pattern with more detail
               float angle = atan(center.y, center.x);
               float radius = length(center);
               
+              // Create 6-pointed snowflake pattern
               float snowflake1 = abs(sin(angle * 6.0)) * 0.15 + 0.85;
               float snowflake2 = abs(cos(angle * 3.0)) * 0.1 + 0.9;
               float snowflake3 = smoothstep(0.1, 0.0, abs(sin(angle * 12.0))) * 0.2;
               
+              // Combine patterns for complex snowflake
               float snowflakePattern = snowflake1 * snowflake2 + snowflake3;
+              
+              // Add sparkle effect
               float sparkle = sin(radius * 20.0) * 0.1 + 0.9;
               
               float alpha = (1.0 - radius * 2.0) * snowflakePattern * sparkle;
               alpha = smoothstep(0.0, 1.0, alpha);
               
+              // Brighten snow for better visibility
               gl_FragColor = vec4(vColor * 1.5, alpha * vOpacity * ${isRecording ? '1.2' : '1.0'});
             }
           `}
@@ -976,6 +2134,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             varying vec3 vColor;
             varying float vOpacity;
             void main() {
+              // Skip rendering if color is black (hidden particles)
               if (length(vColor) < 0.1) discard;
               
               vec2 center = gl_PointCoord - vec2(0.5);
@@ -983,6 +2142,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               
               if (distanceToCenter > 0.5) discard;
               
+              // Create star/twinkle pattern
               float angle = atan(center.y, center.x);
               float star = abs(cos(angle * 4.0)) * 0.3 + 0.7;
               float cross = max(
