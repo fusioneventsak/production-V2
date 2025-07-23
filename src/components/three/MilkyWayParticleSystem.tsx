@@ -2,7 +2,7 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-// Enhanced particle color themes
+// Enhanced particle color themes with new additions
 export const PARTICLE_THEMES = [
   { name: 'Purple Magic', primary: '#8b5cf6', secondary: '#a855f7', accent: '#c084fc' },
   { name: 'Ocean Breeze', primary: '#06b6d4', secondary: '#0891b2', accent: '#67e8f9' },
@@ -11,6 +11,7 @@ export const PARTICLE_THEMES = [
   { name: 'Rose Petals', primary: '#ec4899', secondary: '#db2777', accent: '#f9a8d4' },
   { name: 'Electric Blue', primary: '#3b82f6', secondary: '#2563eb', accent: '#93c5fd' },
   { name: 'Cosmic Red', primary: '#ef4444', secondary: '#dc2626', accent: '#fca5a5' },
+  // NEW THEMES
   { name: 'Rainbow Spectrum', primary: '#ff0000', secondary: '#00ff00', accent: '#0000ff' },
   { name: 'Pure White', primary: '#ffffff', secondary: '#f8f8ff', accent: '#fffff0' },
   { name: 'Christmas Magic', primary: '#dc2626', secondary: '#16a34a', accent: '#ffffff' },
@@ -25,9 +26,9 @@ interface MilkyWayParticleSystemProps {
   isRecording?: boolean;
 }
 
-const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
-  colorTheme,
-  intensity = 1.0,
+const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({ 
+  colorTheme, 
+  intensity = 1.0, 
   enabled = true,
   photoPositions = [],
   isRecording = false
@@ -38,146 +39,114 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const atmosphericRef = useRef<THREE.Points>(null);
   const distantSwirlRef = useRef<THREE.Points>(null);
   const bigSwirlsRef = useRef<THREE.Group>(null);
+  const gasCloudsRef = useRef<THREE.Group>(null);
+  // NEW: Christmas theme specific refs
   const snowParticlesRef = useRef<THREE.Points>(null);
   const twinkleParticlesRef = useRef<THREE.Points>(null);
   const geometricSnowflakesRef = useRef<THREE.Group>(null);
-  const nebulaCloudsRef = useRef<THREE.Points>(null);
-  const cosmicRaysRef = useRef<THREE.Points>(null);
-  const distantNebulaRef = useRef<THREE.Points>(null);
-  const backgroundParticlesRef = useRef<THREE.Points>(null);
-  const ultraDistantParticlesRef = useRef<THREE.Points>(null);
-  const distantGalaxyClustersRef = useRef<THREE.Group>(null);
   
-  // Enhanced cosmic background refs
-  const cosmicSkyboxStarsRef = useRef<THREE.Points>(null);
-  const milkyWayBandRef = useRef<THREE.Points>(null);
-  const deepSpaceNebulaRef = useRef<THREE.Points>(null);
-  const cosmicDustFieldRef = useRef<THREE.Points>(null);
-
-  // Adjusted particle counts for better performance and visual impact
+  // Use consistent particle counts regardless of theme to avoid buffer resize issues
   const recordingMultiplier = isRecording ? 1.2 : 1.0;
-  const MAIN_COUNT = Math.floor(3000 * intensity * recordingMultiplier);
-  const DUST_COUNT = Math.floor(2000 * intensity * recordingMultiplier);
-  const CLUSTER_COUNT = Math.floor(6 * intensity);
-  const PARTICLES_PER_CLUSTER = 250;
-  const ATMOSPHERIC_COUNT = Math.floor(2500 * intensity * recordingMultiplier);
-  const DISTANT_SWIRL_COUNT = Math.floor(1200 * intensity * recordingMultiplier);
-  const BIG_SWIRLS_COUNT = Math.floor(3 * intensity);
-  const SNOW_COUNT = Math.floor(1500 * intensity * recordingMultiplier);
-  const TWINKLE_COUNT = Math.floor(400 * intensity * recordingMultiplier);
-  const GEOMETRIC_SNOWFLAKES_COUNT = Math.floor(100 * intensity * recordingMultiplier);
-  const NEBULA_COUNT = Math.floor(800 * intensity * recordingMultiplier);
-  const COSMIC_RAYS_COUNT = Math.floor(150 * intensity * recordingMultiplier);
-  const DISTANT_NEBULA_COUNT = Math.floor(400 * intensity * recordingMultiplier);
-  const BACKGROUND_PARTICLES_COUNT = Math.floor(1500 * intensity * recordingMultiplier);
-  const ULTRA_DISTANT_PARTICLES_COUNT = Math.floor(800 * intensity * recordingMultiplier);
-  const DISTANT_GALAXY_CLUSTERS_COUNT = Math.floor(8 * intensity);
-  const PARTICLES_PER_DISTANT_CLUSTER = 400;
+  const MAIN_COUNT = Math.floor(4000 * intensity * recordingMultiplier);
+  const DUST_COUNT = Math.floor(2500 * intensity * recordingMultiplier);
+  const CLUSTER_COUNT = Math.floor(8 * intensity);
+  const PARTICLES_PER_CLUSTER = 300;
+  const ATMOSPHERIC_COUNT = Math.floor(3000 * intensity * recordingMultiplier);
+  const DISTANT_SWIRL_COUNT = Math.floor(1500 * intensity * recordingMultiplier);
+  const BIG_SWIRLS_COUNT = Math.floor(4 * intensity);
+  const GAS_CLOUD_COUNT = Math.floor(5 * intensity);
+  const PARTICLES_PER_GAS_CLOUD = 60;
+  // Use consistent counts for special particles to avoid buffer issues
+  const SNOW_COUNT = Math.floor(2000 * intensity * recordingMultiplier);
+  const TWINKLE_COUNT = Math.floor(500 * intensity * recordingMultiplier);
+  // NEW: Geometric snowflakes - fewer but much more detailed
+  const GEOMETRIC_SNOWFLAKES_COUNT = Math.floor(80 * intensity * recordingMultiplier);
   
-  // Enhanced cosmic background counts for immersive skybox effect
-  const COSMIC_SKYBOX_STARS_COUNT = Math.floor(8000 * intensity * recordingMultiplier);
-  const MILKY_WAY_BAND_COUNT = Math.floor(12000 * intensity * recordingMultiplier);
-  const DEEP_SPACE_NEBULA_COUNT = Math.floor(600 * intensity * recordingMultiplier);
-  const COSMIC_DUST_FIELD_COUNT = Math.floor(4000 * intensity * recordingMultiplier);
-
+  // Determine if we're using special themes
   const isRainbowTheme = colorTheme.name === 'Rainbow Spectrum';
   const isWhiteTheme = colorTheme.name === 'Pure White';
   const isChristmasTheme = colorTheme.name === 'Christmas Magic';
 
-  // Enhanced snowflake geometry with intricate details
+  // Helper function to create geometric snowflake geometry
   const createSnowflakeGeometry = (complexity: number = 1) => {
     const geometry = new THREE.BufferGeometry();
-    const vertices = [];
-    const indices = [];
-
+    const vertices: number[] = [];
+    const indices: number[] = [];
+    
+    // Create a 6-pointed snowflake with intricate details
     const branches = 6;
-    const size = 1.5 + Math.random() * 2.0;
-
+    const size = 0.8 + Math.random() * 1.2; // Varied sizes
+    
     // Center point
     vertices.push(0, 0, 0);
-
-    // Create main branches with intricate details
+    
+    // Create main branches
     for (let i = 0; i < branches; i++) {
       const angle = (i / branches) * Math.PI * 2;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
-
+      
       // Main branch points
       const branchLength = size;
       vertices.push(cos * branchLength, sin * branchLength, 0);
-
-      // Sub-branches with additional details
-      for (let j = 0.2; j <= 0.9; j += 0.2) {
+      
+      // Create sub-branches at different points along main branch
+      for (let j = 0.3; j <= 0.9; j += 0.3) {
         const subLength = branchLength * j;
-        const subBranchSize = (1 - j) * 0.5 * size;
-
+        const subBranchSize = (1 - j) * 0.4 * size;
+        
         // Left sub-branch
-        const leftAngle = angle - Math.PI / 4;
+        const leftAngle = angle - Math.PI / 6;
         vertices.push(
           cos * subLength + Math.cos(leftAngle) * subBranchSize,
           sin * subLength + Math.sin(leftAngle) * subBranchSize,
           0
         );
-
+        
         // Right sub-branch
-        const rightAngle = angle + Math.PI / 4;
+        const rightAngle = angle + Math.PI / 6;
         vertices.push(
           cos * subLength + Math.cos(rightAngle) * subBranchSize,
           sin * subLength + Math.sin(rightAngle) * subBranchSize,
           0
         );
-
-        // Additional small branches for complexity
-        const microBranchSize = subBranchSize * 0.5;
-        const microLeftAngle = angle - Math.PI / 3;
-        const microRightAngle = angle + Math.PI / 3;
-        vertices.push(
-          cos * subLength + Math.cos(microLeftAngle) * microBranchSize,
-          sin * subLength + Math.sin(microLeftAngle) * microBranchSize,
-          0
-        );
-        vertices.push(
-          cos * subLength + Math.cos(microRightAngle) * microBranchSize,
-          sin * subLength + Math.sin(microRightAngle) * microBranchSize,
-          0
-        );
-
-        // Connect sub-branches
+        
+        // Connect sub-branches to main branch
         const mainIndex = 1 + i;
-        const leftIndex = vertices.length / 3 - 4;
-        const rightIndex = vertices.length / 3 - 3;
-        const microLeftIndex = vertices.length / 3 - 2;
-        const microRightIndex = vertices.length / 3 - 1;
-
+        const leftIndex = vertices.length / 3 - 2;
+        const rightIndex = vertices.length / 3 - 1;
+        
         indices.push(0, mainIndex, leftIndex);
         indices.push(0, mainIndex, rightIndex);
-        indices.push(leftIndex, mainIndex, microLeftIndex);
-        indices.push(rightIndex, mainIndex, microRightIndex);
       }
-
+      
       // Connect center to main branch
       indices.push(0, 1 + i, 1 + ((i + 1) % branches));
     }
-
-    // Inner star pattern
-    const innerSize = size * 0.4;
+    
+    // Add crystalline details - inner hexagon
+    const innerSize = size * 0.3;
     const innerStartIndex = vertices.length / 3;
     for (let i = 0; i < branches; i++) {
-      const angle = (i / branches) * Math.PI * 2 + Math.PI / 12;
+      const angle = (i / branches) * Math.PI * 2 + Math.PI / 6; // Offset for star pattern
       vertices.push(
         Math.cos(angle) * innerSize,
         Math.sin(angle) * innerSize,
         0
       );
-      indices.push(innerStartIndex + i, innerStartIndex + ((i + 1) % branches), 0);
+      
+      // Connect inner hexagon
+      indices.push(0, innerStartIndex + i, innerStartIndex + ((i + 1) % branches));
     }
-
+    
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
+    
     return geometry;
   };
 
+  // Helper functions for color generation
   const getRainbowColor = (index: number, total: number) => {
     const hue = (index / total) * 360;
     const color = new THREE.Color();
@@ -187,38 +156,35 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
 
   const getChristmasColor = (index: number) => {
     const rand = Math.random();
-    if (rand < 0.4) return new THREE.Color('#dc2626');
-    if (rand < 0.8) return new THREE.Color('#16a34a');
-    return new THREE.Color('#ffffff');
+    if (rand < 0.4) return new THREE.Color('#dc2626'); // Red
+    if (rand < 0.8) return new THREE.Color('#16a34a'); // Green
+    return new THREE.Color('#ffffff'); // White
   };
 
-  // Enhanced snowflake data with dynamic lighting properties
+  // Create geometric snowflakes data (for Christmas Magic theme)
   const geometricSnowflakesData = useMemo(() => {
     const snowflakes = [];
-
     for (let i = 0; i < GEOMETRIC_SNOWFLAKES_COUNT; i++) {
       snowflakes.push({
         id: i,
         position: [
-          (Math.random() - 0.5) * 600,
-          Math.random() * 400 + 150,
-          (Math.random() - 0.5) * 600
+          (Math.random() - 0.5) * 500, // Wider spread area
+          Math.random() * 300 + 100,   // Start high in the sky
+          (Math.random() - 0.5) * 500
         ] as [number, number, number],
-        rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI],
-        scale: 1.0 + Math.random() * 2.0,
-        fallSpeed: 0.01 + Math.random() * 0.015,
-        rotationSpeed: (Math.random() - 0.5) * 0.03,
-        swaySpeed: Math.random() * 0.6 + 0.4,
-        swayAmount: Math.random() * 0.003 + 0.002,
-        geometry: createSnowflakeGeometry(1 + Math.random() * 0.5),
-        emissiveIntensity: 0.5 + Math.random() * 0.5
+        rotation: [0, 0, Math.random() * Math.PI * 2] as [number, number, number],
+        scale: 0.5 + Math.random() * 1.5,
+        fallSpeed: 0.008 + Math.random() * 0.012,
+        rotationSpeed: (Math.random() - 0.5) * 0.02,
+        swaySpeed: Math.random() * 0.5 + 0.3,
+        swayAmount: Math.random() * 0.002 + 0.001,
+        geometry: createSnowflakeGeometry(1 + Math.random())
       });
     }
-
     return snowflakes;
   }, [GEOMETRIC_SNOWFLAKES_COUNT, isChristmasTheme]);
 
-  // Particle data generation
+  // Create realistic particle distribution with new theme support
   const particleData = useMemo(() => {
     if (!enabled || intensity === 0) {
       return {
@@ -228,109 +194,115 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         atmospheric: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
         distantSwirl: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
         bigSwirls: [],
+        gas: [],
         snow: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        twinkle: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), phases: new Float32Array(0), count: 0 },
-        nebula: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        cosmicRays: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        distantNebula: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        backgroundParticles: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        ultraDistantParticles: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        distantGalaxyClusters: [],
-        cosmicSkyboxStars: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        milkyWayBand: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        deepSpaceNebula: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        cosmicDustField: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 }
+        twinkle: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), phases: new Float32Array(0), count: 0 }
       };
     }
 
-    // Main cloud particles
+    // Main galaxy cloud particles (spiral arms)
     const mainPositions = new Float32Array(MAIN_COUNT * 3);
     const mainColors = new Float32Array(MAIN_COUNT * 3);
     const mainSizes = new Float32Array(MAIN_COUNT);
     const mainVelocities = new Float32Array(MAIN_COUNT * 3);
-
+    
     for (let i = 0; i < MAIN_COUNT; i++) {
+      // Four spiral arms with some noise
       const armIndex = Math.floor(Math.random() * 4);
       const armAngle = (armIndex * Math.PI / 2) + (Math.random() - 0.5) * 0.5;
       const distanceFromCenter = Math.pow(Math.random(), 0.5) * 80;
       const spiralTightness = 0.2;
       const angle = armAngle + (distanceFromCenter * spiralTightness);
-
+      
       const noise = (Math.random() - 0.5) * (8 + distanceFromCenter * 0.1);
       const heightNoise = (Math.random() - 0.5) * (1 + distanceFromCenter * 0.02);
-
+      
       mainPositions[i * 3] = Math.cos(angle) * distanceFromCenter + noise;
       mainPositions[i * 3 + 1] = heightNoise + Math.sin(angle * 0.1) * (distanceFromCenter * 0.01) - 5;
       mainPositions[i * 3 + 2] = Math.sin(angle) * distanceFromCenter + noise;
-
+      
       mainVelocities[i * 3] = (Math.random() - 0.5) * 0.002;
       mainVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0005;
       mainVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.002;
-
+      
+      // Vary star sizes (mostly small, some medium, a few large)
       const sizeRandom = Math.random();
-      mainSizes[i] = sizeRandom < 0.7 ? 0.5 + Math.random() * 1.5 : sizeRandom < 0.9 ? 2 + Math.random() * 2 : 4 + Math.random() * 3;
+      if (sizeRandom < 0.7) {
+        mainSizes[i] = 0.5 + Math.random() * 1.5;
+      } else if (sizeRandom < 0.9) {
+        mainSizes[i] = 2 + Math.random() * 2;
+      } else {
+        mainSizes[i] = 4 + Math.random() * 3;
+      }
     }
-
-    // Dust cloud particles
+    
+    // Dust cloud particles (scattered smaller points around the galaxy)
     const dustPositions = new Float32Array(DUST_COUNT * 3);
     const dustColors = new Float32Array(DUST_COUNT * 3);
     const dustSizes = new Float32Array(DUST_COUNT);
     const dustVelocities = new Float32Array(DUST_COUNT * 3);
-
+    
     for (let i = 0; i < DUST_COUNT; i++) {
       const radius = Math.pow(Math.random(), 2) * 50 + 10;
       const angle = Math.random() * Math.PI * 2;
       const height = (Math.random() - 0.5) * 10 - 5;
-
+      
       dustPositions[i * 3] = Math.cos(angle) * radius + (Math.random() - 0.5) * 15;
       dustPositions[i * 3 + 1] = height;
       dustPositions[i * 3 + 2] = Math.sin(angle) * radius + (Math.random() - 0.5) * 15;
-
+      
       dustVelocities[i * 3] = (Math.random() - 0.5) * 0.003;
       dustVelocities[i * 3 + 1] = Math.random() * 0.001 + 0.0005;
       dustVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.003;
-
+      
       dustSizes[i] = 0.3 + Math.random() * 1.2;
     }
-
-    // Star clusters
-    const clusterData = [];
+    
+    // Create star clusters (localized clusters of stars)
+    const clusterData: {
+      positions: Float32Array;
+      colors: Float32Array;
+      sizes: Float32Array;
+      velocities: Float32Array;
+      center: { x: number; y: number; z: number };
+    }[] = [];
     for (let c = 0; c < CLUSTER_COUNT; c++) {
       const clusterDistance = 30 + Math.random() * 100;
       const clusterAngle = Math.random() * Math.PI * 2;
       const clusterHeight = (Math.random() - 0.5) * 20 - 10;
-
+      
       const clusterCenter = {
         x: Math.cos(clusterAngle) * clusterDistance,
         y: clusterHeight,
         z: Math.sin(clusterAngle) * clusterDistance
       };
-
+      
       const clusterPositions = new Float32Array(PARTICLES_PER_CLUSTER * 3);
       const clusterColors = new Float32Array(PARTICLES_PER_CLUSTER * 3);
       const clusterSizes = new Float32Array(PARTICLES_PER_CLUSTER);
       const clusterVelocities = new Float32Array(PARTICLES_PER_CLUSTER * 3);
-
+      
       for (let i = 0; i < PARTICLES_PER_CLUSTER; i++) {
+        // Random distribution within a sphere around cluster center
         const phi = Math.random() * Math.PI * 2;
         const cosTheta = Math.random() * 2 - 1;
         const u = Math.random();
-        const clusterRadius = Math.pow(u, 1 / 3) * (3 + Math.random() * 4);
-
+        const clusterRadius = Math.pow(u, 1/3) * (3 + Math.random() * 4);
+        
         const theta = Math.acos(cosTheta);
         const r = clusterRadius;
-
+        
         clusterPositions[i * 3] = clusterCenter.x + r * Math.sin(theta) * Math.cos(phi);
         clusterPositions[i * 3 + 1] = clusterCenter.y + r * Math.cos(theta);
         clusterPositions[i * 3 + 2] = clusterCenter.z + r * Math.sin(theta) * Math.sin(phi);
-
+        
         clusterVelocities[i * 3] = (Math.random() - 0.5) * 0.001;
         clusterVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0005;
         clusterVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
-
+        
         clusterSizes[i] = 0.8 + Math.random() * 2.5;
       }
-
+      
       clusterData.push({
         positions: clusterPositions,
         colors: clusterColors,
@@ -339,88 +311,100 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         center: clusterCenter
       });
     }
-
-    // Atmospheric particles
+    
+    // Atmospheric background particles (very scattered faint points for depth)
     const atmosphericPositions = new Float32Array(ATMOSPHERIC_COUNT * 3);
     const atmosphericColors = new Float32Array(ATMOSPHERIC_COUNT * 3);
     const atmosphericSizes = new Float32Array(ATMOSPHERIC_COUNT);
     const atmosphericVelocities = new Float32Array(ATMOSPHERIC_COUNT * 3);
-
+    
     for (let i = 0; i < ATMOSPHERIC_COUNT; i++) {
       atmosphericPositions[i * 3] = (Math.random() - 0.5) * 200;
       atmosphericPositions[i * 3 + 1] = Math.random() * 80 + 5;
       atmosphericPositions[i * 3 + 2] = (Math.random() - 0.5) * 200;
-
+      
       atmosphericVelocities[i * 3] = (Math.random() - 0.5) * 0.001;
       atmosphericVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0008;
       atmosphericVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
-
+      
       const sizeRandom = Math.random();
-      atmosphericSizes[i] = sizeRandom < 0.6 ? 0.2 + Math.random() * 0.8 : sizeRandom < 0.85 ? 1 + Math.random() * 1.5 : 2.5 + Math.random() * 2;
+      if (sizeRandom < 0.6) {
+        atmosphericSizes[i] = 0.2 + Math.random() * 0.8;
+      } else if (sizeRandom < 0.85) {
+        atmosphericSizes[i] = 1 + Math.random() * 1.5;
+      } else {
+        atmosphericSizes[i] = 2.5 + Math.random() * 2;
+      }
     }
-
-    // Distant swirl particles
+    
+    // Distant swirl particles (large-scale spiral arms further out)
     const distantSwirlPositions = new Float32Array(DISTANT_SWIRL_COUNT * 3);
     const distantSwirlColors = new Float32Array(DISTANT_SWIRL_COUNT * 3);
     const distantSwirlSizes = new Float32Array(DISTANT_SWIRL_COUNT);
     const distantSwirlVelocities = new Float32Array(DISTANT_SWIRL_COUNT * 3);
-
+    
     for (let i = 0; i < DISTANT_SWIRL_COUNT; i++) {
       const swirlArm = Math.floor(Math.random() * 6);
       const armAngle = (swirlArm * Math.PI / 3) + (Math.random() - 0.5) * 0.3;
       const distanceFromCenter = Math.pow(Math.random(), 0.3) * 150 + 80;
       const spiralTightness = 0.15;
       const angle = armAngle + (distanceFromCenter * spiralTightness);
-
+      
       const noise = (Math.random() - 0.5) * 20;
       const heightVariation = (Math.random() - 0.5) * 40 + 30;
-
+      
       distantSwirlPositions[i * 3] = Math.cos(angle) * distanceFromCenter + noise;
       distantSwirlPositions[i * 3 + 1] = heightVariation + Math.sin(angle * 0.05) * 15;
       distantSwirlPositions[i * 3 + 2] = Math.sin(angle) * distanceFromCenter + noise;
-
+      
       distantSwirlVelocities[i * 3] = (Math.random() - 0.5) * 0.0008;
       distantSwirlVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0005;
       distantSwirlVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0008;
-
+      
       distantSwirlSizes[i] = 1.5 + Math.random() * 3.5;
     }
-
-    // Big swirl formations
-    const bigSwirlData = [];
+    
+    // Big swirl formations (large star cluster swirls at the edges)
+    const bigSwirlData: {
+      positions: Float32Array;
+      colors: Float32Array;
+      sizes: Float32Array;
+      velocities: Float32Array;
+      center: { x: number; y: number; z: number };
+    }[] = [];
     for (let s = 0; s < BIG_SWIRLS_COUNT; s++) {
       const swirlDistance = 120 + Math.random() * 100;
       const swirlAngle = Math.random() * Math.PI * 2;
       const swirlHeight = 40 + Math.random() * 60;
       const particlesPerSwirl = 800;
-
+      
       const swirlCenter = {
         x: Math.cos(swirlAngle) * swirlDistance,
         y: swirlHeight,
         z: Math.sin(swirlAngle) * swirlDistance
       };
-
+      
       const swirlPositions = new Float32Array(particlesPerSwirl * 3);
       const swirlColors = new Float32Array(particlesPerSwirl * 3);
       const swirlSizes = new Float32Array(particlesPerSwirl);
       const swirlVelocities = new Float32Array(particlesPerSwirl * 3);
-
+      
       for (let i = 0; i < particlesPerSwirl; i++) {
         const spiralRadius = Math.pow(Math.random(), 0.4) * 30;
         const spiralAngle = Math.random() * Math.PI * 4 + (spiralRadius * 0.3);
         const spiralHeight = (Math.random() - 0.5) * 25;
-
+        
         swirlPositions[i * 3] = swirlCenter.x + Math.cos(spiralAngle) * spiralRadius;
         swirlPositions[i * 3 + 1] = swirlCenter.y + spiralHeight;
         swirlPositions[i * 3 + 2] = swirlCenter.z + Math.sin(spiralAngle) * spiralRadius;
-
+        
         swirlVelocities[i * 3] = (Math.random() - 0.5) * 0.0005;
         swirlVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0003;
         swirlVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0005;
-
+        
         swirlSizes[i] = 1.2 + Math.random() * 4;
       }
-
+      
       bigSwirlData.push({
         positions: swirlPositions,
         colors: swirlColors,
@@ -429,449 +413,242 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         center: swirlCenter
       });
     }
-
-    // Snow particles
+    
+    // NEW: Gas cloud clusters (distant colorful nebula-like clouds)
+    const gasData: {
+      positions: Float32Array;
+      colors: Float32Array;
+      sizes: Float32Array;
+      velocities: Float32Array;
+      center: { x: number; y: number; z: number };
+    }[] = [];
+    if (!isChristmasTheme && !isWhiteTheme) {
+      for (let g = 0; g < GAS_CLOUD_COUNT; g++) {
+        const clusterDistance = 200 + Math.random() * 100;
+        const clusterAngle = Math.random() * Math.PI * 2;
+        const clusterHeight = 30 + Math.random() * 60;
+        const clusterCenter = {
+          x: Math.cos(clusterAngle) * clusterDistance,
+          y: clusterHeight,
+          z: Math.sin(clusterAngle) * clusterDistance
+        };
+        const clusterPositions = new Float32Array(PARTICLES_PER_GAS_CLOUD * 3);
+        const clusterColors = new Float32Array(PARTICLES_PER_GAS_CLOUD * 3);
+        const clusterSizes = new Float32Array(PARTICLES_PER_GAS_CLOUD);
+        const clusterVelocities = new Float32Array(PARTICLES_PER_GAS_CLOUD * 3);
+        for (let i = 0; i < PARTICLES_PER_GAS_CLOUD; i++) {
+          // Random spherical distribution for gas cloud shape
+          const phi = Math.random() * Math.PI * 2;
+          const cosTheta = Math.random() * 2 - 1;
+          const u = Math.random();
+          const r = Math.pow(u, 1/3) * (10 + Math.random() * 20);
+          const theta = Math.acos(cosTheta);
+          clusterPositions[i * 3] = clusterCenter.x + r * Math.sin(theta) * Math.cos(phi);
+          clusterPositions[i * 3 + 1] = clusterCenter.y + r * Math.cos(theta);
+          clusterPositions[i * 3 + 2] = clusterCenter.z + r * Math.sin(theta) * Math.sin(phi);
+          clusterVelocities[i * 3] = (Math.random() - 0.5) * 0.0003;
+          clusterVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0003;
+          clusterVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0003;
+          // Assign varied particle sizes (few very large, some big, some medium, many small)
+          const sizeRand = Math.random();
+          if (sizeRand < 0.1) {
+            clusterSizes[i] = 12 + Math.random() * 8;
+          } else if (sizeRand < 0.3) {
+            clusterSizes[i] = 8 + Math.random() * 4;
+          } else if (sizeRand < 0.6) {
+            clusterSizes[i] = 4 + Math.random() * 4;
+          } else {
+            clusterSizes[i] = 1 + Math.random() * 3;
+          }
+        }
+        gasData.push({
+          positions: clusterPositions,
+          colors: clusterColors,
+          sizes: clusterSizes,
+          velocities: clusterVelocities,
+          center: clusterCenter
+        });
+      }
+    }
+    
+    // NEW: Enhanced Snow particles (visible only in Christmas theme)
     const snowPositions = new Float32Array(SNOW_COUNT * 3);
     const snowColors = new Float32Array(SNOW_COUNT * 3);
     const snowSizes = new Float32Array(SNOW_COUNT);
     const snowVelocities = new Float32Array(SNOW_COUNT * 3);
-
+    
     for (let i = 0; i < SNOW_COUNT; i++) {
       if (isChristmasTheme) {
+        // Active snow particles for Christmas theme (falling snow)
         snowPositions[i * 3] = (Math.random() - 0.5) * 400;
         snowPositions[i * 3 + 1] = Math.random() * 200 + 100;
         snowPositions[i * 3 + 2] = (Math.random() - 0.5) * 400;
-
+        
         snowVelocities[i * 3] = (Math.random() - 0.5) * 0.004;
         snowVelocities[i * 3 + 1] = -Math.random() * 0.012 - 0.003;
         snowVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.004;
-
+        
         const sizeRand = Math.random();
-        snowSizes[i] = sizeRand < 0.4 ? 0.3 + Math.random() * 0.7 : sizeRand < 0.8 ? 1.0 + Math.random() * 1.5 : 2.0 + Math.random() * 2.0;
+        if (sizeRand < 0.4) {
+          snowSizes[i] = 0.3 + Math.random() * 0.7;
+        } else if (sizeRand < 0.8) {
+          snowSizes[i] = 1.0 + Math.random() * 1.5;
+        } else {
+          snowSizes[i] = 2.0 + Math.random() * 2.0;
+        }
       } else {
+        // Inactive snow for other themes (place off-screen)
         snowPositions[i * 3] = 0;
         snowPositions[i * 3 + 1] = -1000;
         snowPositions[i * 3 + 2] = 0;
-
         snowVelocities[i * 3] = 0;
         snowVelocities[i * 3 + 1] = 0;
         snowVelocities[i * 3 + 2] = 0;
-
         snowSizes[i] = 0.1;
       }
     }
-
-    // Twinkle particles
+    
+    // NEW: Twinkle particles (sparkling points, visible only in Christmas theme)
     const twinklePositions = new Float32Array(TWINKLE_COUNT * 3);
     const twinkleColors = new Float32Array(TWINKLE_COUNT * 3);
     const twinkleSizes = new Float32Array(TWINKLE_COUNT);
     const twinkleVelocities = new Float32Array(TWINKLE_COUNT * 3);
     const twinklePhases = new Float32Array(TWINKLE_COUNT);
-
+    
     for (let i = 0; i < TWINKLE_COUNT; i++) {
       if (isChristmasTheme) {
+        // Active twinkle particles for Christmas theme (colored sparkles)
         twinklePositions[i * 3] = (Math.random() - 0.5) * 250;
         twinklePositions[i * 3 + 1] = Math.random() * 100 - 10;
         twinklePositions[i * 3 + 2] = (Math.random() - 0.5) * 250;
-
+        
         twinkleVelocities[i * 3] = (Math.random() - 0.5) * 0.001;
         twinkleVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
         twinkleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
-
+        
         twinkleSizes[i] = 1 + Math.random() * 3;
         twinklePhases[i] = Math.random() * Math.PI * 2;
       } else {
+        // Inactive twinkles for other themes (hidden)
         twinklePositions[i * 3] = 0;
         twinklePositions[i * 3 + 1] = -1000;
         twinklePositions[i * 3 + 2] = 0;
-
         twinkleVelocities[i * 3] = 0;
         twinkleVelocities[i * 3 + 1] = 0;
         twinkleVelocities[i * 3 + 2] = 0;
-
         twinkleSizes[i] = 0.1;
         twinklePhases[i] = 0;
       }
     }
-
-    // Nebula particles
-    const nebulaPositions = new Float32Array(NEBULA_COUNT * 3);
-    const nebulaColors = new Float32Array(NEBULA_COUNT * 3);
-    const nebulaSizes = new Float32Array(NEBULA_COUNT);
-    const nebulaVelocities = new Float32Array(NEBULA_COUNT * 3);
-
-    for (let i = 0; i < NEBULA_COUNT; i++) {
-      const nebulaRadius = Math.pow(Math.random(), 0.3) * 200 + 50;
-      const nebulaAngle = Math.random() * Math.PI * 2;
-      const nebulaHeight = (Math.random() - 0.5) * 150;
-
-      nebulaPositions[i * 3] = Math.cos(nebulaAngle) * nebulaRadius + (Math.random() - 0.5) * 60;
-      nebulaPositions[i * 3 + 1] = nebulaHeight;
-      nebulaPositions[i * 3 + 2] = Math.sin(nebulaAngle) * nebulaRadius + (Math.random() - 0.5) * 60;
-
-      nebulaVelocities[i * 3] = (Math.random() - 0.5) * 0.0003;
-      nebulaVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0002;
-      nebulaVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0003;
-
-      nebulaSizes[i] = 8 + Math.random() * 25;
-    }
-
-    // Cosmic rays
-    const cosmicRaysPositions = new Float32Array(COSMIC_RAYS_COUNT * 3);
-    const cosmicRaysColors = new Float32Array(COSMIC_RAYS_COUNT * 3);
-    const cosmicRaysSizes = new Float32Array(COSMIC_RAYS_COUNT);
-    const cosmicRaysVelocities = new Float32Array(COSMIC_RAYS_COUNT * 3);
-
-    for (let i = 0; i < COSMIC_RAYS_COUNT; i++) {
-      cosmicRaysPositions[i * 3] = (Math.random() - 0.5) * 800;
-      cosmicRaysPositions[i * 3 + 1] = (Math.random() - 0.5) * 800;
-      cosmicRaysPositions[i * 3 + 2] = (Math.random() - 0.5) * 800;
-
-      const direction = new THREE.Vector3(
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 2
-      ).normalize();
-      
-      const speed = 0.05 + Math.random() * 0.1;
-      cosmicRaysVelocities[i * 3] = direction.x * speed;
-      cosmicRaysVelocities[i * 3 + 1] = direction.y * speed;
-      cosmicRaysVelocities[i * 3 + 2] = direction.z * speed;
-
-      cosmicRaysSizes[i] = 0.5 + Math.random() * 2;
-    }
-
-    // Distant Nebulas - Much larger and farther away
-    const distantNebulaPositions = new Float32Array(DISTANT_NEBULA_COUNT * 3);
-    const distantNebulaColors = new Float32Array(DISTANT_NEBULA_COUNT * 3);
-    const distantNebulaSizes = new Float32Array(DISTANT_NEBULA_COUNT);
-    const distantNebulaVelocities = new Float32Array(DISTANT_NEBULA_COUNT * 3);
-
-    for (let i = 0; i < DISTANT_NEBULA_COUNT; i++) {
-      // Much larger radius for distant placement
-      const nebulaRadius = Math.pow(Math.random(), 0.2) * 800 + 400;
-      const nebulaAngle = Math.random() * Math.PI * 2;
-      const nebulaHeight = (Math.random() - 0.5) * 600;
-
-      distantNebulaPositions[i * 3] = Math.cos(nebulaAngle) * nebulaRadius + (Math.random() - 0.5) * 200;
-      distantNebulaPositions[i * 3 + 1] = nebulaHeight;
-      distantNebulaPositions[i * 3 + 2] = Math.sin(nebulaAngle) * nebulaRadius + (Math.random() - 0.5) * 200;
-
-      // Very slow movement for distant nebulas
-      distantNebulaVelocities[i * 3] = (Math.random() - 0.5) * 0.0001;
-      distantNebulaVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.00008;
-      distantNebulaVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0001;
-
-      // Much larger sizes for massive distant nebulas
-      distantNebulaSizes[i] = 40 + Math.random() * 120;
-    }
-
-    // Background floating particles - Medium distance
-    const backgroundParticlesPositions = new Float32Array(BACKGROUND_PARTICLES_COUNT * 3);
-    const backgroundParticlesColors = new Float32Array(BACKGROUND_PARTICLES_COUNT * 3);
-    const backgroundParticlesSizes = new Float32Array(BACKGROUND_PARTICLES_COUNT);
-    const backgroundParticlesVelocities = new Float32Array(BACKGROUND_PARTICLES_COUNT * 3);
-
-    for (let i = 0; i < BACKGROUND_PARTICLES_COUNT; i++) {
-      // Spherical distribution around the galaxy
-      const phi = Math.random() * Math.PI * 2;
-      const cosTheta = Math.random() * 2 - 1;
-      const u = Math.random();
-      const radius = Math.pow(u, 1/3) * 500 + 200;
-
-      const theta = Math.acos(cosTheta);
-      const r = radius;
-
-      backgroundParticlesPositions[i * 3] = r * Math.sin(theta) * Math.cos(phi);
-      backgroundParticlesPositions[i * 3 + 1] = r * Math.cos(theta);
-      backgroundParticlesPositions[i * 3 + 2] = r * Math.sin(theta) * Math.sin(phi);
-
-      backgroundParticlesVelocities[i * 3] = (Math.random() - 0.5) * 0.0002;
-      backgroundParticlesVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0001;
-      backgroundParticlesVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0002;
-
-      const sizeRandom = Math.random();
-      backgroundParticlesSizes[i] = sizeRandom < 0.7 ? 0.3 + Math.random() * 1.2 : sizeRandom < 0.9 ? 2 + Math.random() * 3 : 4 + Math.random() * 5;
-    }
-
-    // Ultra distant particles - Extreme distance, tiny and dim
-    const ultraDistantParticlesPositions = new Float32Array(ULTRA_DISTANT_PARTICLES_COUNT * 3);
-    const ultraDistantParticlesColors = new Float32Array(ULTRA_DISTANT_PARTICLES_COUNT * 3);
-    const ultraDistantParticlesSizes = new Float32Array(ULTRA_DISTANT_PARTICLES_COUNT);
-    const ultraDistantParticlesVelocities = new Float32Array(ULTRA_DISTANT_PARTICLES_COUNT * 3);
-
-    for (let i = 0; i < ULTRA_DISTANT_PARTICLES_COUNT; i++) {
-      // Extremely large sphere for ultra distant placement
-      const phi = Math.random() * Math.PI * 2;
-      const cosTheta = Math.random() * 2 - 1;
-      const u = Math.random();
-      const radius = Math.pow(u, 1/4) * 1500 + 800;
-
-      const theta = Math.acos(cosTheta);
-      const r = radius;
-
-      ultraDistantParticlesPositions[i * 3] = r * Math.sin(theta) * Math.cos(phi);
-      ultraDistantParticlesPositions[i * 3 + 1] = r * Math.cos(theta);
-      ultraDistantParticlesPositions[i * 3 + 2] = r * Math.sin(theta) * Math.sin(phi);
-
-      // Nearly stationary for ultra distant effect
-      ultraDistantParticlesVelocities[i * 3] = (Math.random() - 0.5) * 0.00005;
-      ultraDistantParticlesVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.00003;
-      ultraDistantParticlesVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.00005;
-
-      // Very small sizes for distant stars
-      ultraDistantParticlesSizes[i] = 0.1 + Math.random() * 0.8;
-    }
-
-    // Distant Galaxy Clusters - Large Milky Way-like formations in the distance
-    const distantGalaxyClustersData = [];
-    for (let c = 0; c < DISTANT_GALAXY_CLUSTERS_COUNT; c++) {
-      // Position clusters at extreme distances, above or below the main plane
-      const clusterDistance = 800 + Math.random() * 600;
-      const clusterAngle = Math.random() * Math.PI * 2;
-      // Ensure clusters are well above or below the main galactic plane
-      const clusterHeight = Math.random() < 0.5 ? 
-        200 + Math.random() * 300 : // Above the plane
-        -(200 + Math.random() * 300); // Below the plane
-
-      const clusterCenter = {
-        x: Math.cos(clusterAngle) * clusterDistance,
-        y: clusterHeight,
-        z: Math.sin(clusterAngle) * clusterDistance
-      };
-
-      const clusterPositions = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
-      const clusterColors = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
-      const clusterSizes = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER);
-      const clusterVelocities = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
-
-      // Create spiral galaxy structure for each distant cluster
-      for (let i = 0; i < PARTICLES_PER_DISTANT_CLUSTER; i++) {
-        const armIndex = Math.floor(Math.random() * 4);
-        const armAngle = (armIndex * Math.PI / 2) + (Math.random() - 0.5) * 0.8;
-        const distanceFromClusterCenter = Math.pow(Math.random(), 0.6) * 120; // Larger than local clusters
-        const spiralTightness = 0.15;
-        const angle = armAngle + (distanceFromClusterCenter * spiralTightness);
-
-        const noise = (Math.random() - 0.5) * (15 + distanceFromClusterCenter * 0.1);
-        const heightNoise = (Math.random() - 0.5) * (3 + distanceFromClusterCenter * 0.03);
-
-        clusterPositions[i * 3] = clusterCenter.x + Math.cos(angle) * distanceFromClusterCenter + noise;
-        clusterPositions[i * 3 + 1] = clusterCenter.y + heightNoise + Math.sin(angle * 0.1) * (distanceFromClusterCenter * 0.02);
-        clusterPositions[i * 3 + 2] = clusterCenter.z + Math.sin(angle) * distanceFromClusterCenter + noise;
-
-        // Very slow movement for distant clusters
-        clusterVelocities[i * 3] = (Math.random() - 0.5) * 0.0001;
-        clusterVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.00005;
-        clusterVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0001;
-
-        // Varied sizes for galactic structure
-        const sizeRandom = Math.random();
-        clusterSizes[i] = sizeRandom < 0.6 ? 0.8 + Math.random() * 2.0 : sizeRandom < 0.85 ? 2.5 + Math.random() * 3.0 : 4.0 + Math.random() * 4.0;
-      }
-
-      distantGalaxyClustersData.push({
-        positions: clusterPositions,
-        colors: clusterColors,
-        sizes: clusterSizes,
-        velocities: clusterVelocities,
-        center: clusterCenter
-      });
-    }
-
-    // Cosmic Skybox Stars - Dense starfield covering entire sphere
-    const cosmicSkyboxStarsPositions = new Float32Array(COSMIC_SKYBOX_STARS_COUNT * 3);
-    const cosmicSkyboxStarsColors = new Float32Array(COSMIC_SKYBOX_STARS_COUNT * 3);
-    const cosmicSkyboxStarsSizes = new Float32Array(COSMIC_SKYBOX_STARS_COUNT);
-    const cosmicSkyboxStarsVelocities = new Float32Array(COSMIC_SKYBOX_STARS_COUNT * 3);
-
-    for (let i = 0; i < COSMIC_SKYBOX_STARS_COUNT; i++) {
-      // Uniform distribution across entire celestial sphere
-      const phi = Math.random() * Math.PI * 2;
-      const cosTheta = Math.random() * 2 - 1;
-      const radius = 2000 + Math.random() * 3000; // Very far away
-
-      const theta = Math.acos(cosTheta);
-      
-      cosmicSkyboxStarsPositions[i * 3] = radius * Math.sin(theta) * Math.cos(phi);
-      cosmicSkyboxStarsPositions[i * 3 + 1] = radius * Math.cos(theta);
-      cosmicSkyboxStarsPositions[i * 3 + 2] = radius * Math.sin(theta) * Math.sin(phi);
-
-      // Completely stationary for skybox effect
-      cosmicSkyboxStarsVelocities[i * 3] = 0;
-      cosmicSkyboxStarsVelocities[i * 3 + 1] = 0;
-      cosmicSkyboxStarsVelocities[i * 3 + 2] = 0;
-
-      // Varied star sizes
-      const sizeRandom = Math.random();
-      cosmicSkyboxStarsSizes[i] = sizeRandom < 0.8 ? 0.1 + Math.random() * 0.5 : 
-                                  sizeRandom < 0.95 ? 0.6 + Math.random() * 1.0 : 
-                                  1.5 + Math.random() * 2.0;
-    }
-
-    // Milky Way Band - Dense band across the sky like real Milky Way
-    const milkyWayBandPositions = new Float32Array(MILKY_WAY_BAND_COUNT * 3);
-    const milkyWayBandColors = new Float32Array(MILKY_WAY_BAND_COUNT * 3);
-    const milkyWayBandSizes = new Float32Array(MILKY_WAY_BAND_COUNT);
-    const milkyWayBandVelocities = new Float32Array(MILKY_WAY_BAND_COUNT * 3);
-
-    for (let i = 0; i < MILKY_WAY_BAND_COUNT; i++) {
-      // Create a band across the sky (like the real Milky Way appears)
-      const bandAngle = Math.random() * Math.PI * 2;
-      const bandWidth = 0.3; // Radians width of the band
-      const bandHeight = (Math.random() - 0.5) * bandWidth;
-      const radius = 1800 + Math.random() * 2200;
-
-      // Rotate the band to create the classic Milky Way arc
-      const tilt = Math.PI * 0.25; // 45 degree tilt
-      
-      const x = Math.cos(bandAngle) * radius;
-      const y = bandHeight * radius + Math.sin(bandAngle * 0.5) * radius * 0.2;
-      const z = Math.sin(bandAngle) * radius;
-
-      // Apply tilt rotation
-      milkyWayBandPositions[i * 3] = x * Math.cos(tilt) - y * Math.sin(tilt);
-      milkyWayBandPositions[i * 3 + 1] = x * Math.sin(tilt) + y * Math.cos(tilt);
-      milkyWayBandPositions[i * 3 + 2] = z;
-
-      milkyWayBandVelocities[i * 3] = 0;
-      milkyWayBandVelocities[i * 3 + 1] = 0;
-      milkyWayBandVelocities[i * 3 + 2] = 0;
-
-      // Denser, dimmer particles for dusty appearance
-      milkyWayBandSizes[i] = 0.05 + Math.random() * 0.3;
-    }
-
-    // Deep Space Nebula - Large, distant nebular structures
-    const deepSpaceNebulaPositions = new Float32Array(DEEP_SPACE_NEBULA_COUNT * 3);
-    const deepSpaceNebulaColors = new Float32Array(DEEP_SPACE_NEBULA_COUNT * 3);
-    const deepSpaceNebulaSizes = new Float32Array(DEEP_SPACE_NEBULA_COUNT);
-    const deepSpaceNebulaVelocities = new Float32Array(DEEP_SPACE_NEBULA_COUNT * 3);
-
-    for (let i = 0; i < DEEP_SPACE_NEBULA_COUNT; i++) {
-      // Scattered across the sky
-      const phi = Math.random() * Math.PI * 2;
-      const cosTheta = Math.random() * 2 - 1;
-      const radius = 1500 + Math.random() * 2500;
-
-      const theta = Math.acos(cosTheta);
-      
-      deepSpaceNebulaPositions[i * 3] = radius * Math.sin(theta) * Math.cos(phi);
-      deepSpaceNebulaPositions[i * 3 + 1] = radius * Math.cos(theta);
-      deepSpaceNebulaPositions[i * 3 + 2] = radius * Math.sin(theta) * Math.sin(phi);
-
-      // Very slow movement for subtle animation
-      deepSpaceNebulaVelocities[i * 3] = (Math.random() - 0.5) * 0.00001;
-      deepSpaceNebulaVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.00001;
-      deepSpaceNebulaVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.00001;
-
-      // Large, diffuse nebula particles
-      deepSpaceNebulaSizes[i] = 50 + Math.random() * 200;
-    }
-
-    // Cosmic Dust Field - Fine cosmic dust scattered throughout
-    const cosmicDustFieldPositions = new Float32Array(COSMIC_DUST_FIELD_COUNT * 3);
-    const cosmicDustFieldColors = new Float32Array(COSMIC_DUST_FIELD_COUNT * 3);
-    const cosmicDustFieldSizes = new Float32Array(COSMIC_DUST_FIELD_COUNT);
-    const cosmicDustFieldVelocities = new Float32Array(COSMIC_DUST_FIELD_COUNT * 3);
-
-    for (let i = 0; i < COSMIC_DUST_FIELD_COUNT; i++) {
-      // Fill space between near and far
-      const phi = Math.random() * Math.PI * 2;
-      const cosTheta = Math.random() * 2 - 1;
-      const radius = 500 + Math.random() * 1500;
-
-      const theta = Math.acos(cosTheta);
-      
-      cosmicDustFieldPositions[i * 3] = radius * Math.sin(theta) * Math.cos(phi);
-      cosmicDustFieldPositions[i * 3 + 1] = radius * Math.cos(theta);
-      cosmicDustFieldPositions[i * 3 + 2] = radius * Math.sin(theta) * Math.sin(phi);
-
-      // Gentle drifting motion
-      cosmicDustFieldVelocities[i * 3] = (Math.random() - 0.5) * 0.0001;
-      cosmicDustFieldVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0001;
-      cosmicDustFieldVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0001;
-
-      // Very fine dust particles
-      cosmicDustFieldSizes[i] = 0.02 + Math.random() * 0.1;
-    }
-
+    
     return {
-      main: { positions: mainPositions, colors: mainColors, sizes: mainSizes, velocities: mainVelocities, count: MAIN_COUNT },
-      dust: { positions: dustPositions, colors: dustColors, sizes: dustSizes, velocities: dustVelocities, count: DUST_COUNT },
+      main: {
+        positions: mainPositions,
+        colors: mainColors,
+        sizes: mainSizes,
+        velocities: mainVelocities,
+        count: MAIN_COUNT
+      },
+      dust: {
+        positions: dustPositions,
+        colors: dustColors,
+        sizes: dustSizes,
+        velocities: dustVelocities,
+        count: DUST_COUNT
+      },
       clusters: clusterData,
-      atmospheric: { positions: atmosphericPositions, colors: atmosphericColors, sizes: atmosphericSizes, velocities: atmosphericVelocities, count: ATMOSPHERIC_COUNT },
-      distantSwirl: { positions: distantSwirlPositions, colors: distantSwirlColors, sizes: distantSwirlSizes, velocities: distantSwirlVelocities, count: DISTANT_SWIRL_COUNT },
+      atmospheric: {
+        positions: atmosphericPositions,
+        colors: atmosphericColors,
+        sizes: atmosphericSizes,
+        velocities: atmosphericVelocities,
+        count: ATMOSPHERIC_COUNT
+      },
+      distantSwirl: {
+        positions: distantSwirlPositions,
+        colors: distantSwirlColors,
+        sizes: distantSwirlSizes,
+        velocities: distantSwirlVelocities,
+        count: DISTANT_SWIRL_COUNT
+      },
       bigSwirls: bigSwirlData,
-      snow: { positions: snowPositions, colors: snowColors, sizes: snowSizes, velocities: snowVelocities, count: SNOW_COUNT },
-      twinkle: { positions: twinklePositions, colors: twinkleColors, sizes: twinkleSizes, velocities: twinkleVelocities, phases: twinklePhases, count: TWINKLE_COUNT },
-      nebula: { positions: nebulaPositions, colors: nebulaColors, sizes: nebulaSizes, velocities: nebulaVelocities, count: NEBULA_COUNT },
-      cosmicRays: { positions: cosmicRaysPositions, colors: cosmicRaysColors, sizes: cosmicRaysSizes, velocities: cosmicRaysVelocities, count: COSMIC_RAYS_COUNT },
-      distantNebula: { positions: distantNebulaPositions, colors: distantNebulaColors, sizes: distantNebulaSizes, velocities: distantNebulaVelocities, count: DISTANT_NEBULA_COUNT },
-      backgroundParticles: { positions: backgroundParticlesPositions, colors: backgroundParticlesColors, sizes: backgroundParticlesSizes, velocities: backgroundParticlesVelocities, count: BACKGROUND_PARTICLES_COUNT },
-      ultraDistantParticles: { positions: ultraDistantParticlesPositions, colors: ultraDistantParticlesColors, sizes: ultraDistantParticlesSizes, velocities: ultraDistantParticlesVelocities, count: ULTRA_DISTANT_PARTICLES_COUNT },
-      distantGalaxyClusters: distantGalaxyClustersData,
-      cosmicSkyboxStars: { positions: cosmicSkyboxStarsPositions, colors: cosmicSkyboxStarsColors, sizes: cosmicSkyboxStarsSizes, velocities: cosmicSkyboxStarsVelocities, count: COSMIC_SKYBOX_STARS_COUNT },
-      milkyWayBand: { positions: milkyWayBandPositions, colors: milkyWayBandColors, sizes: milkyWayBandSizes, velocities: milkyWayBandVelocities, count: MILKY_WAY_BAND_COUNT },
-      deepSpaceNebula: { positions: deepSpaceNebulaPositions, colors: deepSpaceNebulaColors, sizes: deepSpaceNebulaSizes, velocities: deepSpaceNebulaVelocities, count: DEEP_SPACE_NEBULA_COUNT },
-      cosmicDustField: { positions: cosmicDustFieldPositions, colors: cosmicDustFieldColors, sizes: cosmicDustFieldSizes, velocities: cosmicDustFieldVelocities, count: COSMIC_DUST_FIELD_COUNT }
+      gas: gasData,
+      snow: {
+        positions: snowPositions,
+        colors: snowColors,
+        sizes: snowSizes,
+        velocities: snowVelocities,
+        count: SNOW_COUNT
+      },
+      twinkle: {
+        positions: twinklePositions,
+        colors: twinkleColors,
+        sizes: twinkleSizes,
+        velocities: twinkleVelocities,
+        phases: twinklePhases,
+        count: TWINKLE_COUNT
+      }
     };
-  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT, SNOW_COUNT, TWINKLE_COUNT, NEBULA_COUNT, COSMIC_RAYS_COUNT, DISTANT_NEBULA_COUNT, BACKGROUND_PARTICLES_COUNT, ULTRA_DISTANT_PARTICLES_COUNT, DISTANT_GALAXY_CLUSTERS_COUNT, COSMIC_SKYBOX_STARS_COUNT, MILKY_WAY_BAND_COUNT, DEEP_SPACE_NEBULA_COUNT, COSMIC_DUST_FIELD_COUNT, isRecording, isChristmasTheme]);
+  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT, SNOW_COUNT, TWINKLE_COUNT, GAS_CLOUD_COUNT, isRecording]);
 
-  // Update colors - COMPLETE COLOR SYSTEM
+  // Update colors when theme changes (or on initial load) – enhanced for new themes
   React.useEffect(() => {
-    if (!enabled || !mainCloudRef.current || !dustCloudRef.current || !clustersRef.current ||
+    if (!enabled || !mainCloudRef.current || !dustCloudRef.current || !clustersRef.current || 
         !atmosphericRef.current || !distantSwirlRef.current || !bigSwirlsRef.current) return;
-
-    // Main cloud colors
+    
+    // Update main cloud star colors
     if (particleData.main.count > 0) {
       const mainColors = mainCloudRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.main.count; i++) {
         let particleColor: THREE.Color;
-
         if (isRainbowTheme) {
           particleColor = getRainbowColor(i, particleData.main.count);
         } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.7 + Math.random() * 0.3);
+          particleColor = new THREE.Color('#ffffff');
+          const brightness = 0.7 + Math.random() * 0.3;
+          particleColor.multiplyScalar(brightness);
         } else if (isChristmasTheme) {
           particleColor = getChristmasColor(i);
         } else {
           const baseColor = new THREE.Color(colorTheme.primary);
           const hsl = { h: 0, s: 0, l: 0 };
           baseColor.getHSL(hsl);
-
+          const hueVariation = (Math.random() - 0.5) * 0.1;
+          const saturationVariation = 0.8 + Math.random() * 0.4;
+          const lightnessVariation = 0.3 + Math.random() * 0.7;
           particleColor = new THREE.Color();
           particleColor.setHSL(
-            (hsl.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
-            Math.min(1, hsl.s * (0.8 + Math.random() * 0.4)),
-            Math.min(1, hsl.l * (0.3 + Math.random() * 0.7))
+            (hsl.h + hueVariation + 1) % 1,
+            Math.min(1, hsl.s * saturationVariation),
+            Math.min(1, hsl.l * lightnessVariation)
           );
         }
-
         mainColors[i * 3] = particleColor.r;
         mainColors[i * 3 + 1] = particleColor.g;
         mainColors[i * 3 + 2] = particleColor.b;
       }
       mainCloudRef.current.geometry.attributes.color.needsUpdate = true;
     }
-
-    // Dust cloud colors
+    
+    // Update dust cloud colors
     if (particleData.dust.count > 0) {
       const dustColors = dustCloudRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.dust.count; i++) {
         let particleColor: THREE.Color;
-
         if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.dust.count).multiplyScalar(0.7);
+          particleColor = getRainbowColor(i, particleData.dust.count);
+          particleColor.multiplyScalar(0.7);
         } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#f8f8ff').multiplyScalar(0.5 + Math.random() * 0.3);
+          particleColor = new THREE.Color('#f8f8ff');
+          const brightness = 0.5 + Math.random() * 0.3;
+          particleColor.multiplyScalar(brightness);
         } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.8);
+          particleColor = getChristmasColor(i);
+          particleColor.multiplyScalar(0.8);
         } else {
           const baseColor = new THREE.Color(colorTheme.secondary);
           const hsl = { h: 0, s: 0, l: 0 };
           baseColor.getHSL(hsl);
-
           particleColor = new THREE.Color();
           particleColor.setHSL(
             (hsl.h + (Math.random() - 0.5) * 0.15 + 1) % 1,
@@ -879,34 +656,33 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             Math.min(1, hsl.l * (0.4 + Math.random() * 0.6))
           );
         }
-
         dustColors[i * 3] = particleColor.r;
         dustColors[i * 3 + 1] = particleColor.g;
         dustColors[i * 3 + 2] = particleColor.b;
       }
       dustCloudRef.current.geometry.attributes.color.needsUpdate = true;
     }
-
-    // Cluster colors
+    
+    // Update cluster colors
     clustersRef.current.children.forEach((cluster, clusterIndex) => {
       if (cluster instanceof THREE.Points && clusterIndex < particleData.clusters.length) {
         const clusterColors = cluster.geometry.attributes.color.array as Float32Array;
-
         for (let i = 0; i < PARTICLES_PER_CLUSTER; i++) {
           let particleColor: THREE.Color;
-
           if (isRainbowTheme) {
             particleColor = getRainbowColor(i + clusterIndex * PARTICLES_PER_CLUSTER, particleData.clusters.length * PARTICLES_PER_CLUSTER);
           } else if (isWhiteTheme) {
-            particleColor = new THREE.Color('#ffffff').multiplyScalar(0.8 + Math.random() * 0.2);
+            particleColor = new THREE.Color('#ffffff');
+            const brightness = 0.8 + Math.random() * 0.2;
+            particleColor.multiplyScalar(brightness);
           } else if (isChristmasTheme) {
             particleColor = getChristmasColor(i + clusterIndex);
           } else {
+            // Alternate base color between theme primary, secondary, accent for different clusters
             const clusterColorBase = [colorTheme.primary, colorTheme.secondary, colorTheme.accent][clusterIndex % 3];
             const baseColor = new THREE.Color(clusterColorBase);
             const hsl = { h: 0, s: 0, l: 0 };
             baseColor.getHSL(hsl);
-
             particleColor = new THREE.Color();
             particleColor.setHSL(
               (hsl.h + (Math.random() - 0.5) * 0.08 + 1) % 1,
@@ -914,7 +690,6 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               Math.min(1, hsl.l * (0.5 + Math.random() * 0.5))
             );
           }
-
           clusterColors[i * 3] = particleColor.r;
           clusterColors[i * 3 + 1] = particleColor.g;
           clusterColors[i * 3 + 2] = particleColor.b;
@@ -922,24 +697,26 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         cluster.geometry.attributes.color.needsUpdate = true;
       }
     });
-
-    // Atmospheric colors
+    
+    // Update atmospheric particle colors
     if (particleData.atmospheric.count > 0) {
       const atmosphericColors = atmosphericRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.atmospheric.count; i++) {
         let particleColor: THREE.Color;
-
         if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.atmospheric.count).multiplyScalar(0.4);
+          particleColor = getRainbowColor(i, particleData.atmospheric.count);
+          particleColor.multiplyScalar(0.4);
         } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#fffff0').multiplyScalar(0.3 + Math.random() * 0.4);
+          particleColor = new THREE.Color('#fffff0');
+          const brightness = 0.3 + Math.random() * 0.4;
+          particleColor.multiplyScalar(brightness);
         } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.5);
+          particleColor = getChristmasColor(i);
+          particleColor.multiplyScalar(0.5);
         } else {
           const baseColor = new THREE.Color(colorTheme.accent);
           const hsl = { h: 0, s: 0, l: 0 };
           baseColor.getHSL(hsl);
-
           particleColor = new THREE.Color();
           particleColor.setHSL(
             (hsl.h + (Math.random() - 0.5) * 0.2 + 1) % 1,
@@ -947,31 +724,32 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             Math.min(1, hsl.l * (0.2 + Math.random() * 0.5))
           );
         }
-
         atmosphericColors[i * 3] = particleColor.r;
         atmosphericColors[i * 3 + 1] = particleColor.g;
         atmosphericColors[i * 3 + 2] = particleColor.b;
       }
       atmosphericRef.current.geometry.attributes.color.needsUpdate = true;
     }
-
-    // Distant swirl colors
+    
+    // Update distant swirl colors
     if (particleData.distantSwirl.count > 0) {
       const distantColors = distantSwirlRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.distantSwirl.count; i++) {
         let particleColor: THREE.Color;
-
         if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.distantSwirl.count).multiplyScalar(0.6);
+          particleColor = getRainbowColor(i, particleData.distantSwirl.count);
+          particleColor.multiplyScalar(0.6);
         } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.4 + Math.random() * 0.4);
+          particleColor = new THREE.Color('#ffffff');
+          const brightness = 0.4 + Math.random() * 0.4;
+          particleColor.multiplyScalar(brightness);
         } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.7);
+          particleColor = getChristmasColor(i);
+          particleColor.multiplyScalar(0.7);
         } else {
           const baseColor = new THREE.Color(colorTheme.primary);
           const hsl = { h: 0, s: 0, l: 0 };
           baseColor.getHSL(hsl);
-
           particleColor = new THREE.Color();
           particleColor.setHSL(
             (hsl.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
@@ -979,34 +757,33 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             Math.min(1, hsl.l * (0.4 + Math.random() * 0.4))
           );
         }
-
         distantColors[i * 3] = particleColor.r;
         distantColors[i * 3 + 1] = particleColor.g;
         distantColors[i * 3 + 2] = particleColor.b;
       }
       distantSwirlRef.current.geometry.attributes.color.needsUpdate = true;
     }
-
-    // Big swirl colors
+    
+    // Update big swirl cluster colors
     bigSwirlsRef.current.children.forEach((swirl, swirlIndex) => {
       if (swirl instanceof THREE.Points && swirlIndex < particleData.bigSwirls.length) {
         const swirlColors = swirl.geometry.attributes.color.array as Float32Array;
-
         for (let i = 0; i < 800; i++) {
           let particleColor: THREE.Color;
-
           if (isRainbowTheme) {
             particleColor = getRainbowColor(i + swirlIndex * 800, particleData.bigSwirls.length * 800);
           } else if (isWhiteTheme) {
-            particleColor = new THREE.Color('#ffffff').multiplyScalar(0.5 + Math.random() * 0.3);
+            particleColor = new THREE.Color('#ffffff');
+            const brightness = 0.5 + Math.random() * 0.3;
+            particleColor.multiplyScalar(brightness);
           } else if (isChristmasTheme) {
             particleColor = getChristmasColor(i + swirlIndex);
           } else {
+            // Rotate base colors for big swirl clusters (use primary, secondary, accent in turn)
             const swirlColorBase = [colorTheme.primary, colorTheme.secondary, colorTheme.accent][swirlIndex % 3];
             const baseColor = new THREE.Color(swirlColorBase);
             const hsl = { h: 0, s: 0, l: 0 };
             baseColor.getHSL(hsl);
-
             particleColor = new THREE.Color();
             particleColor.setHSL(
               (hsl.h + (Math.random() - 0.5) * 0.15 + 1) % 1,
@@ -1014,7 +791,6 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               Math.min(1, hsl.l * (0.3 + Math.random() * 0.4))
             );
           }
-
           swirlColors[i * 3] = particleColor.r;
           swirlColors[i * 3 + 1] = particleColor.g;
           swirlColors[i * 3 + 2] = particleColor.b;
@@ -1022,8 +798,70 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         swirl.geometry.attributes.color.needsUpdate = true;
       }
     });
-
-    // Snow colors
+    
+    // NEW: Update gas cloud colors
+    if (gasCloudsRef.current) {
+      gasCloudsRef.current.children.forEach((cluster, clusterIndex) => {
+        if (cluster instanceof THREE.Points && clusterIndex < particleData.gas.length) {
+          const clusterColors = cluster.geometry.attributes.color.array as Float32Array;
+          for (let i = 0; i < PARTICLES_PER_GAS_CLOUD; i++) {
+            let particleColor: THREE.Color;
+            if (isRainbowTheme) {
+              particleColor = getRainbowColor(i + clusterIndex * PARTICLES_PER_GAS_CLOUD, particleData.gas.length * PARTICLES_PER_GAS_CLOUD);
+              // Dim slightly to blend with background
+              particleColor = particleColor.clone();
+              particleColor.multiplyScalar(0.8);
+            } else if (isWhiteTheme) {
+              particleColor = new THREE.Color('#ffffff');
+              const brightness = 0.6 + Math.random() * 0.3;
+              particleColor.multiplyScalar(brightness);
+            } else if (isChristmasTheme) {
+              particleColor = getChristmasColor(i + clusterIndex);
+              particleColor.multiplyScalar(0.5);
+            } else {
+              // Determine base color for each gas cloud cluster
+              let baseColor: THREE.Color;
+              if (clusterIndex === 0 && particleData.gas.length === 1) {
+                // If only one gas cluster, use complementary of primary theme color
+                baseColor = new THREE.Color(colorTheme.primary);
+                const hsl = { h: 0, s: 0, l: 0 };
+                baseColor.getHSL(hsl);
+                baseColor.setHSL((hsl.h + 0.5) % 1, Math.min(1, hsl.s * 0.7), Math.min(1, 0.7));
+              } else {
+                // Multiple clusters: alternate between theme palette and complements
+                if (clusterIndex % 2 === 1) {
+                  // Odd-index clusters: use complement of primary or secondary
+                  const refColor = new THREE.Color(clusterIndex % 4 === 1 ? colorTheme.primary : colorTheme.secondary);
+                  const hsl = { h: 0, s: 0, l: 0 };
+                  refColor.getHSL(hsl);
+                  baseColor = new THREE.Color();
+                  baseColor.setHSL((hsl.h + 0.5) % 1, Math.min(1, hsl.s * 0.7), Math.min(1, 0.7));
+                } else {
+                  // Even-index clusters: use theme accent or secondary
+                  const refHex = clusterIndex % 4 === 0 ? colorTheme.accent : colorTheme.secondary;
+                  baseColor = new THREE.Color(refHex);
+                }
+              }
+              // Apply slight random variation to base color
+              const hslBase = { h: 0, s: 0, l: 0 };
+              baseColor.getHSL(hslBase);
+              particleColor = new THREE.Color();
+              particleColor.setHSL(
+                (hslBase.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
+                Math.min(1, hslBase.s * (0.4 + Math.random() * 0.4)),
+                Math.min(1, hslBase.l * (0.6 + Math.random() * 0.3))
+              );
+            }
+            clusterColors[i * 3] = particleColor.r;
+            clusterColors[i * 3 + 1] = particleColor.g;
+            clusterColors[i * 3 + 2] = particleColor.b;
+          }
+          cluster.geometry.attributes.color.needsUpdate = true;
+        }
+      });
+    }
+    
+    // NEW: Update snow colors (white for Christmas, invisible for other themes)
     if (particleData.snow.count > 0 && snowParticlesRef.current) {
       const snowColors = snowParticlesRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.snow.count; i++) {
@@ -1039,8 +877,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       }
       snowParticlesRef.current.geometry.attributes.color.needsUpdate = true;
     }
-
-    // Twinkle colors
+    
+    // NEW: Update twinkle colors (red/green/white for Christmas, none otherwise)
     if (particleData.twinkle.count > 0 && twinkleParticlesRef.current) {
       const twinkleColors = twinkleParticlesRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.twinkle.count; i++) {
@@ -1057,416 +895,93 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       }
       twinkleParticlesRef.current.geometry.attributes.color.needsUpdate = true;
     }
-
-    // Nebula colors
-    if (particleData.nebula.count > 0 && nebulaCloudsRef.current) {
-      const nebulaColors = nebulaCloudsRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.nebula.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.nebula.count).multiplyScalar(0.3);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#f0f8ff').multiplyScalar(0.2 + Math.random() * 0.3);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.4);
-        } else {
-          const baseColor = new THREE.Color(colorTheme.accent);
-          const hsl = { h: 0, s: 0, l: 0 };
-          baseColor.getHSL(hsl);
-
-          particleColor = new THREE.Color();
-          particleColor.setHSL(
-            (hsl.h + (Math.random() - 0.5) * 0.3 + 1) % 1,
-            Math.min(1, hsl.s * (0.4 + Math.random() * 0.6)),
-            Math.min(1, hsl.l * (0.1 + Math.random() * 0.4))
-          );
-        }
-
-        nebulaColors[i * 3] = particleColor.r;
-        nebulaColors[i * 3 + 1] = particleColor.g;
-        nebulaColors[i * 3 + 2] = particleColor.b;
-      }
-      nebulaCloudsRef.current.geometry.attributes.color.needsUpdate = true;
-    }
-
-    // Cosmic ray colors
-    if (particleData.cosmicRays.count > 0 && cosmicRaysRef.current) {
-      const cosmicColors = cosmicRaysRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.cosmicRays.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.cosmicRays.count);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.9 + Math.random() * 0.1);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i);
-        } else {
-          const baseColor = new THREE.Color(colorTheme.primary);
-          const hsl = { h: 0, s: 0, l: 0 };
-          baseColor.getHSL(hsl);
-
-          particleColor = new THREE.Color();
-          particleColor.setHSL(
-            (hsl.h + (Math.random() - 0.5) * 0.05 + 1) % 1,
-            Math.min(1, hsl.s * (0.9 + Math.random() * 0.1)),
-            Math.min(1, hsl.l * (0.8 + Math.random() * 0.2))
-          );
-        }
-
-        cosmicColors[i * 3] = particleColor.r;
-        cosmicColors[i * 3 + 1] = particleColor.g;
-        cosmicColors[i * 3 + 2] = particleColor.b;
-      }
-      cosmicRaysRef.current.geometry.attributes.color.needsUpdate = true;
-    }
-
-    // Distant Nebula colors
-    if (particleData.distantNebula.count > 0 && distantNebulaRef.current) {
-      const distantNebulaColors = distantNebulaRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.distantNebula.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.distantNebula.count).multiplyScalar(0.15);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#e6f3ff').multiplyScalar(0.1 + Math.random() * 0.2);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.2);
-        } else {
-          const baseColor = new THREE.Color(colorTheme.accent);
-          const hsl = { h: 0, s: 0, l: 0 };
-          baseColor.getHSL(hsl);
-
-          particleColor = new THREE.Color();
-          particleColor.setHSL(
-            (hsl.h + (Math.random() - 0.5) * 0.4 + 1) % 1,
-            Math.min(1, hsl.s * (0.3 + Math.random() * 0.5)),
-            Math.min(1, hsl.l * (0.05 + Math.random() * 0.25))
-          );
-        }
-
-        distantNebulaColors[i * 3] = particleColor.r;
-        distantNebulaColors[i * 3 + 1] = particleColor.g;
-        distantNebulaColors[i * 3 + 2] = particleColor.b;
-      }
-      distantNebulaRef.current.geometry.attributes.color.needsUpdate = true;
-    }
-
-    // Background particles colors
-    if (particleData.backgroundParticles.count > 0 && backgroundParticlesRef.current) {
-      const backgroundColors = backgroundParticlesRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.backgroundParticles.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.backgroundParticles.count).multiplyScalar(0.3);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.2 + Math.random() * 0.3);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.4);
-        } else {
-          const colorBase = [colorTheme.primary, colorTheme.secondary, colorTheme.accent][i % 3];
-          const baseColor = new THREE.Color(colorBase);
-          const hsl = { h: 0, s: 0, l: 0 };
-          baseColor.getHSL(hsl);
-
-          particleColor = new THREE.Color();
-          particleColor.setHSL(
-            (hsl.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
-            Math.min(1, hsl.s * (0.4 + Math.random() * 0.4)),
-            Math.min(1, hsl.l * (0.15 + Math.random() * 0.35))
-          );
-        }
-
-        backgroundColors[i * 3] = particleColor.r;
-        backgroundColors[i * 3 + 1] = particleColor.g;
-        backgroundColors[i * 3 + 2] = particleColor.b;
-      }
-      backgroundParticlesRef.current.geometry.attributes.color.needsUpdate = true;
-    }
-
-    // Ultra distant particles colors
-    if (particleData.ultraDistantParticles.count > 0 && ultraDistantParticlesRef.current) {
-      const ultraDistantColors = ultraDistantParticlesRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.ultraDistantParticles.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.ultraDistantParticles.count).multiplyScalar(0.15);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.1 + Math.random() * 0.2);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.25);
-        } else {
-          const baseColor = new THREE.Color(colorTheme.primary);
-          const hsl = { h: 0, s: 0, l: 0 };
-          baseColor.getHSL(hsl);
-
-          particleColor = new THREE.Color();
-          particleColor.setHSL(
-            (hsl.h + (Math.random() - 0.5) * 0.05 + 1) % 1,
-            Math.min(1, hsl.s * (0.3 + Math.random() * 0.3)),
-            Math.min(1, hsl.l * (0.08 + Math.random() * 0.2))
-          );
-        }
-
-        ultraDistantColors[i * 3] = particleColor.r;
-        ultraDistantColors[i * 3 + 1] = particleColor.g;
-        ultraDistantColors[i * 3 + 2] = particleColor.b;
-      }
-      ultraDistantParticlesRef.current.geometry.attributes.color.needsUpdate = true;
-    }
-
-    // Distant Galaxy Clusters colors
-    if (distantGalaxyClustersRef.current) {
-      distantGalaxyClustersRef.current.children.forEach((cluster, clusterIndex) => {
-        if (cluster instanceof THREE.Points && clusterIndex < particleData.distantGalaxyClusters.length) {
-          const clusterColors = cluster.geometry.attributes.color.array as Float32Array;
-
-          for (let i = 0; i < PARTICLES_PER_DISTANT_CLUSTER; i++) {
-            let particleColor: THREE.Color;
-
-            if (isRainbowTheme) {
-              particleColor = getRainbowColor(i + clusterIndex * PARTICLES_PER_DISTANT_CLUSTER, particleData.distantGalaxyClusters.length * PARTICLES_PER_DISTANT_CLUSTER).multiplyScalar(0.4);
-            } else if (isWhiteTheme) {
-              particleColor = new THREE.Color('#ffffff').multiplyScalar(0.3 + Math.random() * 0.3);
-            } else if (isChristmasTheme) {
-              particleColor = getChristmasColor(i + clusterIndex).multiplyScalar(0.5);
-            } else {
-              const clusterColorBase = [colorTheme.primary, colorTheme.secondary, colorTheme.accent][clusterIndex % 3];
-              const baseColor = new THREE.Color(clusterColorBase);
-              const hsl = { h: 0, s: 0, l: 0 };
-              baseColor.getHSL(hsl);
-
-              particleColor = new THREE.Color();
-              particleColor.setHSL(
-                (hsl.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
-                Math.min(1, hsl.s * (0.4 + Math.random() * 0.4)),
-                Math.min(1, hsl.l * (0.2 + Math.random() * 0.3))
-              );
-            }
-
-            clusterColors[i * 3] = particleColor.r;
-            clusterColors[i * 3 + 1] = particleColor.g;
-            clusterColors[i * 3 + 2] = particleColor.b;
-          }
-          cluster.geometry.attributes.color.needsUpdate = true;
-        }
-      });
-    }
-
-    // Cosmic Skybox Stars colors
-    if (particleData.cosmicSkyboxStars.count > 0 && cosmicSkyboxStarsRef.current) {
-      const skyboxColors = cosmicSkyboxStarsRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.cosmicSkyboxStars.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.cosmicSkyboxStars.count).multiplyScalar(0.6);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.7 + Math.random() * 0.3);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.8);
-        } else {
-          // Create natural star colors (blue-white, yellow-white, red)
-          const starType = Math.random();
-          if (starType < 0.6) {
-            particleColor = new THREE.Color('#ffffff').multiplyScalar(0.8 + Math.random() * 0.2);
-          } else if (starType < 0.8) {
-            particleColor = new THREE.Color('#ffffaa').multiplyScalar(0.6 + Math.random() * 0.4);
-          } else {
-            particleColor = new THREE.Color('#ffaaaa').multiplyScalar(0.5 + Math.random() * 0.3);
-          }
-        }
-
-        skyboxColors[i * 3] = particleColor.r;
-        skyboxColors[i * 3 + 1] = particleColor.g;
-        skyboxColors[i * 3 + 2] = particleColor.b;
-      }
-      cosmicSkyboxStarsRef.current.geometry.attributes.color.needsUpdate = true;
-    }
-
-    // Milky Way Band colors
-    if (particleData.milkyWayBand.count > 0 && milkyWayBandRef.current) {
-      const bandColors = milkyWayBandRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.milkyWayBand.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.milkyWayBand.count).multiplyScalar(0.3);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#f8f8ff').multiplyScalar(0.4 + Math.random() * 0.3);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.6);
-        } else {
-          // Dusty yellow-brown colors for Milky Way band
-          const baseColor = new THREE.Color('#ffeeaa');
-          particleColor = baseColor.multiplyScalar(0.3 + Math.random() * 0.4);
-        }
-
-        bandColors[i * 3] = particleColor.r;
-        bandColors[i * 3 + 1] = particleColor.g;
-        bandColors[i * 3 + 2] = particleColor.b;
-      }
-      milkyWayBandRef.current.geometry.attributes.color.needsUpdate = true;
-    }
-
-    // Deep Space Nebula colors
-    if (particleData.deepSpaceNebula.count > 0 && deepSpaceNebulaRef.current) {
-      const deepNebulaColors = deepSpaceNebulaRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.deepSpaceNebula.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.deepSpaceNebula.count).multiplyScalar(0.2);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#e6f3ff').multiplyScalar(0.15 + Math.random() * 0.25);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.3);
-        } else {
-          // Varied nebula colors (red, blue, green, purple)
-          const nebulaType = Math.random();
-          if (nebulaType < 0.25) {
-            particleColor = new THREE.Color('#ff6666').multiplyScalar(0.2 + Math.random() * 0.3);
-          } else if (nebulaType < 0.5) {
-            particleColor = new THREE.Color('#6666ff').multiplyScalar(0.2 + Math.random() * 0.3);
-          } else if (nebulaType < 0.75) {
-            particleColor = new THREE.Color('#66ff66').multiplyScalar(0.15 + Math.random() * 0.25);
-          } else {
-            particleColor = new THREE.Color('#ff66ff').multiplyScalar(0.15 + Math.random() * 0.25);
-          }
-        }
-
-        deepNebulaColors[i * 3] = particleColor.r;
-        deepNebulaColors[i * 3 + 1] = particleColor.g;
-        deepNebulaColors[i * 3 + 2] = particleColor.b;
-      }
-      deepSpaceNebulaRef.current.geometry.attributes.color.needsUpdate = true;
-    }
-
-    // Cosmic Dust Field colors
-    if (particleData.cosmicDustField.count > 0 && cosmicDustFieldRef.current) {
-      const dustFieldColors = cosmicDustFieldRef.current.geometry.attributes.color.array as Float32Array;
-      for (let i = 0; i < particleData.cosmicDustField.count; i++) {
-        let particleColor: THREE.Color;
-
-        if (isRainbowTheme) {
-          particleColor = getRainbowColor(i, particleData.cosmicDustField.count).multiplyScalar(0.1);
-        } else if (isWhiteTheme) {
-          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.1 + Math.random() * 0.2);
-        } else if (isChristmasTheme) {
-          particleColor = getChristmasColor(i).multiplyScalar(0.2);
-        } else {
-          // Very subtle dust colors
-          const dustColor = new THREE.Color('#ccaa88');
-          particleColor = dustColor.multiplyScalar(0.05 + Math.random() * 0.1);
-        }
-
-        dustFieldColors[i * 3] = particleColor.r;
-        dustFieldColors[i * 3 + 1] = particleColor.g;
-        dustFieldColors[i * 3 + 2] = particleColor.b;
-      }
-      cosmicDustFieldRef.current.geometry.attributes.color.needsUpdate = true;
-    }
   }, [colorTheme, particleData, enabled, isRainbowTheme, isWhiteTheme, isChristmasTheme]);
 
-  // Animation system with enhanced snowflake dynamics
+  // Animation loop – enhanced for new particle layers and optimized for recording
   useFrame((state) => {
     if (!enabled) return;
-
     const time = state.clock.getElapsedTime();
     const animationSpeed = isRecording ? 0.5 : 1.0;
-
-    // Main cloud animation with enhanced galactic rotation
+    
+    // Animate main galaxy cloud (rotate slowly and bob)
     if (mainCloudRef.current && particleData.main.count > 0) {
       const mainPositions = mainCloudRef.current.geometry.attributes.position.array as Float32Array;
       const mainColors = mainCloudRef.current.geometry.attributes.color.array as Float32Array;
-
       for (let i = 0; i < particleData.main.count; i++) {
         const i3 = i * 3;
-
-        // Apply velocities
+        // Apply small velocity offsets
         mainPositions[i3] += particleData.main.velocities[i3] * animationSpeed;
         mainPositions[i3 + 1] += particleData.main.velocities[i3 + 1] * animationSpeed;
         mainPositions[i3 + 2] += particleData.main.velocities[i3 + 2] * animationSpeed;
-
-        // Galactic rotation
+        // Simulate orbital motion around center
         const x = mainPositions[i3];
         const z = mainPositions[i3 + 2];
         const distanceFromCenter = Math.sqrt(x * x + z * z);
-
-        if (distanceFromCenter > 0) {
-          const orbitalSpeed = 0.00008 / Math.sqrt(distanceFromCenter + 10);
-          const angle = Math.atan2(z, x);
-          const newAngle = angle + orbitalSpeed * animationSpeed;
-
-          mainPositions[i3] += Math.cos(newAngle) * orbitalSpeed * 0.1 * animationSpeed;
-          mainPositions[i3 + 2] += Math.sin(newAngle) * orbitalSpeed * 0.1 * animationSpeed;
-        }
-
-        // Parallax and bobbing motion
+        const orbitalSpeed = distanceFromCenter > 0 ? 0.00008 / Math.sqrt(distanceFromCenter + 10) : 0;
+        const angle = Math.atan2(z, x);
+        const newAngle = angle + orbitalSpeed * animationSpeed;
+        mainPositions[i3] += Math.cos(newAngle) * orbitalSpeed * 0.1 * animationSpeed;
+        mainPositions[i3 + 2] += Math.sin(newAngle) * orbitalSpeed * 0.1 * animationSpeed;
+        // Parallax jitter for depth effect
         const parallaxFreq = time * 0.02 * animationSpeed + i * 0.001;
         mainPositions[i3] += Math.sin(parallaxFreq) * 0.002 * animationSpeed;
         mainPositions[i3 + 1] += Math.cos(parallaxFreq * 0.7) * 0.0008 * animationSpeed;
         mainPositions[i3 + 2] += Math.sin(parallaxFreq * 1.3) * 0.002 * animationSpeed;
-
+        // Vertical bobbing
         const bobFreq = time * 0.5 * animationSpeed + i * 0.1;
         mainPositions[i3 + 1] += Math.sin(bobFreq) * 0.003 * animationSpeed;
-
-        // Rainbow color animation
+        // Rainbow theme: cycle star colors over time
         if (isRainbowTheme) {
           const hue = ((time * 0.1 + i * 0.01) % 1);
-          const color = new THREE.Color().setHSL(hue, 1, 0.6);
+          const color = new THREE.Color();
+          color.setHSL(hue, 1, 0.6);
           mainColors[i3] = color.r;
           mainColors[i3 + 1] = color.g;
           mainColors[i3 + 2] = color.b;
         }
       }
-
       mainCloudRef.current.geometry.attributes.position.needsUpdate = true;
       if (isRainbowTheme) {
         mainCloudRef.current.geometry.attributes.color.needsUpdate = true;
       }
+      // Slow rotation of whole main cloud
       mainCloudRef.current.rotation.y = time * 0.003 * animationSpeed;
     }
-
-    // Dust cloud animation
+    
+    // Animate dust cloud (float upwards and around)
     if (dustCloudRef.current && particleData.dust.count > 0) {
       const dustPositions = dustCloudRef.current.geometry.attributes.position.array as Float32Array;
       const dustColors = dustCloudRef.current.geometry.attributes.color.array as Float32Array;
-
       for (let i = 0; i < particleData.dust.count; i++) {
         const i3 = i * 3;
-
         dustPositions[i3] += particleData.dust.velocities[i3] * animationSpeed;
         dustPositions[i3 + 1] += particleData.dust.velocities[i3 + 1] * animationSpeed;
         dustPositions[i3 + 2] += particleData.dust.velocities[i3 + 2] * animationSpeed;
-
+        // Turbulent swirling motion
         const turbulenceFreq = time * 0.1 * animationSpeed + i * 0.05;
         dustPositions[i3] += Math.sin(turbulenceFreq) * 0.003 * animationSpeed;
         dustPositions[i3 + 1] += Math.cos(turbulenceFreq * 1.3) * 0.002 * animationSpeed;
         dustPositions[i3 + 2] += Math.sin(turbulenceFreq * 0.8) * 0.003 * animationSpeed;
-
+        // Gentle floating motion
         const dustFloatFreq = time * 0.3 * animationSpeed + i * 0.08;
         dustPositions[i3] += Math.cos(dustFloatFreq) * 0.001 * animationSpeed;
         dustPositions[i3 + 1] += Math.sin(dustFloatFreq * 0.6) * 0.002 * animationSpeed;
-
+        // Rainbow theme: cycle dust colors
         if (isRainbowTheme) {
           const hue = ((time * 0.08 + i * 0.02) % 1);
-          const color = new THREE.Color().setHSL(hue, 0.8, 0.4);
+          const color = new THREE.Color();
+          color.setHSL(hue, 0.8, 0.4);
           dustColors[i3] = color.r;
           dustColors[i3 + 1] = color.g;
           dustColors[i3 + 2] = color.b;
         }
-
+        // Wrap dust around vertical bounds
         if (dustPositions[i3 + 1] > 15) {
           dustPositions[i3 + 1] = -15;
           dustPositions[i3] = (Math.random() - 0.5) * 70;
           dustPositions[i3 + 2] = (Math.random() - 0.5) * 70;
         }
-
+        // Confine dust within radius
         if (Math.abs(dustPositions[i3]) > 80) {
           dustPositions[i3] = -Math.sign(dustPositions[i3]) * 20;
         }
@@ -1474,47 +989,297 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           dustPositions[i3 + 2] = -Math.sign(dustPositions[i3 + 2]) * 20;
         }
       }
-
       dustCloudRef.current.geometry.attributes.position.needsUpdate = true;
       if (isRainbowTheme) {
         dustCloudRef.current.geometry.attributes.color.needsUpdate = true;
       }
+      // Slight rotation of dust layer
       dustCloudRef.current.rotation.y = time * 0.005 * animationSpeed;
     }
-
-    // Snow animation
+    
+    // Animate star clusters (internal subtle motion + slight rotation)
+    if (clustersRef.current) {
+      clustersRef.current.children.forEach((cluster, clusterIndex) => {
+        if (cluster instanceof THREE.Points && clusterIndex < particleData.clusters.length) {
+          const positions = cluster.geometry.attributes.position.array as Float32Array;
+          const colors = cluster.geometry.attributes.color.array as Float32Array;
+          const velocities = particleData.clusters[clusterIndex].velocities;
+          const clusterCenter = particleData.clusters[clusterIndex].center;
+          const expectedLength = PARTICLES_PER_CLUSTER * 3;
+          if (positions.length === expectedLength && velocities.length === expectedLength) {
+            for (let i = 0; i < PARTICLES_PER_CLUSTER; i++) {
+              const i3 = i * 3;
+              positions[i3] += velocities[i3] * animationSpeed;
+              positions[i3 + 1] += velocities[i3 + 1] * animationSpeed;
+              positions[i3 + 2] += velocities[i3 + 2] * animationSpeed;
+              // Weak gravitational pull towards cluster center
+              const dx = clusterCenter.x - positions[i3];
+              const dy = clusterCenter.y - positions[i3 + 1];
+              const dz = clusterCenter.z - positions[i3 + 2];
+              const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+              if (distance > 0) {
+                const gravitationalForce = 0.00001;
+                positions[i3] += (dx / distance) * gravitationalForce * animationSpeed;
+                positions[i3 + 1] += (dy / distance) * gravitationalForce * animationSpeed;
+                positions[i3 + 2] += (dz / distance) * gravitationalForce * animationSpeed;
+              }
+              // Local oscillation within cluster
+              const clusterWave = time * 0.03 * animationSpeed + clusterIndex + i * 0.1;
+              positions[i3] += Math.sin(clusterWave) * 0.001 * animationSpeed;
+              positions[i3 + 1] += Math.cos(clusterWave * 0.8) * 0.0008 * animationSpeed;
+              positions[i3 + 2] += Math.sin(clusterWave * 1.2) * 0.001 * animationSpeed;
+              // Slow vertical float
+              const clusterFloatFreq = time * 0.4 * animationSpeed + clusterIndex * 2 + i * 0.05;
+              positions[i3 + 1] += Math.sin(clusterFloatFreq) * 0.002 * animationSpeed;
+              // Rainbow theme: cycle cluster star colors
+              if (isRainbowTheme) {
+                const hue = ((time * 0.05 + clusterIndex * 0.3 + i * 0.01) % 1);
+                const color = new THREE.Color();
+                color.setHSL(hue, 0.9, 0.7);
+                colors[i3] = color.r;
+                colors[i3 + 1] = color.g;
+                colors[i3 + 2] = color.b;
+              }
+            }
+            cluster.geometry.attributes.position.needsUpdate = true;
+            if (isRainbowTheme) {
+              cluster.geometry.attributes.color.needsUpdate = true;
+            }
+            // Rotate clusters slowly around different axes for slight sparkle effect
+            cluster.rotation.x = time * 0.001 * animationSpeed * (clusterIndex % 2 ? 1 : -1);
+            cluster.rotation.z = time * 0.0015 * animationSpeed * (clusterIndex % 3 ? 1 : -1);
+          }
+        }
+      });
+    }
+    
+    // Animate atmospheric particles (drifting in background)
+    if (atmosphericRef.current && particleData.atmospheric.count > 0) {
+      const atmosphericPositions = atmosphericRef.current.geometry.attributes.position.array as Float32Array;
+      const atmosphericColors = atmosphericRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.atmospheric.count; i++) {
+        const i3 = i * 3;
+        atmosphericPositions[i3] += particleData.atmospheric.velocities[i3] * animationSpeed;
+        atmosphericPositions[i3 + 1] += particleData.atmospheric.velocities[i3 + 1] * animationSpeed;
+        atmosphericPositions[i3 + 2] += particleData.atmospheric.velocities[i3 + 2] * animationSpeed;
+        // Mild randomized drift
+        const floatFreq = time * 0.05 * animationSpeed + i * 0.02;
+        atmosphericPositions[i3] += Math.sin(floatFreq) * 0.002 * animationSpeed;
+        atmosphericPositions[i3 + 1] += Math.cos(floatFreq * 0.7) * 0.003 * animationSpeed;
+        atmosphericPositions[i3 + 2] += Math.sin(floatFreq * 1.1) * 0.002 * animationSpeed;
+        // Slow vertical bob
+        const atmosphericBobFreq = time * 0.8 * animationSpeed + i * 0.15;
+        atmosphericPositions[i3 + 1] += Math.sin(atmosphericBobFreq) * 0.001 * animationSpeed;
+        // Rainbow theme: color shift atmospheric specks
+        if (isRainbowTheme) {
+          const hue = ((time * 0.03 + i * 0.005) % 1);
+          const color = new THREE.Color();
+          color.setHSL(hue, 0.6, 0.3);
+          atmosphericColors[i3] = color.r;
+          atmosphericColors[i3 + 1] = color.g;
+          atmosphericColors[i3 + 2] = color.b;
+        }
+        // Wrap around boundaries (keep particles in a large box region)
+        if (Math.abs(atmosphericPositions[i3]) > 120) {
+          atmosphericPositions[i3] = -Math.sign(atmosphericPositions[i3]) * 50;
+        }
+        if (atmosphericPositions[i3 + 1] > 90) {
+          atmosphericPositions[i3 + 1] = 5;
+        }
+        if (atmosphericPositions[i3 + 1] < -5) {
+          atmosphericPositions[i3 + 1] = 85;
+        }
+        if (Math.abs(atmosphericPositions[i3 + 2]) > 120) {
+          atmosphericPositions[i3 + 2] = -Math.sign(atmosphericPositions[i3 + 2]) * 50;
+        }
+      }
+      atmosphericRef.current.geometry.attributes.position.needsUpdate = true;
+      if (isRainbowTheme) {
+        atmosphericRef.current.geometry.attributes.color.needsUpdate = true;
+      }
+      // Subtle rotation of entire atmospheric layer
+      atmosphericRef.current.rotation.y = time * 0.001 * animationSpeed;
+    }
+    
+    // Animate distant swirl (galactic band far in background)
+    if (distantSwirlRef.current && particleData.distantSwirl.count > 0) {
+      const distantPositions = distantSwirlRef.current.geometry.attributes.position.array as Float32Array;
+      const distantColors = distantSwirlRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.distantSwirl.count; i++) {
+        const i3 = i * 3;
+        distantPositions[i3] += particleData.distantSwirl.velocities[i3] * animationSpeed;
+        distantPositions[i3 + 1] += particleData.distantSwirl.velocities[i3 + 1] * animationSpeed;
+        distantPositions[i3 + 2] += particleData.distantSwirl.velocities[i3 + 2] * animationSpeed;
+        // Orbital motion for swirl arms
+        const x = distantPositions[i3];
+        const z = distantPositions[i3 + 2];
+        const distanceFromCenter = Math.sqrt(x * x + z * z);
+        const orbitalSpeed = distanceFromCenter > 0 ? 0.00005 / Math.sqrt(distanceFromCenter + 20) : 0;
+        const angle = Math.atan2(z, x);
+        const newAngle = angle + orbitalSpeed * animationSpeed;
+        distantPositions[i3] += Math.cos(newAngle) * orbitalSpeed * 0.05 * animationSpeed;
+        distantPositions[i3 + 2] += Math.sin(newAngle) * orbitalSpeed * 0.05 * animationSpeed;
+        // Vertical wave motion for distant swirl
+        const waveFreq = time * 0.01 * animationSpeed + i * 0.001;
+        distantPositions[i3 + 1] += Math.sin(waveFreq) * 0.005 * animationSpeed;
+        // Slow drift to make swirl arms dynamic
+        const distantDriftFreq = time * 0.02 * animationSpeed + i * 0.003;
+        distantPositions[i3] += Math.cos(distantDriftFreq) * 0.001 * animationSpeed;
+        distantPositions[i3 + 2] += Math.sin(distantDriftFreq * 1.3) * 0.001 * animationSpeed;
+        // Rainbow theme: cycle distant swirl colors
+        if (isRainbowTheme) {
+          const hue = ((time * 0.04 + i * 0.008) % 1);
+          const color = new THREE.Color();
+          color.setHSL(hue, 0.8, 0.5);
+          distantColors[i3] = color.r;
+          distantColors[i3 + 1] = color.g;
+          distantColors[i3 + 2] = color.b;
+        }
+      }
+      distantSwirlRef.current.geometry.attributes.position.needsUpdate = true;
+      if (isRainbowTheme) {
+        distantSwirlRef.current.geometry.attributes.color.needsUpdate = true;
+      }
+      // Rotate entire distant swirl band slowly
+      distantSwirlRef.current.rotation.y = time * 0.002 * animationSpeed;
+    }
+    
+    // Animate big swirl clusters
+    if (bigSwirlsRef.current) {
+      bigSwirlsRef.current.children.forEach((swirl, swirlIndex) => {
+        if (swirl instanceof THREE.Points && swirlIndex < particleData.bigSwirls.length) {
+          const positions = swirl.geometry.attributes.position.array as Float32Array;
+          const colors = swirl.geometry.attributes.color.array as Float32Array;
+          const velocities = particleData.bigSwirls[swirlIndex].velocities;
+          const swirlCenter = particleData.bigSwirls[swirlIndex].center;
+          for (let i = 0; i < 800; i++) {
+            const i3 = i * 3;
+            positions[i3] += velocities[i3] * animationSpeed;
+            positions[i3 + 1] += velocities[i3 + 1] * animationSpeed;
+            positions[i3 + 2] += velocities[i3 + 2] * animationSpeed;
+            // Orbit points around swirl center
+            const dx = positions[i3] - swirlCenter.x;
+            const dz = positions[i3 + 2] - swirlCenter.z;
+            const radius = Math.sqrt(dx * dx + dz * dz);
+            if (radius > 0.1) {
+              const swirlSpeed = 0.0002 * animationSpeed;
+              const currentAngle = Math.atan2(dz, dx);
+              const newAngle = currentAngle + swirlSpeed;
+              positions[i3] = swirlCenter.x + Math.cos(newAngle) * radius;
+              positions[i3 + 2] = swirlCenter.z + Math.sin(newAngle) * radius;
+            }
+            // Small vertical oscillation within swirl
+            const oscillation = time * 0.02 * animationSpeed + swirlIndex + i * 0.01;
+            positions[i3 + 1] += Math.sin(oscillation) * 0.003 * animationSpeed;
+            // Slight random float
+            const bigSwirlFloatFreq = time * 0.06 * animationSpeed + swirlIndex * 3 + i * 0.02;
+            positions[i3] += Math.cos(bigSwirlFloatFreq) * 0.0008 * animationSpeed;
+            positions[i3 + 2] += Math.sin(bigSwirlFloatFreq * 0.9) * 0.0008 * animationSpeed;
+            // Rainbow theme: cycle big swirl cluster star colors
+            if (isRainbowTheme) {
+              const hue = ((time * 0.06 + swirlIndex * 0.2 + i * 0.003) % 1);
+              const color = new THREE.Color();
+              color.setHSL(hue, 0.9, 0.6);
+              colors[i3] = color.r;
+              colors[i3 + 1] = color.g;
+              colors[i3 + 2] = color.b;
+            }
+          }
+          swirl.geometry.attributes.position.needsUpdate = true;
+          if (isRainbowTheme) {
+            swirl.geometry.attributes.color.needsUpdate = true;
+          }
+          // Slowly rotate each big swirl cluster in alternating directions
+          swirl.rotation.y = time * 0.003 * animationSpeed * (swirlIndex % 2 ? 1 : -1);
+        }
+      });
+    }
+    
+    // Animate gas cloud clusters (drifting nebula clouds)
+    if (gasCloudsRef.current) {
+      gasCloudsRef.current.children.forEach((cluster, clusterIndex) => {
+        if (cluster instanceof THREE.Points && clusterIndex < particleData.gas.length) {
+          const positions = cluster.geometry.attributes.position.array as Float32Array;
+          const colors = cluster.geometry.attributes.color.array as Float32Array;
+          const velocities = particleData.gas[clusterIndex].velocities;
+          const clusterCenter = particleData.gas[clusterIndex].center;
+          const expectedLength = PARTICLES_PER_GAS_CLOUD * 3;
+          if (positions.length === expectedLength && velocities.length === expectedLength) {
+            for (let i = 0; i < PARTICLES_PER_GAS_CLOUD; i++) {
+              const i3 = i * 3;
+              positions[i3] += velocities[i3] * animationSpeed;
+              positions[i3 + 1] += velocities[i3 + 1] * animationSpeed;
+              positions[i3 + 2] += velocities[i3 + 2] * animationSpeed;
+              // Gentle gravitational pull to keep cloud cohesive
+              const dx = clusterCenter.x - positions[i3];
+              const dy = clusterCenter.y - positions[i3 + 1];
+              const dz = clusterCenter.z - positions[i3 + 2];
+              const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+              if (distance > 0) {
+                const gravitationalForce = 0.000005;
+                positions[i3] += (dx / distance) * gravitationalForce * animationSpeed;
+                positions[i3 + 1] += (dy / distance) * gravitationalForce * animationSpeed;
+                positions[i3 + 2] += (dz / distance) * gravitationalForce * animationSpeed;
+              }
+              // Slow oscillation of points within the cloud
+              const clusterWave = time * 0.02 * animationSpeed + clusterIndex + i * 0.1;
+              positions[i3] += Math.sin(clusterWave) * 0.0005 * animationSpeed;
+              positions[i3 + 1] += Math.cos(clusterWave * 0.8) * 0.0004 * animationSpeed;
+              positions[i3 + 2] += Math.sin(clusterWave * 1.2) * 0.0005 * animationSpeed;
+              // Subtle vertical float
+              const clusterFloatFreq = time * 0.3 * animationSpeed + clusterIndex * 1.5 + i * 0.05;
+              positions[i3 + 1] += Math.sin(clusterFloatFreq) * 0.001 * animationSpeed;
+              // Rainbow theme: cycle gas cloud colors
+              if (isRainbowTheme) {
+                const hue = ((time * 0.04 + clusterIndex * 0.2 + i * 0.005) % 1);
+                const color = new THREE.Color();
+                color.setHSL(hue, 0.7, 0.5);
+                colors[i3] = color.r;
+                colors[i3 + 1] = color.g;
+                colors[i3 + 2] = color.b;
+              }
+            }
+            cluster.geometry.attributes.position.needsUpdate = true;
+            if (isRainbowTheme) {
+              cluster.geometry.attributes.color.needsUpdate = true;
+            }
+          }
+        }
+      });
+    }
+    
+    // Enhanced Christmas snow animation (falling snowflakes)
     if (snowParticlesRef.current && particleData.snow.count > 0) {
       const snowPositions = snowParticlesRef.current.geometry.attributes.position.array as Float32Array;
-
       for (let i = 0; i < particleData.snow.count; i++) {
         const i3 = i * 3;
-
         if (isChristmasTheme) {
+          // Move snow particles downward and sway
           snowPositions[i3] += particleData.snow.velocities[i3] * animationSpeed;
           snowPositions[i3 + 1] += particleData.snow.velocities[i3 + 1] * animationSpeed;
           snowPositions[i3 + 2] += particleData.snow.velocities[i3 + 2] * animationSpeed;
-
+          // Sway left-right with multiple frequencies for natural drift
           const swayFreq1 = time * 0.3 + i * 0.05;
           const swayFreq2 = time * 0.7 + i * 0.1;
           snowPositions[i3] += Math.sin(swayFreq1) * 0.003 * animationSpeed;
           snowPositions[i3] += Math.cos(swayFreq2) * 0.001 * animationSpeed;
           snowPositions[i3 + 2] += Math.cos(swayFreq1 * 0.8) * 0.003 * animationSpeed;
           snowPositions[i3 + 2] += Math.sin(swayFreq2 * 0.6) * 0.001 * animationSpeed;
-
+          // Small turbulent jitter
           const turbulence = time * 0.5 + i * 0.02;
           snowPositions[i3] += Math.sin(turbulence * 3) * 0.0008 * animationSpeed;
           snowPositions[i3 + 2] += Math.cos(turbulence * 2.5) * 0.0008 * animationSpeed;
-
+          // Respawn snowflake at top when it falls out of view
           if (snowPositions[i3 + 1] < -80) {
             snowPositions[i3 + 1] = 200 + Math.random() * 100;
             snowPositions[i3] = (Math.random() - 0.5) * 400;
             snowPositions[i3 + 2] = (Math.random() - 0.5) * 400;
-
+            // Reset velocity for new snowflake
             particleData.snow.velocities[i3] = (Math.random() - 0.5) * 0.004;
             particleData.snow.velocities[i3 + 1] = -Math.random() * 0.012 - 0.003;
             particleData.snow.velocities[i3 + 2] = (Math.random() - 0.5) * 0.004;
           }
-
+          // Wrap horizontal boundaries to keep snow in area
           if (Math.abs(snowPositions[i3]) > 250) {
             snowPositions[i3] = -Math.sign(snowPositions[i3]) * 100;
           }
@@ -1522,480 +1287,61 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             snowPositions[i3 + 2] = -Math.sign(snowPositions[i3 + 2]) * 100;
           }
         } else {
+          // Keep particles hidden when not Christmas theme
           snowPositions[i3] = 0;
           snowPositions[i3 + 1] = -1000;
           snowPositions[i3 + 2] = 0;
         }
       }
-
       snowParticlesRef.current.geometry.attributes.position.needsUpdate = true;
     }
-
-    // Twinkle animation
+    
+    // Enhanced Christmas twinkle animation (blinking colorful stars)
     if (twinkleParticlesRef.current && particleData.twinkle.count > 0) {
       const twinklePositions = twinkleParticlesRef.current.geometry.attributes.position.array as Float32Array;
       const twinkleColors = twinkleParticlesRef.current.geometry.attributes.color.array as Float32Array;
       const twinkleSizes = twinkleParticlesRef.current.geometry.attributes.size.array as Float32Array;
-
       for (let i = 0; i < particleData.twinkle.count; i++) {
         const i3 = i * 3;
-
         if (isChristmasTheme) {
+          // Subtle movement for twinkle particles (mostly stationary)
           twinklePositions[i3] += particleData.twinkle.velocities[i3] * animationSpeed;
           twinklePositions[i3 + 1] += particleData.twinkle.velocities[i3 + 1] * animationSpeed;
           twinklePositions[i3 + 2] += particleData.twinkle.velocities[i3 + 2] * animationSpeed;
-
+          // Twinkling brightness using phase
           const twinklePhase = time * 2 + particleData.twinkle.phases[i];
           const twinkleIntensity = (Math.sin(twinklePhase) + 1) * 0.5;
-
+          // Cycle color between red, green, white
           const rand = (Math.sin(time * 0.5 + i) + 1) * 0.5;
           let twinkleColor: THREE.Color;
           if (rand < 0.33) {
-            twinkleColor = new THREE.Color('#dc2626');
+            twinkleColor = new THREE.Color('#dc2626'); // Red
           } else if (rand < 0.66) {
-            twinkleColor = new THREE.Color('#16a34a');
+            twinkleColor = new THREE.Color('#16a34a'); // Green
           } else {
-            twinkleColor = new THREE.Color('#ffffff');
+            twinkleColor = new THREE.Color('#ffffff'); // White
           }
-
           twinkleColor.multiplyScalar(twinkleIntensity);
           twinkleColors[i3] = twinkleColor.r;
           twinkleColors[i3 + 1] = twinkleColor.g;
           twinkleColors[i3 + 2] = twinkleColor.b;
-
-          const baseSizes = particleData.twinkle.sizes;
-          twinkleSizes[i] = baseSizes[i] * (0.5 + twinkleIntensity * 0.8);
+          // Vary point size with brightness
+          const baseSize = particleData.twinkle.sizes[i];
+          twinkleSizes[i] = baseSize * (0.5 + twinkleIntensity * 0.8);
         } else {
+          // Hidden for other themes
           twinklePositions[i3] = 0;
           twinklePositions[i3 + 1] = -1000;
           twinklePositions[i3 + 2] = 0;
-
           twinkleColors[i3] = 0;
           twinkleColors[i3 + 1] = 0;
           twinkleColors[i3 + 2] = 0;
-
           twinkleSizes[i] = 0.1;
         }
       }
-
       twinkleParticlesRef.current.geometry.attributes.position.needsUpdate = true;
       twinkleParticlesRef.current.geometry.attributes.color.needsUpdate = true;
       twinkleParticlesRef.current.geometry.attributes.size.needsUpdate = true;
-    }
-
-    // Enhanced cosmic ray animation
-    if (cosmicRaysRef.current && particleData.cosmicRays.count > 0) {
-      const cosmicPositions = cosmicRaysRef.current.geometry.attributes.position.array as Float32Array;
-      const cosmicColors = cosmicRaysRef.current.geometry.attributes.color.array as Float32Array;
-
-      for (let i = 0; i < particleData.cosmicRays.count; i++) {
-        const i3 = i * 3;
-
-        // Move cosmic rays in straight lines
-        cosmicPositions[i3] += particleData.cosmicRays.velocities[i3] * animationSpeed;
-        cosmicPositions[i3 + 1] += particleData.cosmicRays.velocities[i3 + 1] * animationSpeed;
-        cosmicPositions[i3 + 2] += particleData.cosmicRays.velocities[i3 + 2] * animationSpeed;
-
-        // Reset position if too far
-        const distance = Math.sqrt(
-          cosmicPositions[i3] ** 2 + 
-          cosmicPositions[i3 + 1] ** 2 + 
-          cosmicPositions[i3 + 2] ** 2
-        );
-
-        if (distance > 600) {
-          cosmicPositions[i3] = (Math.random() - 0.5) * 800;
-          cosmicPositions[i3 + 1] = (Math.random() - 0.5) * 800;
-          cosmicPositions[i3 + 2] = (Math.random() - 0.5) * 800;
-
-          const direction = new THREE.Vector3(
-            (Math.random() - 0.5) * 2,
-            (Math.random() - 0.5) * 2,
-            (Math.random() - 0.5) * 2
-          ).normalize();
-          
-          const speed = 0.05 + Math.random() * 0.1;
-          particleData.cosmicRays.velocities[i3] = direction.x * speed;
-          particleData.cosmicRays.velocities[i3 + 1] = direction.y * speed;
-          particleData.cosmicRays.velocities[i3 + 2] = direction.z * speed;
-        }
-
-        // Cosmic ray color animation
-        if (isRainbowTheme) {
-          const hue = ((time * 0.2 + i * 0.05) % 1);
-          const color = new THREE.Color().setHSL(hue, 1, 0.8);
-          cosmicColors[i3] = color.r;
-          cosmicColors[i3 + 1] = color.g;
-          cosmicColors[i3 + 2] = color.b;
-        }
-      }
-
-      cosmicRaysRef.current.geometry.attributes.position.needsUpdate = true;
-      if (isRainbowTheme) {
-        cosmicRaysRef.current.geometry.attributes.color.needsUpdate = true;
-      }
-    }
-
-    // Nebula animation
-    if (nebulaCloudsRef.current && particleData.nebula.count > 0) {
-      const nebulaPositions = nebulaCloudsRef.current.geometry.attributes.position.array as Float32Array;
-      const nebulaColors = nebulaCloudsRef.current.geometry.attributes.color.array as Float32Array;
-
-      for (let i = 0; i < particleData.nebula.count; i++) {
-        const i3 = i * 3;
-
-        // Slow drift motion
-        nebulaPositions[i3] += particleData.nebula.velocities[i3] * animationSpeed;
-        nebulaPositions[i3 + 1] += particleData.nebula.velocities[i3 + 1] * animationSpeed;
-        nebulaPositions[i3 + 2] += particleData.nebula.velocities[i3 + 2] * animationSpeed;
-
-        // Gentle swirling motion
-        const swirlFreq = time * 0.008 * animationSpeed + i * 0.001;
-        nebulaPositions[i3] += Math.sin(swirlFreq) * 0.001 * animationSpeed;
-        nebulaPositions[i3 + 1] += Math.cos(swirlFreq * 0.7) * 0.0008 * animationSpeed;
-        nebulaPositions[i3 + 2] += Math.sin(swirlFreq * 1.1) * 0.001 * animationSpeed;
-
-        // Pulsating effect
-        const pulseFreq = time * 0.1 + i * 0.05;
-        const pulseFactor = 0.8 + Math.sin(pulseFreq) * 0.2;
-
-        if (isRainbowTheme) {
-          const hue = ((time * 0.02 + i * 0.003) % 1);
-          const color = new THREE.Color().setHSL(hue, 0.6, 0.2 * pulseFactor);
-          nebulaColors[i3] = color.r;
-          nebulaColors[i3 + 1] = color.g;
-          nebulaColors[i3 + 2] = color.b;
-        }
-      }
-
-      nebulaCloudsRef.current.geometry.attributes.position.needsUpdate = true;
-      if (isRainbowTheme) {
-        nebulaCloudsRef.current.geometry.attributes.color.needsUpdate = true;
-      }
-      nebulaCloudsRef.current.rotation.y = time * 0.0008 * animationSpeed;
-    }
-
-    // Distant nebula animation
-    if (distantNebulaRef.current && particleData.distantNebula.count > 0) {
-      const distantNebulaPositions = distantNebulaRef.current.geometry.attributes.position.array as Float32Array;
-      const distantNebulaColors = distantNebulaRef.current.geometry.attributes.color.array as Float32Array;
-
-      for (let i = 0; i < particleData.distantNebula.count; i++) {
-        const i3 = i * 3;
-
-        // Very slow drift motion
-        distantNebulaPositions[i3] += particleData.distantNebula.velocities[i3] * animationSpeed;
-        distantNebulaPositions[i3 + 1] += particleData.distantNebula.velocities[i3 + 1] * animationSpeed;
-        distantNebulaPositions[i3 + 2] += particleData.distantNebula.velocities[i3 + 2] * animationSpeed;
-
-        // Extremely gentle swirling motion
-        const swirlFreq = time * 0.002 * animationSpeed + i * 0.0005;
-        distantNebulaPositions[i3] += Math.sin(swirlFreq) * 0.0005 * animationSpeed;
-        distantNebulaPositions[i3 + 1] += Math.cos(swirlFreq * 0.7) * 0.0003 * animationSpeed;
-        distantNebulaPositions[i3 + 2] += Math.sin(swirlFreq * 1.1) * 0.0005 * animationSpeed;
-
-        // Slow pulsating effect
-        const pulseFreq = time * 0.05 + i * 0.02;
-        const pulseFactor = 0.6 + Math.sin(pulseFreq) * 0.4;
-
-        if (isRainbowTheme) {
-          const hue = ((time * 0.01 + i * 0.001) % 1);
-          const color = new THREE.Color().setHSL(hue, 0.4, 0.1 * pulseFactor);
-          distantNebulaColors[i3] = color.r;
-          distantNebulaColors[i3 + 1] = color.g;
-          distantNebulaColors[i3 + 2] = color.b;
-        }
-      }
-
-      distantNebulaRef.current.geometry.attributes.position.needsUpdate = true;
-      if (isRainbowTheme) {
-        distantNebulaRef.current.geometry.attributes.color.needsUpdate = true;
-      }
-      distantNebulaRef.current.rotation.y = time * 0.0003 * animationSpeed;
-    }
-
-    // Background particles animation
-    if (backgroundParticlesRef.current && particleData.backgroundParticles.count > 0) {
-      const backgroundPositions = backgroundParticlesRef.current.geometry.attributes.position.array as Float32Array;
-      const backgroundColors = backgroundParticlesRef.current.geometry.attributes.color.array as Float32Array;
-
-      for (let i = 0; i < particleData.backgroundParticles.count; i++) {
-        const i3 = i * 3;
-
-        // Slow drift motion
-        backgroundPositions[i3] += particleData.backgroundParticles.velocities[i3] * animationSpeed;
-        backgroundPositions[i3 + 1] += particleData.backgroundParticles.velocities[i3 + 1] * animationSpeed;
-        backgroundPositions[i3 + 2] += particleData.backgroundParticles.velocities[i3 + 2] * animationSpeed;
-
-        // Gentle floating motion
-        const floatFreq = time * 0.01 * animationSpeed + i * 0.003;
-        backgroundPositions[i3] += Math.sin(floatFreq) * 0.0008 * animationSpeed;
-        backgroundPositions[i3 + 1] += Math.cos(floatFreq * 0.8) * 0.0006 * animationSpeed;
-        backgroundPositions[i3 + 2] += Math.sin(floatFreq * 1.2) * 0.0008 * animationSpeed;
-
-        // Subtle twinkling
-        const twinkleFreq = time * 0.3 + i * 0.1;
-        const twinkleFactor = 0.7 + Math.sin(twinkleFreq) * 0.3;
-
-        if (isRainbowTheme) {
-          const hue = ((time * 0.05 + i * 0.01) % 1);
-          const color = new THREE.Color().setHSL(hue, 0.7, 0.3 * twinkleFactor);
-          backgroundColors[i3] = color.r;
-          backgroundColors[i3 + 1] = color.g;
-          backgroundColors[i3 + 2] = color.b;
-        }
-      }
-
-      backgroundParticlesRef.current.geometry.attributes.position.needsUpdate = true;
-      if (isRainbowTheme) {
-        backgroundParticlesRef.current.geometry.attributes.color.needsUpdate = true;
-      }
-      backgroundParticlesRef.current.rotation.y = time * 0.0005 * animationSpeed;
-    }
-
-    // Ultra distant particles animation - very minimal movement
-    if (ultraDistantParticlesRef.current && particleData.ultraDistantParticles.count > 0) {
-      const ultraDistantPositions = ultraDistantParticlesRef.current.geometry.attributes.position.array as Float32Array;
-      const ultraDistantColors = ultraDistantParticlesRef.current.geometry.attributes.color.array as Float32Array;
-
-      for (let i = 0; i < particleData.ultraDistantParticles.count; i++) {
-        const i3 = i * 3;
-
-        // Barely perceptible drift
-        ultraDistantPositions[i3] += particleData.ultraDistantParticles.velocities[i3] * animationSpeed;
-        ultraDistantPositions[i3 + 1] += particleData.ultraDistantParticles.velocities[i3 + 1] * animationSpeed;
-        ultraDistantPositions[i3 + 2] += particleData.ultraDistantParticles.velocities[i3 + 2] * animationSpeed;
-
-        // Extremely subtle twinkling for distant stars
-        const distantTwinkleFreq = time * 0.8 + i * 0.3;
-        const distantTwinkleFactor = 0.8 + Math.sin(distantTwinkleFreq) * 0.2;
-
-        if (isRainbowTheme) {
-          const hue = ((time * 0.02 + i * 0.005) % 1);
-          const color = new THREE.Color().setHSL(hue, 0.5, 0.15 * distantTwinkleFactor);
-          ultraDistantColors[i3] = color.r;
-          ultraDistantColors[i3 + 1] = color.g;
-          ultraDistantColors[i3 + 2] = color.b;
-        }
-      }
-
-      ultraDistantParticlesRef.current.geometry.attributes.position.needsUpdate = true;
-      if (isRainbowTheme) {
-        ultraDistantParticlesRef.current.geometry.attributes.color.needsUpdate = true;
-      }
-      ultraDistantParticlesRef.current.rotation.y = time * 0.0001 * animationSpeed;
-    }
-
-    // Distant Galaxy Clusters animation
-    if (distantGalaxyClustersRef.current) {
-      distantGalaxyClustersRef.current.children.forEach((cluster, clusterIndex) => {
-        if (cluster instanceof THREE.Points && clusterIndex < particleData.distantGalaxyClusters.length) {
-          const positions = cluster.geometry.attributes.position.array as Float32Array;
-          const colors = cluster.geometry.attributes.color.array as Float32Array;
-          const velocities = particleData.distantGalaxyClusters[clusterIndex].velocities;
-          const clusterCenter = particleData.distantGalaxyClusters[clusterIndex].center;
-
-          for (let i = 0; i < PARTICLES_PER_DISTANT_CLUSTER; i++) {
-            const i3 = i * 3;
-
-            // Apply very slow drift
-            positions[i3] += velocities[i3] * animationSpeed;
-            positions[i3 + 1] += velocities[i3 + 1] * animationSpeed;
-            positions[i3 + 2] += velocities[i3 + 2] * animationSpeed;
-
-            // Distant galactic rotation - much slower
-            const dx = positions[i3] - clusterCenter.x;
-            const dz = positions[i3 + 2] - clusterCenter.z;
-            const distanceFromCenter = Math.sqrt(dx * dx + dz * dz);
-
-            if (distanceFromCenter > 0) {
-              const orbitalSpeed = 0.00002 / Math.sqrt(distanceFromCenter + 20);
-              const angle = Math.atan2(dz, dx);
-              const newAngle = angle + orbitalSpeed * animationSpeed;
-
-              positions[i3] = clusterCenter.x + Math.cos(newAngle) * distanceFromCenter;
-              positions[i3 + 2] = clusterCenter.z + Math.sin(newAngle) * distanceFromCenter;
-            }
-
-            // Subtle wave motion
-            const waveFreq = time * 0.005 * animationSpeed + clusterIndex + i * 0.01;
-            positions[i3 + 1] += Math.sin(waveFreq) * 0.002 * animationSpeed;
-
-            // Very gentle parallax motion
-            const parallaxFreq = time * 0.008 * animationSpeed + i * 0.002;
-            positions[i3] += Math.sin(parallaxFreq) * 0.0005 * animationSpeed;
-            positions[i3 + 2] += Math.cos(parallaxFreq * 1.1) * 0.0005 * animationSpeed;
-
-            if (isRainbowTheme) {
-              const hue = ((time * 0.03 + clusterIndex * 0.2 + i * 0.005) % 1);
-              const color = new THREE.Color().setHSL(hue, 0.7, 0.4);
-              colors[i3] = color.r;
-              colors[i3 + 1] = color.g;
-              colors[i3 + 2] = color.b;
-            }
-          }
-
-          cluster.geometry.attributes.position.needsUpdate = true;
-          if (isRainbowTheme) {
-            cluster.geometry.attributes.color.needsUpdate = true;
-          }
-          
-          // Very slow rotation for distant galaxy effect
-          cluster.rotation.y = time * 0.0002 * animationSpeed * (clusterIndex % 2 ? 1 : -1);
-          cluster.rotation.x = time * 0.0001 * animationSpeed * (clusterIndex % 3 ? 1 : -1);
-        }
-      });
-    }
-
-    // Geometric snowflakes animation
-    if (geometricSnowflakesRef.current && isChristmasTheme) {
-      geometricSnowflakesRef.current.children.forEach((snowflake, index) => {
-        if (index < geometricSnowflakesData.length) {
-          const data = geometricSnowflakesData[index];
-          snowflake.position.set(...data.position);
-          snowflake.rotation.set(
-            data.rotation[0] + time * data.rotationSpeed * animationSpeed,
-            data.rotation[1] + time * data.rotationSpeed * animationSpeed,
-            data.rotation[2] + time * data.rotationSpeed * animationSpeed
-          );
-
-          // Falling motion
-          data.position[1] -= data.fallSpeed * animationSpeed;
-          
-          // Swaying motion
-          const sway = time * data.swaySpeed;
-          data.position[0] += Math.sin(sway) * data.swayAmount * animationSpeed;
-          data.position[2] += Math.cos(sway * 0.7) * data.swayAmount * animationSpeed;
-
-          // Turbulence
-          const turbulence = time * 0.4 + index * 0.03;
-          data.position[0] += Math.sin(turbulence * 2.5) * 0.001 * animationSpeed;
-          data.position[2] += Math.cos(turbulence * 2) * 0.001 * animationSpeed;
-
-          // Reset if fallen too far
-          if (data.position[1] < -100) {
-            data.position[1] = 300 + Math.random() * 100;
-            data.position[0] = (Math.random() - 0.5) * 600;
-            data.position[2] = (Math.random() - 0.5) * 600;
-          }
-
-          // Boundary check
-          if (Math.abs(data.position[0]) > 300) {
-            data.position[0] = -Math.sign(data.position[0]) * 150;
-          }
-          if (Math.abs(data.position[2]) > 300) {
-            data.position[2] = -Math.sign(data.position[2]) * 150;
-          }
-
-          // Dynamic emissive intensity
-          const emissivePulse = (Math.sin(time * 2 + index * 0.5) + 1) * 0.5;
-          const material = snowflake.material as THREE.MeshStandardMaterial;
-          material.emissiveIntensity = data.emissiveIntensity * (0.8 + emissivePulse * 0.4);
-        }
-      });
-    }
-
-    // Cosmic Skybox Stars animation - subtle twinkling only
-    if (cosmicSkyboxStarsRef.current && particleData.cosmicSkyboxStars.count > 0) {
-      const skyboxColors = cosmicSkyboxStarsRef.current.geometry.attributes.color.array as Float32Array;
-      
-      // Only animate colors for twinkling effect
-      if (isRainbowTheme) {
-        for (let i = 0; i < particleData.cosmicSkyboxStars.count; i++) {
-          const i3 = i * 3;
-          const hue = ((time * 0.01 + i * 0.001) % 1);
-          const twinkleFactor = 0.4 + Math.sin(time * 3 + i * 0.1) * 0.2;
-          const color = new THREE.Color().setHSL(hue, 0.8, 0.5 * twinkleFactor);
-          skyboxColors[i3] = color.r;
-          skyboxColors[i3 + 1] = color.g;
-          skyboxColors[i3 + 2] = color.b;
-        }
-        cosmicSkyboxStarsRef.current.geometry.attributes.color.needsUpdate = true;
-      }
-    }
-
-    // Milky Way Band animation - very subtle movement
-    if (milkyWayBandRef.current && particleData.milkyWayBand.count > 0) {
-      if (isRainbowTheme) {
-        const bandColors = milkyWayBandRef.current.geometry.attributes.color.array as Float32Array;
-        for (let i = 0; i < particleData.milkyWayBand.count; i++) {
-          const i3 = i * 3;
-          const hue = ((time * 0.005 + i * 0.0005) % 1);
-          const color = new THREE.Color().setHSL(hue, 0.6, 0.2);
-          bandColors[i3] = color.r;
-          bandColors[i3 + 1] = color.g;
-          bandColors[i3 + 2] = color.b;
-        }
-        milkyWayBandRef.current.geometry.attributes.color.needsUpdate = true;
-      }
-      // Very slow rotation for the entire band
-      milkyWayBandRef.current.rotation.z = time * 0.00005 * animationSpeed;
-    }
-
-    // Deep Space Nebula animation - slow pulsing
-    if (deepSpaceNebulaRef.current && particleData.deepSpaceNebula.count > 0) {
-      const deepNebulaPositions = deepSpaceNebulaRef.current.geometry.attributes.position.array as Float32Array;
-      const deepNebulaColors = deepSpaceNebulaRef.current.geometry.attributes.color.array as Float32Array;
-
-      for (let i = 0; i < particleData.deepSpaceNebula.count; i++) {
-        const i3 = i * 3;
-
-        // Extremely slow drift
-        deepNebulaPositions[i3] += particleData.deepSpaceNebula.velocities[i3] * animationSpeed;
-        deepNebulaPositions[i3 + 1] += particleData.deepSpaceNebula.velocities[i3 + 1] * animationSpeed;
-        deepNebulaPositions[i3 + 2] += particleData.deepSpaceNebula.velocities[i3 + 2] * animationSpeed;
-
-        // Slow pulsating effect
-        const pulseFreq = time * 0.02 + i * 0.01;
-        const pulseFactor = 0.5 + Math.sin(pulseFreq) * 0.5;
-
-        if (isRainbowTheme) {
-          const hue = ((time * 0.003 + i * 0.0005) % 1);
-          const color = new THREE.Color().setHSL(hue, 0.8, 0.1 * pulseFactor);
-          deepNebulaColors[i3] = color.r;
-          deepNebulaColors[i3 + 1] = color.g;
-          deepNebulaColors[i3 + 2] = color.b;
-        }
-      }
-
-      deepSpaceNebulaRef.current.geometry.attributes.position.needsUpdate = true;
-      if (isRainbowTheme) {
-        deepSpaceNebulaRef.current.geometry.attributes.color.needsUpdate = true;
-      }
-    }
-
-    // Cosmic Dust Field animation - gentle drifting
-    if (cosmicDustFieldRef.current && particleData.cosmicDustField.count > 0) {
-      const dustFieldPositions = cosmicDustFieldRef.current.geometry.attributes.position.array as Float32Array;
-      const dustFieldColors = cosmicDustFieldRef.current.geometry.attributes.color.array as Float32Array;
-
-      for (let i = 0; i < particleData.cosmicDustField.count; i++) {
-        const i3 = i * 3;
-
-        // Gentle drifting motion
-        dustFieldPositions[i3] += particleData.cosmicDustField.velocities[i3] * animationSpeed;
-        dustFieldPositions[i3 + 1] += particleData.cosmicDustField.velocities[i3 + 1] * animationSpeed;
-        dustFieldPositions[i3 + 2] += particleData.cosmicDustField.velocities[i3 + 2] * animationSpeed;
-
-        // Very subtle floating motion
-        const floatFreq = time * 0.005 * animationSpeed + i * 0.001;
-        dustFieldPositions[i3] += Math.sin(floatFreq) * 0.0003 * animationSpeed;
-        dustFieldPositions[i3 + 1] += Math.cos(floatFreq * 0.7) * 0.0002 * animationSpeed;
-        dustFieldPositions[i3 + 2] += Math.sin(floatFreq * 1.3) * 0.0003 * animationSpeed;
-
-        if (isRainbowTheme) {
-          const hue = ((time * 0.008 + i * 0.002) % 1);
-          const color = new THREE.Color().setHSL(hue, 0.3, 0.05);
-          dustFieldColors[i3] = color.r;
-          dustFieldColors[i3 + 1] = color.g;
-          dustFieldColors[i3 + 2] = color.b;
-        }
-      }
-
-      cosmicDustFieldRef.current.geometry.attributes.position.needsUpdate = true;
-      if (isRainbowTheme) {
-        cosmicDustFieldRef.current.geometry.attributes.color.needsUpdate = true;
-      }
     }
   });
 
@@ -2005,7 +1351,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
 
   const particleKey = `particles-${enabled ? 1 : 0}-${intensity.toFixed(1)}-${colorTheme.name}`;
 
-  // Enhanced shader for main particles with crisp definition
+  // Enhanced shader chunk for high-quality points (scaled differently when recording)
   const recordingVertexShader = `
     attribute float size;
     varying vec3 vColor;
@@ -2019,147 +1365,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       vOpacity = 1.0 - smoothstep(50.0, 200.0, distance);
     }
   `;
-
   const recordingFragmentShader = `
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-      if (distanceToCenter > 0.5) discard;
-      
-      // Sharp, defined particle with bright center
-      float alpha = 1.0 - (distanceToCenter * 2.0);
-      alpha = pow(alpha, 3.0); // Much sharper falloff
-      
-      // Bright center with defined edge
-      float centerGlow = 1.0 - smoothstep(0.0, 0.2, distanceToCenter);
-      alpha = max(alpha, centerGlow * 0.9);
-      
-      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
-    }
-  `;
-
-  // Sharp star cluster shader
-  const clusterVertexShader = `
-    attribute float size;
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      vColor = color;
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = size * (${isRecording ? '280.0' : '260.0'} / -mvPosition.z);
-      gl_Position = projectionMatrix * mvPosition;
-      float distance = length(mvPosition.xyz);
-      vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
-    }
-  `;
-
-  const clusterFragmentShader = `
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-      if (distanceToCenter > 0.5) discard;
-      
-      // Very sharp star-like appearance
-      float alpha = 1.0 - (distanceToCenter * 2.0);
-      alpha = pow(alpha, 4.0); // Extremely sharp falloff
-      
-      // Bright pinpoint center
-      float starCenter = 1.0 - smoothstep(0.0, 0.15, distanceToCenter);
-      alpha = max(alpha, starCenter);
-      
-      // Add slight cross-hatch pattern for star effect
-      float crossPattern = abs(sin((gl_PointCoord.x - 0.5) * 20.0)) * abs(sin((gl_PointCoord.y - 0.5) * 20.0));
-      alpha *= (0.8 + crossPattern * 0.2);
-      
-      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.2' : '1.0'});
-    }
-  `;
-
-  // Crisp dust cloud shader
-  const dustVertexShader = `
-    attribute float size;
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      vColor = color;
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = size * (${isRecording ? '200.0' : '180.0'} / -mvPosition.z);
-      gl_Position = projectionMatrix * mvPosition;
-      float distance = length(mvPosition.xyz);
-      vOpacity = 1.0 - smoothstep(30.0, 100.0, distance);
-    }
-  `;
-
-  const dustFragmentShader = `
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-      if (distanceToCenter > 0.5) discard;
-      
-      // Defined dust particle with clear edges
-      float alpha = 1.0 - (distanceToCenter * 2.0);
-      alpha = pow(alpha, 2.5); // Sharp but not as extreme as stars
-      
-      // Slight central concentration
-      float dustCore = 1.0 - smoothstep(0.0, 0.3, distanceToCenter);
-      alpha = max(alpha * 0.7, dustCore * 0.8);
-      
-      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.8' : '0.7'});
-    }
-  `;
-
-  // Sharp atmospheric particles shader
-  const atmosphericVertexShader = `
-    attribute float size;
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      vColor = color;
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = size * (${isRecording ? '160.0' : '140.0'} / -mvPosition.z);
-      gl_Position = projectionMatrix * mvPosition;
-      float distance = length(mvPosition.xyz);
-      vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
-    }
-  `;
-
-  const atmosphericFragmentShader = `
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-      if (distanceToCenter > 0.5) discard;
-      
-      // Crisp atmospheric particles
-      float alpha = 1.0 - (distanceToCenter * 2.0);
-      alpha = pow(alpha, 2.0); // Sharp definition
-      
-      // Clear center with defined boundary
-      float atomCore = 1.0 - smoothstep(0.0, 0.25, distanceToCenter);
-      alpha = max(alpha * 0.6, atomCore * 0.7);
-      
-      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.6' : '0.5'});
-    }
-  `;
-
-  const nebulaVertexShader = `
-    attribute float size;
-    varying vec3 vColor;
-    varying float vOpacity;
-    void main() {
-      vColor = color;
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = size * (100.0 / -mvPosition.z);
-      gl_Position = projectionMatrix * mvPosition;
-      float distance = length(mvPosition.xyz);
-      vOpacity = 1.0 - smoothstep(200.0, 800.0, distance);
-    }
-  `;
-
-  const nebulaFragmentShader = `
     varying vec3 vColor;
     varying float vOpacity;
     void main() {
@@ -2167,14 +1373,13 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       if (distanceToCenter > 0.5) discard;
       float alpha = 1.0 - (distanceToCenter * 2.0);
       alpha = smoothstep(0.0, 1.0, alpha);
-      alpha *= 0.3; // Make nebula more translucent
-      gl_FragColor = vec4(vColor, alpha * vOpacity);
+      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.9' : '0.8'});
     }
   `;
 
   return (
     <group key={particleKey}>
-      {/* Main Milky Way Cloud */}
+      {/* Main Milky Way Cloud (core star field) */}
       <points ref={mainCloudRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -2205,66 +1410,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           fragmentShader={recordingFragmentShader}
         />
       </points>
-
-      {/* Distant Galaxy Clusters - Large Milky Way formations in the distance */}
-      <group ref={distantGalaxyClustersRef}>
-        {particleData.distantGalaxyClusters.map((cluster, index) => (
-          <points key={`${particleKey}-distant-galaxy-${index}`}>
-            <bufferGeometry>
-              <bufferAttribute
-                attach="attributes-position"
-                array={cluster.positions}
-                count={PARTICLES_PER_DISTANT_CLUSTER}
-                itemSize={3}
-              />
-              <bufferAttribute
-                attach="attributes-color"
-                array={cluster.colors}
-                count={PARTICLES_PER_DISTANT_CLUSTER}
-                itemSize={3}
-              />
-              <bufferAttribute
-                attach="attributes-size"
-                array={cluster.sizes}
-                count={PARTICLES_PER_DISTANT_CLUSTER}
-                itemSize={1}
-              />
-            </bufferGeometry>
-            <shaderMaterial
-              transparent
-              vertexColors
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-              vertexShader={`
-                attribute float size;
-                varying vec3 vColor;
-                varying float vOpacity;
-                void main() {
-                  vColor = color;
-                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                  gl_PointSize = size * (120.0 / -mvPosition.z);
-                  gl_Position = projectionMatrix * mvPosition;
-                  float distance = length(mvPosition.xyz);
-                  vOpacity = 1.0 - smoothstep(600.0, 1800.0, distance);
-                }
-              `}
-              fragmentShader={`
-                varying vec3 vColor;
-                varying float vOpacity;
-                void main() {
-                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-                  if (distanceToCenter > 0.5) discard;
-                  float alpha = 1.0 - (distanceToCenter * 2.0);
-                  alpha = smoothstep(0.0, 1.0, alpha);
-                  gl_FragColor = vec4(vColor, alpha * vOpacity * 0.7);
-                }
-              `}
-            />
-          </points>
-        ))}
-      </group>
-
-      {/* Cosmic dust cloud */}
+      
+      {/* Cosmic dust cloud (smaller background stars) */}
       <points ref={dustCloudRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -2291,12 +1438,34 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           vertexColors
           blending={THREE.AdditiveBlending}
           depthWrite={false}
-          vertexShader={dustVertexShader}
-          fragmentShader={dustFragmentShader}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '220.0' : '200.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(30.0, 100.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.7' : '0.6'});
+            }
+          `}
         />
       </points>
-
-      {/* Star clusters */}
+      
+      {/* Star clusters (concentrated groups of stars) */}
       <group ref={clustersRef}>
         {particleData.clusters.map((cluster, index) => (
           <points key={`${particleKey}-cluster-${index}`}>
@@ -2325,14 +1494,36 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               vertexColors
               blending={THREE.AdditiveBlending}
               depthWrite={false}
-              vertexShader={clusterVertexShader}
-              fragmentShader={clusterFragmentShader}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (${isRecording ? '270.0' : '250.0'} / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
+                }
+              `}
             />
           </points>
         ))}
       </group>
-
-      {/* Atmospheric particles */}
+      
+      {/* Atmospheric particles (faint distant stars) */}
       <points ref={atmosphericRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -2359,12 +1550,34 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           vertexColors
           blending={THREE.AdditiveBlending}
           depthWrite={false}
-          vertexShader={atmosphericVertexShader}
-          fragmentShader={atmosphericFragmentShader}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '170.0' : '150.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.4' : '0.3'});
+            }
+          `}
         />
       </points>
-
-      {/* Distant swirl particles */}
+      
+      {/* Distant swirl particles (Milky Way band far away) */}
       <points ref={distantSwirlRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -2391,12 +1604,34 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           vertexColors
           blending={THREE.AdditiveBlending}
           depthWrite={false}
-          vertexShader={recordingVertexShader}
-          fragmentShader={recordingFragmentShader}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '420.0' : '400.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(200.0, 600.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.6' : '0.5'});
+            }
+          `}
         />
       </points>
-
-      {/* Big swirl formations */}
+      
+      {/* Big swirls (large star cluster swirls at periphery) */}
       <group ref={bigSwirlsRef}>
         {particleData.bigSwirls.map((swirl, index) => (
           <points key={`${particleKey}-bigswirl-${index}`}>
@@ -2425,14 +1660,95 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               vertexColors
               blending={THREE.AdditiveBlending}
               depthWrite={false}
-              vertexShader={recordingVertexShader}
-              fragmentShader={recordingFragmentShader}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (${isRecording ? '520.0' : '500.0'} / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(150.0, 500.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.5' : '0.4'});
+                }
+              `}
             />
           </points>
         ))}
       </group>
-
-      {/* Snow particles */}
+      
+      {/* Gas cloud clusters (distant colorful nebula clouds) */}
+      <group ref={gasCloudsRef}>
+        {particleData.gas.map((cluster, index) => (
+          <points key={`${particleKey}-gas-${index}`}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                array={cluster.positions}
+                count={PARTICLES_PER_GAS_CLOUD}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-color"
+                array={cluster.colors}
+                count={PARTICLES_PER_GAS_CLOUD}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-size"
+                array={cluster.sizes}
+                count={PARTICLES_PER_GAS_CLOUD}
+                itemSize={1}
+              />
+            </bufferGeometry>
+            <shaderMaterial
+              transparent
+              vertexColors
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (${isRecording ? '550.0' : '520.0'} / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(100.0, 500.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.5' : '0.4'});
+                }
+              `}
+            />
+          </points>
+        ))}
+      </group>
+      
+      {/* Snow and Twinkle Particles (conditionally visible in Christmas Magic theme) */}
       <points ref={snowParticlesRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -2463,30 +1779,42 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             attribute float size;
             varying vec3 vColor;
             varying float vOpacity;
+            varying vec2 vUv;
             void main() {
               vColor = color;
+              vUv = uv;
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (180.0 / -mvPosition.z);
+              gl_PointSize = size * (${isRecording ? '250.0' : '220.0'} / -mvPosition.z);
               gl_Position = projectionMatrix * mvPosition;
               float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(100.0, 300.0, distance);
+              vOpacity = 1.0 - smoothstep(50.0, 400.0, distance);
             }
           `}
           fragmentShader={`
             varying vec3 vColor;
             varying float vOpacity;
             void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              // Skip rendering if color is black (hidden particles)
+              if (length(vColor) < 0.1) discard;
+              vec2 center = gl_PointCoord - vec2(0.5);
+              float distanceToCenter = length(center);
               if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
+              // Snowflake pattern (6-point star + sparkle)
+              float angle = atan(center.y, center.x);
+              float radius = length(center);
+              float snowflake1 = abs(sin(angle * 6.0)) * 0.15 + 0.85;
+              float snowflake2 = abs(cos(angle * 3.0)) * 0.1 + 0.9;
+              float snowflake3 = smoothstep(0.1, 0.0, abs(sin(angle * 12.0))) * 0.2;
+              float snowflakePattern = snowflake1 * snowflake2 + snowflake3;
+              float sparkle = sin(radius * 20.0) * 0.1 + 0.9;
+              float alpha = (1.0 - radius * 2.0) * snowflakePattern * sparkle;
               alpha = smoothstep(0.0, 1.0, alpha);
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.9);
+              gl_FragColor = vec4(vColor * 1.5, alpha * vOpacity * ${isRecording ? '1.2' : '1.0'});
             }
           `}
         />
       </points>
-
-      {/* Twinkle particles */}
+      
       <points ref={twinkleParticlesRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -2519,524 +1847,32 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             varying float vOpacity;
             void main() {
               vColor = color;
-              vec4 vPosition = vec4(position, 1.0);
-              vec4 mvPosition = modelViewMatrix * vPosition;
-              gl_PointSize = size * (200.0 / -mvPosition.z);
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '350.0' : '320.0'} / -mvPosition.z);
               gl_Position = projectionMatrix * mvPosition;
               float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(50.0, 200.0, distance);
+              vOpacity = 1.0 - smoothstep(60.0, 400.0, distance);
             }
           `}
           fragmentShader={`
             varying vec3 vColor;
             varying float vOpacity;
             void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              // Skip rendering if color is black (hidden particles)
+              if (length(vColor) < 0.1) discard;
+              vec2 center = gl_PointCoord - vec2(0.5);
+              float distanceToCenter = length(center);
               if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
+              // Twinkle pattern (star + cross)
+              float angle = atan(center.y, center.x);
+              float star = abs(cos(angle * 4.0)) * 0.3 + 0.7;
+              float cross = max(
+                smoothstep(0.02, 0.0, abs(center.x)),
+                smoothstep(0.02, 0.0, abs(center.y))
+              ) * 0.5;
+              float alpha = (1.0 - distanceToCenter * 2.0) * star + cross;
               alpha = smoothstep(0.0, 1.0, alpha);
-              
-              // Create star shape effect
-              float angle = atan(gl_PointCoord.y - 0.5, gl_PointCoord.x - 0.5);
-              float starPattern = sin(angle * 4.0) * 0.3 + 0.7;
-              alpha *= starPattern;
-              
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 1.2);
-            }
-          `}
-        />
-      </points>
-
-      {/* Nebula Clouds */}
-      <points ref={nebulaCloudsRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.nebula.positions}
-            count={particleData.nebula.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.nebula.colors}
-            count={particleData.nebula.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.nebula.sizes}
-            count={particleData.nebula.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={nebulaVertexShader}
-          fragmentShader={nebulaFragmentShader}
-        />
-      </points>
-
-      {/* Cosmic Rays */}
-      <points ref={cosmicRaysRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.cosmicRays.positions}
-            count={particleData.cosmicRays.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.cosmicRays.colors}
-            count={particleData.cosmicRays.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.cosmicRays.sizes}
-            count={particleData.cosmicRays.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (400.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(100.0, 800.0, distance);
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 1.2);
-            }
-          `}
-        />
-      </points>
-
-      {/* Distant Nebulas - Much larger and farther */}
-      <points ref={distantNebulaRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.distantNebula.positions}
-            count={particleData.distantNebula.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.distantNebula.colors}
-            count={particleData.distantNebula.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.distantNebula.sizes}
-            count={particleData.distantNebula.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (80.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(500.0, 1500.0, distance);
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              alpha *= 0.15; // Very translucent for distant effect
-              gl_FragColor = vec4(vColor, alpha * vOpacity);
-            }
-          `}
-        />
-      </points>
-
-      {/* Background Floating Particles */}
-      <points ref={backgroundParticlesRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.backgroundParticles.positions}
-            count={particleData.backgroundParticles.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.backgroundParticles.colors}
-            count={particleData.backgroundParticles.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.backgroundParticles.sizes}
-            count={particleData.backgroundParticles.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (180.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(300.0, 800.0, distance);
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.6);
-            }
-          `}
-        />
-      </points>
-
-      {/* Ultra Distant Particles - Starfield effect */}
-      <points ref={ultraDistantParticlesRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.ultraDistantParticles.positions}
-            count={particleData.ultraDistantParticles.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.ultraDistantParticles.colors}
-            count={particleData.ultraDistantParticles.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.ultraDistantParticles.sizes}
-            count={particleData.ultraDistantParticles.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (250.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(800.0, 2000.0, distance);
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              
-              // Subtle twinkling effect for distant stars
-              float twinkle = sin(gl_FragCoord.x * 0.1 + gl_FragCoord.y * 0.1) * 0.2 + 0.8;
-              alpha *= twinkle;
-              
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.4);
-            }
-          `}
-        />
-      </points>
-
-      {/* Geometric Snowflakes for Christmas Theme */}
-      {isChristmasTheme && (
-        <group ref={geometricSnowflakesRef}>
-          {geometricSnowflakesData.map((data, index) => (
-            <mesh
-              key={`snowflake-${index}`}
-              geometry={data.geometry}
-              scale={[data.scale, data.scale, data.scale]}
-            >
-              <meshStandardMaterial
-                color={getChristmasColor(index)}
-                emissive={getChristmasColor(index)}
-                emissiveIntensity={data.emissiveIntensity}
-                transparent
-                opacity={0.8}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-          ))}
-        </group>
-      )}
-
-      {/* Cosmic Skybox Stars - Dense starfield covering entire sphere */}
-      <points ref={cosmicSkyboxStarsRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.cosmicSkyboxStars.positions}
-            count={particleData.cosmicSkyboxStars.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.cosmicSkyboxStars.colors}
-            count={particleData.cosmicSkyboxStars.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.cosmicSkyboxStars.sizes}
-            count={particleData.cosmicSkyboxStars.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (300.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              vOpacity = 1.0;
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              
-              // Subtle twinkling for skybox stars
-              float twinkle = sin(gl_FragCoord.x * 0.05 + gl_FragCoord.y * 0.05) * 0.1 + 0.9;
-              alpha *= twinkle;
-              
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.8);
-            }
-          `}
-        />
-      </points>
-
-      {/* Milky Way Band - Dense band across the sky */}
-      <points ref={milkyWayBandRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.milkyWayBand.positions}
-            count={particleData.milkyWayBand.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.milkyWayBand.colors}
-            count={particleData.milkyWayBand.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.milkyWayBand.sizes}
-            count={particleData.milkyWayBand.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (200.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              vOpacity = 0.6;
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.4);
-            }
-          `}
-        />
-      </points>
-
-      {/* Deep Space Nebula - Large distant nebular structures */}
-      <points ref={deepSpaceNebulaRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.deepSpaceNebula.positions}
-            count={particleData.deepSpaceNebula.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.deepSpaceNebula.colors}
-            count={particleData.deepSpaceNebula.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.deepSpaceNebula.sizes}
-            count={particleData.deepSpaceNebula.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (60.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              vOpacity = 0.3;
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              alpha *= 0.1; // Very translucent for deep space effect
-              gl_FragColor = vec4(vColor, alpha * vOpacity);
-            }
-          `}
-        />
-      </points>
-
-      {/* Cosmic Dust Field - Fine cosmic dust scattered throughout */}
-      <points ref={cosmicDustFieldRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.cosmicDustField.positions}
-            count={particleData.cosmicDustField.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.cosmicDustField.colors}
-            count={particleData.cosmicDustField.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.cosmicDustField.sizes}
-            count={particleData.cosmicDustField.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (400.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(500.0, 2000.0, distance);
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.2);
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.4' : '1.2'});
             }
           `}
         />
