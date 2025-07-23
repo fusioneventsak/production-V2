@@ -43,7 +43,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const snowParticlesRef = useRef<THREE.Points>(null);
   const twinkleParticlesRef = useRef<THREE.Points>(null);
   
-  // Adjust particle counts based on intensity and recording state
+  // Use consistent particle counts regardless of theme to avoid buffer resize issues
   const recordingMultiplier = isRecording ? 1.2 : 1.0;
   const MAIN_COUNT = Math.floor(4000 * intensity * recordingMultiplier);
   const DUST_COUNT = Math.floor(2500 * intensity * recordingMultiplier);
@@ -52,8 +52,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const ATMOSPHERIC_COUNT = Math.floor(3000 * intensity * recordingMultiplier);
   const DISTANT_SWIRL_COUNT = Math.floor(1500 * intensity * recordingMultiplier);
   const BIG_SWIRLS_COUNT = Math.floor(4 * intensity);
-  // NEW: Christmas specific particle counts - Enhanced snow
-  const SNOW_COUNT = Math.floor(2000 * intensity * recordingMultiplier); // Increased snow count
+  // Use consistent counts for special particles to avoid buffer issues
+  const SNOW_COUNT = Math.floor(2000 * intensity * recordingMultiplier);
   const TWINKLE_COUNT = Math.floor(500 * intensity * recordingMultiplier);
   
   // Determine if we're using special themes
@@ -290,35 +290,46 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       });
     }
     
-    // NEW: Enhanced Snow particles for Christmas theme
+    // NEW: Enhanced Snow particles - Always create buffers to avoid resize issues
     const snowPositions = new Float32Array(SNOW_COUNT * 3);
     const snowColors = new Float32Array(SNOW_COUNT * 3);
     const snowSizes = new Float32Array(SNOW_COUNT);
     const snowVelocities = new Float32Array(SNOW_COUNT * 3);
     
     for (let i = 0; i < SNOW_COUNT; i++) {
-      // Spread snow across a larger area for better coverage
-      snowPositions[i * 3] = (Math.random() - 0.5) * 400;
-      snowPositions[i * 3 + 1] = Math.random() * 200 + 100; // Start higher
-      snowPositions[i * 3 + 2] = (Math.random() - 0.5) * 400;
-      
-      // Varied falling speeds and drift
-      snowVelocities[i * 3] = (Math.random() - 0.5) * 0.004; // Horizontal drift
-      snowVelocities[i * 3 + 1] = -Math.random() * 0.012 - 0.003; // Falling speed (faster)
-      snowVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.004; // Depth drift
-      
-      // Varied snowflake sizes for realism
-      const sizeRand = Math.random();
-      if (sizeRand < 0.4) {
-        snowSizes[i] = 0.3 + Math.random() * 0.7; // Small flakes
-      } else if (sizeRand < 0.8) {
-        snowSizes[i] = 1.0 + Math.random() * 1.5; // Medium flakes
+      if (isChristmasTheme) {
+        // Active snow particles for Christmas theme
+        snowPositions[i * 3] = (Math.random() - 0.5) * 400;
+        snowPositions[i * 3 + 1] = Math.random() * 200 + 100;
+        snowPositions[i * 3 + 2] = (Math.random() - 0.5) * 400;
+        
+        snowVelocities[i * 3] = (Math.random() - 0.5) * 0.004;
+        snowVelocities[i * 3 + 1] = -Math.random() * 0.012 - 0.003;
+        snowVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.004;
+        
+        const sizeRand = Math.random();
+        if (sizeRand < 0.4) {
+          snowSizes[i] = 0.3 + Math.random() * 0.7;
+        } else if (sizeRand < 0.8) {
+          snowSizes[i] = 1.0 + Math.random() * 1.5;
+        } else {
+          snowSizes[i] = 2.0 + Math.random() * 2.0;
+        }
       } else {
-        snowSizes[i] = 2.0 + Math.random() * 2.0; // Large flakes
+        // Hidden/inactive snow particles for other themes
+        snowPositions[i * 3] = 0;
+        snowPositions[i * 3 + 1] = -1000; // Hide far below
+        snowPositions[i * 3 + 2] = 0;
+        
+        snowVelocities[i * 3] = 0;
+        snowVelocities[i * 3 + 1] = 0;
+        snowVelocities[i * 3 + 2] = 0;
+        
+        snowSizes[i] = 0.1; // Minimal size
       }
     }
     
-    // NEW: Twinkle particles for Christmas theme
+    // NEW: Twinkle particles - Always create buffers to avoid resize issues
     const twinklePositions = new Float32Array(TWINKLE_COUNT * 3);
     const twinkleColors = new Float32Array(TWINKLE_COUNT * 3);
     const twinkleSizes = new Float32Array(TWINKLE_COUNT);
@@ -326,16 +337,31 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     const twinklePhases = new Float32Array(TWINKLE_COUNT);
     
     for (let i = 0; i < TWINKLE_COUNT; i++) {
-      twinklePositions[i * 3] = (Math.random() - 0.5) * 250;
-      twinklePositions[i * 3 + 1] = Math.random() * 100 - 10;
-      twinklePositions[i * 3 + 2] = (Math.random() - 0.5) * 250;
-      
-      twinkleVelocities[i * 3] = (Math.random() - 0.5) * 0.001;
-      twinkleVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
-      twinkleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
-      
-      twinkleSizes[i] = 1 + Math.random() * 3;
-      twinklePhases[i] = Math.random() * Math.PI * 2;
+      if (isChristmasTheme) {
+        // Active twinkle particles for Christmas theme
+        twinklePositions[i * 3] = (Math.random() - 0.5) * 250;
+        twinklePositions[i * 3 + 1] = Math.random() * 100 - 10;
+        twinklePositions[i * 3 + 2] = (Math.random() - 0.5) * 250;
+        
+        twinkleVelocities[i * 3] = (Math.random() - 0.5) * 0.001;
+        twinkleVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
+        twinkleVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
+        
+        twinkleSizes[i] = 1 + Math.random() * 3;
+        twinklePhases[i] = Math.random() * Math.PI * 2;
+      } else {
+        // Hidden/inactive twinkle particles for other themes
+        twinklePositions[i * 3] = 0;
+        twinklePositions[i * 3 + 1] = -1000; // Hide far below
+        twinklePositions[i * 3 + 2] = 0;
+        
+        twinkleVelocities[i * 3] = 0;
+        twinkleVelocities[i * 3 + 1] = 0;
+        twinkleVelocities[i * 3 + 2] = 0;
+        
+        twinkleSizes[i] = 0.1; // Minimal size
+        twinklePhases[i] = 0;
+      }
     }
     
     return {
@@ -614,25 +640,39 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       }
     });
     
-    // NEW: Update snow colors (Christmas theme only)
-    if (isChristmasTheme && particleData.snow.count > 0 && snowParticlesRef.current) {
+    // NEW: Update snow colors - Always update regardless of theme
+    if (particleData.snow.count > 0 && snowParticlesRef.current) {
       const snowColors = snowParticlesRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.snow.count; i++) {
-        snowColors[i * 3] = 1;
-        snowColors[i * 3 + 1] = 1;
-        snowColors[i * 3 + 2] = 1;
+        if (isChristmasTheme) {
+          snowColors[i * 3] = 1;
+          snowColors[i * 3 + 1] = 1;
+          snowColors[i * 3 + 2] = 1;
+        } else {
+          // Make invisible for other themes
+          snowColors[i * 3] = 0;
+          snowColors[i * 3 + 1] = 0;
+          snowColors[i * 3 + 2] = 0;
+        }
       }
       snowParticlesRef.current.geometry.attributes.color.needsUpdate = true;
     }
     
-    // NEW: Update twinkle colors (Christmas theme only)
-    if (isChristmasTheme && particleData.twinkle.count > 0 && twinkleParticlesRef.current) {
+    // NEW: Update twinkle colors - Always update regardless of theme
+    if (particleData.twinkle.count > 0 && twinkleParticlesRef.current) {
       const twinkleColors = twinkleParticlesRef.current.geometry.attributes.color.array as Float32Array;
       for (let i = 0; i < particleData.twinkle.count; i++) {
-        const particleColor = getChristmasColor(i);
-        twinkleColors[i * 3] = particleColor.r;
-        twinkleColors[i * 3 + 1] = particleColor.g;
-        twinkleColors[i * 3 + 2] = particleColor.b;
+        if (isChristmasTheme) {
+          const particleColor = getChristmasColor(i);
+          twinkleColors[i * 3] = particleColor.r;
+          twinkleColors[i * 3 + 1] = particleColor.g;
+          twinkleColors[i * 3 + 2] = particleColor.b;
+        } else {
+          // Make invisible for other themes
+          twinkleColors[i * 3] = 0;
+          twinkleColors[i * 3 + 1] = 0;
+          twinkleColors[i * 3 + 2] = 0;
+        }
       }
       twinkleParticlesRef.current.geometry.attributes.color.needsUpdate = true;
     }
@@ -1417,153 +1457,150 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         ))}
       </group>
       
-      {/* NEW: Enhanced Christmas Snow Particles */}
-      {isChristmasTheme && (
-        <points ref={snowParticlesRef}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              array={particleData.snow.positions}
-              count={particleData.snow.count}
-              itemSize={3}
-            />
-            <bufferAttribute
-              attach="attributes-color"
-              array={particleData.snow.colors}
-              count={particleData.snow.count}
-              itemSize={3}
-            />
-            <bufferAttribute
-              attach="attributes-size"
-              array={particleData.snow.sizes}
-              count={particleData.snow.count}
-              itemSize={1}
-            />
-          </bufferGeometry>
-          <shaderMaterial
-            transparent
-            vertexColors
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            vertexShader={`
-              attribute float size;
-              varying vec3 vColor;
-              varying float vOpacity;
-              varying vec2 vUv;
-              void main() {
-                vColor = color;
-                vUv = uv;
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = size * (${isRecording ? '200.0' : '180.0'} / -mvPosition.z);
-                gl_Position = projectionMatrix * mvPosition;
-                
-                float distance = length(mvPosition.xyz);
-                vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
-              }
-            `}
-            fragmentShader={`
-              varying vec3 vColor;
-              varying float vOpacity;
-              void main() {
-                vec2 center = gl_PointCoord - vec2(0.5);
-                float distanceToCenter = length(center);
-                
-                if (distanceToCenter > 0.5) discard;
-                
-                // Enhanced snowflake pattern with more detail
-                float angle = atan(center.y, center.x);
-                float radius = length(center);
-                
-                // Create 6-pointed snowflake pattern
-                float snowflake1 = abs(sin(angle * 6.0)) * 0.15 + 0.85;
-                float snowflake2 = abs(cos(angle * 3.0)) * 0.1 + 0.9;
-                float snowflake3 = smoothstep(0.1, 0.0, abs(sin(angle * 12.0))) * 0.2;
-                
-                // Combine patterns for complex snowflake
-                float snowflakePattern = snowflake1 * snowflake2 + snowflake3;
-                
-                // Add sparkle effect
-                float sparkle = sin(radius * 20.0) * 0.1 + 0.9;
-                
-                float alpha = (1.0 - radius * 2.0) * snowflakePattern * sparkle;
-                alpha = smoothstep(0.0, 1.0, alpha);
-                
-                // Brighten snow for better visibility
-                gl_FragColor = vec4(vColor * 1.2, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
-              }
-            `}
+      {/* Snow and Twinkle Particles - Always rendered but hidden for non-Christmas themes */}
+      <points ref={snowParticlesRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.snow.positions}
+            count={particleData.snow.count}
+            itemSize={3}
           />
-        </points>
-      )}
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.snow.colors}
+            count={particleData.snow.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.snow.sizes}
+            count={particleData.snow.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          visible={isChristmasTheme}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            varying vec2 vUv;
+            void main() {
+              vColor = color;
+              vUv = uv;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '200.0' : '180.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vec2 center = gl_PointCoord - vec2(0.5);
+              float distanceToCenter = length(center);
+              
+              if (distanceToCenter > 0.5) discard;
+              
+              // Enhanced snowflake pattern with more detail
+              float angle = atan(center.y, center.x);
+              float radius = length(center);
+              
+              // Create 6-pointed snowflake pattern
+              float snowflake1 = abs(sin(angle * 6.0)) * 0.15 + 0.85;
+              float snowflake2 = abs(cos(angle * 3.0)) * 0.1 + 0.9;
+              float snowflake3 = smoothstep(0.1, 0.0, abs(sin(angle * 12.0))) * 0.2;
+              
+              // Combine patterns for complex snowflake
+              float snowflakePattern = snowflake1 * snowflake2 + snowflake3;
+              
+              // Add sparkle effect
+              float sparkle = sin(radius * 20.0) * 0.1 + 0.9;
+              
+              float alpha = (1.0 - radius * 2.0) * snowflakePattern * sparkle;
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              // Brighten snow for better visibility
+              gl_FragColor = vec4(vColor * 1.2, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
+            }
+          `}
+        />
+      </points>
       
-      {/* NEW: Christmas Twinkle Particles */}
-      {isChristmasTheme && (
-        <points ref={twinkleParticlesRef}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              array={particleData.twinkle.positions}
-              count={particleData.twinkle.count}
-              itemSize={3}
-            />
-            <bufferAttribute
-              attach="attributes-color"
-              array={particleData.twinkle.colors}
-              count={particleData.twinkle.count}
-              itemSize={3}
-            />
-            <bufferAttribute
-              attach="attributes-size"
-              array={particleData.twinkle.sizes}
-              count={particleData.twinkle.count}
-              itemSize={1}
-            />
-          </bufferGeometry>
-          <shaderMaterial
-            transparent
-            vertexColors
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            vertexShader={`
-              attribute float size;
-              varying vec3 vColor;
-              varying float vOpacity;
-              void main() {
-                vColor = color;
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = size * (${isRecording ? '320.0' : '300.0'} / -mvPosition.z);
-                gl_Position = projectionMatrix * mvPosition;
-                
-                float distance = length(mvPosition.xyz);
-                vOpacity = 1.0 - smoothstep(80.0, 350.0, distance);
-              }
-            `}
-            fragmentShader={`
-              varying vec3 vColor;
-              varying float vOpacity;
-              void main() {
-                vec2 center = gl_PointCoord - vec2(0.5);
-                float distanceToCenter = length(center);
-                
-                if (distanceToCenter > 0.5) discard;
-                
-                // Create star/twinkle pattern
-                float angle = atan(center.y, center.x);
-                float star = abs(cos(angle * 4.0)) * 0.3 + 0.7;
-                float cross = max(
-                  smoothstep(0.02, 0.0, abs(center.x)),
-                  smoothstep(0.02, 0.0, abs(center.y))
-                ) * 0.5;
-                
-                float alpha = (1.0 - distanceToCenter * 2.0) * star + cross;
-                alpha = smoothstep(0.0, 1.0, alpha);
-                
-                gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.2' : '1.0'});
-              }
-            `}
+      <points ref={twinkleParticlesRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.twinkle.positions}
+            count={particleData.twinkle.count}
+            itemSize={3}
           />
-        </points>
-      )}
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.twinkle.colors}
+            count={particleData.twinkle.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.twinkle.sizes}
+            count={particleData.twinkle.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          visible={isChristmasTheme}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (${isRecording ? '320.0' : '300.0'} / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(80.0, 350.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vec2 center = gl_PointCoord - vec2(0.5);
+              float distanceToCenter = length(center);
+              
+              if (distanceToCenter > 0.5) discard;
+              
+              // Create star/twinkle pattern
+              float angle = atan(center.y, center.x);
+              float star = abs(cos(angle * 4.0)) * 0.3 + 0.7;
+              float cross = max(
+                smoothstep(0.02, 0.0, abs(center.x)),
+                smoothstep(0.02, 0.0, abs(center.y))
+              ) * 0.5;
+              
+              float alpha = (1.0 - distanceToCenter * 2.0) * star + cross;
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.2' : '1.0'});
+            }
+          `}
+        />
+      </points>
     </group>
   );
 };
