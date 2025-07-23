@@ -1002,56 +1002,64 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       });
     }
     
-    // NEW: Enhanced Christmas snow animation
-    if (isChristmasTheme && snowParticlesRef.current && particleData.snow.count > 0) {
+    // NEW: Enhanced Christmas snow animation - Always animate but only visible for Christmas theme
+    if (snowParticlesRef.current && particleData.snow.count > 0) {
       const snowPositions = snowParticlesRef.current.geometry.attributes.position.array as Float32Array;
       
       for (let i = 0; i < particleData.snow.count; i++) {
         const i3 = i * 3;
         
-        snowPositions[i3] += particleData.snow.velocities[i3] * animationSpeed;
-        snowPositions[i3 + 1] += particleData.snow.velocities[i3 + 1] * animationSpeed;
-        snowPositions[i3 + 2] += particleData.snow.velocities[i3 + 2] * animationSpeed;
-        
-        // Enhanced swaying motion with multiple frequencies
-        const swayFreq1 = time * 0.3 + i * 0.05;
-        const swayFreq2 = time * 0.7 + i * 0.1;
-        snowPositions[i3] += Math.sin(swayFreq1) * 0.003 * animationSpeed;
-        snowPositions[i3] += Math.cos(swayFreq2) * 0.001 * animationSpeed; // Secondary sway
-        snowPositions[i3 + 2] += Math.cos(swayFreq1 * 0.8) * 0.003 * animationSpeed;
-        snowPositions[i3 + 2] += Math.sin(swayFreq2 * 0.6) * 0.001 * animationSpeed; // Secondary sway
-        
-        // Add turbulence for more realistic movement
-        const turbulence = time * 0.5 + i * 0.02;
-        snowPositions[i3] += Math.sin(turbulence * 3) * 0.0008 * animationSpeed;
-        snowPositions[i3 + 2] += Math.cos(turbulence * 2.5) * 0.0008 * animationSpeed;
-        
-        // Recycle snow particles with wider spawn area
-        if (snowPositions[i3 + 1] < -80) {
-          snowPositions[i3 + 1] = 200 + Math.random() * 100; // Spawn higher
-          snowPositions[i3] = (Math.random() - 0.5) * 400; // Wider spawn
-          snowPositions[i3 + 2] = (Math.random() - 0.5) * 400; // Wider spawn
+        if (isChristmasTheme) {
+          // Animate snow particles for Christmas theme
+          snowPositions[i3] += particleData.snow.velocities[i3] * animationSpeed;
+          snowPositions[i3 + 1] += particleData.snow.velocities[i3 + 1] * animationSpeed;
+          snowPositions[i3 + 2] += particleData.snow.velocities[i3 + 2] * animationSpeed;
           
-          // Reset velocity with some variation
-          particleData.snow.velocities[i3] = (Math.random() - 0.5) * 0.004;
-          particleData.snow.velocities[i3 + 1] = -Math.random() * 0.012 - 0.003;
-          particleData.snow.velocities[i3 + 2] = (Math.random() - 0.5) * 0.004;
-        }
-        
-        // Wrap horizontal boundaries
-        if (Math.abs(snowPositions[i3]) > 250) {
-          snowPositions[i3] = -Math.sign(snowPositions[i3]) * 100;
-        }
-        if (Math.abs(snowPositions[i3 + 2]) > 250) {
-          snowPositions[i3 + 2] = -Math.sign(snowPositions[i3 + 2]) * 100;
+          // Enhanced swaying motion with multiple frequencies
+          const swayFreq1 = time * 0.3 + i * 0.05;
+          const swayFreq2 = time * 0.7 + i * 0.1;
+          snowPositions[i3] += Math.sin(swayFreq1) * 0.003 * animationSpeed;
+          snowPositions[i3] += Math.cos(swayFreq2) * 0.001 * animationSpeed;
+          snowPositions[i3 + 2] += Math.cos(swayFreq1 * 0.8) * 0.003 * animationSpeed;
+          snowPositions[i3 + 2] += Math.sin(swayFreq2 * 0.6) * 0.001 * animationSpeed;
+          
+          // Add turbulence for more realistic movement
+          const turbulence = time * 0.5 + i * 0.02;
+          snowPositions[i3] += Math.sin(turbulence * 3) * 0.0008 * animationSpeed;
+          snowPositions[i3 + 2] += Math.cos(turbulence * 2.5) * 0.0008 * animationSpeed;
+          
+          // Recycle snow particles with wider spawn area
+          if (snowPositions[i3 + 1] < -80) {
+            snowPositions[i3 + 1] = 200 + Math.random() * 100;
+            snowPositions[i3] = (Math.random() - 0.5) * 400;
+            snowPositions[i3 + 2] = (Math.random() - 0.5) * 400;
+            
+            // Reset velocity with some variation
+            particleData.snow.velocities[i3] = (Math.random() - 0.5) * 0.004;
+            particleData.snow.velocities[i3 + 1] = -Math.random() * 0.012 - 0.003;
+            particleData.snow.velocities[i3 + 2] = (Math.random() - 0.5) * 0.004;
+          }
+          
+          // Wrap horizontal boundaries
+          if (Math.abs(snowPositions[i3]) > 250) {
+            snowPositions[i3] = -Math.sign(snowPositions[i3]) * 100;
+          }
+          if (Math.abs(snowPositions[i3 + 2]) > 250) {
+            snowPositions[i3 + 2] = -Math.sign(snowPositions[i3 + 2]) * 100;
+          }
+        } else {
+          // Keep particles hidden for non-Christmas themes
+          snowPositions[i3] = 0;
+          snowPositions[i3 + 1] = -1000;
+          snowPositions[i3 + 2] = 0;
         }
       }
       
       snowParticlesRef.current.geometry.attributes.position.needsUpdate = true;
     }
     
-    // NEW: Christmas twinkle animation
-    if (isChristmasTheme && twinkleParticlesRef.current && particleData.twinkle.count > 0) {
+    // NEW: Enhanced Christmas twinkle animation - Always animate but only visible for Christmas theme
+    if (twinkleParticlesRef.current && particleData.twinkle.count > 0) {
       const twinklePositions = twinkleParticlesRef.current.geometry.attributes.position.array as Float32Array;
       const twinkleColors = twinkleParticlesRef.current.geometry.attributes.color.array as Float32Array;
       const twinkleSizes = twinkleParticlesRef.current.geometry.attributes.size.array as Float32Array;
@@ -1059,33 +1067,48 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       for (let i = 0; i < particleData.twinkle.count; i++) {
         const i3 = i * 3;
         
-        twinklePositions[i3] += particleData.twinkle.velocities[i3] * animationSpeed;
-        twinklePositions[i3 + 1] += particleData.twinkle.velocities[i3 + 1] * animationSpeed;
-        twinklePositions[i3 + 2] += particleData.twinkle.velocities[i3 + 2] * animationSpeed;
-        
-        // Twinkling effect
-        const twinklePhase = time * 2 + particleData.twinkle.phases[i];
-        const twinkleIntensity = (Math.sin(twinklePhase) + 1) * 0.5;
-        
-        // Change colors during twinkle
-        const rand = (Math.sin(time * 0.5 + i) + 1) * 0.5;
-        let twinkleColor: THREE.Color;
-        if (rand < 0.33) {
-          twinkleColor = new THREE.Color('#dc2626'); // Red
-        } else if (rand < 0.66) {
-          twinkleColor = new THREE.Color('#16a34a'); // Green
+        if (isChristmasTheme) {
+          // Animate twinkle particles for Christmas theme
+          twinklePositions[i3] += particleData.twinkle.velocities[i3] * animationSpeed;
+          twinklePositions[i3 + 1] += particleData.twinkle.velocities[i3 + 1] * animationSpeed;
+          twinklePositions[i3 + 2] += particleData.twinkle.velocities[i3 + 2] * animationSpeed;
+          
+          // Twinkling effect
+          const twinklePhase = time * 2 + particleData.twinkle.phases[i];
+          const twinkleIntensity = (Math.sin(twinklePhase) + 1) * 0.5;
+          
+          // Change colors during twinkle
+          const rand = (Math.sin(time * 0.5 + i) + 1) * 0.5;
+          let twinkleColor: THREE.Color;
+          if (rand < 0.33) {
+            twinkleColor = new THREE.Color('#dc2626'); // Red
+          } else if (rand < 0.66) {
+            twinkleColor = new THREE.Color('#16a34a'); // Green
+          } else {
+            twinkleColor = new THREE.Color('#ffffff'); // White
+          }
+          
+          twinkleColor.multiplyScalar(twinkleIntensity);
+          twinkleColors[i3] = twinkleColor.r;
+          twinkleColors[i3 + 1] = twinkleColor.g;
+          twinkleColors[i3 + 2] = twinkleColor.b;
+          
+          // Size variation for twinkling
+          const baseSizes = particleData.twinkle.sizes;
+          twinkleSizes[i] = baseSizes[i] * (0.5 + twinkleIntensity * 0.8);
         } else {
-          twinkleColor = new THREE.Color('#ffffff'); // White
+          // Keep particles hidden for non-Christmas themes
+          twinklePositions[i3] = 0;
+          twinklePositions[i3 + 1] = -1000;
+          twinklePositions[i3 + 2] = 0;
+          
+          // Make colors transparent
+          twinkleColors[i3] = 0;
+          twinkleColors[i3 + 1] = 0;
+          twinkleColors[i3 + 2] = 0;
+          
+          twinkleSizes[i] = 0.1;
         }
-        
-        twinkleColor.multiplyScalar(twinkleIntensity);
-        twinkleColors[i3] = twinkleColor.r;
-        twinkleColors[i3 + 1] = twinkleColor.g;
-        twinkleColors[i3 + 2] = twinkleColor.b;
-        
-        // Size variation for twinkling
-        const baseSizes = particleData.twinkle.sizes;
-        twinkleSizes[i] = baseSizes[i] * (0.5 + twinkleIntensity * 0.8);
       }
       
       twinkleParticlesRef.current.geometry.attributes.position.needsUpdate = true;
@@ -1457,7 +1480,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         ))}
       </group>
       
-      {/* Snow and Twinkle Particles - Always rendered but hidden for non-Christmas themes */}
+      {/* Snow and Twinkle Particles - Always rendered, visibility controlled by material and position */}
       <points ref={snowParticlesRef}>
         <bufferGeometry>
           <bufferAttribute
@@ -1484,7 +1507,6 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           vertexColors
           blending={THREE.AdditiveBlending}
           depthWrite={false}
-          visible={isChristmasTheme}
           vertexShader={`
             attribute float size;
             varying vec3 vColor;
@@ -1494,17 +1516,20 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               vColor = color;
               vUv = uv;
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (${isRecording ? '200.0' : '180.0'} / -mvPosition.z);
+              gl_PointSize = size * (${isRecording ? '250.0' : '220.0'} / -mvPosition.z);
               gl_Position = projectionMatrix * mvPosition;
               
               float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
+              vOpacity = 1.0 - smoothstep(50.0, 400.0, distance);
             }
           `}
           fragmentShader={`
             varying vec3 vColor;
             varying float vOpacity;
             void main() {
+              // Skip rendering if color is black (hidden particles)
+              if (length(vColor) < 0.1) discard;
+              
               vec2 center = gl_PointCoord - vec2(0.5);
               float distanceToCenter = length(center);
               
@@ -1529,7 +1554,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               alpha = smoothstep(0.0, 1.0, alpha);
               
               // Brighten snow for better visibility
-              gl_FragColor = vec4(vColor * 1.2, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
+              gl_FragColor = vec4(vColor * 1.5, alpha * vOpacity * ${isRecording ? '1.2' : '1.0'});
             }
           `}
         />
@@ -1561,7 +1586,6 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           vertexColors
           blending={THREE.AdditiveBlending}
           depthWrite={false}
-          visible={isChristmasTheme}
           vertexShader={`
             attribute float size;
             varying vec3 vColor;
@@ -1569,17 +1593,20 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             void main() {
               vColor = color;
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (${isRecording ? '320.0' : '300.0'} / -mvPosition.z);
+              gl_PointSize = size * (${isRecording ? '350.0' : '320.0'} / -mvPosition.z);
               gl_Position = projectionMatrix * mvPosition;
               
               float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(80.0, 350.0, distance);
+              vOpacity = 1.0 - smoothstep(60.0, 400.0, distance);
             }
           `}
           fragmentShader={`
             varying vec3 vColor;
             varying float vOpacity;
             void main() {
+              // Skip rendering if color is black (hidden particles)
+              if (length(vColor) < 0.1) discard;
+              
               vec2 center = gl_PointCoord - vec2(0.5);
               float distanceToCenter = length(center);
               
@@ -1596,7 +1623,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               float alpha = (1.0 - distanceToCenter * 2.0) * star + cross;
               alpha = smoothstep(0.0, 1.0, alpha);
               
-              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.2' : '1.0'});
+              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.4' : '1.2'});
             }
           `}
         />
