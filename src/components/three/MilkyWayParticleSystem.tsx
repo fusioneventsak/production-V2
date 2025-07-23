@@ -594,7 +594,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       const theta = Math.acos(cosTheta);
       const r = radius;
 
-    }i * 3 + 1] = r * Math.cos(theta);
+          ultraDistantParticlesPositions[i * 3] = r * Math.sin(theta) * Math.cos(phi);
+      ultraDistantParticlesPositions[i * 3 + 1] = r * Math.cos(theta);
       ultraDistantParticlesPositions[i * 3 + 2] = r * Math.sin(theta) * Math.sin(phi);
 
       // Nearly stationary for ultra distant effect
