@@ -42,6 +42,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   // NEW: Christmas theme specific refs
   const snowParticlesRef = useRef<THREE.Points>(null);
   const twinkleParticlesRef = useRef<THREE.Points>(null);
+  const geometricSnowflakesRef = useRef<THREE.Group>(null); // NEW: For geometric snowflakes
   
   // Use consistent particle counts regardless of theme to avoid buffer resize issues
   const recordingMultiplier = isRecording ? 1.2 : 1.0;
@@ -55,11 +56,130 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   // Use consistent counts for special particles to avoid buffer issues
   const SNOW_COUNT = Math.floor(2000 * intensity * recordingMultiplier);
   const TWINKLE_COUNT = Math.floor(500 * intensity * recordingMultiplier);
+  // NEW: Geometric snowflakes - fewer but much more detailed
+  const GEOMETRIC_SNOWFLAKES_COUNT = Math.floor(80 * intensity * recordingMultiplier);
   
   // Determine if we're using special themes
   const isRainbowTheme = colorTheme.name === 'Rainbow Spectrum';
   const isWhiteTheme = colorTheme.name === 'Pure White';
   const isChristmasTheme = colorTheme.name === 'Christmas Magic';
+
+  // Helper function to create geometric snowflake geometry
+  const createSnowflakeGeometry = (complexity: number = 1) => {
+    const geometry = new THREE.BufferGeometry();
+    const vertices = [];
+    const indices = [];
+    
+    // Create a 6-pointed snowflake with intricate details
+    const branches = 6;
+    const size = 0.8 + Math.random() * 1.2; // Varied sizes
+    
+    // Center point
+    vertices.push(0, 0, 0);
+    
+    // Create main branches
+    for (let i = 0; i < branches; i++) {
+      const angle = (i / branches) * Math.PI * 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      
+      // Main branch points
+      const branchLength = size;
+      vertices.push(cos * branchLength, sin * branchLength, 0);
+      
+      // Create sub-branches at different points along main branch
+      for (let j = 0.3; j <= 0.9; j += 0.3) {
+        const subLength = branchLength * j;
+        const subBranchSize = (1 - j) * 0.4 * size;
+        
+        // Left sub-branch
+        const leftAngle = angle - Math.PI / 6;
+        vertices.push(
+          cos * subLength + Math.cos(leftAngle) * subBranchSize,
+          sin * subLength + Math.sin(leftAngle) * subBranchSize,
+          0
+        );
+        
+        // Right sub-branch
+        const rightAngle = angle + Math.PI / 6;
+        vertices.push(
+          cos * subLength + Math.cos(rightAngle) * subBranchSize,
+          sin * subLength + Math.sin(rightAngle) * subBranchSize,
+          0
+        );
+        
+        // Connect sub-branches to main branch
+        const mainIndex = 1 + i;
+        const leftIndex = vertices.length / 3 - 2;
+        const rightIndex = vertices.length / 3 - 1;
+        
+        indices.push(0, mainIndex, leftIndex);
+        indices.push(0, mainIndex, rightIndex);
+      // NEW: Animate geometric snowflakes
+    if (isChristmasTheme && geometricSnowflakesRef.current) {
+      geometricSnowflakesRef.current.children.forEach((snowflake, index) => {
+        if (index < geometricSnowflakesData.length) {
+          const data = geometricSnowflakesData[index];
+          
+          // Update position
+          snowflake.position.y -= data.fallSpeed * animationSpeed;
+          
+          // Add swaying motion
+          const swayTime = time * data.swaySpeed;
+          snowflake.position.x += Math.sin(swayTime) * data.swayAmount * animationSpeed;
+          snowflake.position.z += Math.cos(swayTime * 0.7) * data.swayAmount * animationSpeed;
+          
+          // Gentle rotation
+          snowflake.rotation.z += data.rotationSpeed * animationSpeed;
+          
+          // Add subtle tumbling
+          snowflake.rotation.x += data.rotationSpeed * 0.3 * animationSpeed;
+          snowflake.rotation.y += data.rotationSpeed * 0.5 * animationSpeed;
+          
+          // Recycle when snowflake falls too far
+          if (snowflake.position.y < -100) {
+            snowflake.position.y = 300 + Math.random() * 100;
+            snowflake.position.x = (Math.random() - 0.5) * 500;
+            snowflake.position.z = (Math.random() - 0.5) * 500;
+            snowflake.rotation.set(0, 0, Math.random() * Math.PI * 2);
+          }
+          
+          // Boundary wrapping
+          if (Math.abs(snowflake.position.x) > 300) {
+            snowflake.position.x = -Math.sign(snowflake.position.x) * 100;
+          }
+          if (Math.abs(snowflake.position.z) > 300) {
+            snowflake.position.z = -Math.sign(snowflake.position.z) * 100;
+          }
+        }
+      });
+    }
+      
+      // Connect center to main branch
+      indices.push(0, 1 + i, 1 + ((i + 1) % branches));
+    }
+    
+    // Add crystalline details - inner hexagon
+    const innerSize = size * 0.3;
+    const innerStartIndex = vertices.length / 3;
+    for (let i = 0; i < branches; i++) {
+      const angle = (i / branches) * Math.PI * 2 + Math.PI / 6; // Offset for star pattern
+      vertices.push(
+        Math.cos(angle) * innerSize,
+        Math.sin(angle) * innerSize,
+        0
+      );
+      
+      // Connect inner hexagon
+      indices.push(0, innerStartIndex + i, innerStartIndex + ((i + 1) % branches));
+    }
+    
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    
+    return geometry;
+  };
 
   // Helper functions for color generation
   const getRainbowColor = (index: number, total: number) => {
@@ -76,6 +196,30 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     return new THREE.Color('#ffffff'); // White
   };
 
+  // Create geometric snowflakes data
+  const geometricSnowflakesData = useMemo(() => {
+    const snowflakes = [];
+    
+    for (let i = 0; i < GEOMETRIC_SNOWFLAKES_COUNT; i++) {
+      snowflakes.push({
+        id: i,
+        position: [
+          (Math.random() - 0.5) * 500, // Wider spread
+          Math.random() * 300 + 100,   // Start high
+          (Math.random() - 0.5) * 500
+        ] as [number, number, number],
+        rotation: [0, 0, Math.random() * Math.PI * 2] as [number, number, number],
+        scale: 0.5 + Math.random() * 1.5, // Varied sizes
+        fallSpeed: 0.008 + Math.random() * 0.012, // Different fall speeds
+        rotationSpeed: (Math.random() - 0.5) * 0.02, // Gentle rotation
+        swaySpeed: Math.random() * 0.5 + 0.3,
+        swayAmount: Math.random() * 0.002 + 0.001,
+        geometry: createSnowflakeGeometry(1 + Math.random())
+      });
+    }
+    
+    return snowflakes;
+  }, [GEOMETRIC_SNOWFLAKES_COUNT, isChristmasTheme]);
   // Create realistic particle distribution with new theme support
   const particleData = useMemo(() => {
     if (!enabled || intensity === 0) {
@@ -1477,6 +1621,28 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               `}
             />
           </points>
+        ))}
+      </group>
+      
+      {/* NEW: Geometric Snowflakes for Christmas Theme */}
+      <group ref={geometricSnowflakesRef}>
+        {isChristmasTheme && geometricSnowflakesData.map((snowflakeData, index) => (
+          <mesh
+            key={`snowflake-${index}`}
+            position={snowflakeData.position}
+            rotation={snowflakeData.rotation}
+            scale={snowflakeData.scale}
+          >
+            <primitive object={snowflakeData.geometry} />
+            <meshBasicMaterial
+              color="#ffffff"
+              transparent
+              opacity={0.8}
+              side={THREE.DoubleSide}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
         ))}
       </group>
       
