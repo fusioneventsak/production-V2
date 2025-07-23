@@ -46,6 +46,10 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const distantNebulaRef = useRef<THREE.Points>(null);
   const backgroundParticlesRef = useRef<THREE.Points>(null);
   const ultraDistantParticlesRef = useRef<THREE.Points>(null);
+  const distantGalaxyClustersRef = useRef<THREE.Group>(null);
+  const distantNebulaRef = useRef<THREE.Points>(null);
+  const backgroundParticlesRef = useRef<THREE.Points>(null);
+  const ultraDistantParticlesRef = useRef<THREE.Points>(null);
 
   // Adjusted particle counts for better performance and visual impact
   const recordingMultiplier = isRecording ? 1.2 : 1.0;
@@ -64,6 +68,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const DISTANT_NEBULA_COUNT = Math.floor(400 * intensity * recordingMultiplier);
   const BACKGROUND_PARTICLES_COUNT = Math.floor(1500 * intensity * recordingMultiplier);
   const ULTRA_DISTANT_PARTICLES_COUNT = Math.floor(800 * intensity * recordingMultiplier);
+  const DISTANT_GALAXY_CLUSTERS_COUNT = Math.floor(8 * intensity);
+  const PARTICLES_PER_DISTANT_CLUSTER = 400;
 
   const isRainbowTheme = colorTheme.name === 'Rainbow Spectrum';
   const isWhiteTheme = colorTheme.name === 'Pure White';
@@ -219,7 +225,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         cosmicRays: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
         distantNebula: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
         backgroundParticles: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        ultraDistantParticles: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 }
+        ultraDistantParticles: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
+        distantGalaxyClusters: []
       };
     }
 
@@ -603,6 +610,63 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       ultraDistantParticlesSizes[i] = 0.1 + Math.random() * 0.8;
     }
 
+    // Distant Galaxy Clusters - Large Milky Way-like formations in the distance
+    const distantGalaxyClustersData = [];
+    for (let c = 0; c < DISTANT_GALAXY_CLUSTERS_COUNT; c++) {
+      // Position clusters at extreme distances, above or below the main plane
+      const clusterDistance = 800 + Math.random() * 600;
+      const clusterAngle = Math.random() * Math.PI * 2;
+      // Ensure clusters are well above or below the main galactic plane
+      const clusterHeight = Math.random() < 0.5 ? 
+        200 + Math.random() * 300 : // Above the plane
+        -(200 + Math.random() * 300); // Below the plane
+
+      const clusterCenter = {
+        x: Math.cos(clusterAngle) * clusterDistance,
+        y: clusterHeight,
+        z: Math.sin(clusterAngle) * clusterDistance
+      };
+
+      const clusterPositions = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
+      const clusterColors = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
+      const clusterSizes = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER);
+      const clusterVelocities = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
+
+      // Create spiral galaxy structure for each distant cluster
+      for (let i = 0; i < PARTICLES_PER_DISTANT_CLUSTER; i++) {
+        const armIndex = Math.floor(Math.random() * 4);
+        const armAngle = (armIndex * Math.PI / 2) + (Math.random() - 0.5) * 0.8;
+        const distanceFromClusterCenter = Math.pow(Math.random(), 0.6) * 120; // Larger than local clusters
+        const spiralTightness = 0.15;
+        const angle = armAngle + (distanceFromClusterCenter * spiralTightness);
+
+        const noise = (Math.random() - 0.5) * (15 + distanceFromClusterCenter * 0.1);
+        const heightNoise = (Math.random() - 0.5) * (3 + distanceFromClusterCenter * 0.03);
+
+        clusterPositions[i * 3] = clusterCenter.x + Math.cos(angle) * distanceFromClusterCenter + noise;
+        clusterPositions[i * 3 + 1] = clusterCenter.y + heightNoise + Math.sin(angle * 0.1) * (distanceFromClusterCenter * 0.02);
+        clusterPositions[i * 3 + 2] = clusterCenter.z + Math.sin(angle) * distanceFromClusterCenter + noise;
+
+        // Very slow movement for distant clusters
+        clusterVelocities[i * 3] = (Math.random() - 0.5) * 0.0001;
+        clusterVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.00005;
+        clusterVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0001;
+
+        // Varied sizes for galactic structure
+        const sizeRandom = Math.random();
+        clusterSizes[i] = sizeRandom < 0.6 ? 0.8 + Math.random() * 2.0 : sizeRandom < 0.85 ? 2.5 + Math.random() * 3.0 : 4.0 + Math.random() * 4.0;
+      }
+
+      distantGalaxyClustersData.push({
+        positions: clusterPositions,
+        colors: clusterColors,
+        sizes: clusterSizes,
+        velocities: clusterVelocities,
+        center: clusterCenter
+      });
+    }
+    }
+
     return {
       main: { positions: mainPositions, colors: mainColors, sizes: mainSizes, velocities: mainVelocities, count: MAIN_COUNT },
       dust: { positions: dustPositions, colors: dustColors, sizes: dustSizes, velocities: dustVelocities, count: DUST_COUNT },
@@ -616,9 +680,10 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       cosmicRays: { positions: cosmicRaysPositions, colors: cosmicRaysColors, sizes: cosmicRaysSizes, velocities: cosmicRaysVelocities, count: COSMIC_RAYS_COUNT },
       distantNebula: { positions: distantNebulaPositions, colors: distantNebulaColors, sizes: distantNebulaSizes, velocities: distantNebulaVelocities, count: DISTANT_NEBULA_COUNT },
       backgroundParticles: { positions: backgroundParticlesPositions, colors: backgroundParticlesColors, sizes: backgroundParticlesSizes, velocities: backgroundParticlesVelocities, count: BACKGROUND_PARTICLES_COUNT },
-      ultraDistantParticles: { positions: ultraDistantParticlesPositions, colors: ultraDistantParticlesColors, sizes: ultraDistantParticlesSizes, velocities: ultraDistantParticlesVelocities, count: ULTRA_DISTANT_PARTICLES_COUNT }
+      ultraDistantParticles: { positions: ultraDistantParticlesPositions, colors: ultraDistantParticlesColors, sizes: ultraDistantParticlesSizes, velocities: ultraDistantParticlesVelocities, count: ULTRA_DISTANT_PARTICLES_COUNT },
+      distantGalaxyClusters: distantGalaxyClustersData
     };
-  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT, SNOW_COUNT, TWINKLE_COUNT, NEBULA_COUNT, COSMIC_RAYS_COUNT, DISTANT_NEBULA_COUNT, BACKGROUND_PARTICLES_COUNT, ULTRA_DISTANT_PARTICLES_COUNT, isRecording]);
+  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT, SNOW_COUNT, TWINKLE_COUNT, NEBULA_COUNT, COSMIC_RAYS_COUNT, DISTANT_NEBULA_COUNT, BACKGROUND_PARTICLES_COUNT, ULTRA_DISTANT_PARTICLES_COUNT, DISTANT_GALAXY_CLUSTERS_COUNT, isRecording]);
 
   // Update colors - COMPLETE COLOR SYSTEM
   React.useEffect(() => {
@@ -1019,6 +1084,45 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         ultraDistantColors[i * 3 + 2] = particleColor.b;
       }
       ultraDistantParticlesRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+
+    // Distant Galaxy Clusters colors
+    if (distantGalaxyClustersRef.current) {
+      distantGalaxyClustersRef.current.children.forEach((cluster, clusterIndex) => {
+        if (cluster instanceof THREE.Points && clusterIndex < particleData.distantGalaxyClusters.length) {
+          const clusterColors = cluster.geometry.attributes.color.array as Float32Array;
+
+          for (let i = 0; i < PARTICLES_PER_DISTANT_CLUSTER; i++) {
+            let particleColor: THREE.Color;
+
+            if (isRainbowTheme) {
+              particleColor = getRainbowColor(i + clusterIndex * PARTICLES_PER_DISTANT_CLUSTER, particleData.distantGalaxyClusters.length * PARTICLES_PER_DISTANT_CLUSTER).multiplyScalar(0.4);
+            } else if (isWhiteTheme) {
+              particleColor = new THREE.Color('#ffffff').multiplyScalar(0.3 + Math.random() * 0.3);
+            } else if (isChristmasTheme) {
+              particleColor = getChristmasColor(i + clusterIndex).multiplyScalar(0.5);
+            } else {
+              const clusterColorBase = [colorTheme.primary, colorTheme.secondary, colorTheme.accent][clusterIndex % 3];
+              const baseColor = new THREE.Color(clusterColorBase);
+              const hsl = { h: 0, s: 0, l: 0 };
+              baseColor.getHSL(hsl);
+
+              particleColor = new THREE.Color();
+              particleColor.setHSL(
+                (hsl.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
+                Math.min(1, hsl.s * (0.4 + Math.random() * 0.4)),
+                Math.min(1, hsl.l * (0.2 + Math.random() * 0.3))
+              );
+            }
+
+            clusterColors[i * 3] = particleColor.r;
+            clusterColors[i * 3 + 1] = particleColor.g;
+            clusterColors[i * 3 + 2] = particleColor.b;
+          }
+          cluster.geometry.attributes.color.needsUpdate = true;
+        }
+      });
+    }
     }
   }, [colorTheme, particleData, enabled, isRainbowTheme, isWhiteTheme, isChristmasTheme]);
 
@@ -1436,6 +1540,68 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       ultraDistantParticlesRef.current.rotation.y = time * 0.0001 * animationSpeed;
     }
 
+    // Distant Galaxy Clusters animation
+    if (distantGalaxyClustersRef.current) {
+      distantGalaxyClustersRef.current.children.forEach((cluster, clusterIndex) => {
+        if (cluster instanceof THREE.Points && clusterIndex < particleData.distantGalaxyClusters.length) {
+          const positions = cluster.geometry.attributes.position.array as Float32Array;
+          const colors = cluster.geometry.attributes.color.array as Float32Array;
+          const velocities = particleData.distantGalaxyClusters[clusterIndex].velocities;
+          const clusterCenter = particleData.distantGalaxyClusters[clusterIndex].center;
+
+          for (let i = 0; i < PARTICLES_PER_DISTANT_CLUSTER; i++) {
+            const i3 = i * 3;
+
+            // Apply very slow drift
+            positions[i3] += velocities[i3] * animationSpeed;
+            positions[i3 + 1] += velocities[i3 + 1] * animationSpeed;
+            positions[i3 + 2] += velocities[i3 + 2] * animationSpeed;
+
+            // Distant galactic rotation - much slower
+            const dx = positions[i3] - clusterCenter.x;
+            const dz = positions[i3 + 2] - clusterCenter.z;
+            const distanceFromCenter = Math.sqrt(dx * dx + dz * dz);
+
+            if (distanceFromCenter > 0) {
+              const orbitalSpeed = 0.00002 / Math.sqrt(distanceFromCenter + 20);
+              const angle = Math.atan2(dz, dx);
+              const newAngle = angle + orbitalSpeed * animationSpeed;
+
+              positions[i3] = clusterCenter.x + Math.cos(newAngle) * distanceFromCenter;
+              positions[i3 + 2] = clusterCenter.z + Math.sin(newAngle) * distanceFromCenter;
+            }
+
+            // Subtle wave motion
+            const waveFreq = time * 0.005 * animationSpeed + clusterIndex + i * 0.01;
+            positions[i3 + 1] += Math.sin(waveFreq) * 0.002 * animationSpeed;
+
+            // Very gentle parallax motion
+            const parallaxFreq = time * 0.008 * animationSpeed + i * 0.002;
+            positions[i3] += Math.sin(parallaxFreq) * 0.0005 * animationSpeed;
+            positions[i3 + 2] += Math.cos(parallaxFreq * 1.1) * 0.0005 * animationSpeed;
+
+            if (isRainbowTheme) {
+              const hue = ((time * 0.03 + clusterIndex * 0.2 + i * 0.005) % 1);
+              const color = new THREE.Color().setHSL(hue, 0.7, 0.4);
+              colors[i3] = color.r;
+              colors[i3 + 1] = color.g;
+              colors[i3 + 2] = color.b;
+            }
+          }
+
+          cluster.geometry.attributes.position.needsUpdate = true;
+          if (isRainbowTheme) {
+            cluster.geometry.attributes.color.needsUpdate = true;
+          }
+          
+          // Very slow rotation for distant galaxy effect
+          cluster.rotation.y = time * 0.0002 * animationSpeed * (clusterIndex % 2 ? 1 : -1);
+          cluster.rotation.x = time * 0.0001 * animationSpeed * (clusterIndex % 3 ? 1 : -1);
+        }
+      });
+    }
+    }
+
     // Geometric snowflakes animation
     if (geometricSnowflakesRef.current && isChristmasTheme) {
       geometricSnowflakesRef.current.children.forEach((snowflake, index) => {
@@ -1578,6 +1744,64 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           fragmentShader={recordingFragmentShader}
         />
       </points>
+
+      {/* Distant Galaxy Clusters - Large Milky Way formations in the distance */}
+      <group ref={distantGalaxyClustersRef}>
+        {particleData.distantGalaxyClusters.map((cluster, index) => (
+          <points key={`${particleKey}-distant-galaxy-${index}`}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                array={cluster.positions}
+                count={PARTICLES_PER_DISTANT_CLUSTER}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-color"
+                array={cluster.colors}
+                count={PARTICLES_PER_DISTANT_CLUSTER}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-size"
+                array={cluster.sizes}
+                count={PARTICLES_PER_DISTANT_CLUSTER}
+                itemSize={1}
+              />
+            </bufferGeometry>
+            <shaderMaterial
+              transparent
+              vertexColors
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (120.0 / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(600.0, 1800.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * 0.7);
+                }
+              `}
+            />
+          </points>
+        ))}
+      </group>
 
       {/* Cosmic dust cloud */}
       <points ref={dustCloudRef}>
