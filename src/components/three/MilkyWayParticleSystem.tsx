@@ -115,45 +115,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         
         indices.push(0, mainIndex, leftIndex);
         indices.push(0, mainIndex, rightIndex);
-      // NEW: Animate geometric snowflakes
-    if (isChristmasTheme && geometricSnowflakesRef.current) {
-      geometricSnowflakesRef.current.children.forEach((snowflake, index) => {
-        if (index < geometricSnowflakesData.length) {
-          const data = geometricSnowflakesData[index];
-          
-          // Update position
-          snowflake.position.y -= data.fallSpeed * animationSpeed;
-          
-          // Add swaying motion
-          const swayTime = time * data.swaySpeed;
-          snowflake.position.x += Math.sin(swayTime) * data.swayAmount * animationSpeed;
-          snowflake.position.z += Math.cos(swayTime * 0.7) * data.swayAmount * animationSpeed;
-          
-          // Gentle rotation
-          snowflake.rotation.z += data.rotationSpeed * animationSpeed;
-          
-          // Add subtle tumbling
-          snowflake.rotation.x += data.rotationSpeed * 0.3 * animationSpeed;
-          snowflake.rotation.y += data.rotationSpeed * 0.5 * animationSpeed;
-          
-          // Recycle when snowflake falls too far
-          if (snowflake.position.y < -100) {
-            snowflake.position.y = 300 + Math.random() * 100;
-            snowflake.position.x = (Math.random() - 0.5) * 500;
-            snowflake.position.z = (Math.random() - 0.5) * 500;
-            snowflake.rotation.set(0, 0, Math.random() * Math.PI * 2);
-          }
-          
-          // Boundary wrapping
-          if (Math.abs(snowflake.position.x) > 300) {
-            snowflake.position.x = -Math.sign(snowflake.position.x) * 100;
-          }
-          if (Math.abs(snowflake.position.z) > 300) {
-            snowflake.position.z = -Math.sign(snowflake.position.z) * 100;
-          }
-        }
-      });
-    }
+      }
       
       // Connect center to main branch
       indices.push(0, 1 + i, 1 + ((i + 1) % branches));
@@ -1624,28 +1586,6 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         ))}
       </group>
       
-      {/* NEW: Geometric Snowflakes for Christmas Theme */}
-      <group ref={geometricSnowflakesRef}>
-        {isChristmasTheme && geometricSnowflakesData.map((snowflakeData, index) => (
-          <mesh
-            key={`snowflake-${index}`}
-            position={snowflakeData.position}
-            rotation={snowflakeData.rotation}
-            scale={snowflakeData.scale}
-          >
-            <primitive object={snowflakeData.geometry} />
-            <meshBasicMaterial
-              color="#ffffff"
-              transparent
-              opacity={0.8}
-              side={THREE.DoubleSide}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-            />
-          </mesh>
-        ))}
-      </group>
-      
       {/* Snow and Twinkle Particles - Always rendered, visibility controlled by material and position */}
       <points ref={snowParticlesRef}>
         <bufferGeometry>
@@ -1799,4 +1739,3 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
 };
 
 export default MilkyWayParticleSystem;
-  
