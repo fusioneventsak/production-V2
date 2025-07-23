@@ -52,8 +52,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const ATMOSPHERIC_COUNT = Math.floor(3000 * intensity * recordingMultiplier);
   const DISTANT_SWIRL_COUNT = Math.floor(1500 * intensity * recordingMultiplier);
   const BIG_SWIRLS_COUNT = Math.floor(4 * intensity);
-  // NEW: Christmas specific particle counts
-  const SNOW_COUNT = Math.floor(1000 * intensity * recordingMultiplier);
+  // NEW: Christmas specific particle counts - Enhanced snow
+  const SNOW_COUNT = Math.floor(2000 * intensity * recordingMultiplier); // Increased snow count
   const TWINKLE_COUNT = Math.floor(500 * intensity * recordingMultiplier);
   
   // Determine if we're using special themes
@@ -290,22 +290,32 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       });
     }
     
-    // NEW: Snow particles for Christmas theme
+    // NEW: Enhanced Snow particles for Christmas theme
     const snowPositions = new Float32Array(SNOW_COUNT * 3);
     const snowColors = new Float32Array(SNOW_COUNT * 3);
     const snowSizes = new Float32Array(SNOW_COUNT);
     const snowVelocities = new Float32Array(SNOW_COUNT * 3);
     
     for (let i = 0; i < SNOW_COUNT; i++) {
-      snowPositions[i * 3] = (Math.random() - 0.5) * 300;
-      snowPositions[i * 3 + 1] = Math.random() * 150 + 50;
-      snowPositions[i * 3 + 2] = (Math.random() - 0.5) * 300;
+      // Spread snow across a larger area for better coverage
+      snowPositions[i * 3] = (Math.random() - 0.5) * 400;
+      snowPositions[i * 3 + 1] = Math.random() * 200 + 100; // Start higher
+      snowPositions[i * 3 + 2] = (Math.random() - 0.5) * 400;
       
-      snowVelocities[i * 3] = (Math.random() - 0.5) * 0.003;
-      snowVelocities[i * 3 + 1] = -Math.random() * 0.008 - 0.002;
-      snowVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.003;
+      // Varied falling speeds and drift
+      snowVelocities[i * 3] = (Math.random() - 0.5) * 0.004; // Horizontal drift
+      snowVelocities[i * 3 + 1] = -Math.random() * 0.012 - 0.003; // Falling speed (faster)
+      snowVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.004; // Depth drift
       
-      snowSizes[i] = 0.5 + Math.random() * 2;
+      // Varied snowflake sizes for realism
+      const sizeRand = Math.random();
+      if (sizeRand < 0.4) {
+        snowSizes[i] = 0.3 + Math.random() * 0.7; // Small flakes
+      } else if (sizeRand < 0.8) {
+        snowSizes[i] = 1.0 + Math.random() * 1.5; // Medium flakes
+      } else {
+        snowSizes[i] = 2.0 + Math.random() * 2.0; // Large flakes
+      }
     }
     
     // NEW: Twinkle particles for Christmas theme
@@ -952,7 +962,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       });
     }
     
-    // NEW: Christmas snow animation
+    // NEW: Enhanced Christmas snow animation
     if (isChristmasTheme && snowParticlesRef.current && particleData.snow.count > 0) {
       const snowPositions = snowParticlesRef.current.geometry.attributes.position.array as Float32Array;
       
@@ -963,16 +973,37 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         snowPositions[i3 + 1] += particleData.snow.velocities[i3 + 1] * animationSpeed;
         snowPositions[i3 + 2] += particleData.snow.velocities[i3 + 2] * animationSpeed;
         
-        // Add swaying motion to snow
-        const swayFreq = time * 0.5 + i * 0.1;
-        snowPositions[i3] += Math.sin(swayFreq) * 0.002 * animationSpeed;
-        snowPositions[i3 + 2] += Math.cos(swayFreq * 0.8) * 0.002 * animationSpeed;
+        // Enhanced swaying motion with multiple frequencies
+        const swayFreq1 = time * 0.3 + i * 0.05;
+        const swayFreq2 = time * 0.7 + i * 0.1;
+        snowPositions[i3] += Math.sin(swayFreq1) * 0.003 * animationSpeed;
+        snowPositions[i3] += Math.cos(swayFreq2) * 0.001 * animationSpeed; // Secondary sway
+        snowPositions[i3 + 2] += Math.cos(swayFreq1 * 0.8) * 0.003 * animationSpeed;
+        snowPositions[i3 + 2] += Math.sin(swayFreq2 * 0.6) * 0.001 * animationSpeed; // Secondary sway
         
-        // Recycle snow particles
-        if (snowPositions[i3 + 1] < -50) {
-          snowPositions[i3 + 1] = 150 + Math.random() * 50;
-          snowPositions[i3] = (Math.random() - 0.5) * 300;
-          snowPositions[i3 + 2] = (Math.random() - 0.5) * 300;
+        // Add turbulence for more realistic movement
+        const turbulence = time * 0.5 + i * 0.02;
+        snowPositions[i3] += Math.sin(turbulence * 3) * 0.0008 * animationSpeed;
+        snowPositions[i3 + 2] += Math.cos(turbulence * 2.5) * 0.0008 * animationSpeed;
+        
+        // Recycle snow particles with wider spawn area
+        if (snowPositions[i3 + 1] < -80) {
+          snowPositions[i3 + 1] = 200 + Math.random() * 100; // Spawn higher
+          snowPositions[i3] = (Math.random() - 0.5) * 400; // Wider spawn
+          snowPositions[i3 + 2] = (Math.random() - 0.5) * 400; // Wider spawn
+          
+          // Reset velocity with some variation
+          particleData.snow.velocities[i3] = (Math.random() - 0.5) * 0.004;
+          particleData.snow.velocities[i3 + 1] = -Math.random() * 0.012 - 0.003;
+          particleData.snow.velocities[i3 + 2] = (Math.random() - 0.5) * 0.004;
+        }
+        
+        // Wrap horizontal boundaries
+        if (Math.abs(snowPositions[i3]) > 250) {
+          snowPositions[i3] = -Math.sign(snowPositions[i3]) * 100;
+        }
+        if (Math.abs(snowPositions[i3 + 2]) > 250) {
+          snowPositions[i3 + 2] = -Math.sign(snowPositions[i3 + 2]) * 100;
         }
       }
       
@@ -1386,7 +1417,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         ))}
       </group>
       
-      {/* NEW: Christmas Snow Particles */}
+      {/* NEW: Enhanced Christmas Snow Particles */}
       {isChristmasTheme && (
         <points ref={snowParticlesRef}>
           <bufferGeometry>
@@ -1418,32 +1449,47 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               attribute float size;
               varying vec3 vColor;
               varying float vOpacity;
+              varying vec2 vUv;
               void main() {
                 vColor = color;
+                vUv = uv;
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = size * (${isRecording ? '180.0' : '160.0'} / -mvPosition.z);
+                gl_PointSize = size * (${isRecording ? '200.0' : '180.0'} / -mvPosition.z);
                 gl_Position = projectionMatrix * mvPosition;
                 
                 float distance = length(mvPosition.xyz);
-                vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
+                vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
               }
             `}
             fragmentShader={`
               varying vec3 vColor;
               varying float vOpacity;
               void main() {
-                float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                vec2 center = gl_PointCoord - vec2(0.5);
+                float distanceToCenter = length(center);
+                
                 if (distanceToCenter > 0.5) discard;
                 
-                // Create snowflake-like pattern
-                float angle = atan(gl_PointCoord.y - 0.5, gl_PointCoord.x - 0.5);
-                float radius = length(gl_PointCoord - vec2(0.5));
-                float snowflake = sin(angle * 6.0) * 0.1 + 0.9;
+                // Enhanced snowflake pattern with more detail
+                float angle = atan(center.y, center.x);
+                float radius = length(center);
                 
-                float alpha = (1.0 - radius * 2.0) * snowflake;
+                // Create 6-pointed snowflake pattern
+                float snowflake1 = abs(sin(angle * 6.0)) * 0.15 + 0.85;
+                float snowflake2 = abs(cos(angle * 3.0)) * 0.1 + 0.9;
+                float snowflake3 = smoothstep(0.1, 0.0, abs(sin(angle * 12.0))) * 0.2;
+                
+                // Combine patterns for complex snowflake
+                float snowflakePattern = snowflake1 * snowflake2 + snowflake3;
+                
+                // Add sparkle effect
+                float sparkle = sin(radius * 20.0) * 0.1 + 0.9;
+                
+                float alpha = (1.0 - radius * 2.0) * snowflakePattern * sparkle;
                 alpha = smoothstep(0.0, 1.0, alpha);
                 
-                gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.9' : '0.8'});
+                // Brighten snow for better visibility
+                gl_FragColor = vec4(vColor * 1.2, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
               }
             `}
           />
