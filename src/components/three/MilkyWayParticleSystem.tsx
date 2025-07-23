@@ -594,8 +594,90 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       const theta = Math.acos(cosTheta);
       const r = radius;
 
-      ultraDistantParticlesPositions[i * 3] = r * Math.sin(theta) * Math.cos(phi);
-      ultraDistantParticlesPositions[i * 3 + 1] = r * Math.cos(theta);
+    }i * 3 + 1] = r * Math.cos(theta);
+      ultraDistantParticlesPositions[i * 3 + 2] = r * Math.sin(theta) * Math.sin(phi);
+
+      // Nearly stationary for ultra distant effect
+      ultraDistantParticlesVelocities[i * 3] = (Math.random() - 0.5) * 0.00005;
+      ultraDistantParticlesVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.00003;
+      ultraDistantParticlesVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.00005;
+
+      // Very small sizes for distant stars
+      ultraDistantParticlesSizes[i] = 0.1 + Math.random() * 0.8;
+    }
+
+    // Distant Galaxy Clusters - Large Milky Way-like formations in the distance
+    const distantGalaxyClustersData = [];
+    for (let c = 0; c < DISTANT_GALAXY_CLUSTERS_COUNT; c++) {
+      // Position clusters at extreme distances, above or below the main plane
+      const clusterDistance = 800 + Math.random() * 600;
+      const clusterAngle = Math.random() * Math.PI * 2;
+      // Ensure clusters are well above or below the main galactic plane
+      const clusterHeight = Math.random() < 0.5 ? 
+        200 + Math.random() * 300 : // Above the plane
+        -(200 + Math.random() * 300); // Below the plane
+
+      const clusterCenter = {
+        x: Math.cos(clusterAngle) * clusterDistance,
+        y: clusterHeight,
+        z: Math.sin(clusterAngle) * clusterDistance
+      };
+
+      const clusterPositions = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
+      const clusterColors = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
+      const clusterSizes = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER);
+      const clusterVelocities = new Float32Array(PARTICLES_PER_DISTANT_CLUSTER * 3);
+
+      // Create spiral galaxy structure for each distant cluster
+      for (let i = 0; i < PARTICLES_PER_DISTANT_CLUSTER; i++) {
+        const armIndex = Math.floor(Math.random() * 4);
+        const armAngle = (armIndex * Math.PI / 2) + (Math.random() - 0.5) * 0.8;
+        const distanceFromClusterCenter = Math.pow(Math.random(), 0.6) * 120; // Larger than local clusters
+        const spiralTightness = 0.15;
+        const angle = armAngle + (distanceFromClusterCenter * spiralTightness);
+
+        const noise = (Math.random() - 0.5) * (15 + distanceFromClusterCenter * 0.1);
+        const heightNoise = (Math.random() - 0.5) * (3 + distanceFromClusterCenter * 0.03);
+
+        clusterPositions[i * 3] = clusterCenter.x + Math.cos(angle) * distanceFromClusterCenter + noise;
+        clusterPositions[i * 3 + 1] = clusterCenter.y + heightNoise + Math.sin(angle * 0.1) * (distanceFromClusterCenter * 0.02);
+        clusterPositions[i * 3 + 2] = clusterCenter.z + Math.sin(angle) * distanceFromClusterCenter + noise;
+
+        // Very slow movement for distant clusters
+        clusterVelocities[i * 3] = (Math.random() - 0.5) * 0.0001;
+        clusterVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.00005;
+        clusterVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0001;
+
+        // Varied sizes for galactic structure
+        const sizeRandom = Math.random();
+        clusterSizes[i] = sizeRandom < 0.6 ? 0.8 + Math.random() * 2.0 : sizeRandom < 0.85 ? 2.5 + Math.random() * 3.0 : 4.0 + Math.random() * 4.0;
+      }
+
+      distantGalaxyClustersData.push({
+        positions: clusterPositions,
+        colors: clusterColors,
+        sizes: clusterSizes,
+        velocities: clusterVelocities,
+        center: clusterCenter
+      });
+    }
+
+    return {
+      main: { positions: mainPositions, colors: mainColors, sizes: mainSizes, velocities: mainVelocities, count: MAIN_COUNT },
+      dust: { positions: dustPositions, colors: dustColors, sizes: dustSizes, velocities: dustVelocities, count: DUST_COUNT },
+      clusters: clusterData,
+      atmospheric: { positions: atmosphericPositions, colors: atmosphericColors, sizes: atmosphericSizes, velocities: atmosphericVelocities, count: ATMOSPHERIC_COUNT },
+      distantSwirl: { positions: distantSwirlPositions, colors: distantSwirlColors, sizes: distantSwirlSizes, velocities: distantSwirlVelocities, count: DISTANT_SWIRL_COUNT },
+      bigSwirls: bigSwirlData,
+      snow: { positions: snowPositions, colors: snowColors, sizes: snowSizes, velocities: snowVelocities, count: SNOW_COUNT },
+      twinkle: { positions: twinklePositions, colors: twinkleColors, sizes: twinkleSizes, velocities: twinkleVelocities, phases: twinklePhases, count: TWINKLE_COUNT },
+      nebula: { positions: nebulaPositions, colors: nebulaColors, sizes: nebulaSizes, velocities: nebulaVelocities, count: NEBULA_COUNT },
+      cosmicRays: { positions: cosmicRaysPositions, colors: cosmicRaysColors, sizes: cosmicRaysSizes, velocities: cosmicRaysVelocities, count: COSMIC_RAYS_COUNT },
+      distantNebula: { positions: distantNebulaPositions, colors: distantNebulaColors, sizes: distantNebulaSizes, velocities: distantNebulaVelocities, count: DISTANT_NEBULA_COUNT },
+      backgroundParticles: { positions: backgroundParticlesPositions, colors: backgroundParticlesColors, sizes: backgroundParticlesSizes, velocities: backgroundParticlesVelocities, count: BACKGROUND_PARTICLES_COUNT },
+      ultraDistantParticles: { positions: ultraDistantParticlesPositions, colors: ultraDistantParticlesColors, sizes: ultraDistantParticlesSizes, velocities: ultraDistantParticlesVelocities, count: ULTRA_DISTANT_PARTICLES_COUNT },
+      distantGalaxyClusters: distantGalaxyClustersData
+    };i * 3 + 1] = r * Math.cos(theta);
       ultraDistantParticlesPositions[i * 3 + 2] = r * Math.sin(theta) * Math.sin(phi);
 
       // Nearly stationary for ultra distant effect
