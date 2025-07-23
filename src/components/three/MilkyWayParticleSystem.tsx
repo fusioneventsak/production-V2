@@ -1799,3 +1799,4 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
 };
 
 export default MilkyWayParticleSystem;
+  
