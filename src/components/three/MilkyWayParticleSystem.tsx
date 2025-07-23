@@ -47,6 +47,12 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const backgroundParticlesRef = useRef<THREE.Points>(null);
   const ultraDistantParticlesRef = useRef<THREE.Points>(null);
   const distantGalaxyClustersRef = useRef<THREE.Group>(null);
+  
+  // Enhanced cosmic background refs
+  const cosmicSkyboxStarsRef = useRef<THREE.Points>(null);
+  const milkyWayBandRef = useRef<THREE.Points>(null);
+  const deepSpaceNebulaRef = useRef<THREE.Points>(null);
+  const cosmicDustFieldRef = useRef<THREE.Points>(null);
 
   // Adjusted particle counts for better performance and visual impact
   const recordingMultiplier = isRecording ? 1.2 : 1.0;
@@ -67,6 +73,12 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const ULTRA_DISTANT_PARTICLES_COUNT = Math.floor(800 * intensity * recordingMultiplier);
   const DISTANT_GALAXY_CLUSTERS_COUNT = Math.floor(8 * intensity);
   const PARTICLES_PER_DISTANT_CLUSTER = 400;
+  
+  // Enhanced cosmic background counts for immersive skybox effect
+  const COSMIC_SKYBOX_STARS_COUNT = Math.floor(8000 * intensity * recordingMultiplier);
+  const MILKY_WAY_BAND_COUNT = Math.floor(12000 * intensity * recordingMultiplier);
+  const DEEP_SPACE_NEBULA_COUNT = Math.floor(600 * intensity * recordingMultiplier);
+  const COSMIC_DUST_FIELD_COUNT = Math.floor(4000 * intensity * recordingMultiplier);
 
   const isRainbowTheme = colorTheme.name === 'Rainbow Spectrum';
   const isWhiteTheme = colorTheme.name === 'Pure White';
@@ -223,7 +235,11 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         distantNebula: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
         backgroundParticles: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
         ultraDistantParticles: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        distantGalaxyClusters: []
+        distantGalaxyClusters: [],
+        cosmicSkyboxStars: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
+        milkyWayBand: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
+        deepSpaceNebula: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
+        cosmicDustField: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 }
       };
     }
 
@@ -663,6 +679,123 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       });
     }
 
+    // Cosmic Skybox Stars - Dense starfield covering entire sphere
+    const cosmicSkyboxStarsPositions = new Float32Array(COSMIC_SKYBOX_STARS_COUNT * 3);
+    const cosmicSkyboxStarsColors = new Float32Array(COSMIC_SKYBOX_STARS_COUNT * 3);
+    const cosmicSkyboxStarsSizes = new Float32Array(COSMIC_SKYBOX_STARS_COUNT);
+    const cosmicSkyboxStarsVelocities = new Float32Array(COSMIC_SKYBOX_STARS_COUNT * 3);
+
+    for (let i = 0; i < COSMIC_SKYBOX_STARS_COUNT; i++) {
+      // Uniform distribution across entire celestial sphere
+      const phi = Math.random() * Math.PI * 2;
+      const cosTheta = Math.random() * 2 - 1;
+      const radius = 2000 + Math.random() * 3000; // Very far away
+
+      const theta = Math.acos(cosTheta);
+      
+      cosmicSkyboxStarsPositions[i * 3] = radius * Math.sin(theta) * Math.cos(phi);
+      cosmicSkyboxStarsPositions[i * 3 + 1] = radius * Math.cos(theta);
+      cosmicSkyboxStarsPositions[i * 3 + 2] = radius * Math.sin(theta) * Math.sin(phi);
+
+      // Completely stationary for skybox effect
+      cosmicSkyboxStarsVelocities[i * 3] = 0;
+      cosmicSkyboxStarsVelocities[i * 3 + 1] = 0;
+      cosmicSkyboxStarsVelocities[i * 3 + 2] = 0;
+
+      // Varied star sizes
+      const sizeRandom = Math.random();
+      cosmicSkyboxStarsSizes[i] = sizeRandom < 0.8 ? 0.1 + Math.random() * 0.5 : 
+                                  sizeRandom < 0.95 ? 0.6 + Math.random() * 1.0 : 
+                                  1.5 + Math.random() * 2.0;
+    }
+
+    // Milky Way Band - Dense band across the sky like real Milky Way
+    const milkyWayBandPositions = new Float32Array(MILKY_WAY_BAND_COUNT * 3);
+    const milkyWayBandColors = new Float32Array(MILKY_WAY_BAND_COUNT * 3);
+    const milkyWayBandSizes = new Float32Array(MILKY_WAY_BAND_COUNT);
+    const milkyWayBandVelocities = new Float32Array(MILKY_WAY_BAND_COUNT * 3);
+
+    for (let i = 0; i < MILKY_WAY_BAND_COUNT; i++) {
+      // Create a band across the sky (like the real Milky Way appears)
+      const bandAngle = Math.random() * Math.PI * 2;
+      const bandWidth = 0.3; // Radians width of the band
+      const bandHeight = (Math.random() - 0.5) * bandWidth;
+      const radius = 1800 + Math.random() * 2200;
+
+      // Rotate the band to create the classic Milky Way arc
+      const tilt = Math.PI * 0.25; // 45 degree tilt
+      
+      const x = Math.cos(bandAngle) * radius;
+      const y = bandHeight * radius + Math.sin(bandAngle * 0.5) * radius * 0.2;
+      const z = Math.sin(bandAngle) * radius;
+
+      // Apply tilt rotation
+      milkyWayBandPositions[i * 3] = x * Math.cos(tilt) - y * Math.sin(tilt);
+      milkyWayBandPositions[i * 3 + 1] = x * Math.sin(tilt) + y * Math.cos(tilt);
+      milkyWayBandPositions[i * 3 + 2] = z;
+
+      milkyWayBandVelocities[i * 3] = 0;
+      milkyWayBandVelocities[i * 3 + 1] = 0;
+      milkyWayBandVelocities[i * 3 + 2] = 0;
+
+      // Denser, dimmer particles for dusty appearance
+      milkyWayBandSizes[i] = 0.05 + Math.random() * 0.3;
+    }
+
+    // Deep Space Nebula - Large, distant nebular structures
+    const deepSpaceNebulaPositions = new Float32Array(DEEP_SPACE_NEBULA_COUNT * 3);
+    const deepSpaceNebulaColors = new Float32Array(DEEP_SPACE_NEBULA_COUNT * 3);
+    const deepSpaceNebulaSizes = new Float32Array(DEEP_SPACE_NEBULA_COUNT);
+    const deepSpaceNebulaVelocities = new Float32Array(DEEP_SPACE_NEBULA_COUNT * 3);
+
+    for (let i = 0; i < DEEP_SPACE_NEBULA_COUNT; i++) {
+      // Scattered across the sky
+      const phi = Math.random() * Math.PI * 2;
+      const cosTheta = Math.random() * 2 - 1;
+      const radius = 1500 + Math.random() * 2500;
+
+      const theta = Math.acos(cosTheta);
+      
+      deepSpaceNebulaPositions[i * 3] = radius * Math.sin(theta) * Math.cos(phi);
+      deepSpaceNebulaPositions[i * 3 + 1] = radius * Math.cos(theta);
+      deepSpaceNebulaPositions[i * 3 + 2] = radius * Math.sin(theta) * Math.sin(phi);
+
+      // Very slow movement for subtle animation
+      deepSpaceNebulaVelocities[i * 3] = (Math.random() - 0.5) * 0.00001;
+      deepSpaceNebulaVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.00001;
+      deepSpaceNebulaVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.00001;
+
+      // Large, diffuse nebula particles
+      deepSpaceNebulaSizes[i] = 50 + Math.random() * 200;
+    }
+
+    // Cosmic Dust Field - Fine cosmic dust scattered throughout
+    const cosmicDustFieldPositions = new Float32Array(COSMIC_DUST_FIELD_COUNT * 3);
+    const cosmicDustFieldColors = new Float32Array(COSMIC_DUST_FIELD_COUNT * 3);
+    const cosmicDustFieldSizes = new Float32Array(COSMIC_DUST_FIELD_COUNT);
+    const cosmicDustFieldVelocities = new Float32Array(COSMIC_DUST_FIELD_COUNT * 3);
+
+    for (let i = 0; i < COSMIC_DUST_FIELD_COUNT; i++) {
+      // Fill space between near and far
+      const phi = Math.random() * Math.PI * 2;
+      const cosTheta = Math.random() * 2 - 1;
+      const radius = 500 + Math.random() * 1500;
+
+      const theta = Math.acos(cosTheta);
+      
+      cosmicDustFieldPositions[i * 3] = radius * Math.sin(theta) * Math.cos(phi);
+      cosmicDustFieldPositions[i * 3 + 1] = radius * Math.cos(theta);
+      cosmicDustFieldPositions[i * 3 + 2] = radius * Math.sin(theta) * Math.sin(phi);
+
+      // Gentle drifting motion
+      cosmicDustFieldVelocities[i * 3] = (Math.random() - 0.5) * 0.0001;
+      cosmicDustFieldVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0001;
+      cosmicDustFieldVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0001;
+
+      // Very fine dust particles
+      cosmicDustFieldSizes[i] = 0.02 + Math.random() * 0.1;
+    }
+
     return {
       main: { positions: mainPositions, colors: mainColors, sizes: mainSizes, velocities: mainVelocities, count: MAIN_COUNT },
       dust: { positions: dustPositions, colors: dustColors, sizes: dustSizes, velocities: dustVelocities, count: DUST_COUNT },
@@ -677,9 +810,13 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       distantNebula: { positions: distantNebulaPositions, colors: distantNebulaColors, sizes: distantNebulaSizes, velocities: distantNebulaVelocities, count: DISTANT_NEBULA_COUNT },
       backgroundParticles: { positions: backgroundParticlesPositions, colors: backgroundParticlesColors, sizes: backgroundParticlesSizes, velocities: backgroundParticlesVelocities, count: BACKGROUND_PARTICLES_COUNT },
       ultraDistantParticles: { positions: ultraDistantParticlesPositions, colors: ultraDistantParticlesColors, sizes: ultraDistantParticlesSizes, velocities: ultraDistantParticlesVelocities, count: ULTRA_DISTANT_PARTICLES_COUNT },
-      distantGalaxyClusters: distantGalaxyClustersData
+      distantGalaxyClusters: distantGalaxyClustersData,
+      cosmicSkyboxStars: { positions: cosmicSkyboxStarsPositions, colors: cosmicSkyboxStarsColors, sizes: cosmicSkyboxStarsSizes, velocities: cosmicSkyboxStarsVelocities, count: COSMIC_SKYBOX_STARS_COUNT },
+      milkyWayBand: { positions: milkyWayBandPositions, colors: milkyWayBandColors, sizes: milkyWayBandSizes, velocities: milkyWayBandVelocities, count: MILKY_WAY_BAND_COUNT },
+      deepSpaceNebula: { positions: deepSpaceNebulaPositions, colors: deepSpaceNebulaColors, sizes: deepSpaceNebulaSizes, velocities: deepSpaceNebulaVelocities, count: DEEP_SPACE_NEBULA_COUNT },
+      cosmicDustField: { positions: cosmicDustFieldPositions, colors: cosmicDustFieldColors, sizes: cosmicDustFieldSizes, velocities: cosmicDustFieldVelocities, count: COSMIC_DUST_FIELD_COUNT }
     };
-  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT, SNOW_COUNT, TWINKLE_COUNT, NEBULA_COUNT, COSMIC_RAYS_COUNT, DISTANT_NEBULA_COUNT, BACKGROUND_PARTICLES_COUNT, ULTRA_DISTANT_PARTICLES_COUNT, DISTANT_GALAXY_CLUSTERS_COUNT, isRecording, isChristmasTheme]);
+  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT, SNOW_COUNT, TWINKLE_COUNT, NEBULA_COUNT, COSMIC_RAYS_COUNT, DISTANT_NEBULA_COUNT, BACKGROUND_PARTICLES_COUNT, ULTRA_DISTANT_PARTICLES_COUNT, DISTANT_GALAXY_CLUSTERS_COUNT, COSMIC_SKYBOX_STARS_COUNT, MILKY_WAY_BAND_COUNT, DEEP_SPACE_NEBULA_COUNT, COSMIC_DUST_FIELD_COUNT, isRecording, isChristmasTheme]);
 
   // Update colors - COMPLETE COLOR SYSTEM
   React.useEffect(() => {
@@ -1118,6 +1255,120 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           cluster.geometry.attributes.color.needsUpdate = true;
         }
       });
+    }
+
+    // Cosmic Skybox Stars colors
+    if (particleData.cosmicSkyboxStars.count > 0 && cosmicSkyboxStarsRef.current) {
+      const skyboxColors = cosmicSkyboxStarsRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.cosmicSkyboxStars.count; i++) {
+        let particleColor: THREE.Color;
+
+        if (isRainbowTheme) {
+          particleColor = getRainbowColor(i, particleData.cosmicSkyboxStars.count).multiplyScalar(0.6);
+        } else if (isWhiteTheme) {
+          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.7 + Math.random() * 0.3);
+        } else if (isChristmasTheme) {
+          particleColor = getChristmasColor(i).multiplyScalar(0.8);
+        } else {
+          // Create natural star colors (blue-white, yellow-white, red)
+          const starType = Math.random();
+          if (starType < 0.6) {
+            particleColor = new THREE.Color('#ffffff').multiplyScalar(0.8 + Math.random() * 0.2);
+          } else if (starType < 0.8) {
+            particleColor = new THREE.Color('#ffffaa').multiplyScalar(0.6 + Math.random() * 0.4);
+          } else {
+            particleColor = new THREE.Color('#ffaaaa').multiplyScalar(0.5 + Math.random() * 0.3);
+          }
+        }
+
+        skyboxColors[i * 3] = particleColor.r;
+        skyboxColors[i * 3 + 1] = particleColor.g;
+        skyboxColors[i * 3 + 2] = particleColor.b;
+      }
+      cosmicSkyboxStarsRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+
+    // Milky Way Band colors
+    if (particleData.milkyWayBand.count > 0 && milkyWayBandRef.current) {
+      const bandColors = milkyWayBandRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.milkyWayBand.count; i++) {
+        let particleColor: THREE.Color;
+
+        if (isRainbowTheme) {
+          particleColor = getRainbowColor(i, particleData.milkyWayBand.count).multiplyScalar(0.3);
+        } else if (isWhiteTheme) {
+          particleColor = new THREE.Color('#f8f8ff').multiplyScalar(0.4 + Math.random() * 0.3);
+        } else if (isChristmasTheme) {
+          particleColor = getChristmasColor(i).multiplyScalar(0.6);
+        } else {
+          // Dusty yellow-brown colors for Milky Way band
+          const baseColor = new THREE.Color('#ffeeaa');
+          particleColor = baseColor.multiplyScalar(0.3 + Math.random() * 0.4);
+        }
+
+        bandColors[i * 3] = particleColor.r;
+        bandColors[i * 3 + 1] = particleColor.g;
+        bandColors[i * 3 + 2] = particleColor.b;
+      }
+      milkyWayBandRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+
+    // Deep Space Nebula colors
+    if (particleData.deepSpaceNebula.count > 0 && deepSpaceNebulaRef.current) {
+      const deepNebulaColors = deepSpaceNebulaRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.deepSpaceNebula.count; i++) {
+        let particleColor: THREE.Color;
+
+        if (isRainbowTheme) {
+          particleColor = getRainbowColor(i, particleData.deepSpaceNebula.count).multiplyScalar(0.2);
+        } else if (isWhiteTheme) {
+          particleColor = new THREE.Color('#e6f3ff').multiplyScalar(0.15 + Math.random() * 0.25);
+        } else if (isChristmasTheme) {
+          particleColor = getChristmasColor(i).multiplyScalar(0.3);
+        } else {
+          // Varied nebula colors (red, blue, green, purple)
+          const nebulaType = Math.random();
+          if (nebulaType < 0.25) {
+            particleColor = new THREE.Color('#ff6666').multiplyScalar(0.2 + Math.random() * 0.3);
+          } else if (nebulaType < 0.5) {
+            particleColor = new THREE.Color('#6666ff').multiplyScalar(0.2 + Math.random() * 0.3);
+          } else if (nebulaType < 0.75) {
+            particleColor = new THREE.Color('#66ff66').multiplyScalar(0.15 + Math.random() * 0.25);
+          } else {
+            particleColor = new THREE.Color('#ff66ff').multiplyScalar(0.15 + Math.random() * 0.25);
+          }
+        }
+
+        deepNebulaColors[i * 3] = particleColor.r;
+        deepNebulaColors[i * 3 + 1] = particleColor.g;
+        deepNebulaColors[i * 3 + 2] = particleColor.b;
+      }
+      deepSpaceNebulaRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+
+    // Cosmic Dust Field colors
+    if (particleData.cosmicDustField.count > 0 && cosmicDustFieldRef.current) {
+      const dustFieldColors = cosmicDustFieldRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.cosmicDustField.count; i++) {
+        let particleColor: THREE.Color;
+
+        if (isRainbowTheme) {
+          particleColor = getRainbowColor(i, particleData.cosmicDustField.count).multiplyScalar(0.1);
+        } else if (isWhiteTheme) {
+          particleColor = new THREE.Color('#ffffff').multiplyScalar(0.1 + Math.random() * 0.2);
+        } else if (isChristmasTheme) {
+          particleColor = getChristmasColor(i).multiplyScalar(0.2);
+        } else {
+          // Very subtle dust colors
+          const dustColor = new THREE.Color('#ccaa88');
+          particleColor = dustColor.multiplyScalar(0.05 + Math.random() * 0.1);
+        }
+
+        dustFieldColors[i * 3] = particleColor.r;
+        dustFieldColors[i * 3 + 1] = particleColor.g;
+        dustFieldColors[i * 3 + 2] = particleColor.b;
+      }
+      cosmicDustFieldRef.current.geometry.attributes.color.needsUpdate = true;
     }
   }, [colorTheme, particleData, enabled, isRainbowTheme, isWhiteTheme, isChristmasTheme]);
 
@@ -1642,6 +1893,109 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           material.emissiveIntensity = data.emissiveIntensity * (0.8 + emissivePulse * 0.4);
         }
       });
+    }
+
+    // Cosmic Skybox Stars animation - subtle twinkling only
+    if (cosmicSkyboxStarsRef.current && particleData.cosmicSkyboxStars.count > 0) {
+      const skyboxColors = cosmicSkyboxStarsRef.current.geometry.attributes.color.array as Float32Array;
+      
+      // Only animate colors for twinkling effect
+      if (isRainbowTheme) {
+        for (let i = 0; i < particleData.cosmicSkyboxStars.count; i++) {
+          const i3 = i * 3;
+          const hue = ((time * 0.01 + i * 0.001) % 1);
+          const twinkleFactor = 0.4 + Math.sin(time * 3 + i * 0.1) * 0.2;
+          const color = new THREE.Color().setHSL(hue, 0.8, 0.5 * twinkleFactor);
+          skyboxColors[i3] = color.r;
+          skyboxColors[i3 + 1] = color.g;
+          skyboxColors[i3 + 2] = color.b;
+        }
+        cosmicSkyboxStarsRef.current.geometry.attributes.color.needsUpdate = true;
+      }
+    }
+
+    // Milky Way Band animation - very subtle movement
+    if (milkyWayBandRef.current && particleData.milkyWayBand.count > 0) {
+      if (isRainbowTheme) {
+        const bandColors = milkyWayBandRef.current.geometry.attributes.color.array as Float32Array;
+        for (let i = 0; i < particleData.milkyWayBand.count; i++) {
+          const i3 = i * 3;
+          const hue = ((time * 0.005 + i * 0.0005) % 1);
+          const color = new THREE.Color().setHSL(hue, 0.6, 0.2);
+          bandColors[i3] = color.r;
+          bandColors[i3 + 1] = color.g;
+          bandColors[i3 + 2] = color.b;
+        }
+        milkyWayBandRef.current.geometry.attributes.color.needsUpdate = true;
+      }
+      // Very slow rotation for the entire band
+      milkyWayBandRef.current.rotation.z = time * 0.00005 * animationSpeed;
+    }
+
+    // Deep Space Nebula animation - slow pulsing
+    if (deepSpaceNebulaRef.current && particleData.deepSpaceNebula.count > 0) {
+      const deepNebulaPositions = deepSpaceNebulaRef.current.geometry.attributes.position.array as Float32Array;
+      const deepNebulaColors = deepSpaceNebulaRef.current.geometry.attributes.color.array as Float32Array;
+
+      for (let i = 0; i < particleData.deepSpaceNebula.count; i++) {
+        const i3 = i * 3;
+
+        // Extremely slow drift
+        deepNebulaPositions[i3] += particleData.deepSpaceNebula.velocities[i3] * animationSpeed;
+        deepNebulaPositions[i3 + 1] += particleData.deepSpaceNebula.velocities[i3 + 1] * animationSpeed;
+        deepNebulaPositions[i3 + 2] += particleData.deepSpaceNebula.velocities[i3 + 2] * animationSpeed;
+
+        // Slow pulsating effect
+        const pulseFreq = time * 0.02 + i * 0.01;
+        const pulseFactor = 0.5 + Math.sin(pulseFreq) * 0.5;
+
+        if (isRainbowTheme) {
+          const hue = ((time * 0.003 + i * 0.0005) % 1);
+          const color = new THREE.Color().setHSL(hue, 0.8, 0.1 * pulseFactor);
+          deepNebulaColors[i3] = color.r;
+          deepNebulaColors[i3 + 1] = color.g;
+          deepNebulaColors[i3 + 2] = color.b;
+        }
+      }
+
+      deepSpaceNebulaRef.current.geometry.attributes.position.needsUpdate = true;
+      if (isRainbowTheme) {
+        deepSpaceNebulaRef.current.geometry.attributes.color.needsUpdate = true;
+      }
+    }
+
+    // Cosmic Dust Field animation - gentle drifting
+    if (cosmicDustFieldRef.current && particleData.cosmicDustField.count > 0) {
+      const dustFieldPositions = cosmicDustFieldRef.current.geometry.attributes.position.array as Float32Array;
+      const dustFieldColors = cosmicDustFieldRef.current.geometry.attributes.color.array as Float32Array;
+
+      for (let i = 0; i < particleData.cosmicDustField.count; i++) {
+        const i3 = i * 3;
+
+        // Gentle drifting motion
+        dustFieldPositions[i3] += particleData.cosmicDustField.velocities[i3] * animationSpeed;
+        dustFieldPositions[i3 + 1] += particleData.cosmicDustField.velocities[i3 + 1] * animationSpeed;
+        dustFieldPositions[i3 + 2] += particleData.cosmicDustField.velocities[i3 + 2] * animationSpeed;
+
+        // Very subtle floating motion
+        const floatFreq = time * 0.005 * animationSpeed + i * 0.001;
+        dustFieldPositions[i3] += Math.sin(floatFreq) * 0.0003 * animationSpeed;
+        dustFieldPositions[i3 + 1] += Math.cos(floatFreq * 0.7) * 0.0002 * animationSpeed;
+        dustFieldPositions[i3 + 2] += Math.sin(floatFreq * 1.3) * 0.0003 * animationSpeed;
+
+        if (isRainbowTheme) {
+          const hue = ((time * 0.008 + i * 0.002) % 1);
+          const color = new THREE.Color().setHSL(hue, 0.3, 0.05);
+          dustFieldColors[i3] = color.r;
+          dustFieldColors[i3 + 1] = color.g;
+          dustFieldColors[i3 + 2] = color.b;
+        }
+      }
+
+      cosmicDustFieldRef.current.geometry.attributes.position.needsUpdate = true;
+      if (isRainbowTheme) {
+        cosmicDustFieldRef.current.geometry.attributes.color.needsUpdate = true;
+      }
     }
   });
 
@@ -2421,6 +2775,225 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           ))}
         </group>
       )}
+
+      {/* Cosmic Skybox Stars - Dense starfield covering entire sphere */}
+      <points ref={cosmicSkyboxStarsRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.cosmicSkyboxStars.positions}
+            count={particleData.cosmicSkyboxStars.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.cosmicSkyboxStars.colors}
+            count={particleData.cosmicSkyboxStars.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.cosmicSkyboxStars.sizes}
+            count={particleData.cosmicSkyboxStars.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (300.0 / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              vOpacity = 1.0;
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              // Subtle twinkling for skybox stars
+              float twinkle = sin(gl_FragCoord.x * 0.05 + gl_FragCoord.y * 0.05) * 0.1 + 0.9;
+              alpha *= twinkle;
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.8);
+            }
+          `}
+        />
+      </points>
+
+      {/* Milky Way Band - Dense band across the sky */}
+      <points ref={milkyWayBandRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.milkyWayBand.positions}
+            count={particleData.milkyWayBand.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.milkyWayBand.colors}
+            count={particleData.milkyWayBand.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.milkyWayBand.sizes}
+            count={particleData.milkyWayBand.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (200.0 / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              vOpacity = 0.6;
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.4);
+            }
+          `}
+        />
+      </points>
+
+      {/* Deep Space Nebula - Large distant nebular structures */}
+      <points ref={deepSpaceNebulaRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.deepSpaceNebula.positions}
+            count={particleData.deepSpaceNebula.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.deepSpaceNebula.colors}
+            count={particleData.deepSpaceNebula.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.deepSpaceNebula.sizes}
+            count={particleData.deepSpaceNebula.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (60.0 / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              vOpacity = 0.3;
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              alpha *= 0.1; // Very translucent for deep space effect
+              gl_FragColor = vec4(vColor, alpha * vOpacity);
+            }
+          `}
+        />
+      </points>
+
+      {/* Cosmic Dust Field - Fine cosmic dust scattered throughout */}
+      <points ref={cosmicDustFieldRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.cosmicDustField.positions}
+            count={particleData.cosmicDustField.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.cosmicDustField.colors}
+            count={particleData.cosmicDustField.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.cosmicDustField.sizes}
+            count={particleData.cosmicDustField.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (400.0 / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(500.0, 2000.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.2);
+            }
+          `}
+        />
+      </points>
     </group>
   );
 };
