@@ -47,9 +47,6 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const backgroundParticlesRef = useRef<THREE.Points>(null);
   const ultraDistantParticlesRef = useRef<THREE.Points>(null);
   const distantGalaxyClustersRef = useRef<THREE.Group>(null);
-  const distantNebulaRef = useRef<THREE.Points>(null);
-  const backgroundParticlesRef = useRef<THREE.Points>(null);
-  const ultraDistantParticlesRef = useRef<THREE.Points>(null);
 
   // Adjusted particle counts for better performance and visual impact
   const recordingMultiplier = isRecording ? 1.2 : 1.0;
