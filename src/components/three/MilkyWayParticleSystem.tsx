@@ -2005,7 +2005,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
 
   const particleKey = `particles-${enabled ? 1 : 0}-${intensity.toFixed(1)}-${colorTheme.name}`;
 
-  // Enhanced shader for main particles
+  // Enhanced shader for main particles with crisp definition
   const recordingVertexShader = `
     attribute float size;
     varying vec3 vColor;
@@ -2026,9 +2026,122 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     void main() {
       float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
       if (distanceToCenter > 0.5) discard;
+      
+      // Sharp, defined particle with bright center
       float alpha = 1.0 - (distanceToCenter * 2.0);
-      alpha = smoothstep(0.0, 1.0, alpha);
-      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.9' : '0.8'});
+      alpha = pow(alpha, 3.0); // Much sharper falloff
+      
+      // Bright center with defined edge
+      float centerGlow = 1.0 - smoothstep(0.0, 0.2, distanceToCenter);
+      alpha = max(alpha, centerGlow * 0.9);
+      
+      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
+    }
+  `;
+
+  // Sharp star cluster shader
+  const clusterVertexShader = `
+    attribute float size;
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      vColor = color;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size * (${isRecording ? '280.0' : '260.0'} / -mvPosition.z);
+      gl_Position = projectionMatrix * mvPosition;
+      float distance = length(mvPosition.xyz);
+      vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
+    }
+  `;
+
+  const clusterFragmentShader = `
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+      if (distanceToCenter > 0.5) discard;
+      
+      // Very sharp star-like appearance
+      float alpha = 1.0 - (distanceToCenter * 2.0);
+      alpha = pow(alpha, 4.0); // Extremely sharp falloff
+      
+      // Bright pinpoint center
+      float starCenter = 1.0 - smoothstep(0.0, 0.15, distanceToCenter);
+      alpha = max(alpha, starCenter);
+      
+      // Add slight cross-hatch pattern for star effect
+      float crossPattern = abs(sin((gl_PointCoord.x - 0.5) * 20.0)) * abs(sin((gl_PointCoord.y - 0.5) * 20.0));
+      alpha *= (0.8 + crossPattern * 0.2);
+      
+      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.2' : '1.0'});
+    }
+  `;
+
+  // Crisp dust cloud shader
+  const dustVertexShader = `
+    attribute float size;
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      vColor = color;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size * (${isRecording ? '200.0' : '180.0'} / -mvPosition.z);
+      gl_Position = projectionMatrix * mvPosition;
+      float distance = length(mvPosition.xyz);
+      vOpacity = 1.0 - smoothstep(30.0, 100.0, distance);
+    }
+  `;
+
+  const dustFragmentShader = `
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+      if (distanceToCenter > 0.5) discard;
+      
+      // Defined dust particle with clear edges
+      float alpha = 1.0 - (distanceToCenter * 2.0);
+      alpha = pow(alpha, 2.5); // Sharp but not as extreme as stars
+      
+      // Slight central concentration
+      float dustCore = 1.0 - smoothstep(0.0, 0.3, distanceToCenter);
+      alpha = max(alpha * 0.7, dustCore * 0.8);
+      
+      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.8' : '0.7'});
+    }
+  `;
+
+  // Sharp atmospheric particles shader
+  const atmosphericVertexShader = `
+    attribute float size;
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      vColor = color;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = size * (${isRecording ? '160.0' : '140.0'} / -mvPosition.z);
+      gl_Position = projectionMatrix * mvPosition;
+      float distance = length(mvPosition.xyz);
+      vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
+    }
+  `;
+
+  const atmosphericFragmentShader = `
+    varying vec3 vColor;
+    varying float vOpacity;
+    void main() {
+      float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+      if (distanceToCenter > 0.5) discard;
+      
+      // Crisp atmospheric particles
+      float alpha = 1.0 - (distanceToCenter * 2.0);
+      alpha = pow(alpha, 2.0); // Sharp definition
+      
+      // Clear center with defined boundary
+      float atomCore = 1.0 - smoothstep(0.0, 0.25, distanceToCenter);
+      alpha = max(alpha * 0.6, atomCore * 0.7);
+      
+      gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.6' : '0.5'});
     }
   `;
 
@@ -2178,30 +2291,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           vertexColors
           blending={THREE.AdditiveBlending}
           depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (${isRecording ? '220.0' : '200.0'} / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(30.0, 100.0, distance);
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.7' : '0.6'});
-            }
-          `}
+          vertexShader={dustVertexShader}
+          fragmentShader={dustFragmentShader}
         />
       </points>
 
@@ -2234,30 +2325,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               vertexColors
               blending={THREE.AdditiveBlending}
               depthWrite={false}
-              vertexShader={`
-                attribute float size;
-                varying vec3 vColor;
-                varying float vOpacity;
-                void main() {
-                  vColor = color;
-                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                  gl_PointSize = size * (${isRecording ? '270.0' : '250.0'} / -mvPosition.z);
-                  gl_Position = projectionMatrix * mvPosition;
-                  float distance = length(mvPosition.xyz);
-                  vOpacity = 1.0 - smoothstep(80.0, 300.0, distance);
-                }
-              `}
-              fragmentShader={`
-                varying vec3 vColor;
-                varying float vOpacity;
-                void main() {
-                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-                  if (distanceToCenter > 0.5) discard;
-                  float alpha = 1.0 - (distanceToCenter * 2.0);
-                  alpha = smoothstep(0.0, 1.0, alpha);
-                  gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '1.0' : '0.9'});
-                }
-              `}
+              vertexShader={clusterVertexShader}
+              fragmentShader={clusterFragmentShader}
             />
           </points>
         ))}
@@ -2290,30 +2359,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           vertexColors
           blending={THREE.AdditiveBlending}
           depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (${isRecording ? '170.0' : '150.0'} / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              gl_FragColor = vec4(vColor, alpha * vOpacity * ${isRecording ? '0.5' : '0.4'});
-            }
-          `}
+          vertexShader={atmosphericVertexShader}
+          fragmentShader={atmosphericFragmentShader}
         />
       </points>
 
