@@ -3,13 +3,6 @@ import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Sett
 import Layout from '../components/layout/Layout';
 import DemoRequestModal from '../components/modals/DemoRequestModal';
 
-// Fallback theme removed since we're not using particle background
-
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles, ArrowRight } from 'lucide-react';
-import Layout from '../components/layout/Layout';
-import DemoRequestModal from '../components/modals/DemoRequestModal';
-
 const faqs = [
   {
     question: 'What is the primary function of this platform?',
