@@ -223,31 +223,8 @@ const FAQPage: React.FC = () => {
       /* Magical card effects - ALWAYS ON by default */
       .magical-card {
         position: relative;
-        overflow: visible;
+        overflow: hidden;
         perspective: 1000px;
-      }
-      
-      .magical-card::before {
-        content: '';
-        position: absolute;
-        inset: -3px;
-        border-radius: inherit;
-        padding: 3px;
-        background: linear-gradient(45deg, var(--card-color, #a855f7), transparent, var(--card-color, #a855f7));
-        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-        mask-composite: xor;
-        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-        -webkit-mask-composite: xor;
-        opacity: 0.8;
-        filter: blur(4px);
-        animation: edge-shine 3s ease-in-out infinite;
-        z-index: -1;
-      }
-      
-      .magical-card:hover::before {
-        opacity: 1;
-        filter: blur(6px);
-        animation: edge-shine 2s ease-in-out infinite;
       }
       
       .magical-card::after {
@@ -724,7 +701,7 @@ const FAQPage: React.FC = () => {
                   {filteredFAQs.map((faq, index) => (
                     <div
                       key={faq.id}
-                      className="magical-card relative w-80 h-[450px] bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5)] transition-all duration-600 cursor-pointer overflow-visible"
+                      className="magical-card relative w-80 h-[450px] bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5)] transition-all duration-600 cursor-pointer"
                       style={{ '--card-color': faq.color }}
                       ref={(el) => (cardRefs.current[index] = el)}
                       onClick={(e) => {
@@ -741,8 +718,8 @@ const FAQPage: React.FC = () => {
                       <div className="card-highlight"></div>
                       
                       <div className="card-inner relative w-full h-full transition-transform duration-800 transform-style-3d rounded-3xl">
-                        {/* Default State - Beautiful glowing metallic card with question and magical runes */}
-                        <div className="card-front absolute w-full h-full rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6">
+                        {/* Default State - Filled with accent color like the answer state */}
+                        <div className="card-front absolute w-full h-full rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 bg-[linear-gradient(135deg,rgba(0,10,30,0.8)_0%,rgba(0,10,40,0.9)_100%)]">
                           {/* Magical circle */}
                           <div 
                             className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 opacity-70 pointer-events-none"
@@ -780,9 +757,9 @@ const FAQPage: React.FC = () => {
                               Click to reveal the full answer
                             </p>
                             <button
-                              className="btn relative inline-block px-6 py-3 bg-black/30 text-white border-2 rounded-full font-orbitron text-xs font-semibold uppercase tracking-wide cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm hover:scale-105"
+                              className="btn relative inline-block px-6 py-3 text-white border-2 border-white/30 rounded-full font-orbitron text-xs font-semibold uppercase tracking-wide cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm hover:scale-105"
                               style={{ 
-                                borderColor: faq.color + '80',
+                                backgroundColor: faq.color + 'B0',
                                 boxShadow: `0 0 15px ${faq.color}40`
                               }}
                               onClick={(e) => {
