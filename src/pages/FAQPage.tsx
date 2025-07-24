@@ -1256,26 +1256,7 @@ const useCaseData = [
   }
 ];
 
-// Error Boundary component for better UX
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="text-center p-8 text-white">
-          <h2 className="font-orbitron text-2xl mb-4">Something went wrong</h2>
-          <p>Please try refreshing the page or contact support.</p>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+// Error Boundary component for better UX - REMOVED DUPLICATE
 
 const FAQPage: React.FC = () => {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
