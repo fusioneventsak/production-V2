@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles, ArrowRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import HeroScene from '../components/three/HeroScene';
@@ -6,1156 +6,1002 @@ import { LandingParticleBackground } from '../components/three/LandingParticleBa
 import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
 import DemoRequestModal from '../components/modals/DemoRequestModal';
 
-// FAQ Item Component with animations
-const FAQItem = ({ question, answer, icon: Icon, isOpen, onToggle }) => {
-  return (
-    <div className={`
-      bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-4
-      transition-all duration-500 hover:bg-black/30 hover:border-white/20
-      ${isOpen ? 'shadow-2xl shadow-purple-500/10' : ''}
-    `}>
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between text-left group"
-      >
-        <div className="flex items-center space-x-4">
-          <div className="p-3 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-xl border border-purple-500/30 backdrop-blur-sm">
-            <Icon className="w-6 h-6 text-white" />
-          </div>
-          <h3 className="text-xl font-semibold text-white group-hover:text-purple-300 transition-colors">
-            {question}
-          </h3>
-        </div>
-        <div className={`
-          transform transition-transform duration-300 text-white/70
-          ${isOpen ? 'rotate-180' : ''}
-        `}>
-          <ChevronDown className="w-6 h-6" />
-        </div>
-      </button>
-      
-      <div className={`
-        overflow-hidden transition-all duration-500 ease-in-out
-        ${isOpen ? 'max-h-96 opacity-100 mt-6' : 'max-h-0 opacity-0'}
-      `}>
-        <div className="text-gray-300 leading-relaxed prose prose-invert max-w-none">
-          {answer}
-        </div>
-      </div>
-    </div>
-  );
+// Fallback theme to prevent undefined theme errors
+const DEFAULT_THEME = {
+  primary: '#7b00ff',
+  secondary: '#e6ccff',
+  background: '#070b24'
 };
 
-// Search component
-const SearchBar = ({ searchTerm, onSearchChange }) => {
-  return (
-    <div className="relative max-w-2xl mx-auto mb-12">
-      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-        <Search className="h-6 w-6 text-gray-400" />
-      </div>
-      <input
-        type="text"
-        placeholder="Search FAQ topics..."
-        value={searchTerm}
-        onChange={(e) => onSearchChange(e.target.value)}
-        className="w-full pl-12 pr-4 py-4 bg-black/20 backdrop-blur-xl border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
-      />
-    </div>
-  );
-};
+const faqs = [
+  {
+    question: 'What is the primary function of this platform?',
+    answer: 'Our platform leverages advanced AI to provide seamless, interactive solutions for a wide range of applications, enhancing user experience and productivity.',
+    icon: Sparkles,
+    color: '#ff00dd'
+  },
+  {
+    question: 'How does the integration process work?',
+    answer: 'Integration is streamlined through our API, allowing developers to easily incorporate our technology into existing systems with minimal setup.',
+    icon: Globe,
+    color: '#00ffe1'
+  },
+  {
+    question: 'What kind of support is available?',
+    answer: 'We offer 24/7 support through our dedicated team, comprehensive documentation, and community forums to ensure you get the help you need.',
+    icon: Zap,
+    color: '#ffae00'
+  }
+];
 
-// Category filter buttons
-const CategoryFilter = ({ categories, activeCategory, onCategoryChange }) => {
-  return (
-    <div className="flex flex-wrap gap-3 justify-center mb-12">
-      {categories.map((category) => (
-        <button
-          key={category.id}
-          onClick={() => onCategoryChange(category.id)}
-          className={`
-            px-6 py-3 rounded-xl font-medium transition-all duration-300 backdrop-blur-sm
-            ${activeCategory === category.id
-              ? 'bg-gradient-to-r from-purple-600/40 to-blue-600/40 border border-purple-500/50 text-white shadow-lg'
-              : 'bg-white/10 border border-white/20 text-gray-300 hover:bg-white/20 hover:text-white'
-            }
-          `}
-        >
-          <category.icon className="w-4 h-4 inline mr-2" />
-          {category.name}
-        </button>
-      ))}
-    </div>
-  );
-};
+// Error Boundary component for better UX
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
 
-// Liquid glass button component
-const LiquidButton = ({ children, onClick, variant = 'primary', className = '' }) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        group relative overflow-hidden px-8 py-4 rounded-2xl font-semibold text-white
-        transition-all duration-500 transform hover:scale-105 hover:shadow-2xl
-        ${variant === 'primary' 
-          ? 'bg-gradient-to-r from-purple-600/30 to-blue-600/30 border border-purple-500/30 hover:from-purple-500/40 hover:to-blue-500/40' 
-          : 'bg-white/10 border border-white/20 hover:bg-white/20'
-        }
-        backdrop-blur-xl ${className}
-      `}
-    >
-      <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <span className="relative z-10">{children}</span>
-    </button>
-  );
-};
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="text-center p-8 text-white">
+          <h2 className="font-orbitron text-2xl mb-4">Something went wrong</h2>
+          <p>Please try refreshing the page or contact support.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const FAQPage: React.FC = () => {
-  const [openItems, setOpenItems] = useState(new Set());
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [particleTheme, setParticleTheme] = useState(PARTICLE_THEMES[0]);
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+  const [theme, setTheme] = useState(PARTICLE_THEMES?.[0] || DEFAULT_THEME);
+  const cardsContainerRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Add custom CSS animations and magical card effects
   useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes float-1 {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        33% { transform: translateY(-10px) rotate(5deg); }
-        66% { transform: translateY(5px) rotate(-3deg); }
-      }
-      @keyframes float-2 {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        33% { transform: translateY(8px) rotate(-4deg); }
-        66% { transform: translateY(-12px) rotate(6deg); }
-      }
-      @keyframes float-3 {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        33% { transform: translateY(-6px) rotate(3deg); }
-        66% { transform: translateY(10px) rotate(-5deg); }
-      }
-      @keyframes gradient-x {
-        0%, 100% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-      }
-      @keyframes magical-glow {
-        0% { 
-          box-shadow: 0 0 20px var(--card-color, #7b00ff); 
-          filter: brightness(1);
-        }
-        50% { 
-          box-shadow: 0 0 30px var(--card-color, #7b00ff), 0 0 40px var(--card-color, #7b00ff); 
-          filter: brightness(1.2);
-        }
-        100% { 
-          box-shadow: 0 0 20px var(--card-color, #7b00ff); 
-          filter: brightness(1);
-        }
-      }
-      @keyframes ripple-effect {
-        0% {
-          transform: translate(-50%, -50%) scale(0);
-          opacity: 1;
-        }
-        100% {
-          transform: translate(-50%, -50%) scale(4);
-          opacity: 0;
-        }
-      }
-      @keyframes magnetic-particle {
-        0% {
-          transform: translateY(0px) translateX(0px);
-          opacity: 0.3;
-        }
-        50% {
-          opacity: 0.8;
-        }
-        100% {
-          transform: translateY(-20px) translateX(10px);
-          opacity: 0;
-        }
-      }
-      @keyframes edge-shine {
-        0% {
-          transform: translateX(-100%);
-          opacity: 0;
-        }
-        50% {
-          opacity: 1;
-        }
-        100% {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-      }
-      
-      .animate-float-1 { animation: float-1 6s ease-in-out infinite; }
-      .animate-float-2 { animation: float-2 8s ease-in-out infinite; }
-      .animate-float-3 { animation: float-3 7s ease-in-out infinite; }
-      .animate-gradient-x { 
-        background-size: 400% 400%;
-        animation: gradient-x 8s ease infinite;
-      }
-      
-      /* Magical card effects */
-      .magical-card {
-        position: relative;
-        overflow: visible;
-        perspective: 1000px;
-      }
-      
-      .magical-card::before {
-        content: '';
-        position: absolute;
-        inset: -3px;
-        border-radius: inherit;
-        padding: 3px;
-        background: linear-gradient(45deg, var(--card-color, #a855f7), transparent, var(--card-color, #a855f7));
-        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-        mask-composite: xor;
-        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-        -webkit-mask-composite: xor;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        z-index: -1;
-        filter: blur(2px);
-      }
-      
-      .magical-card:hover::before {
-        opacity: 0.8;
-        filter: blur(4px);
-        animation: edge-shine 2s ease-in-out infinite;
-      }
-      
-      .magical-card::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        background: radial-gradient(
-          600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-          var(--card-color, #a855f7)15 0%,
-          transparent 40%
-        );
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        pointer-events: none;
-        z-index: 1;
-      }
-      
-      .magical-card:hover::after {
-        opacity: 0.3;
-      }
-      
-      .card-ripple {
-        position: absolute;
-        border-radius: 50%;
-        background: var(--card-color, #a855f7);
-        pointer-events: none;
-        z-index: 2;
-        animation: ripple-effect 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        opacity: 0.8;
-      }
-      
-      .magnetic-particles {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        overflow: hidden;
-        border-radius: inherit;
-        z-index: 1;
-      }
-      
-      .magnetic-particle {
-        position: absolute;
-        width: 4px;
-        height: 4px;
-        background: var(--card-color, #a855f7);
-        border-radius: 50%;
-        opacity: 0;
-        animation: magnetic-particle 3s ease-in-out infinite;
-        box-shadow: 0 0 10px var(--card-color, #a855f7);
-        filter: blur(1px);
-      }
-      
-      .edge-glow {
-        position: absolute;
-        inset: -4px;
-        border-radius: inherit;
-        background: var(--card-color, #a855f7);
-        opacity: 0;
-        filter: blur(15px);
-        transition: opacity 0.3s ease;
-        z-index: -1;
-      }
-      
-      .magical-card:hover .edge-glow {
-        opacity: 0.4;
-        animation: magical-glow 2s ease-in-out infinite;
-      }
-      
-      .card-highlight {
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        background: radial-gradient(
-          400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-          rgba(255, 255, 255, 0.2) 0%,
-          rgba(255, 255, 255, 0.1) 30%,
-          transparent 50%
-        );
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        pointer-events: none;
-        z-index: 2;
-        mix-blend-mode: overlay;
-      }
-      
-      .magical-card:hover .card-highlight {
-        opacity: 1;
-      }
-      
-      /* Enhanced glow animations */
-      @keyframes magical-glow {
-        0% { 
-          filter: blur(15px);
-          opacity: 0.2;
-        }
-        50% { 
-          filter: blur(20px);
-          opacity: 0.6;
-        }
-        100% { 
-          filter: blur(15px);
-          opacity: 0.2;
-        }
-      }
-      
-      @keyframes edge-shine {
-        0% {
-          transform: translateX(-100%) skewX(-15deg);
-          opacity: 0;
-        }
-        50% {
-          opacity: 1;
-        }
-        100% {
-          transform: translateX(100%) skewX(-15deg);
-          opacity: 0;
-        }
-      }
-      
-      @keyframes ripple-effect {
-        0% {
-          transform: translate(-50%, -50%) scale(0);
-          opacity: 0.8;
-        }
-        100% {
-          transform: translate(-50%, -50%) scale(8);
-          opacity: 0;
-        }
-      }
-      
-      @keyframes magnetic-particle {
-        0% {
-          transform: translateY(0px) translateX(0px) scale(0);
-          opacity: 0;
-        }
-        10% {
-          opacity: 1;
-          transform: scale(1);
-        }
-        90% {
-          opacity: 0.8;
-        }
-        100% {
-          transform: translateY(-30px) translateX(15px) scale(0);
-          opacity: 0;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-    
-    return () => {
-      if (document.head.contains(style)) {
-        document.head.removeChild(style);
-      }
-    };
-  }, []);
+    console.log('Current theme:', theme);
 
-  // Add magical card interactions
-  useEffect(() => {
-    const cards = document.querySelectorAll('.magical-card');
-    
-    const handleMouseMove = (e, card) => {
+    const cards = cardRefs.current;
+
+    const handleCardMouseMove = (e: MouseEvent | Touch, card: HTMLDivElement) => {
+      if (card.classList.contains('flipped')) return;
       const rect = card.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      
-      card.style.setProperty('--mouse-x', `${x}%`);
-      card.style.setProperty('--mouse-y', `${y}%`);
-      
-      // 3D tilt effect
-      const rotateY = -(x - 50) * 0.3;
-      const rotateX = (y - 50) * 0.3;
-      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+      const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
+      const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
+
+      card.style.setProperty('--mouse-x', `${mouseX}%`);
+      card.style.setProperty('--mouse-y', `${mouseY}%`);
+
+      const rotateY = -(((e.clientX - rect.left) / rect.width) - 0.5) * 20;
+      const rotateX = (((e.clientY - rect.top) / rect.height) - 0.5) * 20;
+
+      const cardInner = card.querySelector('.card-inner');
+      if (cardInner) {
+        (cardInner as HTMLElement).style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
+      }
+
+      const angle = Math.atan2(mouseY - 50, mouseX - 50) * (180 / Math.PI);
+      card.style.setProperty('--reflective-angle', `${angle + 90}deg`);
+
+      card.classList.add('active');
+
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const distanceFromCenter = Math.sqrt(
+        Math.pow((e.clientX - rect.left - centerX), 2) +
+        Math.pow((e.clientY - rect.top - centerY), 2)
+      );
+
+      const maxDistance = Math.sqrt(Math.pow(centerX, 2) + Math.pow(centerY, 2));
+      const normalizedDistance = Math.min(distanceFromCenter / maxDistance, 1);
+      const intensity = 1 - normalizedDistance;
+
+      const cardGlow = card.querySelector('.card-glow');
+      if (cardGlow) {
+        (cardGlow as HTMLElement).style.opacity = `${0.5 + (intensity * 0.5)}`;
+        (cardGlow as HTMLElement).style.background = `radial-gradient(
+          circle at ${mouseX}% ${mouseY}%, 
+          var(--glow, #7b00ff) 0%, 
+          transparent ${50 + (intensity * 30)}%
+        )`;
+      }
+
+      const edgeGlow = card.querySelector('.edge-glow');
+      if (edgeGlow) {
+        const edgeDistanceTop = mouseY;
+        const edgeDistanceBottom = 100 - mouseY;
+        const edgeDistanceLeft = mouseX;
+        const edgeDistanceRight = 100 - mouseX;
+
+        const minDistance = Math.min(edgeDistanceTop, edgeDistanceBottom, edgeDistanceLeft, edgeDistanceRight);
+        let gradientAngle = 0;
+        if (minDistance === edgeDistanceTop) gradientAngle = 0;
+        else if (minDistance === edgeDistanceRight) gradientAngle = 90;
+        else if (minDistance === edgeDistanceBottom) gradientAngle = 180;
+        else if (minDistance === edgeDistanceLeft) gradientAngle = 270;
+
+        const edgeProximityFactor = 1 - (minDistance / 50);
+        const brightness = 1 + Math.max(0, edgeProximityFactor) * 0.7;
+
+        (edgeGlow as HTMLElement).style.opacity = `${0.5 + (intensity * 0.5) + Math.max(0, edgeProximityFactor) * 0.3}`;
+        (edgeGlow as HTMLElement).style.filter = `blur(${3 + intensity * 3}px) brightness(${brightness})`;
+        (edgeGlow as HTMLElement).style.background = `linear-gradient(${gradientAngle}deg, var(--glow, #7b00ff), transparent 70%) border-box`;
+      }
+
+      card.style.setProperty('--border-opacity', `${0.7 + intensity * 0.3}`);
+      card.style.setProperty('--border-blur', `${4 + intensity * 4}px`);
+
+      const particles = card.querySelectorAll('.magnetic-particle');
+      particles.forEach((particle, index) => {
+        const particleX = parseFloat((particle as HTMLElement).style.left) || 50;
+        const particleY = parseFloat((particle as HTMLElement).style.top) || 50;
+
+        const dirX = mouseX - particleX;
+        const dirY = mouseY - particleY;
+
+        const distance = Math.sqrt(dirX * dirX + dirY * dirY);
+
+        const normDirX = dirX / distance;
+        const normDirY = dirY / distance;
+
+        const maxPullDistance = 50;
+        const pullStrength = Math.max(0, 1 - Math.min(distance / maxPullDistance, 1)) * intensity * 20;
+
+        const newX = particleX + normDirX * pullStrength;
+        const newY = particleY + normDirY * pullStrength;
+
+        (particle as HTMLElement).style.transition = `transform 0.3s ease, opacity 0.3s ease`;
+        (particle as HTMLElement).style.transform = `translate(${normDirX * pullStrength * 0.5}px, ${normDirY * pullStrength * 0.5}px)`;
+        (particle as HTMLElement).style.opacity = `${0.3 + (pullStrength / 20) * 0.7}`;
+        (particle as HTMLElement).style.filter = `blur(${1 + (pullStrength / 20) * 2}px) brightness(${1 + (pullStrength / 20) * 0.5})`;
+      });
     };
-    
-    const handleMouseLeave = (card) => {
-      card.style.transform = '';
-      card.style.setProperty('--mouse-x', '50%');
-      card.style.setProperty('--mouse-y', '50%');
+
+    const resetCardEffects = (card: HTMLDivElement) => {
+      if (card.classList.contains('flipped')) return;
+
+      const cardFront = card.querySelector('.card-front');
+      const cardGlow = cardFront?.querySelector('.card-glow');
+      const highlight = cardFront?.querySelector('.highlight');
+      const magneticParticles = cardFront?.querySelectorAll('.magnetic-particle');
+      const cardInner = card.querySelector('.card-inner');
+      const edgeGlow = card.querySelector('.edge-glow');
+
+      if (cardInner) (cardInner as HTMLElement).style.transform = '';
+      if (cardGlow) (cardGlow as HTMLElement).style.opacity = '0';
+      if (highlight) (highlight as HTMLElement).style.opacity = '0';
+      if (edgeGlow) {
+        (edgeGlow as HTMLElement).style.opacity = '0.5';
+        (edgeGlow as HTMLElement).style.filter = 'blur(3px) brightness(1)';
+        (edgeGlow as HTMLElement).style.background = 'linear-gradient(135deg, var(--glow, #7b00ff), transparent 70%) border-box';
+      }
+
+      magneticParticles?.forEach(particle => {
+        (particle as HTMLElement).style.opacity = '0';
+        (particle as HTMLElement).style.transform = '';
+      });
+
+      card.style.setProperty('--border-opacity', '0.5');
+      card.style.setProperty('--border-blur', '4px');
+      card.style.boxShadow = '0 15px 35px rgba(0, 0, 0, 0.5), 0 0 10px var(--glow, rgba(123, 0, 255, 0.3))';
+      card.classList.remove('active');
+
+      applyFloatingAnimation(card);
     };
-    
-    const handleClick = (e, card) => {
+
+    const applyFloatingAnimation = (card: HTMLDivElement) => {
+      if (card.classList.contains('flipped')) return;
+
+      const duration = 5 + Math.random() * 5;
+      const delay = Math.random() * 2;
+      const translateY = 5 + Math.random() * 8;
+
+      const cardInner = card.querySelector('.card-inner');
+      if (cardInner) {
+        (cardInner as HTMLElement).style.animation = `floating ${duration}s ease-in-out ${delay}s infinite alternate`;
+      }
+    };
+
+    const flipCard = (card: HTMLDivElement, toBackSide: boolean) => {
+      const cardInner = card.querySelector('.card-inner');
+      const cardFront = card.querySelector('.card-front');
+      const cardBack = card.querySelector('.card-back');
+      const secretContent = card.querySelector('.secret-content');
+
+      const playFlipSound = () => {
+        if (!window.AudioContext && !(window as any).webkitAudioContext) return;
+        try {
+          const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+          const oscillator1 = audioContext.createOscillator();
+          const oscillator2 = audioContext.createOscillator();
+          const oscillator3 = audioContext.createOscillator();
+
+          oscillator1.type = 'sine';
+          oscillator1.frequency.setValueAtTime(480, audioContext.currentTime);
+          oscillator1.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + 0.5);
+
+          oscillator2.type = 'triangle';
+          oscillator2.frequency.setValueAtTime(520, audioContext.currentTime);
+          oscillator2.frequency.exponentialRampToValueAtTime(220, audioContext.currentTime + 0.7);
+
+          oscillator3.type = 'sine';
+          oscillator3.frequency.setValueAtTime(800, audioContext.currentTime);
+          oscillator3.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.3);
+
+          const gainNode1 = audioContext.createGain();
+          const gainNode2 = audioContext.createGain();
+          const gainNode3 = audioContext.createGain();
+
+          gainNode1.gain.setValueAtTime(0.04, audioContext.currentTime);
+          gainNode2.gain.setValueAtTime(0.02, audioContext.currentTime);
+          gainNode3.gain.setValueAtTime(0.015, audioContext.currentTime);
+
+          gainNode1.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+          gainNode2.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.7);
+          gainNode3.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+
+          const panner = audioContext.createStereoPanner();
+          panner.pan.setValueAtTime(-0.5, audioContext.currentTime);
+          panner.pan.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.6);
+
+          oscillator1.connect(gainNode1);
+          oscillator2.connect(gainNode2);
+          oscillator3.connect(gainNode3);
+
+          gainNode1.connect(panner);
+          gainNode2.connect(panner);
+          gainNode3.connect(panner);
+
+          panner.connect(audioContext.destination);
+
+          oscillator1.start();
+          oscillator2.start(audioContext.currentTime + 0.05);
+          oscillator3.start(audioContext.currentTime + 0.1);
+
+          oscillator1.stop(audioContext.currentTime + 0.5);
+          oscillator2.stop(audioContext.currentTime + 0.7);
+          oscillator3.stop(audioContext.currentTime + 0.3);
+        } catch (e) {}
+      };
+
+      const animateRunes = (card: HTMLDivElement) => {
+        const runes = card.querySelectorAll('.rune');
+        const centerX = 50;
+        const centerY = 50;
+        const radius = 35;
+
+        runes.forEach((rune, index) => {
+          const angle = (index / runes.length) * Math.PI * 2;
+          const randomRadius = radius - 5 + Math.random() * 10;
+          const x = centerX + Math.cos(angle) * randomRadius;
+          const y = centerY + Math.sin(angle) * randomRadius;
+
+          (rune as HTMLElement).style.transition = `all ${0.5 + Math.random() * 0.5}s ease-out`;
+          (rune as HTMLElement).style.left = `${x}%`;
+          (rune as HTMLElement).style.top = `${y}%`;
+
+          const rotation = Math.random() * 360;
+          (rune as HTMLElement).style.transform = `rotate(${rotation}deg)`;
+        });
+      };
+
+      const showSecretContent = (card: HTMLDivElement) => {
+        const secretContent = card.querySelector('.secret-content');
+        const secretIcon = card.querySelector('.secret-icon');
+        const secretTitle = card.querySelector('.secret-title');
+        const secretDescription = card.querySelector('.secret-description');
+        const secretButton = card.querySelector('.card-back .btn');
+        const runes = card.querySelectorAll('.rune');
+
+        if (secretContent) {
+          (secretContent as HTMLElement).style.opacity = '1';
+          (secretContent as HTMLElement).style.visibility = 'visible';
+          (secretContent as HTMLElement).style.display = 'flex';
+        }
+
+        if (secretIcon) {
+          (secretIcon as HTMLElement).style.opacity = '1';
+          (secretIcon as HTMLElement).style.visibility = 'visible';
+          (secretIcon as HTMLElement).style.display = 'block';
+          (secretIcon as HTMLElement).style.transform = 'scale(1)';
+        }
+
+        setTimeout(() => {
+          if (secretTitle) {
+            (secretTitle as HTMLElement).style.opacity = '1';
+            (secretTitle as HTMLElement).style.visibility = 'visible';
+            (secretTitle as HTMLElement).style.display = 'block';
+            (secretTitle as HTMLElement).style.transform = 'scale(1)';
+          }
+        }, 150);
+
+        setTimeout(() => {
+          if (secretDescription) {
+            (secretDescription as HTMLElement).style.opacity = '1';
+            (secretDescription as HTMLElement).style.visibility = 'visible';
+            (secretDescription as HTMLElement).style.display = 'block';
+            (secretDescription as HTMLElement).style.transform = 'translateY(0)';
+          }
+        }, 300);
+
+        setTimeout(() => {
+          if (secretButton) {
+            (secretButton as HTMLElement).style.opacity = '1';
+            (secretButton as HTMLElement).style.visibility = 'visible';
+            (secretButton as HTMLElement).style.display = 'block';
+            (secretButton as HTMLElement).style.transform = 'scale(1)';
+          }
+        }, 450);
+
+        if (runes.length > 0) {
+          runes.forEach((rune, index) => {
+            setTimeout(() => {
+              (rune as HTMLElement).style.opacity = '1';
+              (rune as HTMLElement).style.visibility = 'visible';
+            }, 100 * index);
+          });
+        }
+      };
+
+      playFlipSound();
+
+      if (toBackSide) {
+        card.style.zIndex = '100';
+        card.classList.add('flipped');
+
+        if (cardInner) (cardInner as HTMLElement).style.transform = 'rotateY(180deg)';
+        if (cardBack) {
+          (cardBack as HTMLElement).style.opacity = '1';
+          (cardBack as HTMLElement).style.visibility = 'visible';
+          (cardBack as HTMLElement).style.zIndex = '3';
+          (cardBack as HTMLElement).style.display = 'flex';
+        }
+        if (cardFront) {
+          (cardFront as HTMLElement).style.opacity = '0';
+          (cardFront as HTMLElement).style.visibility = 'hidden';
+          (cardFront as HTMLElement).style.zIndex = '0';
+        }
+        if (secretContent) {
+          (secretContent as HTMLElement).style.opacity = '0';
+          (secretContent as HTMLElement).style.visibility = 'hidden';
+          (secretContent as HTMLElement).style.display = 'none';
+        }
+
+        setTimeout(() => {
+          animateRunes(card);
+          showSecretContent(card);
+        }, 300);
+      } else {
+        card.classList.remove('flipped');
+
+        if (cardInner) (cardInner as HTMLElement).style.transform = 'rotateY(0deg)';
+        if (cardFront) {
+          (cardFront as HTMLElement).style.opacity = '1';
+          (cardFront as HTMLElement).style.visibility = 'visible';
+          (cardFront as HTMLElement).style.zIndex = '2';
+        }
+        if (cardBack) {
+          (cardBack as HTMLElement).style.opacity = '0';
+          (cardBack as HTMLElement).style.visibility = 'hidden';
+          (cardBack as HTMLElement).style.zIndex = '1';
+          (cardBack as HTMLElement).style.display = 'none';
+        }
+        if (secretContent) {
+          (secretContent as HTMLElement).style.opacity = '0';
+          (secretContent as HTMLElement).style.visibility = 'hidden';
+          (secretContent as HTMLElement).style.display = 'none';
+        }
+
+        setTimeout(() => {
+          card.style.zIndex = '';
+          applyFloatingAnimation(card);
+        }, 1000);
+      }
+
+      card.classList.add('flipping');
+      setTimeout(() => {
+        card.classList.remove('flipping');
+      }, 1000);
+    };
+
+    const createRipple = (e: MouseEvent | Touch, card: HTMLDivElement) => {
+      const rippleContainer = card.querySelector('.ripple-effect');
       const rect = card.getBoundingClientRect();
+
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
-      // Create ripple effect
+
       const ripple = document.createElement('div');
-      ripple.className = 'card-ripple';
+      ripple.className = 'ripple';
       ripple.style.left = `${x}px`;
       ripple.style.top = `${y}px`;
-      ripple.style.width = '0px';
-      ripple.style.height = '0px';
-      
-      card.appendChild(ripple);
-      
-      // Remove ripple after animation
+      ripple.style.background = `radial-gradient(circle at center, var(--glow, #7b00ff)40 0%, transparent 70%)`;
+
+      rippleContainer?.appendChild(ripple);
+
       setTimeout(() => {
-        ripple.remove();
-      }, 600);
-      
-      // Create magnetic particles
-      createMagneticParticles(card, x, y);
-    };
-    
-    const createMagneticParticles = (card, x, y) => {
-      const container = card.querySelector('.magnetic-particles');
-      if (!container) return;
-      
-      // Create multiple particles for better effect
-      for (let i = 0; i < 12; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'magnetic-particle';
-        
-        const angle = (i / 12) * Math.PI * 2;
-        const distance = 20 + Math.random() * 30;
-        const particleX = x + Math.cos(angle) * distance;
-        const particleY = y + Math.sin(angle) * distance;
-        
-        particle.style.left = `${particleX}px`;
-        particle.style.top = `${particleY}px`;
-        particle.style.animationDelay = `${i * 0.05}s`;
-        particle.style.animationDuration = `${2 + Math.random()}s`;
-        
-        // Add color variation
-        const colors = ['#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-        const randomColor = colors[Math.floor(Math.random() * colors.length)];
-        particle.style.background = randomColor;
-        particle.style.boxShadow = `0 0 10px ${randomColor}`;
-        
-        container.appendChild(particle);
-        
+        ripple.style.transition = 'all 1s ease';
+        ripple.style.transform = 'scale(3)';
+        ripple.style.opacity = '0';
         setTimeout(() => {
-          if (particle.parentNode) {
-            particle.remove();
-          }
-        }, 3000);
+          ripple.remove();
+        }, 1000);
+      }, 10);
+    };
+
+    const createMagneticParticles = (card: HTMLDivElement, color: string) => {
+      const magneticParticles = card.querySelector('.magnetic-particles');
+      if (!magneticParticles) return;
+
+      magneticParticles.innerHTML = '';
+      const particleCount = 50;
+
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('magnetic-particle');
+
+        const posX = Math.random() * 100;
+        const posY = Math.random() * 100;
+        const size = 1 + Math.random() * 4;
+        const opacity = 0.1 + Math.random() * 0.3;
+        const blur = 1 + Math.random() * 2;
+
+        particle.style.left = `${posX}%`;
+        particle.style.top = `${posY}%`;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.opacity = `${opacity}`;
+        particle.style.backgroundColor = color;
+        particle.style.boxShadow = `0 0 ${blur}px ${blur}px ${color}`;
+        particle.style.animation = `pulsate ${1 + Math.random() * 2}s infinite alternate`;
+        particle.style.animationDelay = `${Math.random() * 2}s`;
+
+        magneticParticles.appendChild(particle);
       }
     };
-    
-    // Add ambient particles that float around cards
-    const createAmbientParticles = (card) => {
-      const container = card.querySelector('.magnetic-particles');
-      if (!container) return;
-      
-      // Create ambient floating particles
-      for (let i = 0; i < 6; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'magnetic-particle';
-        particle.style.left = `${Math.random() * 100}%`;
-        particle.style.top = `${Math.random() * 100}%`;
-        particle.style.animationDelay = `${Math.random() * 3}s`;
-        particle.style.animationDuration = `${3 + Math.random() * 2}s`;
-        particle.style.opacity = '0.3';
-        
-        container.appendChild(particle);
-        
-        setTimeout(() => {
-          if (particle.parentNode) {
-            particle.remove();
-          }
-        }, 5000);
+
+    const handleReflectiveTexture = (e: MouseEvent | Touch, card: HTMLDivElement) => {
+      if (card.classList.contains('flipped')) return;
+
+      const rect = card.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const normalizedX = mouseX / rect.width;
+      const normalizedY = mouseY / rect.height;
+
+      const highlight = card.querySelector('.highlight');
+      if (highlight) {
+        (highlight as HTMLElement).style.opacity = `${0.2 + Math.abs(normalizedX * normalizedY) * 0.3}`;
+        (highlight as HTMLElement).style.background = `radial-gradient(
+          circle at ${normalizedX * 100}% ${normalizedY * 100}%,
+          rgba(255, 255, 255, 0.8) 0%,
+          rgba(255, 255, 255, 0.1) 30%,
+          transparent 60%
+        )`;
+        (highlight as HTMLElement).style.mixBlendMode = 'overlay';
+        const reflectionSize = 60 - Math.abs(normalizedX * normalizedY) * 20;
+        (highlight as HTMLElement).style.transform = `translate(-50%, -50%) scale(${1 + Math.abs(normalizedX * normalizedY)})`;
       }
     };
-    
-    cards.forEach(card => {
-      // Set initial card color from style attribute
-      const cardColor = card.style.getPropertyValue('--card-color') || '#a855f7';
-      
-      card.addEventListener('mousemove', (e) => handleMouseMove(e, card));
-      card.addEventListener('mouseleave', () => handleMouseLeave(card));
-      card.addEventListener('click', (e) => handleClick(e, card));
-      
-      // Add mouseenter for immediate particle generation
-      card.addEventListener('mouseenter', () => {
-        createAmbientParticles(card);
+
+    cards.forEach((card, index) => {
+      if (!card) return;
+
+      const color = card.getAttribute('data-color') || '#7b00ff';
+      const icon = card.querySelector('.icon');
+      const frontBtn = card.querySelector('.card-front .btn');
+      const runes = card.querySelectorAll('.rune');
+
+      card.style.setProperty('--glow', color);
+      if (icon) (icon as HTMLElement).style.setProperty('--icon-color', color);
+      if (frontBtn) (frontBtn as HTMLElement).style.setProperty('--btn-color', color);
+      runes.forEach(rune => {
+        (rune as HTMLElement).style.color = color;
       });
-      
-      // Generate ambient particles periodically when hovered
-      let particleInterval;
-      card.addEventListener('mouseenter', () => {
-        createAmbientParticles(card);
-        particleInterval = setInterval(() => {
-          if (card.matches(':hover')) {
-            createAmbientParticles(card);
-          }
-        }, 2000);
+
+      createMagneticParticles(card, color);
+      applyFloatingAnimation(card);
+
+      card.addEventListener('mousemove', (e) => {
+        handleCardMouseMove(e, card);
+        handleReflectiveTexture(e, card);
+        createRipple(e, card);
       });
-      
+
       card.addEventListener('mouseleave', () => {
-        if (particleInterval) {
-          clearInterval(particleInterval);
-        }
+        resetCardEffects(card);
+      });
+
+      card.addEventListener('touchmove', (e) => {
+        if (card.classList.contains('flipped')) return;
+        const touch = e.touches[0];
+        handleCardMouseMove(touch, card);
+        handleReflectiveTexture(touch, card);
+        createRipple(touch, card);
+        e.preventDefault();
+      });
+
+      card.addEventListener('touchend', () => {
+        if (card.classList.contains('flipped')) return;
+        resetCardEffects(card);
       });
     });
-    
+
     return () => {
       cards.forEach(card => {
-        card.removeEventListener('mousemove', handleMouseMove);
-        card.removeEventListener('mouseleave', handleMouseLeave);
-        card.removeEventListener('click', handleClick);
+        if (!card) return;
+        card.removeEventListener('mousemove', handleCardMouseMove as any);
+        card.removeEventListener('mouseleave', resetCardEffects as any);
+        card.removeEventListener('touchmove', handleCardMouseMove as any);
+        card.removeEventListener('touchend', resetCardEffects as any);
       });
     };
   }, []);
 
-  const categories = [
-    { id: 'all', name: 'All Topics', icon: Globe },
-    { id: 'general', name: 'General', icon: Camera },
-    { id: 'technical', name: 'Technical', icon: Settings },
-    { id: 'features', name: 'Features', icon: Zap },
-    { id: 'customization', name: 'Customization', icon: Palette },
-    { id: 'professional', name: 'Professional', icon: Award }
-  ];
+  const addClickEffect = (button: HTMLButtonElement, card: HTMLDivElement) => {
+    const ripple = document.createElement('div');
+    ripple.className = 'button-ripple';
+    button.appendChild(ripple);
 
-  const faqData = [
-    {
-      id: 1,
-      category: 'general',
-      question: 'What is PhotoSphere photobooth software?',
-      answer: 'PhotoSphere is a revolutionary 3D photobooth display platform that transforms how event photos are shared and experienced. Unlike traditional photobooths that print or display static images, PhotoSphere creates an immersive 3D environment where uploaded photos float, wave, and spiral in real-time.',
-      icon: Camera
-    },
-    {
-      id: 2,
-      category: 'general',
-      question: 'Is PhotoSphere free photobooth software?',
-      answer: 'PhotoSphere offers various pricing tiers to accommodate different needs. While we don\'t offer a completely free version, we provide a 14-day free trial that includes all Pro features so you can test everything before committing. Our starter plan is extremely affordable and includes all core features like 3D displays, real-time uploads, and basic customization.',
-      icon: Award
-    },
-    {
-      id: 3,
-      category: 'technical',
-      question: 'Does PhotoSphere work with DSLR cameras?',
-      answer: 'Yes! PhotoSphere supports photos from any source, including professional DSLR cameras. You can upload high-quality images in large batches, whether they\'re from DSLRs, mirrorless cameras, or smartphones. The platform automatically optimizes photos for the 3D display while maintaining quality.',
-      icon: Camera
-    },
-    {
-      id: 4,
-      category: 'technical',
-      question: 'Can I use PhotoSphere with my existing photobooth equipment?',
-      answer: 'Absolutely! PhotoSphere is designed to complement, not replace, your existing photobooth setup. Use your professional cameras and lighting for capturing high-quality photos, then upload them to PhotoSphere for the stunning 3D display.',
-      icon: Settings
-    },
-    {
-      id: 5,
-      category: 'features',
-      question: 'What\'s the best way to display photobooth pictures with PhotoSphere?',
-      answer: 'PhotoSphere offers multiple stunning display options: 3D Floating (photos float gently with realistic physics), Wave Animation (beautiful wave patterns), Spiral Display (dynamic spiral formations), Orbit Patterns (rotation around central points), and Custom Arrangements (design your own layouts).',
-      icon: Monitor
-    },
-    {
-      id: 6,
-      category: 'features',
-      question: 'Can I add overlays and graphics to photos?',
-      answer: 'Yes! PhotoSphere supports multiple types of overlays: logo overlays with transparency support, text overlays for event names and hashtags, frame overlays for borders, sponsor graphics, social media elements, and custom graphics for themed events. All overlays can be positioned, resized, and layered.',
-      icon: Palette
-    },
-    {
-      id: 7,
-      category: 'customization',
-      question: 'Can PhotoSphere be fully branded for my business?',
-      answer: 'Yes! PhotoSphere offers comprehensive branding options: custom logos with transparency support, brand colors throughout the interface, custom overlays for additional branding elements, themed environments that match your brand aesthetic, white-label options for professional event companies, and custom domain support.',
-      icon: Palette
-    },
-    {
-      id: 8,
-      category: 'features',
-      question: 'Can I record or export the 3D display?',
-      answer: 'Yes! PhotoSphere includes a built-in screen recording feature that lets you capture the live 3D display directly from the platform. You can also use external recording software like OBS Studio, Zoom, Loom, or built-in OS tools to create highlight reels and social media content.',
-      icon: Zap
-    },
-    {
-      id: 9,
-      category: 'features',
-      question: 'How do I prevent inappropriate photos from appearing?',
-      answer: 'PhotoSphere includes comprehensive moderation tools: pre-approval mode to review all photos before they appear, real-time monitoring to watch uploads as they happen, quick removal to delete inappropriate content instantly, bulk actions to manage multiple photos efficiently, and activity logs to track all moderation actions.',
-      icon: Shield
-    },
-    {
-      id: 10,
-      category: 'professional',
-      question: 'Is PhotoSphere suitable for professional event photographers?',
-      answer: 'Absolutely! Many professional photographers use PhotoSphere to showcase work in real-time during events, engage clients with interactive displays, differentiate services with unique 3D presentations, upload batches of professional photos efficiently, and provide added value beyond traditional photography packages.',
-      icon: Award
-    },
-    {
-      id: 11,
-      category: 'professional', 
-      question: 'How do I make more money with my photobooth business?',
-      answer: 'PhotoSphere helps photobooth businesses increase revenue in multiple ways: charge premium rates for unique 3D experiences ($200-500+ more per event), offer it as an exclusive add-on service, create recurring revenue with venue partnerships, attract higher-end corporate clients who want cutting-edge technology, and increase booking frequency through social media buzz and word-of-mouth from the "wow factor" of 3D displays.',
-      icon: Award
-    }
-  ];
+    ripple.style.position = 'absolute';
+    ripple.style.top = '50%';
+    ripple.style.left = '50%';
+    ripple.style.width = '150%';
+    ripple.style.height = '150%';
+    ripple.style.transform = 'translate(-50%, -50%) scale(0)';
+    ripple.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+    ripple.style.borderRadius = '50%';
+    ripple.style.zIndex = '-1';
+    ripple.style.animation = 'button-ripple 0.6s cubic-bezier(0.1, 0.7, 0.3, 1) forwards';
 
-  const toggleItem = (id) => {
-    const newOpenItems = new Set(openItems);
-    if (newOpenItems.has(id)) {
-      newOpenItems.delete(id);
-    } else {
-      newOpenItems.add(id);
-    }
-    setOpenItems(newOpenItems);
+    const pulseBorder = document.createElement('div');
+    pulseBorder.className = 'card-pulse';
+    card.appendChild(pulseBorder);
+
+    pulseBorder.style.position = 'absolute';
+    pulseBorder.style.inset = '-10px';
+    pulseBorder.style.borderRadius = '25px';
+    pulseBorder.style.boxShadow = `0 0 20px 10px ${card.getAttribute('data-color') || '#7b00ff'}`;
+    pulseBorder.style.opacity = '0';
+    pulseBorder.style.animation = 'card-pulse-animation 0.8s ease-out forwards';
+    pulseBorder.style.zIndex = '0';
+    pulseBorder.style.pointerEvents = 'none';
+
+    setTimeout(() => {
+      ripple.remove();
+      pulseBorder.remove();
+    }, 800);
   };
 
-  const filteredFAQs = faqData.filter(item => {
-    const matchesSearch = item.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.answer.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const flipCard = (card: HTMLDivElement, toBackSide: boolean) => {
+    const cardInner = card.querySelector('.card-inner');
+    const cardFront = card.querySelector('.card-front');
+    const cardBack = card.querySelector('.card-back');
+    const secretContent = card.querySelector('.secret-content');
 
-  // Handle theme changes from HeroScene
-  const handleThemeChange = (newTheme: typeof PARTICLE_THEMES[0]) => {
-    setParticleTheme(newTheme);
+    if (toBackSide) {
+      card.style.zIndex = '100';
+      card.classList.add('flipped');
+
+      if (cardInner) (cardInner as HTMLElement).style.transform = 'rotateY(180deg)';
+      if (cardBack) {
+        (cardBack as HTMLElement).style.opacity = '1';
+        (cardBack as HTMLElement).style.visibility = 'visible';
+        (cardBack as HTMLElement).style.zIndex = '3';
+        (cardBack as HTMLElement).style.display = 'flex';
+      }
+      if (cardFront) {
+        (cardFront as HTMLElement).style.opacity = '0';
+        (cardFront as HTMLElement).style.visibility = 'hidden';
+        (cardFront as HTMLElement).style.zIndex = '0';
+      }
+      if (secretContent) {
+        setTimeout(() => {
+          (secretContent as HTMLElement).style.opacity = '1';
+          (secretContent as HTMLElement).style.visibility = 'visible';
+          (secretContent as HTMLElement).style.display = 'flex';
+        }, 300);
+      }
+    } else {
+      card.classList.remove('flipped');
+
+      if (cardInner) (cardInner as HTMLElement).style.transform = 'rotateY(0deg)';
+      if (cardFront) {
+        (cardFront as HTMLElement).style.opacity = '1';
+        (cardFront as HTMLElement).style.visibility = 'visible';
+        (cardFront as HTMLElement).style.zIndex = '2';
+      }
+      if (cardBack) {
+        (cardBack as HTMLElement).style.opacity = '0';
+        (cardBack as HTMLElement).style.visibility = 'hidden';
+        (cardBack as HTMLElement).style.zIndex = '1';
+        (cardBack as HTMLElement).style.display = 'none';
+      }
+      if (secretContent) {
+        (secretContent as HTMLElement).style.opacity = '0';
+        (secretContent as HTMLElement).style.visibility = 'hidden';
+        (secretContent as HTMLElement).style.display = 'none';
+      }
+
+      setTimeout(() => {
+        card.style.zIndex = '';
+      }, 1000);
+    }
+
+    card.classList.add('flipping');
+    setTimeout(() => {
+      card.classList.remove('flipping');
+    }, 1000);
   };
-
-  useEffect(() => {
-    // Add comprehensive JSON-LD structured data for SEO
-    const structuredData = {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": faqData.map(item => ({
-        "@type": "Question",
-        "name": item.question,
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": item.answer
-        }
-      })),
-      "about": {
-        "@type": "SoftwareApplication",
-        "name": "PhotoSphere",
-        "applicationCategory": "BusinessApplication",
-        "operatingSystem": "Web Browser",
-        "description": "3D photobooth software for events with real-time photo displays, DSLR support, and professional features",
-        "offers": {
-          "@type": "Offer",
-          "name": "14-day free trial",
-          "description": "Try all Pro features free for 14 days"
-        }
-      },
-      "publisher": {
-        "@type": "Organization", 
-        "name": "PhotoSphere",
-        "url": "https://photosphere.com"
-      }
-    };
-
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.text = JSON.stringify(structuredData);
-    document.head.appendChild(script);
-
-    // Set comprehensive SEO meta tags
-    document.title = 'FAQ - PhotoSphere 3D Photobooth Software | Everything You Need to Know';
-    
-    // Meta description optimized for search and AI
-    const metaDescription = document.querySelector('meta[name="description"]');
-    const descriptionContent = 'Complete FAQ for PhotoSphere 3D photobooth software. Learn about DSLR compatibility, virtual photobooths, pricing, free trial, professional features, branding options, and how to increase photobooth business revenue.';
-    if (metaDescription) {
-      metaDescription.setAttribute('content', descriptionContent);
-    } else {
-      const meta = document.createElement('meta');
-      meta.name = 'description';
-      meta.content = descriptionContent;
-      document.head.appendChild(meta);
-    }
-
-    // Add keywords meta tag for additional SEO
-    const metaKeywords = document.querySelector('meta[name="keywords"]');
-    const keywordsContent = 'photobooth software FAQ, 3D photobooth, virtual photobooth, DSLR photobooth, free photobooth software, photobooth display, event photography software, photobooth business revenue, 14 day free trial, professional photobooth features';
-    if (metaKeywords) {
-      metaKeywords.setAttribute('content', keywordsContent);
-    } else {
-      const keywordsMeta = document.createElement('meta');
-      keywordsMeta.name = 'keywords';
-      keywordsMeta.content = keywordsContent;
-      document.head.appendChild(keywordsMeta);
-    }
-
-    // Add Open Graph tags for social sharing
-    const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (!ogTitle) {
-      const ogTitleMeta = document.createElement('meta');
-      ogTitleMeta.setAttribute('property', 'og:title');
-      ogTitleMeta.content = 'PhotoSphere FAQ - Complete Guide to 3D Photobooth Software';
-      document.head.appendChild(ogTitleMeta);
-    }
-
-    const ogDescription = document.querySelector('meta[property="og:description"]');
-    if (!ogDescription) {
-      const ogDescMeta = document.createElement('meta');
-      ogDescMeta.setAttribute('property', 'og:description');
-      ogDescMeta.content = descriptionContent;
-      document.head.appendChild(ogDescMeta);
-    }
-
-    // Add Twitter Card tags
-    const twitterCard = document.querySelector('meta[name="twitter:card"]');
-    if (!twitterCard) {
-      const twitterMeta = document.createElement('meta');
-      twitterMeta.name = 'twitter:card';
-      twitterMeta.content = 'summary_large_image';
-      document.head.appendChild(twitterMeta);
-    }
-
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, []);
 
   return (
     <Layout>
-      {/* Particle Background - covers entire page */}
-      <LandingParticleBackground particleTheme={particleTheme} />
+      <ErrorBoundary>
+        <div className="relative min-h-screen bg-gradient-to-b from-[#070b24] to-[#030610] overflow-hidden">
+          {theme ? <LandingParticleBackground theme={theme} /> : null}
+          <div className="relative z-10">
+            <header className="text-center mb-8 px-4">
+              <h1 className="font-orbitron text-5xl font-extrabold uppercase tracking-wide bg-gradient-to-r from-[#e6ccff] via-[#7b00ff] to-[#9966ff] bg-clip-text text-transparent drop-shadow-[0_0_5px_rgba(123,0,255,0.4)]">
+                Frequently Asked <span className="block text-6xl animate-text-glow">Questions</span>
+              </h1>
+              <p className="text-lg max-w-2xl mx-auto text-white/80">
+                Hover over the cards and click to reveal the answers
+              </p>
+            </header>
 
-      {/* All content sections with proper z-index */}
-      <div className="relative z-[5]">
-        {/* Hero Section with WebGL Background */}
-        <div className="relative overflow-hidden min-h-[70vh] flex items-center">
-          {/* WebGL Scene Background */}
-          <div 
-            className="absolute inset-0 w-full h-full z-[10]" 
-            style={{ 
-              pointerEvents: 'auto',
-              touchAction: 'pan-x pan-y'
-            }}
-          >
-            <HeroScene onThemeChange={handleThemeChange} />
-          </div>
-          
-          {/* Hero Content */}
-          <div className="relative z-[20] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32 pointer-events-none">
-            <div className="text-center lg:text-left lg:w-1/2">
-              {/* Abstract diffused gradient overlay behind text */}
-              <div className="relative">
-                <div className="absolute -inset-8 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
-                <div className="absolute -inset-4 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
-                <div className="absolute -inset-2 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
-                
-                <div className="relative">
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-                    <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
-                      Frequently Asked
-                    </span>
-                    <span className="block drop-shadow-lg">Questions</span>
-                  </h1>
-                  
-                  <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg">
-                    Everything you need to know about PhotoSphere's revolutionary 3D photobooth platform. 
-                    Find answers about compatibility, features, pricing, and setup.
-                  </p>
-                  
-                  <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 pointer-events-auto">
-                    <button
-                      onClick={() => setIsDemoModalOpen(true)}
-                      className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
-                    >
-                      Request Demo
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </button>
+            <div className="flex justify-center items-center flex-wrap gap-12 p-8 max-w-7xl mx-auto perspective-[3000px] transform-style-3d" ref={cardsContainerRef}>
+              {faqs.map((faq, index) => (
+                <div
+                  key={index}
+                  className="card relative w-80 h-[450px] bg-[rgba(15,20,54,0.7)] rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5),0_0_10px_var(--glow,rgba(123,0,255,0.3))] backdrop-blur-md transition-all duration-600 ease-[cubic-bezier(0.23,1,0.32,1)] transform-style-3d z-1 perspective-[1500px] cursor-pointer border border-[rgba(123,0,255,0.3)]"
+                  data-color={faq.color}
+                  data-card-id={`card-${index + 1}`}
+                  ref={(el) => (cardRefs.current[index] = el)}
+                  onClick={(e) => {
+                    const card = cardRefs.current[index];
+                    if (card && !(e.target as HTMLElement).closest('.btn')) {
+                      const isFlipped = card.classList.contains('flipped');
+                      flipCard(card, !isFlipped);
+                    }
+                  }}
+                >
+                  <div className="card-inner relative w-full h-full transition-transform duration-800 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] transform-style-3d rounded-3xl">
+                    <div className="card-front absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 box-border z-2">
+                      <div className="card-glow absolute w-full h-full rounded-3xl z-[-1] opacity-0 bg-[radial-gradient(circle_at_var(--mouse-x,50%)_var(--mouse-y,50%),var(--glow,#7b00ff)_0%,transparent_70%)] blur-5xl transition-opacity duration-300 pointer-events-none animate-[pulse-glow_2s_ease-in-out_infinite_alternate]" />
+                      <div className="highlight absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/5 h-3/5 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0.2)_30%,transparent_70%)] opacity-0 rounded-full pointer-events-none mix-blend-overlay z-1 transition-opacity duration-300 blur-[10px]" />
+                      <div className="edge-glow absolute -inset-1.5 rounded-[25px] border-2 border-[var(--glow,#7b00ff)] bg-[linear-gradient(135deg,var(--glow,#7b00ff),transparent_70%)] [mask:linear-gradient(#fff_0_0)_padding-box,linear-gradient(#fff_0_0)] [-webkit-mask-composite:xor] [mask-composite:exclude] z-0 opacity-50 blur-sm transition-opacity duration-300 animate-[pulse-edge_2s_ease-in-out_infinite] shadow-[0_0_15px_5px_var(--glow,rgba(123,0,255,0.4))]" />
+                      <div className="ripple-effect absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-11 opacity-0 transition-opacity duration-300" />
+                      <div className="magnetic-particles absolute inset-0 rounded-3xl overflow-hidden z-1 pointer-events-none mix-blend-screen" />
+                      <div className="card-content relative flex flex-col justify-center items-center p-8 h-full text-center z-10 pointer-events-auto">
+                        <faq.icon className="text-5xl mb-6 text-[var(--icon-color,var(--glow,#7b00ff))] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[icon-glow_2s_ease-in-out_infinite_alternate]" />
+                        <h2 className="font-orbitron text-2xl mb-4 bg-gradient-to-r from-white to-[var(--glow,#7b00ff)] bg-clip-text text-transparent drop-shadow-[0_0_5px_var(--glow,rgba(123,0,255,0.3))] animate-[title-glow_3s_ease-in-out_infinite_alternate]">
+                          {faq.question}
+                        </h2>
+                        <p className="text-base leading-relaxed mb-8 text-white/90">
+                          Click to reveal the answer
+                        </p>
+                        <button
+                          className="btn flip-btn relative inline-block px-8 py-3 bg-[rgba(10,10,20,0.6)] text-white border-2 border-[var(--glow,rgba(123,0,255,0.5))] rounded-[30px] font-orbitron text-sm font-semibold uppercase tracking-wide overflow-hidden cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1.2)] shadow-[0_0_15px_rgba(0,0,0,0.3),0_0_10px_var(--glow,rgba(123,0,255,0.3))] backdrop-blur-sm outline-none z-50"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const card = cardRefs.current[index];
+                            if (card) {
+                              addClickEffect(e.currentTarget, card);
+                              setTimeout(() => flipCard(card, true), 300);
+                            }
+                          }}
+                        >
+                          Discover Answer
+                        </button>
+                      </div>
+                    </div>
+                    <div className="card-back absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 box-border bg-[linear-gradient(135deg,rgba(0,10,30,0.8)_0%,rgba(0,10,40,0.9)_100%)] z-1">
+                      <div className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 border-[var(--glow,rgba(123,0,255,0.3))] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 shadow-[0_0_20px_var(--glow,rgba(123,0,255,0.3)),inset_0_0_20px_var(--glow,rgba(123,0,255,0.2))] opacity-70 pointer-events-none" />
+                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '30%', left: '30%' }}>✧</div>
+                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '25%', left: '70%' }}>⦿</div>
+                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '70%', left: '35%' }}>⚝</div>
+                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '65%', left: '75%' }}>⚜</div>
+                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '50%', left: '85%' }}>✴</div>
+                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '15%', left: '50%' }}>⚹</div>
+                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '75%', left: '55%' }}>⦾</div>
+                      <div className="secret-content absolute top-1/2 left-1/2 w-4/5 -translate-x-1/2 -translate-y-1/2 opacity-0 invisible transition-all duration-500 flex flex-col items-center justify-center text-center p-0 z-5 pointer-events-auto">
+                        <faq.icon className="secret-icon text-4xl mb-2 text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.5))] transition-all duration-500" />
+                        <h2 className="secret-title font-orbitron text-2xl font-bold mb-2 text-white bg-gradient-to-r from-white to-[var(--glow,#7b00ff)] bg-clip-text text-transparent drop-shadow-[0_0_5px_var(--glow,rgba(123,0,255,0.3))] text-center w-full transition-all duration-500">
+                          {faq.question}
+                        </h2>
+                        <p className="secret-description text-sm leading-relaxed mb-5 text-white/90 text-center w-full max-w-[90%]">
+                          {faq.answer}
+                        </p>
+                        <button
+                          className="btn flip-btn bg-[var(--glow,rgba(123,0,255,0.7))] text-white border-2 border-[rgba(255,255,255,0.3)] px-6 py-3 rounded-[30px] font-orbitron uppercase font-bold tracking-wide cursor-pointer shadow-[0_0_15px_var(--glow,rgba(123,0,255,0.5))] transition-all duration-300"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const card = cardRefs.current[index];
+                            if (card) {
+                              addClickEffect(e.currentTarget, card);
+                              setTimeout(() => flipCard(card, false), 300);
+                            }
+                          }}
+                        >
+                          Return
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Quick Stats */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-[20] pointer-events-none">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-purple-400 mb-1">500+</div>
-                <div className="text-sm text-gray-400">Photos Per Event</div>
-              </div>
-              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-blue-400 mb-1">&lt;1s</div>
-                <div className="text-sm text-gray-400">Real-time Display</div>
-              </div>
-              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-green-400 mb-1">∞</div>
-                <div className="text-sm text-gray-400">Simultaneous Users</div>
-              </div>
-              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-yellow-400 mb-1">0</div>
-                <div className="text-sm text-gray-400">Hardware Required</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* FAQ Content Section */}
-        <div className="relative z-10 py-20 bg-gradient-to-b from-black/10 to-black/30">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Search Bar */}
-            <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-            
-            {/* Category Filters */}
-            <CategoryFilter 
-              categories={categories} 
-              activeCategory={activeCategory} 
-              onCategoryChange={setActiveCategory} 
-            />
-
-            {/* FAQ Items */}
-            <div className="space-y-4 mb-20">
-              {filteredFAQs.map((item) => (
-                <FAQItem
-                  key={item.id}
-                  question={item.question}
-                  answer={item.answer}
-                  icon={item.icon}
-                  isOpen={openItems.has(item.id)}
-                  onToggle={() => toggleItem(item.id)}
-                />
               ))}
             </div>
 
-            {/* No Results */}
-            {filteredFAQs.length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-24 h-24 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-xl border border-purple-500/30">
-                  <Search className="w-12 h-12 text-white/70" />
-                </div>
-                <h3 className="text-2xl font-semibold text-white mb-3">No results found</h3>
-                <p className="text-gray-400 mb-6">Try adjusting your search terms or category filter.</p>
-                <LiquidButton onClick={() => { setSearchTerm(''); setActiveCategory('all'); }}>
-                  Clear Filters
-                </LiquidButton>
-              </div>
-            )}
-
-            {/* Who Can Use PhotoSphere Section - ENHANCED */}
-            <div className="mb-20 relative">
-              {/* Animated background elements */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-10 left-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-20 right-20 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl animate-pulse delay-1000"></div>
-                <div className="absolute top-1/2 left-1/3 w-16 h-16 bg-pink-500/10 rounded-full blur-xl animate-pulse delay-2000"></div>
-              </div>
-
-              <div className="text-center mb-16 relative">
-                <div className="inline-block mb-6">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 blur-3xl animate-pulse"></div>
-                    <h2 className="relative text-5xl md:text-6xl font-bold text-white mb-4">
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 animate-gradient-x">
-                        Who Can Use PhotoSphere?
-                      </span>
-                    </h2>
-                  </div>
-                </div>
-                <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
-                  <span className="text-white font-semibold">Anyone can create magic</span> ✨ From intimate gatherings to massive festivals, 
-                  discover how different industries transform ordinary events into <span className="text-purple-400 font-semibold">extraordinary 3D experiences</span>.
-                </p>
-                
-                {/* Floating icons animation */}
-                <div className="relative mt-8 h-16">
-                  <div className="absolute inset-0 flex justify-center items-center space-x-8">
-                    <div className="animate-float-1 opacity-60">
-                      <Camera className="w-8 h-8 text-purple-400" />
-                    </div>
-                    <div className="animate-float-2 opacity-60">
-                      <Users className="w-8 h-8 text-blue-400" />
-                    </div>
-                    <div className="animate-float-3 opacity-60">
-                      <Sparkles className="w-8 h-8 text-pink-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced Use Cases Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-16">
-                {/* Photobooth Business - PREMIUM SPOTLIGHT */}
-                <div className="group relative bg-gradient-to-br from-purple-900/30 to-pink-900/30 backdrop-blur-xl border-2 border-purple-500/50 rounded-3xl p-8 hover:border-purple-400 transition-all duration-500 hover:scale-110 hover:shadow-2xl hover:shadow-purple-500/25 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="absolute top-4 right-4 bg-gradient-to-r from-yellow-400 to-orange-400 text-black text-xs font-bold px-3 py-1 rounded-full transform rotate-12 animate-pulse">
-                    💰 HIGH ROI
-                  </div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-125 group-hover:rotate-12 transition-all duration-500 shadow-lg">
-                      <Camera className="w-10 h-10 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-purple-300 transition-colors">Photobooth Business</h3>
-                    <p className="text-gray-300 leading-relaxed mb-4">
-                      🚀 <strong>Charge premium rates</strong> with unique 3D experiences. Perfect add-on service that differentiates your business and increases revenue per event.
-                    </p>
-                    <div className="text-sm text-purple-300 font-semibold">
-                      💸 $200-500+ more per event
-                    </div>
-                  </div>
-                </div>
-
-                {/* Corporate Events */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-blue-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-cyan-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-500 shadow-lg">
-                      <Users className="w-10 h-10 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-blue-300 transition-colors">Corporate Events</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      🏢 Conferences, product launches, team building. Add professional branding and create networking experiences that employees remember.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Family Events */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-green-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-green-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-green-600/5 to-emerald-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-lg">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-green-300 transition-colors">Family Events</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      💕 Weddings, reunions, anniversaries. Create magical moments that bring families together and preserve memories in stunning 3D displays.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Birthdays */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-yellow-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-yellow-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-600/5 to-orange-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:-rotate-12 transition-all duration-500 shadow-lg">
-                      <Sparkles className="w-10 h-10 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-yellow-300 transition-colors">Birthdays & Parties</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      🎉 Make any celebration unforgettable. From kids' parties to milestone birthdays, guests love seeing their photos come alive in 3D.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Bands & Musicians */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-red-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-red-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-red-600/5 to-pink-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-red-600 to-pink-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-12 transition-all duration-500 shadow-lg">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-red-300 transition-colors">Bands & Musicians</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      🎵 Concerts, gigs, album launches. Fans share photos that create stunning visual backdrops, adding energy to your performances.
-                    </p>
-                  </div>
-                </div>
-
-                {/* DJ/VJ's */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-indigo-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/5 to-purple-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-500 shadow-lg">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-indigo-300 transition-colors">DJ/VJ's</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      🎧 Add visual storytelling to your sets. Create immersive experiences where crowd photos become part of your visual performance.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Entertainers */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-teal-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-teal-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-teal-600/5 to-cyan-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-lg">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1M12 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-teal-300 transition-colors">Entertainers</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      🎭 Magicians, comedians, performers. Engage your audience with interactive displays that make them part of the show.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Festivals */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-orange-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-orange-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-orange-600/5 to-red-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:-rotate-12 transition-all duration-500 shadow-lg">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-orange-300 transition-colors">Festivals</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      🎪 Music festivals, art shows, food festivals. Create massive community displays on big screens and projectors for shared experiences.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Additional cards with similar enhancements... */}
-                {/* Retail & Business */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-violet-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-violet-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 to-purple-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-lg">
-                      <Monitor className="w-10 h-10 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-violet-300 transition-colors">Retail & Business</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      🛍️ Store openings, promotions, trade shows. Customer photos with your products create organic marketing and memorable brand experiences.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Event Planners */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-emerald-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-emerald-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-teal-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-500 shadow-lg">
-                      <Settings className="w-10 h-10 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-emerald-300 transition-colors">Event Planners</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      📋 Offer clients something unique that sets your events apart. Easy add-on service that increases your value and client satisfaction.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Venues */}
-                <div className="group relative bg-black/30 backdrop-blur-xl border border-white/20 rounded-3xl p-8 hover:bg-black/40 hover:border-rose-500/50 transition-all duration-500 hover:scale-105 hover:shadow-xl hover:shadow-rose-500/20 transform-gpu">
-                  <div className="absolute inset-0 bg-gradient-to-br from-rose-600/5 to-pink-600/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="relative">
-                    <div className="w-20 h-20 bg-gradient-to-r from-rose-600 to-pink-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-12 transition-all duration-500 shadow-lg">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-rose-300 transition-colors">Venues & Restaurants</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      🍽️ Create unique attractions that bring customers back. Perfect for special events, themed nights, and generating social media buzz.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced Bottom CTA with Animation */}
-              <div className="text-center relative">
-                <div className="relative bg-gradient-to-br from-purple-900/40 to-blue-900/40 backdrop-blur-xl border-2 border-purple-500/30 rounded-3xl p-12 hover:border-purple-400/50 transition-all duration-500 overflow-hidden">
-                  {/* Animated background patterns */}
-                  <div className="absolute inset-0 opacity-10">
-                    <div className="absolute top-0 left-0 w-32 h-32 bg-purple-500 rounded-full blur-3xl animate-pulse"></div>
-                    <div className="absolute bottom-0 right-0 w-40 h-40 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000"></div>
-                  </div>
-                  
-                  <div className="relative z-10">
-                    <div className="inline-block mb-6">
-                      <div className="animate-bounce">
-                        <Sparkles className="w-12 h-12 text-yellow-400 mx-auto" />
-                      </div>
-                    </div>
-                    <h3 className="text-4xl font-bold text-white mb-6">
-                      Ready to Transform Your Events?
-                    </h3>
-                    <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-                      No matter what type of events you host or what industry you're in, PhotoSphere adapts to your needs. 
-                      Join <span className="text-purple-400 font-bold">thousands of event professionals</span> who've discovered the power of 3D photo experiences.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-6 justify-center mb-6">
-                      <LiquidButton 
-                        variant="primary" 
-                        onClick={() => setIsDemoModalOpen(true)}
-                        className="text-lg px-10 py-5 transform hover:scale-110"
-                      >
-                        🚀 Start Your Free Trial
-                      </LiquidButton>
-                      <LiquidButton 
-                        variant="secondary" 
-                        onClick={() => setIsDemoModalOpen(true)}
-                        className="text-lg px-10 py-5 transform hover:scale-110"
-                      >
-                        👀 See It In Action
-                      </LiquidButton>
-                    </div>
-                    <p className="text-sm text-gray-400">
-                      ✨ <strong>14-day free trial</strong> • 💳 No credit card required • ⚡ Setup in minutes
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact CTA */}
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 backdrop-blur-xl border border-purple-500/20 rounded-2xl p-12">
-                <div className="max-w-3xl mx-auto">
-                  <div className="w-20 h-20 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-sm border border-purple-500/30">
-                    <Sparkles className="w-10 h-10 text-white" />
-                  </div>
-                  <h3 className="text-3xl font-bold text-white mb-4">Still Have Questions?</h3>
-                  <p className="text-gray-300 mb-8 text-lg leading-relaxed">
-                    Can't find what you're looking for? We're here to help! Contact our support team 
-                    for personalized assistance with your PhotoSphere setup, technical questions, 
-                    or custom requirements for your events.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <LiquidButton variant="primary" onClick={() => setIsDemoModalOpen(true)}>
-                      Contact Support
-                    </LiquidButton>
-                    <LiquidButton variant="secondary" onClick={() => setIsDemoModalOpen(true)}>
-                      Schedule Demo
-                    </LiquidButton>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <footer className="text-center py-8 text-white/70 text-sm w-full z-10">
+              <p>Enhanced FAQ Experience with Magical Glowing Cards</p>
+            </footer>
           </div>
         </div>
-      </div>
 
-      {/* Demo Request Modal */}
-      <DemoRequestModal 
-        isOpen={isDemoModalOpen} 
-        onClose={() => setIsDemoModalOpen(false)} 
-      />
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;600;700&display=swap');
+
+          :root {
+            --bg-color: #070b24;
+            --text-color: #ffffff;
+            --accent-color: #7b00ff;
+            --card-bg: rgba(15, 20, 54, 0.7);
+            --font-heading: 'Orbitron', sans-serif;
+            --font-body: 'Poppins', sans-serif;
+            --border-opacity: 0.5;
+            --border-blur: 4px;
+          }
+
+          .animate-text-glow {
+            animation: text-glow 3s ease-in-out infinite alternate;
+          }
+
+          @keyframes text-glow {
+            0% {
+              text-shadow: 0 0 5px rgba(123, 0, 255, 0.3), 0 0 10px rgba(123, 0, 255, 0.2);
+            }
+            100% {
+              text-shadow: 0 0 10px rgba(123, 0, 255, 0.5), 0 0 15px rgba(123, 0, 255, 0.3), 0 0 20px rgba(123, 0, 255, 0.2);
+            }
+          }
+
+          .card:hover {
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 0 20px var(--glow, rgba(123, 0, 255, 0.5));
+            border: 1px solid var(--glow, rgba(123, 0, 255, 0.7));
+          }
+
+          .card.flipped .card-inner {
+            transform: rotateY(180deg);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 5px 15px var(--glow, rgba(123, 0, 255, 0.6));
+          }
+
+          .card.flipped .card-front {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s, visibility 0.4s;
+          }
+
+          .card.flipped .card-back {
+            opacity: 1;
+            visibility: visible;
+            z-index: 3;
+            transform: rotateY(0deg);
+            box-shadow: 0 0 30px var(--glow, rgba(123, 0, 255, 0.5));
+          }
+
+          .card.flipped .secret-content {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+            transition: opacity 0.5s 0.2s, transform 0.5s 0.2s, visibility 0s;
+          }
+
+          .card.flipping {
+            z-index: 100;
+            box-shadow: 0 0 70px var(--glow, rgba(123, 0, 255, 0.7));
+          }
+
+          .card.flipping::before {
+            content: '';
+            position: absolute;
+            inset: -5px;
+            z-index: -1;
+            border-radius: inherit;
+            background: rgba(0, 0, 0, 0);
+            box-shadow: 0 0 30px 15px var(--glow, rgba(123, 0, 255, 0.8));
+            animation: flip-pulse 1.2s ease-out forwards;
+          }
+
+          @keyframes flip-pulse {
+            0% {
+              box-shadow: 0 0 30px 15px var(--glow, rgba(123, 0, 255, 0.8));
+              opacity: 1;
+            }
+            40% {
+              box-shadow: 0 0 60px 30px var(--glow, rgba(123, 0, 255, 0.9));
+              opacity: 1;
+            }
+            100% {
+              box-shadow: 0 0 30px 15px var(--glow, rgba(123, 0, 255, 0.8));
+              opacity: 0.5;
+            }
+          }
+
+          .card::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 22px;
+            background: linear-gradient(
+              45deg,
+              var(--glow, rgba(123, 0, 255, 0.7)) 0%,
+              transparent 35%,
+              transparent 65%,
+              var(--glow, rgba(123, 0, 255, 0.7)) 100%
+            );
+            z-index: -1;
+            filter: blur(var(--border-blur, 4px));
+            opacity: var(--border-opacity, 0.5);
+            transition: opacity 0.3s ease, filter 0.3s ease;
+          }
+
+          .card:hover::after {
+            opacity: 0.8;
+            filter: blur(6px);
+          }
+
+          .card.active::after {
+            opacity: 0.9;
+            filter: blur(7px);
+          }
+
+          .card.active .highlight,
+          .card.active .card-glow,
+          .card.active .ripple-effect {
+            opacity: 1;
+          }
+
+          .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 3px;
+            background: linear-gradient(
+              135deg,
+              var(--glow, #7b00ff) 0%,
+              transparent 50%,
+              var(--glow, #7b00ff) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: var(--border-opacity, 0.8);
+            transition: opacity 0.3s ease;
+            z-index: 1;
+            filter: blur(var(--border-blur, 1px));
+            box-shadow: 0 0 15px var(--glow, rgba(123, 0, 255, 0.8));
+          }
+
+          .card:hover::before {
+            opacity: 1;
+            filter: blur(1px) brightness(1.5);
+            box-shadow: 0 0 20px var(--glow, rgba(123, 0, 255, 1));
+          }
+
+          .card.flipped .rune {
+            opacity: 1;
+            filter: drop-shadow(0 0 10px var(--glow, rgba(123, 0, 255, 0.8)));
+          }
+
+          .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--glow, rgba(123, 0, 255, 0.8)), var(--glow, rgba(123, 0, 255, 0.6)));
+            transition: width 0.4s ease;
+            z-index: -1;
+            border-radius: 28px;
+          }
+
+          .btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3), 0 0 20px var(--glow, rgba(123, 0, 255, 0.6));
+            border-color: var(--glow, rgba(123, 0, 255, 0.8));
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+            letter-spacing: 1.5px;
+            animation: btn-hover-pulse 1.2s infinite;
+          }
+
+          .btn:hover::before {
+            width: 100%;
+            animation: btn-hover-shimmer 1.5s infinite;
+          }
+
+          @keyframes btn-hover-pulse {
+            0% {
+              box-shadow: 0 0 20px rgba(0, 0, 0, 0.3), 0 0 20px var(--glow, rgba(123, 0, 255, 0.6));
+            }
+            50% {
+              box-shadow: 0 0 30px rgba(0, 0, 0, 0.3), 0 0 35px var(--glow, rgba(123, 0, 255, 0.9));
+            }
+            100% {
+              box-shadow: 0 0 20px rgba(0, 0, 0, 0.3), 0 0 20px var(--glow, rgba(123, 0, 255, 0.6));
+            }
+          }
+
+          @keyframes btn-hover-shimmer {
+            0% { opacity: 0.6; }
+            50% { opacity: 0.9; }
+            100% { opacity: 0.6; }
+          }
+
+          .btn:active {
+            transform: translateY(0) scale(0.95);
+            box-shadow: 0 0 30px var(--glow, rgba(123, 0, 255, 0.9));
+          }
+
+          @keyframes icon-glow {
+            0% { filter: drop-shadow(0 0 10px var(--glow, rgba(123, 0, 255, 0.4))); }
+            100% { filter: drop-shadow(0 0 20px var(--glow, rgba(123, 0, 255, 0.8))); }
+          }
+
+          @keyframes title-glow {
+            0% { filter: drop-shadow(0 0 5px var(--glow, rgba(123, 0, 255, 0.3))); }
+            100% { filter: drop-shadow(0 0 15px var(--glow, rgba(123, 0, 255, 0.7))); }
+          }
+
+          @keyframes pulse-glow {
+            0% { filter: blur(20px) brightness(1); }
+            100% { filter: blur(25px) brightness(1.5); }
+          }
+
+          @keyframes pulse-edge {
+            0% { filter: blur(3px) brightness(1); box-shadow: 0 0 15px 5px var(--glow, rgba(123, 0, 255, 0.4)); }
+            50% { filter: blur(4px) brightness(1.5); box-shadow: 0 0 20px 8px var(--glow, rgba(123, 0, 255, 0.7)); }
+            100% { filter: blur(3px) brightness(1); box-shadow: 0 0 15px 5px var(--glow, rgba(123, 0, 255, 0.4)); }
+          }
+
+          @keyframes glow-rune {
+            from { filter: drop-shadow(0 0 5px var(--glow, rgba(123, 0, 255, 0.5))); opacity: 0.7; }
+            to { filter: drop-shadow(0 0 10px var(--glow, rgba(123, 0, 255, 0.8))); opacity: 1; }
+          }
+
+          @keyframes pulsate {
+            0% { opacity: var(--particle-base-opacity, 0.3); filter: blur(1px) brightness(1); box-shadow: 0 0 2px 1px var(--glow, rgba(123, 0, 255, 0.4)); }
+            100% { opacity: var(--particle-max-opacity, 0.7); filter: blur(2px) brightness(1.5); box-shadow: 0 0 6px 3px var(--glow, rgba(123, 0, 255, 0.8)); }
+          }
+
+          @keyframes floating {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-8px); }
+          }
+
+          @keyframes button-ripple {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+            80% { opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+          }
+
+          @keyframes card-pulse-animation {
+            0% { opacity: 0.8; transform: scale(0.95); }
+            70% { opacity: 0.2; }
+            100% { opacity: 0; transform: scale(1.1); }
+          }
+        `}</style>
+
+        <DemoRequestModal isOpen={isDemoModalOpen} onClose={() => setIsDemoModalOpen(false)} />
+      </ErrorBoundary>
     </Layout>
   );
 };
