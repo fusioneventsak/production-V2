@@ -3,24 +3,95 @@ import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Sett
 import Layout from '../components/layout/Layout';
 import DemoRequestModal from '../components/modals/DemoRequestModal';
 
-const faqs = [
+// Your complete PhotoSphere FAQ data
+const faqData = [
   {
-    question: 'What is the primary function of this platform?',
-    answer: 'Our platform leverages advanced AI to provide seamless, interactive solutions for a wide range of applications, enhancing user experience and productivity.',
-    icon: Sparkles,
+    id: 1,
+    category: 'general',
+    question: 'What is PhotoSphere photobooth software?',
+    answer: 'PhotoSphere is a revolutionary 3D photobooth display platform that transforms how event photos are shared and experienced. Unlike traditional photobooths that print or display static images, PhotoSphere creates an immersive 3D environment where uploaded photos float, wave, and spiral in real-time.',
+    icon: Camera,
     color: '#ff00dd'
   },
   {
-    question: 'How does the integration process work?',
-    answer: 'Integration is streamlined through our API, allowing developers to easily incorporate our technology into existing systems with minimal setup.',
-    icon: Globe,
+    id: 2,
+    category: 'general',
+    question: 'Is PhotoSphere free photobooth software?',
+    answer: 'PhotoSphere offers various pricing tiers to accommodate different needs. While we don\'t offer a completely free version, we provide a 14-day free trial that includes all Pro features so you can test everything before committing. Our starter plan is extremely affordable and includes all core features like 3D displays, real-time uploads, and basic customization.',
+    icon: Award,
     color: '#00ffe1'
   },
   {
-    question: 'What kind of support is available?',
-    answer: 'We offer 24/7 support through our dedicated team, comprehensive documentation, and community forums to ensure you get the help you need.',
-    icon: Zap,
+    id: 3,
+    category: 'technical',
+    question: 'Does PhotoSphere work with DSLR cameras?',
+    answer: 'Yes! PhotoSphere supports photos from any source, including professional DSLR cameras. You can upload high-quality images in large batches, whether they\'re from DSLRs, mirrorless cameras, or smartphones. The platform automatically optimizes photos for the 3D display while maintaining quality.',
+    icon: Camera,
     color: '#ffae00'
+  },
+  {
+    id: 4,
+    category: 'technical',
+    question: 'Can I use PhotoSphere with my existing photobooth equipment?',
+    answer: 'Absolutely! PhotoSphere is designed to complement, not replace, your existing photobooth setup. Use your professional cameras and lighting for capturing high-quality photos, then upload them to PhotoSphere for the stunning 3D display.',
+    icon: Settings,
+    color: '#9966ff'
+  },
+  {
+    id: 5,
+    category: 'features',
+    question: 'What\'s the best way to display photobooth pictures with PhotoSphere?',
+    answer: 'PhotoSphere offers multiple stunning display options: 3D Floating (photos float gently with realistic physics), Wave Animation (beautiful wave patterns), Spiral Display (dynamic spiral formations), Orbit Patterns (rotation around central points), and Custom Arrangements (design your own layouts).',
+    icon: Monitor,
+    color: '#00ff88'
+  },
+  {
+    id: 6,
+    category: 'features',
+    question: 'Can I add overlays and graphics to photos?',
+    answer: 'Yes! PhotoSphere supports multiple types of overlays: logo overlays with transparency support, text overlays for event names and hashtags, frame overlays for borders, sponsor graphics, social media elements, and custom graphics for themed events. All overlays can be positioned, resized, and layered.',
+    icon: Palette,
+    color: '#ff6600'
+  },
+  {
+    id: 7,
+    category: 'customization',
+    question: 'Can PhotoSphere be fully branded for my business?',
+    answer: 'Yes! PhotoSphere offers comprehensive branding options: custom logos with transparency support, brand colors throughout the interface, custom overlays for additional branding elements, themed environments that match your brand aesthetic, white-label options for professional event companies, and custom domain support.',
+    icon: Palette,
+    color: '#ff0088'
+  },
+  {
+    id: 8,
+    category: 'features',
+    question: 'Can I record or export the 3D display?',
+    answer: 'Yes! PhotoSphere includes a built-in screen recording feature that lets you capture the live 3D display directly from the platform. You can also use external recording software like OBS Studio, Zoom, Loom, or built-in OS tools to create highlight reels and social media content.',
+    icon: Zap,
+    color: '#4400ff'
+  },
+  {
+    id: 9,
+    category: 'features',
+    question: 'How do I prevent inappropriate photos from appearing?',
+    answer: 'PhotoSphere includes comprehensive moderation tools: pre-approval mode to review all photos before they appear, real-time monitoring to watch uploads as they happen, quick removal to delete inappropriate content instantly, bulk actions to manage multiple photos efficiently, and activity logs to track all moderation actions.',
+    icon: Shield,
+    color: '#ff4400'
+  },
+  {
+    id: 10,
+    category: 'professional',
+    question: 'Is PhotoSphere suitable for professional event photographers?',
+    answer: 'Absolutely! Many professional photographers use PhotoSphere to showcase work in real-time during events, engage clients with interactive displays, differentiate services with unique 3D presentations, upload batches of professional photos efficiently, and provide added value beyond traditional photography packages.',
+    icon: Award,
+    color: '#8800ff'
+  },
+  {
+    id: 11,
+    category: 'professional', 
+    question: 'How do I make more money with my photobooth business?',
+    answer: 'PhotoSphere helps photobooth businesses increase revenue in multiple ways: charge premium rates for unique 3D experiences ($200-500+ more per event), offer it as an exclusive add-on service, create recurring revenue with venue partnerships, attract higher-end corporate clients who want cutting-edge technology, and increase booking frequency through social media buzz and word-of-mouth from the "wow factor" of 3D displays.',
+    icon: Award,
+    color: '#00ddff'
   }
 ];
 
@@ -47,6 +118,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 const FAQPage: React.FC = () => {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all');
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -69,10 +142,6 @@ const FAQPage: React.FC = () => {
         0%, 100% { transform: translateY(0px) rotate(0deg); }
         33% { transform: translateY(-6px) rotate(3deg); }
         66% { transform: translateY(10px) rotate(-5deg); }
-      }
-      @keyframes gradient-x {
-        0%, 100% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
       }
       @keyframes magical-glow {
         0% { 
@@ -128,14 +197,28 @@ const FAQPage: React.FC = () => {
           opacity: 0;
         }
       }
+      @keyframes float-particle {
+        0%, 100% {
+          transform: translateY(0px) translateX(0px);
+          opacity: 0.3;
+        }
+        25% {
+          transform: translateY(-20px) translateX(10px);
+          opacity: 0.7;
+        }
+        50% {
+          transform: translateY(-40px) translateX(-5px);
+          opacity: 0.5;
+        }
+        75% {
+          transform: translateY(-20px) translateX(-10px);
+          opacity: 0.8;
+        }
+      }
       
       .animate-float-1 { animation: float-1 6s ease-in-out infinite; }
       .animate-float-2 { animation: float-2 8s ease-in-out infinite; }
       .animate-float-3 { animation: float-3 7s ease-in-out infinite; }
-      .animate-gradient-x { 
-        background-size: 400% 400%;
-        animation: gradient-x 8s ease infinite;
-      }
       
       /* Magical card effects */
       .magical-card {
@@ -254,6 +337,27 @@ const FAQPage: React.FC = () => {
       .magical-card:hover .card-highlight {
         opacity: 1;
       }
+
+      .absolute.w-1.h-1 {
+        animation: float-particle linear infinite;
+      }
+
+      /* Enhanced card animations for magical effects */
+      @keyframes floating {
+        0% { transform: translateY(0px); }
+        100% { transform: translateY(-8px); }
+      }
+
+      .card.flipped .rune {
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+
+      .card.flipped .secret-content {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: flex !important;
+      }
     `;
     document.head.appendChild(style);
     
@@ -356,297 +460,67 @@ const FAQPage: React.FC = () => {
     };
   }, []);
 
-    const handleCardMouseMove = (e: MouseEvent | Touch, card: HTMLDivElement) => {
-      if (card.classList.contains('flipped')) return;
-      const rect = card.getBoundingClientRect();
-      const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
-      const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
+  const categories = [
+    { id: 'all', name: 'All Topics', icon: Globe },
+    { id: 'general', name: 'General', icon: Camera },
+    { id: 'technical', name: 'Technical', icon: Settings },
+    { id: 'features', name: 'Features', icon: Zap },
+    { id: 'customization', name: 'Customization', icon: Palette },
+    { id: 'professional', name: 'Professional', icon: Award }
+  ];
 
-      card.style.setProperty('--mouse-x', `${mouseX}%`);
-      card.style.setProperty('--mouse-y', `${mouseY}%`);
-
-      const rotateY = -(((e.clientX - rect.left) / rect.width) - 0.5) * 20;
-      const rotateX = (((e.clientY - rect.top) / rect.height) - 0.5) * 20;
-
-      const cardInner = card.querySelector('.card-inner');
-      if (cardInner) {
-        (cardInner as HTMLElement).style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
-      }
-
-      const angle = Math.atan2(mouseY - 50, mouseX - 50) * (180 / Math.PI);
-      card.style.setProperty('--reflective-angle', `${angle + 90}deg`);
-
-      card.classList.add('active');
-
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-      const distanceFromCenter = Math.sqrt(
-        Math.pow((e.clientX - rect.left - centerX), 2) +
-        Math.pow((e.clientY - rect.top - centerY), 2)
-      );
-
-      const maxDistance = Math.sqrt(Math.pow(centerX, 2) + Math.pow(centerY, 2));
-      const normalizedDistance = Math.min(distanceFromCenter / maxDistance, 1);
-      const intensity = 1 - normalizedDistance;
-
-      const cardGlow = card.querySelector('.card-glow');
-      if (cardGlow) {
-        (cardGlow as HTMLElement).style.opacity = `${0.5 + (intensity * 0.5)}`;
-        (cardGlow as HTMLElement).style.background = `radial-gradient(
-          circle at ${mouseX}% ${mouseY}%, 
-          var(--glow, #7b00ff) 0%, 
-          transparent ${50 + (intensity * 30)}%
-        )`;
-      }
-
-      const edgeGlow = card.querySelector('.edge-glow');
-      if (edgeGlow) {
-        const edgeDistanceTop = mouseY;
-        const edgeDistanceBottom = 100 - mouseY;
-        const edgeDistanceLeft = mouseX;
-        const edgeDistanceRight = 100 - mouseX;
-
-        const minDistance = Math.min(edgeDistanceTop, edgeDistanceBottom, edgeDistanceLeft, edgeDistanceRight);
-        let gradientAngle = 0;
-        if (minDistance === edgeDistanceTop) gradientAngle = 0;
-        else if (minDistance === edgeDistanceRight) gradientAngle = 90;
-        else if (minDistance === edgeDistanceBottom) gradientAngle = 180;
-        else if (minDistance === edgeDistanceLeft) gradientAngle = 270;
-
-        const edgeProximityFactor = 1 - (minDistance / 50);
-        const brightness = 1 + Math.max(0, edgeProximityFactor) * 0.7;
-
-        (edgeGlow as HTMLElement).style.opacity = `${0.5 + (intensity * 0.5) + Math.max(0, edgeProximityFactor) * 0.3}`;
-        (edgeGlow as HTMLElement).style.filter = `blur(${3 + intensity * 3}px) brightness(${brightness})`;
-        (edgeGlow as HTMLElement).style.background = `linear-gradient(${gradientAngle}deg, var(--glow, #7b00ff), transparent 70%) border-box`;
-      }
-
-      card.style.setProperty('--border-opacity', `${0.7 + intensity * 0.3}`);
-      card.style.setProperty('--border-blur', `${4 + intensity * 4}px`);
-
-      const particles = card.querySelectorAll('.magnetic-particle');
-      particles.forEach((particle, index) => {
-        const particleX = parseFloat((particle as HTMLElement).style.left) || 50;
-        const particleY = parseFloat((particle as HTMLElement).style.top) || 50;
-
-        const dirX = mouseX - particleX;
-        const dirY = mouseY - particleY;
-
-        const distance = Math.sqrt(dirX * dirX + dirY * dirY);
-
-        const normDirX = dirX / distance;
-        const normDirY = dirY / distance;
-
-        const maxPullDistance = 50;
-        const pullStrength = Math.max(0, 1 - Math.min(distance / maxPullDistance, 1)) * intensity * 20;
-
-        const newX = particleX + normDirX * pullStrength;
-        const newY = particleY + normDirY * pullStrength;
-
-        (particle as HTMLElement).style.transition = `transform 0.3s ease, opacity 0.3s ease`;
-        (particle as HTMLElement).style.transform = `translate(${normDirX * pullStrength * 0.5}px, ${normDirY * pullStrength * 0.5}px)`;
-        (particle as HTMLElement).style.opacity = `${0.3 + (pullStrength / 20) * 0.7}`;
-        (particle as HTMLElement).style.filter = `blur(${1 + (pullStrength / 20) * 2}px) brightness(${1 + (pullStrength / 20) * 0.5})`;
-      });
-    };
-
-    const resetCardEffects = (card: HTMLDivElement) => {
-      if (card.classList.contains('flipped')) return;
-      card.classList.remove('active');
-      applyFloatingAnimation(card);
-    };
-
-    const applyFloatingAnimation = (card: HTMLDivElement) => {
-      if (card.classList.contains('flipped')) return;
-      // Simple floating animation
-      const duration = 5 + Math.random() * 5;
-      const delay = Math.random() * 2;
-      card.style.animation = `float-${(Math.floor(Math.random() * 3) + 1)} ${duration}s ease-in-out ${delay}s infinite alternate`;
-    };
-
-    const createRipple = (e: MouseEvent | Touch, card: HTMLDivElement) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      const ripple = document.createElement('div');
-      ripple.className = 'card-ripple';
-      ripple.style.left = `${x}px`;
-      ripple.style.top = `${y}px`;
-      ripple.style.width = '0px';
-      ripple.style.height = '0px';
-
-      card.appendChild(ripple);
-
-      setTimeout(() => {
-        ripple.remove();
-      }, 600);
-    };
-
-    // Clean up the rest of the original card interaction code for compatibility
-    const cards = cardRefs.current;
-
-    cards.forEach((card, index) => {
-      if (!card) return;
-
-      const color = faqs[index]?.color || '#7b00ff';
-      card.style.setProperty('--card-color', color);
-
-      applyFloatingAnimation(card);
-
-      card.addEventListener('mousemove', (e) => {
-        handleCardMouseMove(e, card);
-        createRipple(e, card);
-      });
-
-      card.addEventListener('mouseleave', () => {
-        resetCardEffects(card);
-      });
-
-      card.addEventListener('touchmove', (e) => {
-        if (card.classList.contains('flipped')) return;
-        const touch = e.touches[0];
-        handleCardMouseMove(touch, card);
-        createRipple(touch, card);
-        e.preventDefault();
-      });
-
-      card.addEventListener('touchend', () => {
-        if (card.classList.contains('flipped')) return;
-        resetCardEffects(card);
-      });
-    });
-
-    return () => {
-      cards.forEach(card => {
-        if (!card) return;
-        card.removeEventListener('mousemove', handleCardMouseMove as any);
-        card.removeEventListener('mouseleave', resetCardEffects as any);
-        card.removeEventListener('touchmove', handleCardMouseMove as any);
-        card.removeEventListener('touchend', resetCardEffects as any);
-      });
-    };
-  }, []); = card.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      const normalizedX = mouseX / rect.width;
-      const normalizedY = mouseY / rect.height;
-
-      const highlight = card.querySelector('.highlight');
-      if (highlight) {
-        (highlight as HTMLElement).style.opacity = `${0.2 + Math.abs(normalizedX * normalizedY) * 0.3}`;
-        (highlight as HTMLElement).style.background = `radial-gradient(
-          circle at ${normalizedX * 100}% ${normalizedY * 100}%,
-          rgba(255, 255, 255, 0.8) 0%,
-          rgba(255, 255, 255, 0.1) 30%,
-          transparent 60%
-        )`;
-        (highlight as HTMLElement).style.mixBlendMode = 'overlay';
-        const reflectionSize = 60 - Math.abs(normalizedX * normalizedY) * 20;
-        (highlight as HTMLElement).style.transform = `translate(-50%, -50%) scale(${1 + Math.abs(normalizedX * normalizedY)})`;
-      }
-    };
-
-    cards.forEach((card, index) => {
-      if (!card) return;
-
-      const color = card.getAttribute('data-color') || '#7b00ff';
-      const icon = card.querySelector('.icon');
-      const frontBtn = card.querySelector('.card-front .btn');
-      const runes = card.querySelectorAll('.rune');
-
-      card.style.setProperty('--glow', color);
-      if (icon) (icon as HTMLElement).style.setProperty('--icon-color', color);
-      if (frontBtn) (frontBtn as HTMLElement).style.setProperty('--btn-color', color);
-      runes.forEach(rune => {
-        (rune as HTMLElement).style.color = color;
-      });
-
-      createMagneticParticles(card, color);
-      applyFloatingAnimation(card);
-
-      card.addEventListener('mousemove', (e) => {
-        handleCardMouseMove(e, card);
-        handleReflectiveTexture(e, card);
-        createRipple(e, card);
-      });
-
-      card.addEventListener('mouseleave', () => {
-        resetCardEffects(card);
-      });
-
-      card.addEventListener('touchmove', (e) => {
-        if (card.classList.contains('flipped')) return;
-        const touch = e.touches[0];
-        handleCardMouseMove(touch, card);
-        handleReflectiveTexture(touch, card);
-        createRipple(touch, card);
-        e.preventDefault();
-      });
-
-      card.addEventListener('touchend', () => {
-        if (card.classList.contains('flipped')) return;
-        resetCardEffects(card);
-      });
-    });
-
-    return () => {
-      cards.forEach(card => {
-        if (!card) return;
-        card.removeEventListener('mousemove', handleCardMouseMove as any);
-        card.removeEventListener('mouseleave', resetCardEffects as any);
-        card.removeEventListener('touchmove', handleCardMouseMove as any);
-        card.removeEventListener('touchend', resetCardEffects as any);
-      });
-    };
-  }, []);
-
-  const addClickEffect = (button: HTMLButtonElement, card: HTMLDivElement) => {
-    const ripple = document.createElement('div');
-    ripple.className = 'button-ripple';
-    button.appendChild(ripple);
-
-    ripple.style.position = 'absolute';
-    ripple.style.top = '50%';
-    ripple.style.left = '50%';
-    ripple.style.width = '150%';
-    ripple.style.height = '150%';
-    ripple.style.transform = 'translate(-50%, -50%) scale(0)';
-    ripple.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
-    ripple.style.borderRadius = '50%';
-    ripple.style.zIndex = '-1';
-    ripple.style.animation = 'button-ripple 0.6s cubic-bezier(0.1, 0.7, 0.3, 1) forwards';
-
-    const pulseBorder = document.createElement('div');
-    pulseBorder.className = 'card-pulse';
-    card.appendChild(pulseBorder);
-
-    pulseBorder.style.position = 'absolute';
-    pulseBorder.style.inset = '-10px';
-    pulseBorder.style.borderRadius = '25px';
-    pulseBorder.style.boxShadow = `0 0 20px 10px ${card.getAttribute('data-color') || '#7b00ff'}`;
-    pulseBorder.style.opacity = '0';
-    pulseBorder.style.animation = 'card-pulse-animation 0.8s ease-out forwards';
-    pulseBorder.style.zIndex = '0';
-    pulseBorder.style.pointerEvents = 'none';
-
-    setTimeout(() => {
-      ripple.remove();
-      pulseBorder.remove();
-    }, 800);
+  // Search component
+  const SearchBar = ({ searchTerm, onSearchChange }) => {
+    return (
+      <div className="relative max-w-2xl mx-auto mb-12">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <Search className="h-6 w-6 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search FAQ topics..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="w-full pl-12 pr-4 py-4 bg-black/20 backdrop-blur-xl border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
+        />
+      </div>
+    );
   };
 
-  const flipCard = (card: HTMLDivElement, toBackSide: boolean) => {
+  // Category filter buttons
+  const CategoryFilter = ({ categories, activeCategory, onCategoryChange }) => {
+    return (
+      <div className="flex flex-wrap gap-3 justify-center mb-12">
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            onClick={() => onCategoryChange(category.id)}
+            className={`
+              px-6 py-3 rounded-xl font-medium transition-all duration-300 backdrop-blur-sm
+              ${activeCategory === category.id
+                ? 'bg-gradient-to-r from-purple-600/40 to-blue-600/40 border border-purple-500/50 text-white shadow-lg'
+                : 'bg-white/10 border border-white/20 text-gray-300 hover:bg-white/20 hover:text-white'
+              }
+            `}
+          >
+            <category.icon className="w-4 h-4 inline mr-2" />
+            {category.name}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const flipCard = (card: HTMLDivElement, toAnswerSide: boolean) => {
     const cardInner = card.querySelector('.card-inner');
     const cardFront = card.querySelector('.card-front');
     const cardBack = card.querySelector('.card-back');
     const secretContent = card.querySelector('.secret-content');
+    const runes = card.querySelectorAll('.rune');
 
-    if (toBackSide) {
-      card.style.zIndex = '100';
+    if (toAnswerSide) {
       card.classList.add('flipped');
-
+      
       if (cardInner) (cardInner as HTMLElement).style.transform = 'rotateY(180deg)';
       if (cardBack) {
         (cardBack as HTMLElement).style.opacity = '1';
@@ -659,16 +533,25 @@ const FAQPage: React.FC = () => {
         (cardFront as HTMLElement).style.visibility = 'hidden';
         (cardFront as HTMLElement).style.zIndex = '0';
       }
-      if (secretContent) {
-        setTimeout(() => {
+      
+      // Animate runes and content appearing
+      setTimeout(() => {
+        runes.forEach((rune, index) => {
+          setTimeout(() => {
+            (rune as HTMLElement).style.opacity = '1';
+            (rune as HTMLElement).style.visibility = 'visible';
+          }, 50 * index);
+        });
+        
+        if (secretContent) {
           (secretContent as HTMLElement).style.opacity = '1';
           (secretContent as HTMLElement).style.visibility = 'visible';
           (secretContent as HTMLElement).style.display = 'flex';
-        }, 300);
-      }
+        }
+      }, 300);
     } else {
       card.classList.remove('flipped');
-
+      
       if (cardInner) (cardInner as HTMLElement).style.transform = 'rotateY(0deg)';
       if (cardFront) {
         (cardFront as HTMLElement).style.opacity = '1';
@@ -687,16 +570,41 @@ const FAQPage: React.FC = () => {
         (secretContent as HTMLElement).style.display = 'none';
       }
 
-      setTimeout(() => {
-        card.style.zIndex = '';
-      }, 1000);
+      // Hide runes
+      runes.forEach(rune => {
+        (rune as HTMLElement).style.opacity = '0';
+        (rune as HTMLElement).style.visibility = 'hidden';
+      });
     }
-
-    card.classList.add('flipping');
-    setTimeout(() => {
-      card.classList.remove('flipping');
-    }, 1000);
   };
+
+  const addClickEffect = (button: HTMLButtonElement, card: HTMLDivElement) => {
+    const ripple = document.createElement('div');
+    ripple.className = 'button-ripple';
+    button.appendChild(ripple);
+
+    ripple.style.position = 'absolute';
+    ripple.style.top = '50%';
+    ripple.style.left = '50%';
+    ripple.style.width = '150%';
+    ripple.style.height = '150%';
+    ripple.style.transform = 'translate(-50%, -50%) scale(0)';
+    ripple.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+    ripple.style.borderRadius = '50%';
+    ripple.style.zIndex = '-1';
+    ripple.style.animation = 'ripple-effect 0.6s cubic-bezier(0.1, 0.7, 0.3, 1) forwards';
+
+    setTimeout(() => {
+      ripple.remove();
+    }, 600);
+  };
+
+  const filteredFAQs = faqData.filter(item => {
+    const matchesSearch = item.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.answer.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <Layout>
@@ -728,21 +636,33 @@ const FAQPage: React.FC = () => {
             <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-blue-500/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '2s' }}></div>
             <div className="absolute top-1/2 left-3/4 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '4s' }}></div>
           </div>
+          
           <div className="relative z-10">
-            <header className="text-center mb-8 px-4">
-              <h1 className="font-orbitron text-5xl font-extrabold uppercase tracking-wide bg-gradient-to-r from-[#e6ccff] via-[#7b00ff] to-[#9966ff] bg-clip-text text-transparent drop-shadow-[0_0_5px_rgba(123,0,255,0.4)]">
-                Frequently Asked <span className="block text-6xl animate-text-glow">Questions</span>
+            <header className="text-center mb-8 px-4 py-16">
+              <h1 className="font-orbitron text-5xl font-extrabold uppercase tracking-wide bg-gradient-to-r from-[#e6ccff] via-[#7b00ff] to-[#9966ff] bg-clip-text text-transparent drop-shadow-[0_0_5px_rgba(123,0,255,0.4)] mb-6">
+                Frequently Asked <span className="block text-6xl">Questions</span>
               </h1>
-              <p className="text-lg max-w-2xl mx-auto text-white/80">
-                Hover over the cards and click to reveal the answers
+              <p className="text-lg max-w-2xl mx-auto text-white/80 mb-8">
+                Everything you need to know about PhotoSphere's revolutionary 3D photobooth platform
               </p>
             </header>
 
-            <div className="flex justify-center items-center flex-wrap gap-12 p-8 max-w-7xl mx-auto perspective-[3000px] transform-style-3d" ref={cardsContainerRef}>
-              {faqs.map((faq, index) => (
+            {/* Search and Category Filters */}
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+              <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+              <CategoryFilter 
+                categories={categories} 
+                activeCategory={activeCategory} 
+                onCategoryChange={setActiveCategory} 
+              />
+            </div>
+
+            {/* FAQ Cards Grid */}
+            <div className="flex justify-center items-center flex-wrap gap-8 p-8 max-w-7xl mx-auto" ref={cardsContainerRef}>
+              {filteredFAQs.map((faq, index) => (
                 <div
-                  key={index}
-                  className="magical-card relative w-80 h-[450px] bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5)] transition-all duration-600 ease-[cubic-bezier(0.23,1,0.32,1)] cursor-pointer overflow-visible"
+                  key={faq.id}
+                  className="magical-card relative w-80 h-[450px] bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5)] transition-all duration-600 cursor-pointer overflow-visible"
                   style={{ '--card-color': faq.color }}
                   ref={(el) => (cardRefs.current[index] = el)}
                   onClick={(e) => {
@@ -758,40 +678,10 @@ const FAQPage: React.FC = () => {
                   <div className="edge-glow"></div>
                   <div className="card-highlight"></div>
                   
-                  <div className="card-inner relative w-full h-full transition-transform duration-800 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] transform-style-3d rounded-3xl">
-                    <div className="card-front absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 box-border z-2">
-                      <div className="card-content relative flex flex-col justify-center items-center p-8 h-full text-center z-10 pointer-events-auto">
-                        <faq.icon 
-                          className="text-5xl mb-6 drop-shadow-[0_0_10px_var(--card-color)] animate-pulse" 
-                          style={{ color: faq.color }}
-                        />
-                        <h2 className="font-orbitron text-2xl mb-4 bg-gradient-to-r from-white to-white bg-clip-text text-white drop-shadow-lg">
-                          {faq.question}
-                        </h2>
-                        <p className="text-base leading-relaxed mb-8 text-white/90">
-                          Click to reveal the answer
-                        </p>
-                        <button
-                          className="btn flip-btn relative inline-block px-8 py-3 bg-black/30 text-white border-2 rounded-[30px] font-orbitron text-sm font-semibold uppercase tracking-wide overflow-hidden cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm outline-none z-50 hover:scale-105 hover:shadow-xl"
-                          style={{ 
-                            borderColor: faq.color + '80',
-                            boxShadow: `0 0 15px ${faq.color}40`
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const card = cardRefs.current[index];
-                            if (card) {
-                              addClickEffect(e.currentTarget, card);
-                              setTimeout(() => flipCard(card, true), 300);
-                            }
-                          }}
-                        >
-                          Discover Answer
-                        </button>
-                      </div>
-                    </div>
-                    <div className="card-back absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 box-border bg-[linear-gradient(135deg,rgba(0,10,30,0.8)_0%,rgba(0,10,40,0.9)_100%)] z-1">
+                  <div className="card-inner relative w-full h-full transition-transform duration-800 transform-style-3d rounded-3xl">
+                    {/* Default State - Beautiful card with question and magical runes */}
+                    <div className="card-front absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6">
+                      {/* Magical circle */}
                       <div 
                         className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 opacity-70 pointer-events-none"
                         style={{ 
@@ -804,7 +694,7 @@ const FAQPage: React.FC = () => {
                       {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
                         <div 
                           key={runeIndex}
-                          className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm drop-shadow-lg animate-pulse z-3 pointer-events-none" 
+                          className="rune absolute text-xl opacity-60 transition-all duration-500 animate-pulse z-3 pointer-events-none" 
                           style={{ 
                             color: faq.color,
                             top: `${25 + Math.sin(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
@@ -816,19 +706,78 @@ const FAQPage: React.FC = () => {
                         </div>
                       ))}
                       
-                      <div className="secret-content absolute top-1/2 left-1/2 w-4/5 -translate-x-1/2 -translate-y-1/2 opacity-0 invisible transition-all duration-500 flex flex-col items-center justify-center text-center p-0 z-5 pointer-events-auto">
+                      <div className="card-content relative flex flex-col justify-center items-center p-8 h-full text-center z-10">
                         <faq.icon 
-                          className="secret-icon text-4xl mb-2 drop-shadow-lg transition-all duration-500" 
+                          className="text-4xl mb-4 drop-shadow-lg animate-pulse" 
                           style={{ color: faq.color }}
                         />
-                        <h2 className="secret-title font-orbitron text-2xl font-bold mb-2 text-white bg-gradient-to-r from-white to-white bg-clip-text text-white drop-shadow-lg text-center w-full transition-all duration-500">
+                        <h2 className="font-orbitron text-xl font-bold mb-4 text-white text-center leading-tight">
                           {faq.question}
                         </h2>
-                        <p className="secret-description text-sm leading-relaxed mb-5 text-white/90 text-center w-full max-w-[90%]">
+                        <p className="text-sm leading-relaxed mb-6 text-white/70">
+                          Click to reveal the full answer
+                        </p>
+                        <button
+                          className="btn relative inline-block px-6 py-3 bg-black/30 text-white border-2 rounded-full font-orbitron text-xs font-semibold uppercase tracking-wide cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm hover:scale-105"
+                          style={{ 
+                            borderColor: faq.color + '80',
+                            boxShadow: `0 0 15px ${faq.color}40`
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const card = cardRefs.current[index];
+                            if (card) {
+                              addClickEffect(e.currentTarget, card);
+                              setTimeout(() => flipCard(card, true), 200);
+                            }
+                          }}
+                        >
+                          Read Answer
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Answer State - Full answer content */}
+                    <div className="card-back absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 bg-[linear-gradient(135deg,rgba(0,10,30,0.8)_0%,rgba(0,10,40,0.9)_100%)] z-1">
+                      {/* Dimmed magical circle */}
+                      <div 
+                        className="magical-circle absolute w-[300px] h-[300px] rounded-full border top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-1 opacity-20 pointer-events-none"
+                        style={{ 
+                          borderColor: faq.color + '30',
+                          boxShadow: `0 0 30px ${faq.color}20`
+                        }}
+                      />
+                      
+                      {/* Dimmed runes */}
+                      {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
+                        <div 
+                          key={runeIndex}
+                          className="rune absolute text-lg opacity-0 transition-all duration-500 z-2 pointer-events-none" 
+                          style={{ 
+                            color: faq.color + '60',
+                            top: `${15 + Math.sin(runeIndex * Math.PI * 2 / 7) * 35 + 25}%`,
+                            left: `${15 + Math.cos(runeIndex * Math.PI * 2 / 7) * 35 + 25}%`,
+                            filter: `drop-shadow(0 0 5px ${faq.color}50)`
+                          }}
+                        >
+                          {rune}
+                        </div>
+                      ))}
+                      
+                      <div className="secret-content absolute top-1/2 left-1/2 w-[90%] -translate-x-1/2 -translate-y-1/2 opacity-0 invisible transition-all duration-500 flex flex-col items-center justify-center text-center z-5">
+                        <faq.icon 
+                          className="text-3xl mb-3 drop-shadow-lg" 
+                          style={{ color: faq.color }}
+                        />
+                        <h2 className="font-orbitron text-lg font-bold mb-3 text-white leading-tight">
+                          {faq.question}
+                        </h2>
+                        <p className="text-sm leading-relaxed mb-6 text-white/90 max-h-48 overflow-y-auto">
                           {faq.answer}
                         </p>
                         <button
-                          className="btn flip-btn text-white border-2 border-white/30 px-6 py-3 rounded-[30px] font-orbitron uppercase font-bold tracking-wide cursor-pointer shadow-lg transition-all duration-300 hover:scale-105"
+                          className="btn text-white border-2 border-white/30 px-6 py-2 rounded-full font-orbitron uppercase font-bold text-xs tracking-wide cursor-pointer transition-all duration-300 hover:scale-105"
                           style={{ 
                             backgroundColor: faq.color + 'B0',
                             boxShadow: `0 0 15px ${faq.color}80`
@@ -839,11 +788,11 @@ const FAQPage: React.FC = () => {
                             const card = cardRefs.current[index];
                             if (card) {
                               addClickEffect(e.currentTarget, card);
-                              setTimeout(() => flipCard(card, false), 300);
+                              setTimeout(() => flipCard(card, false), 200);
                             }
                           }}
                         >
-                          Return
+                          Back
                         </button>
                       </div>
                     </div>
@@ -852,302 +801,28 @@ const FAQPage: React.FC = () => {
               ))}
             </div>
 
+            {/* No Results */}
+            {filteredFAQs.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-24 h-24 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-xl border border-purple-500/30">
+                  <Search className="w-12 h-12 text-white/70" />
+                </div>
+                <h3 className="text-2xl font-semibold text-white mb-3">No results found</h3>
+                <p className="text-gray-400 mb-6">Try adjusting your search terms or category filter.</p>
+                <button 
+                  onClick={() => { setSearchTerm(''); setActiveCategory('all'); }}
+                  className="px-8 py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-purple-600/30 to-blue-600/30 border border-purple-500/30 hover:from-purple-500/40 hover:to-blue-500/40 backdrop-blur-xl transition-all duration-500 transform hover:scale-105"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+
             <footer className="text-center py-8 text-white/70 text-sm w-full z-10">
-              <p>Enhanced FAQ Experience with Magical Glowing Cards</p>
+              <p>PhotoSphere FAQ - Revolutionary 3D Photobooth Platform</p>
             </footer>
           </div>
         </div>
-
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;600;700&display=swap');
-
-          :root {
-            --bg-color: #070b24;
-            --text-color: #ffffff;
-            --accent-color: #7b00ff;
-            --card-bg: rgba(15, 20, 54, 0.7);
-            --font-heading: 'Orbitron', sans-serif;
-            --font-body: 'Poppins', sans-serif;
-            --border-opacity: 0.5;
-            --border-blur: 4px;
-          }
-
-          .animate-text-glow {
-            animation: text-glow 3s ease-in-out infinite alternate;
-          }
-
-          @keyframes text-glow {
-            0% {
-              text-shadow: 0 0 5px rgba(123, 0, 255, 0.3), 0 0 10px rgba(123, 0, 255, 0.2);
-            }
-            100% {
-              text-shadow: 0 0 10px rgba(123, 0, 255, 0.5), 0 0 15px rgba(123, 0, 255, 0.3), 0 0 20px rgba(123, 0, 255, 0.2);
-            }
-          }
-
-          .card:hover {
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 0 20px var(--glow, rgba(123, 0, 255, 0.5));
-            border: 1px solid var(--glow, rgba(123, 0, 255, 0.7));
-          }
-
-          .card.flipped .card-inner {
-            transform: rotateY(180deg);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 5px 15px var(--glow, rgba(123, 0, 255, 0.6));
-          }
-
-          .card.flipped .card-front {
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.4s, visibility 0.4s;
-          }
-
-          .card.flipped .card-back {
-            opacity: 1;
-            visibility: visible;
-            z-index: 3;
-            transform: rotateY(0deg);
-            box-shadow: 0 0 30px var(--glow, rgba(123, 0, 255, 0.5));
-          }
-
-          .card.flipped .secret-content {
-            opacity: 1;
-            visibility: visible;
-            transform: translate(-50%, -50%) scale(1);
-            transition: opacity 0.5s 0.2s, transform 0.5s 0.2s, visibility 0s;
-          }
-
-          .card.flipping {
-            z-index: 100;
-            box-shadow: 0 0 70px var(--glow, rgba(123, 0, 255, 0.7));
-          }
-
-          .card.flipping::before {
-            content: '';
-            position: absolute;
-            inset: -5px;
-            z-index: -1;
-            border-radius: inherit;
-            background: rgba(0, 0, 0, 0);
-            box-shadow: 0 0 30px 15px var(--glow, rgba(123, 0, 255, 0.8));
-            animation: flip-pulse 1.2s ease-out forwards;
-          }
-
-          @keyframes flip-pulse {
-            0% {
-              box-shadow: 0 0 30px 15px var(--glow, rgba(123, 0, 255, 0.8));
-              opacity: 1;
-            }
-            40% {
-              box-shadow: 0 0 60px 30px var(--glow, rgba(123, 0, 255, 0.9));
-              opacity: 1;
-            }
-            100% {
-              box-shadow: 0 0 30px 15px var(--glow, rgba(123, 0, 255, 0.8));
-              opacity: 0.5;
-            }
-          }
-
-          .card::after {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 22px;
-            background: linear-gradient(
-              45deg,
-              var(--glow, rgba(123, 0, 255, 0.7)) 0%,
-              transparent 35%,
-              transparent 65%,
-              var(--glow, rgba(123, 0, 255, 0.7)) 100%
-            );
-            z-index: -1;
-            filter: blur(var(--border-blur, 4px));
-            opacity: var(--border-opacity, 0.5);
-            transition: opacity 0.3s ease, filter 0.3s ease;
-          }
-
-          .card:hover::after {
-            opacity: 0.8;
-            filter: blur(6px);
-          }
-
-          .card.active::after {
-            opacity: 0.9;
-            filter: blur(7px);
-          }
-
-          .card.active .highlight,
-          .card.active .card-glow,
-          .card.active .ripple-effect {
-            opacity: 1;
-          }
-
-          .card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            padding: 3px;
-            background: linear-gradient(
-              135deg,
-              var(--glow, #7b00ff) 0%,
-              transparent 50%,
-              var(--glow, #7b00ff) 100%
-            );
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            opacity: var(--border-opacity, 0.8);
-            transition: opacity 0.3s ease;
-            z-index: 1;
-            filter: blur(var(--border-blur, 1px));
-            box-shadow: 0 0 15px var(--glow, rgba(123, 0, 255, 0.8));
-          }
-
-          .card:hover::before {
-            opacity: 1;
-            filter: blur(1px) brightness(1.5);
-            box-shadow: 0 0 20px var(--glow, rgba(123, 0, 255, 1));
-          }
-
-          .card.flipped .rune {
-            opacity: 1;
-            filter: drop-shadow(0 0 10px var(--glow, rgba(123, 0, 255, 0.8)));
-          }
-
-          .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 0;
-            height: 100%;
-            background: linear-gradient(90deg, var(--glow, rgba(123, 0, 255, 0.8)), var(--glow, rgba(123, 0, 255, 0.6)));
-            transition: width 0.4s ease;
-            z-index: -1;
-            border-radius: 28px;
-          }
-
-          .btn:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3), 0 0 20px var(--glow, rgba(123, 0, 255, 0.6));
-            border-color: var(--glow, rgba(123, 0, 255, 0.8));
-            text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-            letter-spacing: 1.5px;
-            animation: btn-hover-pulse 1.2s infinite;
-          }
-
-          .btn:hover::before {
-            width: 100%;
-            animation: btn-hover-shimmer 1.5s infinite;
-          }
-
-          @keyframes btn-hover-pulse {
-            0% {
-              box-shadow: 0 0 20px rgba(0, 0, 0, 0.3), 0 0 20px var(--glow, rgba(123, 0, 255, 0.6));
-            }
-            50% {
-              box-shadow: 0 0 30px rgba(0, 0, 0, 0.3), 0 0 35px var(--glow, rgba(123, 0, 255, 0.9));
-            }
-            100% {
-              box-shadow: 0 0 20px rgba(0, 0, 0, 0.3), 0 0 20px var(--glow, rgba(123, 0, 255, 0.6));
-            }
-          }
-
-          @keyframes btn-hover-shimmer {
-            0% { opacity: 0.6; }
-            50% { opacity: 0.9; }
-            100% { opacity: 0.6; }
-          }
-
-          .btn:active {
-            transform: translateY(0) scale(0.95);
-            box-shadow: 0 0 30px var(--glow, rgba(123, 0, 255, 0.9));
-          }
-
-          @keyframes icon-glow {
-            0% { filter: drop-shadow(0 0 10px var(--glow, rgba(123, 0, 255, 0.4))); }
-            100% { filter: drop-shadow(0 0 20px var(--glow, rgba(123, 0, 255, 0.8))); }
-          }
-
-          @keyframes title-glow {
-            0% { filter: drop-shadow(0 0 5px var(--glow, rgba(123, 0, 255, 0.3))); }
-            100% { filter: drop-shadow(0 0 15px var(--glow, rgba(123, 0, 255, 0.7))); }
-          }
-
-          @keyframes pulse-glow {
-            0% { filter: blur(20px) brightness(1); }
-            100% { filter: blur(25px) brightness(1.5); }
-          }
-
-          @keyframes pulse-edge {
-            0% { filter: blur(3px) brightness(1); box-shadow: 0 0 15px 5px var(--glow, rgba(123, 0, 255, 0.4)); }
-            50% { filter: blur(4px) brightness(1.5); box-shadow: 0 0 20px 8px var(--glow, rgba(123, 0, 255, 0.7)); }
-            100% { filter: blur(3px) brightness(1); box-shadow: 0 0 15px 5px var(--glow, rgba(123, 0, 255, 0.4)); }
-          }
-
-          @keyframes glow-rune {
-            from { filter: drop-shadow(0 0 5px var(--glow, rgba(123, 0, 255, 0.5))); opacity: 0.7; }
-            to { filter: drop-shadow(0 0 10px var(--glow, rgba(123, 0, 255, 0.8))); opacity: 1; }
-          }
-
-          @keyframes pulsate {
-            0% { opacity: var(--particle-base-opacity, 0.3); filter: blur(1px) brightness(1); box-shadow: 0 0 2px 1px var(--glow, rgba(123, 0, 255, 0.4)); }
-            100% { opacity: var(--particle-max-opacity, 0.7); filter: blur(2px) brightness(1.5); box-shadow: 0 0 6px 3px var(--glow, rgba(123, 0, 255, 0.8)); }
-          }
-
-          @keyframes floating {
-            0% { transform: translateY(0px); }
-            100% { transform: translateY(-8px); }
-          }
-
-          @keyframes button-ripple {
-            0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
-            80% { opacity: 0.5; }
-            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
-          }
-
-          /* CSS Particle Animation */
-          @keyframes float-particle {
-            0%, 100% {
-              transform: translateY(0px) translateX(0px);
-              opacity: 0.3;
-            }
-            25% {
-              transform: translateY(-20px) translateX(10px);
-              opacity: 0.7;
-            }
-            50% {
-              transform: translateY(-40px) translateX(-5px);
-              opacity: 0.5;
-            }
-            75% {
-              transform: translateY(-20px) translateX(-10px);
-              opacity: 0.8;
-            }
-          }
-
-          .absolute.w-1.h-1 {
-            animation: float-particle linear infinite;
-          }
-
-          /* Enhanced card animations for magical effects */
-          @keyframes floating {
-            0% { transform: translateY(0px); }
-            100% { transform: translateY(-8px); }
-          }
-
-          .card.flipped .rune {
-            opacity: 1 !important;
-            visibility: visible !important;
-          }
-
-          .card.flipped .secret-content {
-            opacity: 1 !important;
-            visibility: visible !important;
-            display: flex !important;
-          }
-        `}</style>
 
         <DemoRequestModal isOpen={isDemoModalOpen} onClose={() => setIsDemoModalOpen(false)} />
       </ErrorBoundary>
