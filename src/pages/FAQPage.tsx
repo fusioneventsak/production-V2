@@ -4,6 +4,7 @@ import Layout from '../components/layout/Layout';
 import HeroScene from '../components/three/HeroScene';
 import { LandingParticleBackground } from '../components/three/LandingParticleBackground';
 import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
+import DemoRequestModal from '../components/modals/DemoRequestModal';
 
 // FAQ Item Component with animations
 const FAQItem = ({ question, answer, icon: Icon, isOpen, onToggle }) => {
@@ -393,10 +394,10 @@ const FAQPage: React.FC = () => {
                     or custom requirements for your events.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <LiquidButton variant="primary">
+                    <LiquidButton variant="primary" onClick={() => setIsDemoModalOpen(true)}>
                       Contact Support
                     </LiquidButton>
-                    <LiquidButton variant="secondary">
+                    <LiquidButton variant="secondary" onClick={() => setIsDemoModalOpen(true)}>
                       Schedule Demo
                     </LiquidButton>
                   </div>
@@ -406,6 +407,12 @@ const FAQPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Demo Request Modal */}
+      <DemoRequestModal 
+        isOpen={isDemoModalOpen} 
+        onClose={() => setIsDemoModalOpen(false)} 
+      />
     </Layout>
   );
 };
