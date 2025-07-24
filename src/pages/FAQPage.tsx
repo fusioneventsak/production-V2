@@ -869,143 +869,8 @@ const FAQPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Use Cases Section - NEW ADDITION */}
-            <div className="relative z-10 py-20 bg-gradient-to-b from-black/10 to-black/30">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-20">
-                {/* Animated background elements */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <div className="absolute top-10 left-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-                  <div className="absolute bottom-20 right-20 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl animate-pulse delay-1000"></div>
-                  <div className="absolute top-1/2 left-1/3 w-16 h-16 bg-pink-500/10 rounded-full blur-xl animate-pulse delay-2000"></div>
-                </div>
-
-                <div className="text-center mb-16 relative">
-                  <div className="inline-block mb-6">
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 blur-3xl animate-pulse"></div>
-                      <h2 className="relative text-5xl md:text-6xl font-bold text-white mb-4">
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 animate-gradient-x">
-                          Who Can Use PhotoSphere?
-                        </span>
-                      </h2>
-                    </div>
-                  </div>
-                  <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
-                    <span className="text-white font-semibold">Anyone can create magic</span> ✨ From intimate gatherings to massive festivals, 
-                    discover how different industries transform ordinary events into <span className="text-purple-400 font-semibold">extraordinary 3D experiences</span>.
-                  </p>
-                  
-                  {/* Floating icons animation */}
-                  <div className="relative mt-8 h-16">
-                    <div className="absolute inset-0 flex justify-center items-center space-x-8">
-                      <div className="animate-float-1 opacity-60">
-                        <Camera className="w-8 h-8 text-purple-400" />
-                      </div>
-                      <div className="animate-float-2 opacity-60">
-                        <Users className="w-8 h-8 text-blue-400" />
-                      </div>
-                      <div className="animate-float-3 opacity-60">
-                        <Sparkles className="w-8 h-8 text-pink-400" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Enhanced Use Cases Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-16">
-                  {useCaseData.map((useCase) => (
-                    <div
-                      key={useCase.id}
-                      className={`
-                        use-case-card group relative backdrop-blur-xl border-2 rounded-3xl p-8 transition-all duration-500 transform-gpu
-                        ${useCase.premium 
-                          ? `bg-gradient-to-br ${useCase.gradient} ${useCase.borderColor} hover:scale-110 hover:shadow-2xl ${useCase.shadowColor}` 
-                          : `bg-black/30 ${useCase.borderColor} ${useCase.hoverBorder} hover:scale-105 hover:shadow-xl ${useCase.shadowColor}`
-                        }
-                      `}
-                      style={{ 
-                        '--card-gradient': `linear-gradient(135deg, ${useCase.color}10, ${useCase.color}05)`,
-                        '--card-color': useCase.color
-                      }}
-                    >
-                      <div className={`absolute inset-0 bg-gradient-to-br ${useCase.gradient} rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
-                      {useCase.premium && (
-                        <div className="absolute top-4 right-4 bg-gradient-to-r from-yellow-400 to-orange-400 text-black text-xs font-bold px-3 py-1 rounded-full transform rotate-12 animate-pulse">
-                          💰 HIGH ROI
-                        </div>
-                      )}
-                      <div className="relative">
-                        <div 
-                          className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-125 group-hover:rotate-12 transition-all duration-500 shadow-lg"
-                          style={{ 
-                            background: `linear-gradient(135deg, ${useCase.color}, ${useCase.color}CC)`
-                          }}
-                        >
-                          <useCase.icon className="w-10 h-10 text-white" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-opacity-90 transition-colors">
-                          {useCase.title}
-                        </h3>
-                        <p className="text-gray-300 leading-relaxed mb-4">
-                          {useCase.description}
-                        </p>
-                        {useCase.highlight && (
-                          <div className="text-sm font-semibold" style={{ color: useCase.color }}>
-                            {useCase.highlight}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Enhanced Bottom CTA with Animation */}
-                <div className="text-center relative">
-                  <div className="relative bg-gradient-to-br from-purple-900/40 to-blue-900/40 backdrop-blur-xl border-2 border-purple-500/30 rounded-3xl p-12 hover:border-purple-400/50 transition-all duration-500 overflow-hidden">
-                    {/* Animated background patterns */}
-                    <div className="absolute inset-0 opacity-10">
-                      <div className="absolute top-0 left-0 w-32 h-32 bg-purple-500 rounded-full blur-3xl animate-pulse"></div>
-                      <div className="absolute bottom-0 right-0 w-40 h-40 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000"></div>
-                    </div>
-                    
-                    <div className="relative z-10">
-                      <div className="inline-block mb-6">
-                        <div className="animate-bounce">
-                          <Sparkles className="w-12 h-12 text-yellow-400 mx-auto" />
-                        </div>
-                      </div>
-                      <h3 className="text-4xl font-bold text-white mb-6">
-                        Ready to Transform Your Events?
-                      </h3>
-                      <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-                        No matter what type of events you host or what industry you're in, PhotoSphere adapts to your needs. 
-                        Join <span className="text-purple-400 font-bold">thousands of event professionals</span> who've discovered the power of 3D photo experiences.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-6 justify-center mb-6">
-                        <button 
-                          onClick={() => setIsDemoModalOpen(true)}
-                          className="text-lg px-10 py-5 transform hover:scale-110 px-8 py-4 rounded-2xl font-semibold text-white transition-all duration-500 bg-gradient-to-r from-purple-600/30 to-blue-600/30 border border-purple-500/30 hover:from-purple-500/40 hover:to-blue-500/40 backdrop-blur-xl"
-                        >
-                          🚀 Start Your Free Trial
-                        </button>
-                        <button 
-                          onClick={() => setIsDemoModalOpen(true)}
-                          className="text-lg px-10 py-5 transform hover:scale-110 px-8 py-4 rounded-2xl font-semibold text-white transition-all duration-500 bg-white/10 border border-white/20 hover:bg-white/20 backdrop-blur-xl"
-                        >
-                          👀 See It In Action
-                        </button>
-                      </div>
-                      <p className="text-sm text-gray-400">
-                        ✨ <strong>14-day free trial</strong> • 💳 No credit card required • ⚡ Setup in minutes
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* FAQ Content Section */}
-            <div className="relative z-10 py-20 bg-gradient-to-b from-black/30 to-black/50">
+            <div className="relative z-10 py-20 bg-gradient-to-b from-black/10 to-black/30">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Search and Category Filters */}
                 <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
@@ -1208,6 +1073,141 @@ const FAQPage: React.FC = () => {
                           Schedule Demo
                         </button>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Use Cases Section - Moved After FAQ */}
+            <div className="relative z-10 py-20 bg-gradient-to-b from-black/50 to-black/70">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Animated background elements */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute top-10 left-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+                  <div className="absolute bottom-20 right-20 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl animate-pulse delay-1000"></div>
+                  <div className="absolute top-1/2 left-1/3 w-16 h-16 bg-pink-500/10 rounded-full blur-xl animate-pulse delay-2000"></div>
+                </div>
+
+                <div className="text-center mb-16 relative">
+                  <div className="inline-block mb-6">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 blur-3xl animate-pulse"></div>
+                      <h2 className="relative text-5xl md:text-6xl font-bold text-white mb-4">
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 animate-gradient-x">
+                          Who Can Use PhotoSphere?
+                        </span>
+                      </h2>
+                    </div>
+                  </div>
+                  <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
+                    <span className="text-white font-semibold">Anyone can create magic</span> ✨ From intimate gatherings to massive festivals, 
+                    discover how different industries transform ordinary events into <span className="text-purple-400 font-semibold">extraordinary 3D experiences</span>.
+                  </p>
+                  
+                  {/* Floating icons animation */}
+                  <div className="relative mt-8 h-16">
+                    <div className="absolute inset-0 flex justify-center items-center space-x-8">
+                      <div className="animate-float-1 opacity-60">
+                        <Camera className="w-8 h-8 text-purple-400" />
+                      </div>
+                      <div className="animate-float-2 opacity-60">
+                        <Users className="w-8 h-8 text-blue-400" />
+                      </div>
+                      <div className="animate-float-3 opacity-60">
+                        <Sparkles className="w-8 h-8 text-pink-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enhanced Use Cases Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-16">
+                  {useCaseData.map((useCase) => (
+                    <div
+                      key={useCase.id}
+                      className={`
+                        use-case-card group relative backdrop-blur-xl border-2 rounded-3xl p-8 transition-all duration-500 transform-gpu
+                        ${useCase.premium 
+                          ? `bg-gradient-to-br ${useCase.gradient} ${useCase.borderColor} hover:scale-110 hover:shadow-2xl ${useCase.shadowColor}` 
+                          : `bg-black/30 ${useCase.borderColor} ${useCase.hoverBorder} hover:scale-105 hover:shadow-xl ${useCase.shadowColor}`
+                        }
+                      `}
+                      style={{ 
+                        '--card-gradient': `linear-gradient(135deg, ${useCase.color}10, ${useCase.color}05)`,
+                        '--card-color': useCase.color
+                      }}
+                    >
+                      <div className={`absolute inset-0 bg-gradient-to-br ${useCase.gradient} rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
+                      {useCase.premium && (
+                        <div className="absolute top-4 right-4 bg-gradient-to-r from-yellow-400 to-orange-400 text-black text-xs font-bold px-3 py-1 rounded-full transform rotate-12 animate-pulse">
+                          💰 HIGH ROI
+                        </div>
+                      )}
+                      <div className="relative">
+                        <div 
+                          className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-125 group-hover:rotate-12 transition-all duration-500 shadow-lg"
+                          style={{ 
+                            background: `linear-gradient(135deg, ${useCase.color}, ${useCase.color}CC)`
+                          }}
+                        >
+                          <useCase.icon className="w-10 h-10 text-white" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-opacity-90 transition-colors">
+                          {useCase.title}
+                        </h3>
+                        <p className="text-gray-300 leading-relaxed mb-4">
+                          {useCase.description}
+                        </p>
+                        {useCase.highlight && (
+                          <div className="text-sm font-semibold" style={{ color: useCase.color }}>
+                            {useCase.highlight}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Enhanced Bottom CTA with Animation */}
+                <div className="text-center relative">
+                  <div className="relative bg-gradient-to-br from-purple-900/40 to-blue-900/40 backdrop-blur-xl border-2 border-purple-500/30 rounded-3xl p-12 hover:border-purple-400/50 transition-all duration-500 overflow-hidden">
+                    {/* Animated background patterns */}
+                    <div className="absolute inset-0 opacity-10">
+                      <div className="absolute top-0 left-0 w-32 h-32 bg-purple-500 rounded-full blur-3xl animate-pulse"></div>
+                      <div className="absolute bottom-0 right-0 w-40 h-40 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000"></div>
+                    </div>
+                    
+                    <div className="relative z-10">
+                      <div className="inline-block mb-6">
+                        <div className="animate-bounce">
+                          <Sparkles className="w-12 h-12 text-yellow-400 mx-auto" />
+                        </div>
+                      </div>
+                      <h3 className="text-4xl font-bold text-white mb-6">
+                        Ready to Transform Your Events?
+                      </h3>
+                      <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
+                        No matter what type of events you host or what industry you're in, PhotoSphere adapts to your needs. 
+                        Join <span className="text-purple-400 font-bold">thousands of event professionals</span> who've discovered the power of 3D photo experiences.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-6 justify-center mb-6">
+                        <button 
+                          onClick={() => setIsDemoModalOpen(true)}
+                          className="text-lg px-10 py-5 transform hover:scale-110 px-8 py-4 rounded-2xl font-semibold text-white transition-all duration-500 bg-gradient-to-r from-purple-600/30 to-blue-600/30 border border-purple-500/30 hover:from-purple-500/40 hover:to-blue-500/40 backdrop-blur-xl"
+                        >
+                          🚀 Start Your Free Trial
+                        </button>
+                        <button 
+                          onClick={() => setIsDemoModalOpen(true)}
+                          className="text-lg px-10 py-5 transform hover:scale-110 px-8 py-4 rounded-2xl font-semibold text-white transition-all duration-500 bg-white/10 border border-white/20 hover:bg-white/20 backdrop-blur-xl"
+                        >
+                          👀 See It In Action
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-400">
+                        ✨ <strong>14-day free trial</strong> • 💳 No credit card required • ⚡ Setup in minutes
+                      </p>
                     </div>
                   </div>
                 </div>
