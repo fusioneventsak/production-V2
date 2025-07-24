@@ -332,7 +332,7 @@ const FAQPage: React.FC = () => {
               </div>
               <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
                 <div className="text-2xl font-bold text-yellow-400 mb-1">0</div>
-                <div className="text-sm text-gray-400">Setup Time</div>
+                <div className="text-sm text-gray-400">Hardware Required</div>
               </div>
             </div>
           </div>
