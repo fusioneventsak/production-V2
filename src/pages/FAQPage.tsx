@@ -8,9 +8,11 @@ import DemoRequestModal from '../components/modals/DemoRequestModal';
 
 // Fallback theme to prevent undefined theme errors
 const DEFAULT_THEME = {
+  name: 'Default Purple',
   primary: '#7b00ff',
   secondary: '#e6ccff',
-  background: '#070b24'
+  background: '#070b24',
+  accent: '#9966ff'
 };
 
 const faqs = [
@@ -57,7 +59,18 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 const FAQPage: React.FC = () => {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
-  const [theme, setTheme] = useState(PARTICLE_THEMES?.[0] || DEFAULT_THEME);
+  // Ensure we always have a valid theme object with all required properties
+  const [theme, setTheme] = useState(() => {
+    const initialTheme = PARTICLE_THEMES?.[0] || DEFAULT_THEME;
+    // Make sure the theme has all required properties
+    return {
+      name: initialTheme.name || 'Default',
+      primary: initialTheme.primary || DEFAULT_THEME.primary,
+      secondary: initialTheme.secondary || DEFAULT_THEME.secondary,
+      background: initialTheme.background || DEFAULT_THEME.background,
+      accent: initialTheme.accent || DEFAULT_THEME.primary
+    };
+  });
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -642,7 +655,8 @@ const FAQPage: React.FC = () => {
     <Layout>
       <ErrorBoundary>
         <div className="relative min-h-screen bg-gradient-to-b from-[#070b24] to-[#030610] overflow-hidden">
-          {theme ? <LandingParticleBackground theme={theme} /> : null}
+          {/* Only render LandingParticleBackground if we have a valid theme */}
+          {theme && theme.primary && <LandingParticleBackground theme={theme} />}
           <div className="relative z-10">
             <header className="text-center mb-8 px-4">
               <h1 className="font-orbitron text-5xl font-extrabold uppercase tracking-wide bg-gradient-to-r from-[#e6ccff] via-[#7b00ff] to-[#9966ff] bg-clip-text text-transparent drop-shadow-[0_0_5px_rgba(123,0,255,0.4)]">
