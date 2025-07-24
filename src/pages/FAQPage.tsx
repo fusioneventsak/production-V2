@@ -220,7 +220,7 @@ const FAQPage: React.FC = () => {
       .animate-float-2 { animation: float-2 8s ease-in-out infinite; }
       .animate-float-3 { animation: float-3 7s ease-in-out infinite; }
       
-      /* Magical card effects */
+      /* Magical card effects - ALWAYS ON by default */
       .magical-card {
         position: relative;
         overflow: visible;
@@ -238,15 +238,15 @@ const FAQPage: React.FC = () => {
         mask-composite: xor;
         -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
         -webkit-mask-composite: xor;
-        opacity: 0;
-        transition: opacity 0.3s ease;
+        opacity: 0.8;
+        filter: blur(4px);
+        animation: edge-shine 3s ease-in-out infinite;
         z-index: -1;
-        filter: blur(2px);
       }
       
       .magical-card:hover::before {
-        opacity: 0.8;
-        filter: blur(4px);
+        opacity: 1;
+        filter: blur(6px);
         animation: edge-shine 2s ease-in-out infinite;
       }
       
@@ -260,14 +260,14 @@ const FAQPage: React.FC = () => {
           var(--card-color, #a855f7)15 0%,
           transparent 40%
         );
-        opacity: 0;
+        opacity: 0.2;
         transition: opacity 0.3s ease;
         pointer-events: none;
         z-index: 1;
       }
       
       .magical-card:hover::after {
-        opacity: 0.3;
+        opacity: 0.4;
       }
       
       .card-ripple {
@@ -306,14 +306,14 @@ const FAQPage: React.FC = () => {
         inset: -4px;
         border-radius: inherit;
         background: var(--card-color, #a855f7);
-        opacity: 0;
+        opacity: 0.4;
         filter: blur(15px);
-        transition: opacity 0.3s ease;
+        animation: magical-glow 3s ease-in-out infinite;
         z-index: -1;
       }
       
       .magical-card:hover .edge-glow {
-        opacity: 0.4;
+        opacity: 0.6;
         animation: magical-glow 2s ease-in-out infinite;
       }
       
@@ -327,7 +327,7 @@ const FAQPage: React.FC = () => {
           rgba(255, 255, 255, 0.1) 30%,
           transparent 50%
         );
-        opacity: 0;
+        opacity: 0.3;
         transition: opacity 0.3s ease;
         pointer-events: none;
         z-index: 2;
@@ -335,7 +335,7 @@ const FAQPage: React.FC = () => {
       }
       
       .magical-card:hover .card-highlight {
-        opacity: 1;
+        opacity: 0.5;
       }
 
       .absolute.w-1.h-1 {
@@ -357,6 +357,15 @@ const FAQPage: React.FC = () => {
         opacity: 1 !important;
         visibility: visible !important;
         display: flex !important;
+      }
+
+      /* Fix text direction for flipped cards */
+      .card-back {
+        transform: rotateY(180deg);
+      }
+      
+      .card.flipped .card-back {
+        transform: rotateY(0deg);
       }
     `;
     document.head.appendChild(style);
@@ -638,189 +647,244 @@ const FAQPage: React.FC = () => {
           </div>
           
           <div className="relative z-10">
-            <header className="text-center mb-8 px-4 py-16">
-              <h1 className="font-orbitron text-5xl font-extrabold uppercase tracking-wide bg-gradient-to-r from-[#e6ccff] via-[#7b00ff] to-[#9966ff] bg-clip-text text-transparent drop-shadow-[0_0_5px_rgba(123,0,255,0.4)] mb-6">
-                Frequently Asked <span className="block text-6xl">Questions</span>
-              </h1>
-              <p className="text-lg max-w-2xl mx-auto text-white/80 mb-8">
-                Everything you need to know about PhotoSphere's revolutionary 3D photobooth platform
-              </p>
-            </header>
-
-            {/* Search and Category Filters */}
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-              <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-              <CategoryFilter 
-                categories={categories} 
-                activeCategory={activeCategory} 
-                onCategoryChange={setActiveCategory} 
-              />
-            </div>
-
-            {/* FAQ Cards Grid */}
-            <div className="flex justify-center items-center flex-wrap gap-8 p-8 max-w-7xl mx-auto" ref={cardsContainerRef}>
-              {filteredFAQs.map((faq, index) => (
-                <div
-                  key={faq.id}
-                  className="magical-card relative w-80 h-[450px] bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5)] transition-all duration-600 cursor-pointer overflow-visible"
-                  style={{ '--card-color': faq.color }}
-                  ref={(el) => (cardRefs.current[index] = el)}
-                  onClick={(e) => {
-                    const card = cardRefs.current[index];
-                    if (card && !(e.target as HTMLElement).closest('.btn')) {
-                      const isFlipped = card.classList.contains('flipped');
-                      flipCard(card, !isFlipped);
-                    }
-                  }}
-                >
-                  {/* Magical effects containers */}
-                  <div className="magnetic-particles"></div>
-                  <div className="edge-glow"></div>
-                  <div className="card-highlight"></div>
-                  
-                  <div className="card-inner relative w-full h-full transition-transform duration-800 transform-style-3d rounded-3xl">
-                    {/* Default State - Beautiful card with question and magical runes */}
-                    <div className="card-front absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6">
-                      {/* Magical circle */}
-                      <div 
-                        className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 opacity-70 pointer-events-none"
-                        style={{ 
-                          borderColor: faq.color + '50',
-                          boxShadow: `0 0 20px ${faq.color}50, inset 0 0 20px ${faq.color}30`
-                        }}
-                      />
-                      
-                      {/* Magical runes with the card's color */}
-                      {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
-                        <div 
-                          key={runeIndex}
-                          className="rune absolute text-xl opacity-60 transition-all duration-500 animate-pulse z-3 pointer-events-none" 
-                          style={{ 
-                            color: faq.color,
-                            top: `${25 + Math.sin(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
-                            left: `${25 + Math.cos(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
-                            filter: `drop-shadow(0 0 10px ${faq.color})`
-                          }}
-                        >
-                          {rune}
-                        </div>
-                      ))}
-                      
-                      <div className="card-content relative flex flex-col justify-center items-center p-8 h-full text-center z-10">
-                        <faq.icon 
-                          className="text-4xl mb-4 drop-shadow-lg animate-pulse" 
-                          style={{ color: faq.color }}
-                        />
-                        <h2 className="font-orbitron text-xl font-bold mb-4 text-white text-center leading-tight">
-                          {faq.question}
-                        </h2>
-                        <p className="text-sm leading-relaxed mb-6 text-white/70">
-                          Click to reveal the full answer
-                        </p>
-                        <button
-                          className="btn relative inline-block px-6 py-3 bg-black/30 text-white border-2 rounded-full font-orbitron text-xs font-semibold uppercase tracking-wide cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm hover:scale-105"
-                          style={{ 
-                            borderColor: faq.color + '80',
-                            boxShadow: `0 0 15px ${faq.color}40`
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const card = cardRefs.current[index];
-                            if (card) {
-                              addClickEffect(e.currentTarget, card);
-                              setTimeout(() => flipCard(card, true), 200);
-                            }
-                          }}
-                        >
-                          Read Answer
-                        </button>
-                      </div>
-                    </div>
+            {/* Hero Section */}
+            <div className="relative overflow-hidden min-h-[70vh] flex items-center">
+              {/* Hero Content */}
+              <div className="relative z-[20] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
+                <div className="text-center lg:text-left lg:w-1/2">
+                  {/* Abstract diffused gradient overlay behind text */}
+                  <div className="relative">
+                    <div className="absolute -inset-8 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
+                    <div className="absolute -inset-4 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
+                    <div className="absolute -inset-2 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
                     
-                    {/* Answer State - Full answer content */}
-                    <div className="card-back absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 bg-[linear-gradient(135deg,rgba(0,10,30,0.8)_0%,rgba(0,10,40,0.9)_100%)] z-1">
-                      {/* Dimmed magical circle */}
-                      <div 
-                        className="magical-circle absolute w-[300px] h-[300px] rounded-full border top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-1 opacity-20 pointer-events-none"
-                        style={{ 
-                          borderColor: faq.color + '30',
-                          boxShadow: `0 0 30px ${faq.color}20`
-                        }}
-                      />
+                    <div className="relative">
+                      <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+                        <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
+                          Frequently Asked
+                        </span>
+                        <span className="block drop-shadow-lg">Questions</span>
+                      </h1>
                       
-                      {/* Dimmed runes */}
-                      {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
-                        <div 
-                          key={runeIndex}
-                          className="rune absolute text-lg opacity-0 transition-all duration-500 z-2 pointer-events-none" 
-                          style={{ 
-                            color: faq.color + '60',
-                            top: `${15 + Math.sin(runeIndex * Math.PI * 2 / 7) * 35 + 25}%`,
-                            left: `${15 + Math.cos(runeIndex * Math.PI * 2 / 7) * 35 + 25}%`,
-                            filter: `drop-shadow(0 0 5px ${faq.color}50)`
-                          }}
-                        >
-                          {rune}
-                        </div>
-                      ))}
+                      <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg">
+                        Everything you need to know about PhotoSphere's revolutionary 3D photobooth platform. 
+                        Find answers about compatibility, features, pricing, and setup.
+                      </p>
                       
-                      <div className="secret-content absolute top-1/2 left-1/2 w-[90%] -translate-x-1/2 -translate-y-1/2 opacity-0 invisible transition-all duration-500 flex flex-col items-center justify-center text-center z-5">
-                        <faq.icon 
-                          className="text-3xl mb-3 drop-shadow-lg" 
-                          style={{ color: faq.color }}
-                        />
-                        <h2 className="font-orbitron text-lg font-bold mb-3 text-white leading-tight">
-                          {faq.question}
-                        </h2>
-                        <p className="text-sm leading-relaxed mb-6 text-white/90 max-h-48 overflow-y-auto">
-                          {faq.answer}
-                        </p>
+                      <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4">
                         <button
-                          className="btn text-white border-2 border-white/30 px-6 py-2 rounded-full font-orbitron uppercase font-bold text-xs tracking-wide cursor-pointer transition-all duration-300 hover:scale-105"
-                          style={{ 
-                            backgroundColor: faq.color + 'B0',
-                            boxShadow: `0 0 15px ${faq.color}80`
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const card = cardRefs.current[index];
-                            if (card) {
-                              addClickEffect(e.currentTarget, card);
-                              setTimeout(() => flipCard(card, false), 200);
-                            }
-                          }}
+                          onClick={() => setIsDemoModalOpen(true)}
+                          className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
                         >
-                          Back
+                          Request Demo
+                          <ArrowRight className="ml-2 h-5 w-5" />
                         </button>
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
+              </div>
+              
+              {/* Quick Stats */}
+              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-[20] pointer-events-none">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-400 mb-1">500+</div>
+                    <div className="text-sm text-gray-400">Photos Per Event</div>
+                  </div>
+                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-400 mb-1">&lt;1s</div>
+                    <div className="text-sm text-gray-400">Real-time Display</div>
+                  </div>
+                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-green-400 mb-1">∞</div>
+                    <div className="text-sm text-gray-400">Simultaneous Users</div>
+                  </div>
+                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-yellow-400 mb-1">0</div>
+                    <div className="text-sm text-gray-400">Hardware Required</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* No Results */}
-            {filteredFAQs.length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-24 h-24 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-xl border border-purple-500/30">
-                  <Search className="w-12 h-12 text-white/70" />
-                </div>
-                <h3 className="text-2xl font-semibold text-white mb-3">No results found</h3>
-                <p className="text-gray-400 mb-6">Try adjusting your search terms or category filter.</p>
-                <button 
-                  onClick={() => { setSearchTerm(''); setActiveCategory('all'); }}
-                  className="px-8 py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-purple-600/30 to-blue-600/30 border border-purple-500/30 hover:from-purple-500/40 hover:to-blue-500/40 backdrop-blur-xl transition-all duration-500 transform hover:scale-105"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            )}
+            {/* FAQ Content Section */}
+            <div className="relative z-10 py-20 bg-gradient-to-b from-black/10 to-black/30">
+              <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Search and Category Filters */}
+                <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+                <CategoryFilter 
+                  categories={categories} 
+                  activeCategory={activeCategory} 
+                  onCategoryChange={setActiveCategory} 
+                />
 
-            <footer className="text-center py-8 text-white/70 text-sm w-full z-10">
-              <p>PhotoSphere FAQ - Revolutionary 3D Photobooth Platform</p>
-            </footer>
+                {/* FAQ Cards Grid */}
+                <div className="flex justify-center items-center flex-wrap gap-8 p-8 max-w-7xl mx-auto" ref={cardsContainerRef}>
+                  {filteredFAQs.map((faq, index) => (
+                    <div
+                      key={faq.id}
+                      className="magical-card relative w-80 h-[450px] bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5)] transition-all duration-600 cursor-pointer overflow-visible"
+                      style={{ '--card-color': faq.color }}
+                      ref={(el) => (cardRefs.current[index] = el)}
+                      onClick={(e) => {
+                        const card = cardRefs.current[index];
+                        if (card && !(e.target as HTMLElement).closest('.btn')) {
+                          const isFlipped = card.classList.contains('flipped');
+                          flipCard(card, !isFlipped);
+                        }
+                      }}
+                    >
+                      {/* Magical effects containers */}
+                      <div className="magnetic-particles"></div>
+                      <div className="edge-glow"></div>
+                      <div className="card-highlight"></div>
+                      
+                      <div className="card-inner relative w-full h-full transition-transform duration-800 transform-style-3d rounded-3xl">
+                        {/* Default State - Beautiful glowing metallic card with question and magical runes */}
+                        <div className="card-front absolute w-full h-full rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6">
+                          {/* Magical circle */}
+                          <div 
+                            className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 opacity-70 pointer-events-none"
+                            style={{ 
+                              borderColor: faq.color + '50',
+                              boxShadow: `0 0 20px ${faq.color}50, inset 0 0 20px ${faq.color}30`
+                            }}
+                          />
+                          
+                          {/* Magical runes with the card's color */}
+                          {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
+                            <div 
+                              key={runeIndex}
+                              className="rune absolute text-xl opacity-60 transition-all duration-500 animate-pulse z-3 pointer-events-none" 
+                              style={{ 
+                                color: faq.color,
+                                top: `${25 + Math.sin(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
+                                left: `${25 + Math.cos(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
+                                filter: `drop-shadow(0 0 10px ${faq.color})`
+                              }}
+                            >
+                              {rune}
+                            </div>
+                          ))}
+                          
+                          <div className="card-content relative flex flex-col justify-center items-center p-8 h-full text-center z-10">
+                            <faq.icon 
+                              className="text-4xl mb-4 drop-shadow-lg animate-pulse" 
+                              style={{ color: faq.color }}
+                            />
+                            <h2 className="font-orbitron text-xl font-bold mb-4 text-white text-center leading-tight">
+                              {faq.question}
+                            </h2>
+                            <p className="text-sm leading-relaxed mb-6 text-white/70">
+                              Click to reveal the full answer
+                            </p>
+                            <button
+                              className="btn relative inline-block px-6 py-3 bg-black/30 text-white border-2 rounded-full font-orbitron text-xs font-semibold uppercase tracking-wide cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm hover:scale-105"
+                              style={{ 
+                                borderColor: faq.color + '80',
+                                boxShadow: `0 0 15px ${faq.color}40`
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const card = cardRefs.current[index];
+                                if (card) {
+                                  addClickEffect(e.currentTarget, card);
+                                  setTimeout(() => flipCard(card, true), 200);
+                                }
+                              }}
+                            >
+                              Read Answer
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Answer State - Full answer content */}
+                        <div className="card-back absolute w-full h-full rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 bg-[linear-gradient(135deg,rgba(0,10,30,0.8)_0%,rgba(0,10,40,0.9)_100%)] z-1">
+                          {/* Dimmed magical circle */}
+                          <div 
+                            className="magical-circle absolute w-[300px] h-[300px] rounded-full border top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-1 opacity-20 pointer-events-none"
+                            style={{ 
+                              borderColor: faq.color + '30',
+                              boxShadow: `0 0 30px ${faq.color}20`
+                            }}
+                          />
+                          
+                          {/* Dimmed runes */}
+                          {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
+                            <div 
+                              key={runeIndex}
+                              className="rune absolute text-lg opacity-0 transition-all duration-500 z-2 pointer-events-none" 
+                              style={{ 
+                                color: faq.color + '60',
+                                top: `${15 + Math.sin(runeIndex * Math.PI * 2 / 7) * 35 + 25}%`,
+                                left: `${15 + Math.cos(runeIndex * Math.PI * 2 / 7) * 35 + 25}%`,
+                                filter: `drop-shadow(0 0 5px ${faq.color}50)`
+                              }}
+                            >
+                              {rune}
+                            </div>
+                          ))}
+                          
+                          <div className="secret-content absolute top-1/2 left-1/2 w-[90%] -translate-x-1/2 -translate-y-1/2 opacity-0 invisible transition-all duration-500 flex flex-col items-center justify-center text-center z-5">
+                            <faq.icon 
+                              className="text-3xl mb-3 drop-shadow-lg" 
+                              style={{ color: faq.color }}
+                            />
+                            <h2 className="font-orbitron text-lg font-bold mb-3 text-white leading-tight">
+                              {faq.question}
+                            </h2>
+                            <p className="text-sm leading-relaxed mb-6 text-white/90 max-h-48 overflow-y-auto">
+                              {faq.answer}
+                            </p>
+                            <button
+                              className="btn text-white border-2 border-white/30 px-6 py-2 rounded-full font-orbitron uppercase font-bold text-xs tracking-wide cursor-pointer transition-all duration-300 hover:scale-105"
+                              style={{ 
+                                backgroundColor: faq.color + 'B0',
+                                boxShadow: `0 0 15px ${faq.color}80`
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const card = cardRefs.current[index];
+                                if (card) {
+                                  addClickEffect(e.currentTarget, card);
+                                  setTimeout(() => flipCard(card, false), 200);
+                                }
+                              }}
+                            >
+                              Back
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* No Results */}
+                {filteredFAQs.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="w-24 h-24 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-xl border border-purple-500/30">
+                      <Search className="w-12 h-12 text-white/70" />
+                    </div>
+                    <h3 className="text-2xl font-semibold text-white mb-3">No results found</h3>
+                    <p className="text-gray-400 mb-6">Try adjusting your search terms or category filter.</p>
+                    <button 
+                      onClick={() => { setSearchTerm(''); setActiveCategory('all'); }}
+                      className="px-8 py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-purple-600/30 to-blue-600/30 border border-purple-500/30 hover:from-purple-500/40 hover:to-blue-500/40 backdrop-blur-xl transition-all duration-500 transform hover:scale-105"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                )}
+
+                <footer className="text-center py-8 text-white/70 text-sm w-full z-10">
+                  <p>PhotoSphere FAQ - Revolutionary 3D Photobooth Platform</p>
+                </footer>
+              </div>
+            </div>
           </div>
         </div>
 
