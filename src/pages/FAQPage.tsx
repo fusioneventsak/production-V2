@@ -5,6 +5,11 @@ import DemoRequestModal from '../components/modals/DemoRequestModal';
 
 // Fallback theme removed since we're not using particle background
 
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles, ArrowRight } from 'lucide-react';
+import Layout from '../components/layout/Layout';
+import DemoRequestModal from '../components/modals/DemoRequestModal';
+
 const faqs = [
   {
     question: 'What is the primary function of this platform?',
@@ -52,10 +57,311 @@ const FAQPage: React.FC = () => {
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Add magical card interactions and CSS animations
   useEffect(() => {
-    console.log('FAQ Page initialized');
-
-    const cards = cardRefs.current;
+    // Add comprehensive magical card CSS
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes float-1 {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        33% { transform: translateY(-10px) rotate(5deg); }
+        66% { transform: translateY(5px) rotate(-3deg); }
+      }
+      @keyframes float-2 {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        33% { transform: translateY(8px) rotate(-4deg); }
+        66% { transform: translateY(-12px) rotate(6deg); }
+      }
+      @keyframes float-3 {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        33% { transform: translateY(-6px) rotate(3deg); }
+        66% { transform: translateY(10px) rotate(-5deg); }
+      }
+      @keyframes gradient-x {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+      @keyframes magical-glow {
+        0% { 
+          box-shadow: 0 0 20px var(--card-color, #7b00ff); 
+          filter: brightness(1);
+        }
+        50% { 
+          box-shadow: 0 0 30px var(--card-color, #7b00ff), 0 0 40px var(--card-color, #7b00ff); 
+          filter: brightness(1.2);
+        }
+        100% { 
+          box-shadow: 0 0 20px var(--card-color, #7b00ff); 
+          filter: brightness(1);
+        }
+      }
+      @keyframes ripple-effect {
+        0% {
+          transform: translate(-50%, -50%) scale(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(4);
+          opacity: 0;
+        }
+      }
+      @keyframes magnetic-particle {
+        0% {
+          transform: translateY(0px) translateX(0px) scale(0);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        90% {
+          opacity: 0.8;
+        }
+        100% {
+          transform: translateY(-30px) translateX(15px) scale(0);
+          opacity: 0;
+        }
+      }
+      @keyframes edge-shine {
+        0% {
+          transform: translateX(-100%) skewX(-15deg);
+          opacity: 0;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(100%) skewX(-15deg);
+          opacity: 0;
+        }
+      }
+      
+      .animate-float-1 { animation: float-1 6s ease-in-out infinite; }
+      .animate-float-2 { animation: float-2 8s ease-in-out infinite; }
+      .animate-float-3 { animation: float-3 7s ease-in-out infinite; }
+      .animate-gradient-x { 
+        background-size: 400% 400%;
+        animation: gradient-x 8s ease infinite;
+      }
+      
+      /* Magical card effects */
+      .magical-card {
+        position: relative;
+        overflow: visible;
+        perspective: 1000px;
+      }
+      
+      .magical-card::before {
+        content: '';
+        position: absolute;
+        inset: -3px;
+        border-radius: inherit;
+        padding: 3px;
+        background: linear-gradient(45deg, var(--card-color, #a855f7), transparent, var(--card-color, #a855f7));
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask-composite: xor;
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+        filter: blur(2px);
+      }
+      
+      .magical-card:hover::before {
+        opacity: 0.8;
+        filter: blur(4px);
+        animation: edge-shine 2s ease-in-out infinite;
+      }
+      
+      .magical-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(
+          600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+          var(--card-color, #a855f7)15 0%,
+          transparent 40%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        z-index: 1;
+      }
+      
+      .magical-card:hover::after {
+        opacity: 0.3;
+      }
+      
+      .card-ripple {
+        position: absolute;
+        border-radius: 50%;
+        background: var(--card-color, #a855f7);
+        pointer-events: none;
+        z-index: 2;
+        animation: ripple-effect 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0.8;
+      }
+      
+      .magnetic-particles {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        border-radius: inherit;
+        z-index: 1;
+      }
+      
+      .magnetic-particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: var(--card-color, #a855f7);
+        border-radius: 50%;
+        opacity: 0;
+        animation: magnetic-particle 3s ease-in-out infinite;
+        box-shadow: 0 0 10px var(--card-color, #a855f7);
+        filter: blur(1px);
+      }
+      
+      .edge-glow {
+        position: absolute;
+        inset: -4px;
+        border-radius: inherit;
+        background: var(--card-color, #a855f7);
+        opacity: 0;
+        filter: blur(15px);
+        transition: opacity 0.3s ease;
+        z-index: -1;
+      }
+      
+      .magical-card:hover .edge-glow {
+        opacity: 0.4;
+        animation: magical-glow 2s ease-in-out infinite;
+      }
+      
+      .card-highlight {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(
+          400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+          rgba(255, 255, 255, 0.2) 0%,
+          rgba(255, 255, 255, 0.1) 30%,
+          transparent 50%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        z-index: 2;
+        mix-blend-mode: overlay;
+      }
+      
+      .magical-card:hover .card-highlight {
+        opacity: 1;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Add magical card interactions
+    const cards = document.querySelectorAll('.magical-card');
+    
+    const handleMouseMove = (e, card) => {
+      const rect = card.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      
+      card.style.setProperty('--mouse-x', `${x}%`);
+      card.style.setProperty('--mouse-y', `${y}%`);
+      
+      // 3D tilt effect
+      const rotateY = -(x - 50) * 0.3;
+      const rotateX = (y - 50) * 0.3;
+      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+    };
+    
+    const handleMouseLeave = (card) => {
+      card.style.transform = '';
+      card.style.setProperty('--mouse-x', '50%');
+      card.style.setProperty('--mouse-y', '50%');
+    };
+    
+    const handleClick = (e, card) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Create ripple effect
+      const ripple = document.createElement('div');
+      ripple.className = 'card-ripple';
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+      ripple.style.width = '0px';
+      ripple.style.height = '0px';
+      
+      card.appendChild(ripple);
+      
+      // Remove ripple after animation
+      setTimeout(() => {
+        ripple.remove();
+      }, 600);
+      
+      // Create magnetic particles
+      createMagneticParticles(card, x, y);
+    };
+    
+    const createMagneticParticles = (card, x, y) => {
+      const container = card.querySelector('.magnetic-particles');
+      if (!container) return;
+      
+      // Create multiple particles for better effect
+      for (let i = 0; i < 12; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'magnetic-particle';
+        
+        const angle = (i / 12) * Math.PI * 2;
+        const distance = 20 + Math.random() * 30;
+        const particleX = x + Math.cos(angle) * distance;
+        const particleY = y + Math.sin(angle) * distance;
+        
+        particle.style.left = `${particleX}px`;
+        particle.style.top = `${particleY}px`;
+        particle.style.animationDelay = `${i * 0.05}s`;
+        particle.style.animationDuration = `${2 + Math.random()}s`;
+        
+        // Use card's color
+        const cardColor = card.style.getPropertyValue('--card-color') || '#a855f7';
+        particle.style.background = cardColor;
+        particle.style.boxShadow = `0 0 10px ${cardColor}`;
+        
+        container.appendChild(particle);
+        
+        setTimeout(() => {
+          if (particle.parentNode) {
+            particle.remove();
+          }
+        }, 3000);
+      }
+    };
+    
+    cards.forEach(card => {
+      card.addEventListener('mousemove', (e) => handleMouseMove(e, card));
+      card.addEventListener('mouseleave', () => handleMouseLeave(card));
+      card.addEventListener('click', (e) => handleClick(e, card));
+    });
+    
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+      cards.forEach(card => {
+        card.removeEventListener('mousemove', handleMouseMove);
+        card.removeEventListener('mouseleave', handleMouseLeave);
+        card.removeEventListener('click', handleClick);
+      });
+    };
+  }, []);
 
     const handleCardMouseMove = (e: MouseEvent | Touch, card: HTMLDivElement) => {
       if (card.classList.contains('flipped')) return;
@@ -153,311 +459,81 @@ const FAQPage: React.FC = () => {
 
     const resetCardEffects = (card: HTMLDivElement) => {
       if (card.classList.contains('flipped')) return;
-
-      const cardFront = card.querySelector('.card-front');
-      const cardGlow = cardFront?.querySelector('.card-glow');
-      const highlight = cardFront?.querySelector('.highlight');
-      const magneticParticles = cardFront?.querySelectorAll('.magnetic-particle');
-      const cardInner = card.querySelector('.card-inner');
-      const edgeGlow = card.querySelector('.edge-glow');
-
-      if (cardInner) (cardInner as HTMLElement).style.transform = '';
-      if (cardGlow) (cardGlow as HTMLElement).style.opacity = '0';
-      if (highlight) (highlight as HTMLElement).style.opacity = '0';
-      if (edgeGlow) {
-        (edgeGlow as HTMLElement).style.opacity = '0.5';
-        (edgeGlow as HTMLElement).style.filter = 'blur(3px) brightness(1)';
-        (edgeGlow as HTMLElement).style.background = 'linear-gradient(135deg, var(--glow, #7b00ff), transparent 70%) border-box';
-      }
-
-      magneticParticles?.forEach(particle => {
-        (particle as HTMLElement).style.opacity = '0';
-        (particle as HTMLElement).style.transform = '';
-      });
-
-      card.style.setProperty('--border-opacity', '0.5');
-      card.style.setProperty('--border-blur', '4px');
-      card.style.boxShadow = '0 15px 35px rgba(0, 0, 0, 0.5), 0 0 10px var(--glow, rgba(123, 0, 255, 0.3))';
       card.classList.remove('active');
-
       applyFloatingAnimation(card);
     };
 
     const applyFloatingAnimation = (card: HTMLDivElement) => {
       if (card.classList.contains('flipped')) return;
-
+      // Simple floating animation
       const duration = 5 + Math.random() * 5;
       const delay = Math.random() * 2;
-      const translateY = 5 + Math.random() * 8;
-
-      const cardInner = card.querySelector('.card-inner');
-      if (cardInner) {
-        (cardInner as HTMLElement).style.animation = `floating ${duration}s ease-in-out ${delay}s infinite alternate`;
-      }
-    };
-
-    const flipCard = (card: HTMLDivElement, toBackSide: boolean) => {
-      const cardInner = card.querySelector('.card-inner');
-      const cardFront = card.querySelector('.card-front');
-      const cardBack = card.querySelector('.card-back');
-      const secretContent = card.querySelector('.secret-content');
-
-      const playFlipSound = () => {
-        if (!window.AudioContext && !(window as any).webkitAudioContext) return;
-        try {
-          const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
-          const oscillator1 = audioContext.createOscillator();
-          const oscillator2 = audioContext.createOscillator();
-          const oscillator3 = audioContext.createOscillator();
-
-          oscillator1.type = 'sine';
-          oscillator1.frequency.setValueAtTime(480, audioContext.currentTime);
-          oscillator1.frequency.exponentialRampToValueAtTime(180, audioContext.currentTime + 0.5);
-
-          oscillator2.type = 'triangle';
-          oscillator2.frequency.setValueAtTime(520, audioContext.currentTime);
-          oscillator2.frequency.exponentialRampToValueAtTime(220, audioContext.currentTime + 0.7);
-
-          oscillator3.type = 'sine';
-          oscillator3.frequency.setValueAtTime(800, audioContext.currentTime);
-          oscillator3.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.3);
-
-          const gainNode1 = audioContext.createGain();
-          const gainNode2 = audioContext.createGain();
-          const gainNode3 = audioContext.createGain();
-
-          gainNode1.gain.setValueAtTime(0.04, audioContext.currentTime);
-          gainNode2.gain.setValueAtTime(0.02, audioContext.currentTime);
-          gainNode3.gain.setValueAtTime(0.015, audioContext.currentTime);
-
-          gainNode1.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
-          gainNode2.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.7);
-          gainNode3.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
-
-          const panner = audioContext.createStereoPanner();
-          panner.pan.setValueAtTime(-0.5, audioContext.currentTime);
-          panner.pan.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.6);
-
-          oscillator1.connect(gainNode1);
-          oscillator2.connect(gainNode2);
-          oscillator3.connect(gainNode3);
-
-          gainNode1.connect(panner);
-          gainNode2.connect(panner);
-          gainNode3.connect(panner);
-
-          panner.connect(audioContext.destination);
-
-          oscillator1.start();
-          oscillator2.start(audioContext.currentTime + 0.05);
-          oscillator3.start(audioContext.currentTime + 0.1);
-
-          oscillator1.stop(audioContext.currentTime + 0.5);
-          oscillator2.stop(audioContext.currentTime + 0.7);
-          oscillator3.stop(audioContext.currentTime + 0.3);
-        } catch (e) {}
-      };
-
-      const animateRunes = (card: HTMLDivElement) => {
-        const runes = card.querySelectorAll('.rune');
-        const centerX = 50;
-        const centerY = 50;
-        const radius = 35;
-
-        runes.forEach((rune, index) => {
-          const angle = (index / runes.length) * Math.PI * 2;
-          const randomRadius = radius - 5 + Math.random() * 10;
-          const x = centerX + Math.cos(angle) * randomRadius;
-          const y = centerY + Math.sin(angle) * randomRadius;
-
-          (rune as HTMLElement).style.transition = `all ${0.5 + Math.random() * 0.5}s ease-out`;
-          (rune as HTMLElement).style.left = `${x}%`;
-          (rune as HTMLElement).style.top = `${y}%`;
-
-          const rotation = Math.random() * 360;
-          (rune as HTMLElement).style.transform = `rotate(${rotation}deg)`;
-        });
-      };
-
-      const showSecretContent = (card: HTMLDivElement) => {
-        const secretContent = card.querySelector('.secret-content');
-        const secretIcon = card.querySelector('.secret-icon');
-        const secretTitle = card.querySelector('.secret-title');
-        const secretDescription = card.querySelector('.secret-description');
-        const secretButton = card.querySelector('.card-back .btn');
-        const runes = card.querySelectorAll('.rune');
-
-        if (secretContent) {
-          (secretContent as HTMLElement).style.opacity = '1';
-          (secretContent as HTMLElement).style.visibility = 'visible';
-          (secretContent as HTMLElement).style.display = 'flex';
-        }
-
-        if (secretIcon) {
-          (secretIcon as HTMLElement).style.opacity = '1';
-          (secretIcon as HTMLElement).style.visibility = 'visible';
-          (secretIcon as HTMLElement).style.display = 'block';
-          (secretIcon as HTMLElement).style.transform = 'scale(1)';
-        }
-
-        setTimeout(() => {
-          if (secretTitle) {
-            (secretTitle as HTMLElement).style.opacity = '1';
-            (secretTitle as HTMLElement).style.visibility = 'visible';
-            (secretTitle as HTMLElement).style.display = 'block';
-            (secretTitle as HTMLElement).style.transform = 'scale(1)';
-          }
-        }, 150);
-
-        setTimeout(() => {
-          if (secretDescription) {
-            (secretDescription as HTMLElement).style.opacity = '1';
-            (secretDescription as HTMLElement).style.visibility = 'visible';
-            (secretDescription as HTMLElement).style.display = 'block';
-            (secretDescription as HTMLElement).style.transform = 'translateY(0)';
-          }
-        }, 300);
-
-        setTimeout(() => {
-          if (secretButton) {
-            (secretButton as HTMLElement).style.opacity = '1';
-            (secretButton as HTMLElement).style.visibility = 'visible';
-            (secretButton as HTMLElement).style.display = 'block';
-            (secretButton as HTMLElement).style.transform = 'scale(1)';
-          }
-        }, 450);
-
-        if (runes.length > 0) {
-          runes.forEach((rune, index) => {
-            setTimeout(() => {
-              (rune as HTMLElement).style.opacity = '1';
-              (rune as HTMLElement).style.visibility = 'visible';
-            }, 100 * index);
-          });
-        }
-      };
-
-      playFlipSound();
-
-      if (toBackSide) {
-        card.style.zIndex = '100';
-        card.classList.add('flipped');
-
-        if (cardInner) (cardInner as HTMLElement).style.transform = 'rotateY(180deg)';
-        if (cardBack) {
-          (cardBack as HTMLElement).style.opacity = '1';
-          (cardBack as HTMLElement).style.visibility = 'visible';
-          (cardBack as HTMLElement).style.zIndex = '3';
-          (cardBack as HTMLElement).style.display = 'flex';
-        }
-        if (cardFront) {
-          (cardFront as HTMLElement).style.opacity = '0';
-          (cardFront as HTMLElement).style.visibility = 'hidden';
-          (cardFront as HTMLElement).style.zIndex = '0';
-        }
-        if (secretContent) {
-          (secretContent as HTMLElement).style.opacity = '0';
-          (secretContent as HTMLElement).style.visibility = 'hidden';
-          (secretContent as HTMLElement).style.display = 'none';
-        }
-
-        setTimeout(() => {
-          animateRunes(card);
-          showSecretContent(card);
-        }, 300);
-      } else {
-        card.classList.remove('flipped');
-
-        if (cardInner) (cardInner as HTMLElement).style.transform = 'rotateY(0deg)';
-        if (cardFront) {
-          (cardFront as HTMLElement).style.opacity = '1';
-          (cardFront as HTMLElement).style.visibility = 'visible';
-          (cardFront as HTMLElement).style.zIndex = '2';
-        }
-        if (cardBack) {
-          (cardBack as HTMLElement).style.opacity = '0';
-          (cardBack as HTMLElement).style.visibility = 'hidden';
-          (cardBack as HTMLElement).style.zIndex = '1';
-          (cardBack as HTMLElement).style.display = 'none';
-        }
-        if (secretContent) {
-          (secretContent as HTMLElement).style.opacity = '0';
-          (secretContent as HTMLElement).style.visibility = 'hidden';
-          (secretContent as HTMLElement).style.display = 'none';
-        }
-
-        setTimeout(() => {
-          card.style.zIndex = '';
-          applyFloatingAnimation(card);
-        }, 1000);
-      }
-
-      card.classList.add('flipping');
-      setTimeout(() => {
-        card.classList.remove('flipping');
-      }, 1000);
+      card.style.animation = `float-${(Math.floor(Math.random() * 3) + 1)} ${duration}s ease-in-out ${delay}s infinite alternate`;
     };
 
     const createRipple = (e: MouseEvent | Touch, card: HTMLDivElement) => {
-      const rippleContainer = card.querySelector('.ripple-effect');
       const rect = card.getBoundingClientRect();
-
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
       const ripple = document.createElement('div');
-      ripple.className = 'ripple';
+      ripple.className = 'card-ripple';
       ripple.style.left = `${x}px`;
       ripple.style.top = `${y}px`;
-      ripple.style.background = `radial-gradient(circle at center, var(--glow, #7b00ff)40 0%, transparent 70%)`;
+      ripple.style.width = '0px';
+      ripple.style.height = '0px';
 
-      rippleContainer?.appendChild(ripple);
+      card.appendChild(ripple);
 
       setTimeout(() => {
-        ripple.style.transition = 'all 1s ease';
-        ripple.style.transform = 'scale(3)';
-        ripple.style.opacity = '0';
-        setTimeout(() => {
-          ripple.remove();
-        }, 1000);
-      }, 10);
+        ripple.remove();
+      }, 600);
     };
 
-    const createMagneticParticles = (card: HTMLDivElement, color: string) => {
-      const magneticParticles = card.querySelector('.magnetic-particles');
-      if (!magneticParticles) return;
+    // Clean up the rest of the original card interaction code for compatibility
+    const cards = cardRefs.current;
 
-      magneticParticles.innerHTML = '';
-      const particleCount = 50;
+    cards.forEach((card, index) => {
+      if (!card) return;
 
-      for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.classList.add('magnetic-particle');
+      const color = faqs[index]?.color || '#7b00ff';
+      card.style.setProperty('--card-color', color);
 
-        const posX = Math.random() * 100;
-        const posY = Math.random() * 100;
-        const size = 1 + Math.random() * 4;
-        const opacity = 0.1 + Math.random() * 0.3;
-        const blur = 1 + Math.random() * 2;
+      applyFloatingAnimation(card);
 
-        particle.style.left = `${posX}%`;
-        particle.style.top = `${posY}%`;
-        particle.style.width = `${size}px`;
-        particle.style.height = `${size}px`;
-        particle.style.opacity = `${opacity}`;
-        particle.style.backgroundColor = color;
-        particle.style.boxShadow = `0 0 ${blur}px ${blur}px ${color}`;
-        particle.style.animation = `pulsate ${1 + Math.random() * 2}s infinite alternate`;
-        particle.style.animationDelay = `${Math.random() * 2}s`;
+      card.addEventListener('mousemove', (e) => {
+        handleCardMouseMove(e, card);
+        createRipple(e, card);
+      });
 
-        magneticParticles.appendChild(particle);
-      }
+      card.addEventListener('mouseleave', () => {
+        resetCardEffects(card);
+      });
+
+      card.addEventListener('touchmove', (e) => {
+        if (card.classList.contains('flipped')) return;
+        const touch = e.touches[0];
+        handleCardMouseMove(touch, card);
+        createRipple(touch, card);
+        e.preventDefault();
+      });
+
+      card.addEventListener('touchend', () => {
+        if (card.classList.contains('flipped')) return;
+        resetCardEffects(card);
+      });
+    });
+
+    return () => {
+      cards.forEach(card => {
+        if (!card) return;
+        card.removeEventListener('mousemove', handleCardMouseMove as any);
+        card.removeEventListener('mouseleave', resetCardEffects as any);
+        card.removeEventListener('touchmove', handleCardMouseMove as any);
+        card.removeEventListener('touchend', resetCardEffects as any);
+      });
     };
-
-    const handleReflectiveTexture = (e: MouseEvent | Touch, card: HTMLDivElement) => {
-      if (card.classList.contains('flipped')) return;
-
-      const rect = card.getBoundingClientRect();
+  }, []); = card.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
@@ -673,9 +749,8 @@ const FAQPage: React.FC = () => {
               {faqs.map((faq, index) => (
                 <div
                   key={index}
-                  className="card relative w-80 h-[450px] bg-[rgba(15,20,54,0.7)] rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5),0_0_10px_var(--glow,rgba(123,0,255,0.3))] backdrop-blur-md transition-all duration-600 ease-[cubic-bezier(0.23,1,0.32,1)] transform-style-3d z-1 perspective-[1500px] cursor-pointer border border-[rgba(123,0,255,0.3)]"
-                  data-color={faq.color}
-                  data-card-id={`card-${index + 1}`}
+                  className="magical-card relative w-80 h-[450px] bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5)] transition-all duration-600 ease-[cubic-bezier(0.23,1,0.32,1)] cursor-pointer overflow-visible"
+                  style={{ '--card-color': faq.color }}
                   ref={(el) => (cardRefs.current[index] = el)}
                   onClick={(e) => {
                     const card = cardRefs.current[index];
@@ -685,23 +760,30 @@ const FAQPage: React.FC = () => {
                     }
                   }}
                 >
+                  {/* Magical effects containers */}
+                  <div className="magnetic-particles"></div>
+                  <div className="edge-glow"></div>
+                  <div className="card-highlight"></div>
+                  
                   <div className="card-inner relative w-full h-full transition-transform duration-800 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] transform-style-3d rounded-3xl">
                     <div className="card-front absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 box-border z-2">
-                      <div className="card-glow absolute w-full h-full rounded-3xl z-[-1] opacity-0 bg-[radial-gradient(circle_at_var(--mouse-x,50%)_var(--mouse-y,50%),var(--glow,#7b00ff)_0%,transparent_70%)] blur-5xl transition-opacity duration-300 pointer-events-none animate-[pulse-glow_2s_ease-in-out_infinite_alternate]" />
-                      <div className="highlight absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/5 h-3/5 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0.2)_30%,transparent_70%)] opacity-0 rounded-full pointer-events-none mix-blend-overlay z-1 transition-opacity duration-300 blur-[10px]" />
-                      <div className="edge-glow absolute -inset-1.5 rounded-[25px] border-2 border-[var(--glow,#7b00ff)] bg-[linear-gradient(135deg,var(--glow,#7b00ff),transparent_70%)] [mask:linear-gradient(#fff_0_0)_padding-box,linear-gradient(#fff_0_0)] [-webkit-mask-composite:xor] [mask-composite:exclude] z-0 opacity-50 blur-sm transition-opacity duration-300 animate-[pulse-edge_2s_ease-in-out_infinite] shadow-[0_0_15px_5px_var(--glow,rgba(123,0,255,0.4))]" />
-                      <div className="ripple-effect absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-11 opacity-0 transition-opacity duration-300" />
-                      <div className="magnetic-particles absolute inset-0 rounded-3xl overflow-hidden z-1 pointer-events-none mix-blend-screen" />
                       <div className="card-content relative flex flex-col justify-center items-center p-8 h-full text-center z-10 pointer-events-auto">
-                        <faq.icon className="text-5xl mb-6 text-[var(--icon-color,var(--glow,#7b00ff))] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[icon-glow_2s_ease-in-out_infinite_alternate]" />
-                        <h2 className="font-orbitron text-2xl mb-4 bg-gradient-to-r from-white to-[var(--glow,#7b00ff)] bg-clip-text text-transparent drop-shadow-[0_0_5px_var(--glow,rgba(123,0,255,0.3))] animate-[title-glow_3s_ease-in-out_infinite_alternate]">
+                        <faq.icon 
+                          className="text-5xl mb-6 drop-shadow-[0_0_10px_var(--card-color)] animate-pulse" 
+                          style={{ color: faq.color }}
+                        />
+                        <h2 className="font-orbitron text-2xl mb-4 bg-gradient-to-r from-white to-white bg-clip-text text-white drop-shadow-lg">
                           {faq.question}
                         </h2>
                         <p className="text-base leading-relaxed mb-8 text-white/90">
                           Click to reveal the answer
                         </p>
                         <button
-                          className="btn flip-btn relative inline-block px-8 py-3 bg-[rgba(10,10,20,0.6)] text-white border-2 border-[var(--glow,rgba(123,0,255,0.5))] rounded-[30px] font-orbitron text-sm font-semibold uppercase tracking-wide overflow-hidden cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1.2)] shadow-[0_0_15px_rgba(0,0,0,0.3),0_0_10px_var(--glow,rgba(123,0,255,0.3))] backdrop-blur-sm outline-none z-50"
+                          className="btn flip-btn relative inline-block px-8 py-3 bg-black/30 text-white border-2 rounded-[30px] font-orbitron text-sm font-semibold uppercase tracking-wide overflow-hidden cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm outline-none z-50 hover:scale-105 hover:shadow-xl"
+                          style={{ 
+                            borderColor: faq.color + '80',
+                            boxShadow: `0 0 15px ${faq.color}40`
+                          }}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -717,24 +799,47 @@ const FAQPage: React.FC = () => {
                       </div>
                     </div>
                     <div className="card-back absolute w-full h-full backface-hidden rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 box-border bg-[linear-gradient(135deg,rgba(0,10,30,0.8)_0%,rgba(0,10,40,0.9)_100%)] z-1">
-                      <div className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 border-[var(--glow,rgba(123,0,255,0.3))] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 shadow-[0_0_20px_var(--glow,rgba(123,0,255,0.3)),inset_0_0_20px_var(--glow,rgba(123,0,255,0.2))] opacity-70 pointer-events-none" />
-                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '30%', left: '30%' }}>✧</div>
-                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '25%', left: '70%' }}>⦿</div>
-                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '70%', left: '35%' }}>⚝</div>
-                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '65%', left: '75%' }}>⚜</div>
-                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '50%', left: '85%' }}>✴</div>
-                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '15%', left: '50%' }}>⚹</div>
-                      <div className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.6))] animate-[glow-rune_3s_infinite_alternate] z-3 pointer-events-none" style={{ top: '75%', left: '55%' }}>⦾</div>
+                      <div 
+                        className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 opacity-70 pointer-events-none"
+                        style={{ 
+                          borderColor: faq.color + '50',
+                          boxShadow: `0 0 20px ${faq.color}50, inset 0 0 20px ${faq.color}30`
+                        }}
+                      />
+                      
+                      {/* Magical runes with the card's color */}
+                      {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
+                        <div 
+                          key={runeIndex}
+                          className="rune absolute text-xl opacity-0 transition-all duration-500 blur-sm drop-shadow-lg animate-pulse z-3 pointer-events-none" 
+                          style={{ 
+                            color: faq.color,
+                            top: `${25 + Math.sin(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
+                            left: `${25 + Math.cos(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
+                            filter: `drop-shadow(0 0 10px ${faq.color})`
+                          }}
+                        >
+                          {rune}
+                        </div>
+                      ))}
+                      
                       <div className="secret-content absolute top-1/2 left-1/2 w-4/5 -translate-x-1/2 -translate-y-1/2 opacity-0 invisible transition-all duration-500 flex flex-col items-center justify-center text-center p-0 z-5 pointer-events-auto">
-                        <faq.icon className="secret-icon text-4xl mb-2 text-[var(--glow,#7b00ff)] drop-shadow-[0_0_10px_var(--glow,rgba(123,0,255,0.5))] transition-all duration-500" />
-                        <h2 className="secret-title font-orbitron text-2xl font-bold mb-2 text-white bg-gradient-to-r from-white to-[var(--glow,#7b00ff)] bg-clip-text text-transparent drop-shadow-[0_0_5px_var(--glow,rgba(123,0,255,0.3))] text-center w-full transition-all duration-500">
+                        <faq.icon 
+                          className="secret-icon text-4xl mb-2 drop-shadow-lg transition-all duration-500" 
+                          style={{ color: faq.color }}
+                        />
+                        <h2 className="secret-title font-orbitron text-2xl font-bold mb-2 text-white bg-gradient-to-r from-white to-white bg-clip-text text-white drop-shadow-lg text-center w-full transition-all duration-500">
                           {faq.question}
                         </h2>
                         <p className="secret-description text-sm leading-relaxed mb-5 text-white/90 text-center w-full max-w-[90%]">
                           {faq.answer}
                         </p>
                         <button
-                          className="btn flip-btn bg-[var(--glow,rgba(123,0,255,0.7))] text-white border-2 border-[rgba(255,255,255,0.3)] px-6 py-3 rounded-[30px] font-orbitron uppercase font-bold tracking-wide cursor-pointer shadow-[0_0_15px_var(--glow,rgba(123,0,255,0.5))] transition-all duration-300"
+                          className="btn flip-btn text-white border-2 border-white/30 px-6 py-3 rounded-[30px] font-orbitron uppercase font-bold tracking-wide cursor-pointer shadow-lg transition-all duration-300 hover:scale-105"
+                          style={{ 
+                            backgroundColor: faq.color + 'B0',
+                            boxShadow: `0 0 15px ${faq.color}80`
+                          }}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -1031,6 +1136,23 @@ const FAQPage: React.FC = () => {
 
           .absolute.w-1.h-1 {
             animation: float-particle linear infinite;
+          }
+
+          /* Enhanced card animations for magical effects */
+          @keyframes floating {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-8px); }
+          }
+
+          .card.flipped .rune {
+            opacity: 1 !important;
+            visibility: visible !important;
+          }
+
+          .card.flipped .secret-content {
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: flex !important;
           }
         `}</style>
 
