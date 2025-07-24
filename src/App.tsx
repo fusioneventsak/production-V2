@@ -6,6 +6,7 @@ import {
   createRoutesFromElements,
   Navigate
 } from 'react-router-dom';
+
 // Pages
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -23,6 +24,8 @@ import BlogPostAI from './pages/BlogPostAI';
 import BlogPostPricing from './pages/BlogPostPricing';
 import JoinCollage from './pages/JoinCollage';
 import Custom404Page from './pages/404';
+import FAQPage from './pages/FAQPage'; // Add this import
+
 // Create router with future flag enabled
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -32,6 +35,7 @@ const router = createBrowserRouter(
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/faq" element={<FAQPage />} /> {/* Add this route */}
       <Route path="/join" element={<JoinCollage />} />
       <Route path="/blog" element={<Blog />} />
       <Route path="/blog/photobooth-businesses-double-revenue-photosphere-case-study" element={<BlogPost />} />
@@ -61,9 +65,11 @@ const router = createBrowserRouter(
     }
   }
 );
+
 function App() {
   return (
     <RouterProvider router={router} />
   );
 }
+
 export default App;
