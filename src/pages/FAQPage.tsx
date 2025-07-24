@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles, ArrowRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import HeroScene from '../components/three/HeroScene';
-import LandingParticleBackground from '../components/three/LandingParticleBackground';
-import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
+import { LandingParticleBackground, PARTICLE_THEMES } from '../components/three/LandingParticleBackground';
 
 // FAQ Item Component with animations
 const FAQItem = ({ question, answer, icon: Icon, isOpen, onToggle }) => {
