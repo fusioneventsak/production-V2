@@ -168,7 +168,7 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
       <mesh>
-        <planeGeometry args={[1.0, 1.5]} />
+        <planeGeometry args={[0.7, 1.0]} />
         <meshStandardMaterial 
           map={texture}
           transparent
@@ -184,8 +184,8 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
       </mesh>
       
       {comment && textTexture && (
-        <mesh position={[0, -0.9, 0.01]}>
-          <planeGeometry args={[1.0, 0.25]} />
+        <mesh position={[0, -0.65, 0.01]}>
+          <planeGeometry args={[0.7, 0.18]} />
           <meshBasicMaterial 
             map={textTexture} 
             transparent 
@@ -901,9 +901,9 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
       imageUrl: string;
     }> = [];
 
-    // Main grid - more spread out and positioned higher
-    const gridSize = 7; // Increased from 5
-    const floorSize = 30; // Increased area
+    // Main grid - closer and more foreground focused
+    const gridSize = 8; // Increased for more photos
+    const floorSize = 25; // Slightly reduced but still spread
     const spacing = floorSize / (gridSize - 1);
     
     let photoIndex = 0;
@@ -913,18 +913,18 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
         const x = (col - (gridSize - 1) / 2) * spacing;
         const z = (row - (gridSize - 1) / 2) * spacing;
         
-        const xOffset = (Math.random() - 0.5) * 1.0;
-        const zOffset = (Math.random() - 0.5) * 1.0;
+        const xOffset = (Math.random() - 0.5) * 1.5;
+        const zOffset = (Math.random() - 0.5) * 1.5;
         
-        // Higher base height and more variation
-        const baseHeight = 3.0; // Raised from 1.5
-        const waveHeight = Math.sin(row * 0.3) * Math.cos(col * 0.3) * 2.0; // Increased
-        const randomHeight = Math.random() * 1.5; // Increased
+        // Lower heights but more variation
+        const baseHeight = 1.0; // Lowered from 3.0
+        const waveHeight = Math.sin(row * 0.4) * Math.cos(col * 0.4) * 1.0;
+        const randomHeight = Math.random() * 2.0;
         const y = baseHeight + waveHeight + randomHeight;
         
-        const rotationX = (Math.random() - 0.5) * 0.4;
-        const rotationY = (Math.random() - 0.5) * 0.8;
-        const rotationZ = (Math.random() - 0.5) * 0.3;
+        const rotationX = (Math.random() - 0.5) * 0.5;
+        const rotationY = (Math.random() - 0.5) * 1.0;
+        const rotationZ = (Math.random() - 0.5) * 0.4;
         
         const imageUrl = DEMO_PHOTOS[photoIndex % DEMO_PHOTOS.length];
         photoIndex++;
@@ -937,18 +937,18 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
       }
     }
     
-    // Add extra photos at very high positions for hero section visibility
-    const heroPhotos = 15; // Number of hero photos
-    for (let i = 0; i < heroPhotos; i++) {
-      const angle = (i / heroPhotos) * Math.PI * 2;
-      const radius = 12 + Math.random() * 8; // Spread around camera view
-      const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 4;
-      const z = Math.sin(angle) * radius + (Math.random() - 0.5) * 4;
-      const y = 8 + Math.random() * 6; // Very high positions
+    // Foreground photos - very close to camera for immediate visibility
+    const foregroundPhotos = 20; // More foreground photos
+    for (let i = 0; i < foregroundPhotos; i++) {
+      const angle = (i / foregroundPhotos) * Math.PI * 2;
+      const radius = 3 + Math.random() * 5; // Much closer to camera
+      const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 2;
+      const z = Math.sin(angle) * radius + (Math.random() - 0.5) * 2;
+      const y = 2 + Math.random() * 4; // Mid-range heights
       
-      const rotationX = (Math.random() - 0.5) * 0.6;
-      const rotationY = (Math.random() - 0.5) * 1.2;
-      const rotationZ = (Math.random() - 0.5) * 0.4;
+      const rotationX = (Math.random() - 0.5) * 0.8;
+      const rotationY = (Math.random() - 0.5) * 1.5;
+      const rotationZ = (Math.random() - 0.5) * 0.6;
       
       const imageUrl = DEMO_PHOTOS[(photoIndex + i) % DEMO_PHOTOS.length];
       
@@ -959,20 +959,42 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
       });
     }
     
-    // Add some mid-level photos for depth
-    const midPhotos = 10;
-    for (let i = 0; i < midPhotos; i++) {
+    // Hero section photos - positioned for immediate visibility
+    const heroPhotos = 25; // More hero photos
+    for (let i = 0; i < heroPhotos; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const radius = 8 + Math.random() * 12;
+      const radius = 6 + Math.random() * 8; // Medium distance
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      const y = 5 + Math.random() * 3; // Mid-level height
+      const y = 3 + Math.random() * 5; // Higher positions for hero visibility
       
-      const rotationX = (Math.random() - 0.5) * 0.5;
-      const rotationY = (Math.random() - 0.5) * 1.0;
+      const rotationX = (Math.random() - 0.5) * 0.6;
+      const rotationY = (Math.random() - 0.5) * 1.2;
+      const rotationZ = (Math.random() - 0.5) * 0.5;
+      
+      const imageUrl = DEMO_PHOTOS[(photoIndex + foregroundPhotos + i) % DEMO_PHOTOS.length];
+      
+      positions.push({
+        position: [x, y, z] as [number, number, number],
+        rotation: [rotationX, rotationY, rotationZ] as [number, number, number],
+        imageUrl: imageUrl,
+      });
+    }
+    
+    // Background photos for depth (further away)
+    const backgroundPhotos = 15;
+    for (let i = 0; i < backgroundPhotos; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 15 + Math.random() * 10; // Further away
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const y = 1 + Math.random() * 6; // Various heights
+      
+      const rotationX = (Math.random() - 0.5) * 0.4;
+      const rotationY = (Math.random() - 0.5) * 0.8;
       const rotationZ = (Math.random() - 0.5) * 0.3;
       
-      const imageUrl = DEMO_PHOTOS[(photoIndex + heroPhotos + i) % DEMO_PHOTOS.length];
+      const imageUrl = DEMO_PHOTOS[(photoIndex + foregroundPhotos + heroPhotos + i) % DEMO_PHOTOS.length];
       
       positions.push({
         position: [x, y, z] as [number, number, number],
@@ -1844,8 +1866,8 @@ const FAQPage: React.FC = () => {
   return (
     <Layout>
       <ErrorBoundary>
-        <div className="relative w-full min-h-[calc(100vh-160px)] bg-black text-white overflow-y-auto">
-          {/* 3D Scene Background - Same as pricing page */}
+        <div className="relative w-full min-h-screen bg-black text-white overflow-y-auto">
+          {/* 3D Scene Background - Covers entire page */}
           <div className="absolute inset-0 w-full h-full z-0">
             <ErrorBoundary>
               {/* Theme Controls */}
@@ -1868,7 +1890,7 @@ const FAQPage: React.FC = () => {
 
               <Canvas
                 className="absolute inset-0 w-full h-full"
-                camera={{ position: [15, 3, 15], fov: 45 }}
+                camera={{ position: [12, 2, 12], fov: 50 }}
                 shadows={false}
                 gl={{ 
                   antialias: true, 
@@ -1902,7 +1924,7 @@ const FAQPage: React.FC = () => {
           
           <div className="relative z-5">
             {/* Hero Section */}
-            <div className="relative overflow-hidden min-h-[70vh] flex items-center">
+            <div className="relative overflow-hidden min-h-screen flex items-center">
               {/* Hero Content */}
               <div className="relative z-[20] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
                 <div className="text-center lg:text-left lg:w-1/2">
@@ -1913,14 +1935,14 @@ const FAQPage: React.FC = () => {
                     <div className="absolute -inset-2 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
                     
                     <div className="relative">
-                      <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+                      <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 sm:mb-6">
                         <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
                           Frequently Asked
                         </span>
                         <span className="block drop-shadow-lg">Questions</span>
                       </h1>
                       
-                      <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg">
+                      <p className="text-base sm:text-lg md:text-xl text-gray-200 mb-6 sm:mb-8 drop-shadow-lg">
                         Everything you need to know about PhotoSphere's revolutionary 3D photobooth platform. 
                         Find answers about compatibility, features, pricing, and setup.
                       </p>
@@ -1928,10 +1950,10 @@ const FAQPage: React.FC = () => {
                       <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4">
                         <button
                           onClick={() => setIsDemoModalOpen(true)}
-                          className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
+                          className="px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
                         >
                           Request Demo
-                          <ArrowRight className="ml-2 h-5 w-5" />
+                          <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                         </button>
                       </div>
                     </div>
@@ -1939,24 +1961,24 @@ const FAQPage: React.FC = () => {
                 </div>
               </div>
               
-              {/* Quick Stats */}
-              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-[20] pointer-events-none">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
-                    <div className="text-2xl font-bold text-purple-400 mb-1">500+</div>
-                    <div className="text-sm text-gray-400">Photos Per Event</div>
+              {/* Quick Stats - Mobile Optimized */}
+              <div className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 z-[20] pointer-events-none w-full px-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 max-w-4xl mx-auto">
+                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+                    <div className="text-lg sm:text-2xl font-bold text-purple-400 mb-1">500+</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Photos Per Event</div>
                   </div>
-                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-400 mb-1">&lt;1s</div>
-                    <div className="text-sm text-gray-400">Real-time Display</div>
+                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+                    <div className="text-lg sm:text-2xl font-bold text-blue-400 mb-1">&lt;1s</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Real-time Display</div>
                   </div>
-                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
-                    <div className="text-2xl font-bold text-green-400 mb-1">∞</div>
-                    <div className="text-sm text-gray-400">Simultaneous Users</div>
+                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+                    <div className="text-lg sm:text-2xl font-bold text-green-400 mb-1">∞</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Simultaneous Users</div>
                   </div>
-                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
-                    <div className="text-2xl font-bold text-yellow-400 mb-1">0</div>
-                    <div className="text-sm text-gray-400">Hardware Required</div>
+                  <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+                    <div className="text-lg sm:text-2xl font-bold text-yellow-400 mb-1">0</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Hardware Required</div>
                   </div>
                 </div>
               </div>
