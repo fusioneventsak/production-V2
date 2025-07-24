@@ -444,6 +444,177 @@ const FAQPage: React.FC = () => {
               </div>
             )}
 
+            {/* Who Can Use PhotoSphere Section */}
+            <div className="mb-20">
+              <div className="text-center mb-12">
+                <h2 className="text-4xl font-bold text-white mb-4">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+                    Who Can Use PhotoSphere?
+                  </span>
+                </h2>
+                <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                  PhotoSphere transforms any event into an interactive experience. From intimate gatherings to massive festivals, 
+                  here's how different industries and event types benefit from our 3D photo displays.
+                </p>
+              </div>
+
+              {/* Use Cases Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-16">
+                {/* Photobooth Business */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-purple-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-purple-600/30 to-pink-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Camera className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-purple-300 transition-colors">Photobooth Business</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Charge premium rates with unique 3D experiences. Perfect add-on service that differentiates your business and increases revenue per event.
+                  </p>
+                </div>
+
+                {/* Corporate Events */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-blue-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-blue-600/30 to-cyan-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Users className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-blue-300 transition-colors">Corporate Events</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Conferences, product launches, team building. Add professional branding and create networking experiences that employees remember.
+                  </p>
+                </div>
+
+                {/* Family Events */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-green-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-green-600/30 to-emerald-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-green-300 transition-colors">Family Events</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Weddings, reunions, anniversaries. Create magical moments that bring families together and preserve memories in stunning 3D displays.
+                  </p>
+                </div>
+
+                {/* Birthdays */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-yellow-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-yellow-600/30 to-orange-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Sparkles className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-yellow-300 transition-colors">Birthdays & Parties</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Make any celebration unforgettable. From kids' parties to milestone birthdays, guests love seeing their photos come alive in 3D.
+                  </p>
+                </div>
+
+                {/* Bands & Musicians */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-red-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-red-600/30 to-pink-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-red-300 transition-colors">Bands & Musicians</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Concerts, gigs, album launches. Fans share photos that create stunning visual backdrops, adding energy to your performances.
+                  </p>
+                </div>
+
+                {/* DJ/VJ's */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-indigo-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-indigo-600/30 to-purple-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-indigo-300 transition-colors">DJ/VJ's</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Add visual storytelling to your sets. Create immersive experiences where crowd photos become part of your visual performance.
+                  </p>
+                </div>
+
+                {/* Entertainers */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-teal-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-teal-600/30 to-cyan-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1M12 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-teal-300 transition-colors">Entertainers</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Magicians, comedians, performers. Engage your audience with interactive displays that make them part of the show.
+                  </p>
+                </div>
+
+                {/* Festivals */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-orange-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-orange-600/30 to-red-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-orange-300 transition-colors">Festivals</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Music festivals, art shows, food festivals. Create massive community displays on big screens and projectors for shared experiences.
+                  </p>
+                </div>
+
+                {/* Retail & Business */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-violet-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-violet-600/30 to-purple-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Monitor className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-violet-300 transition-colors">Retail & Business</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Store openings, promotions, trade shows. Customer photos with your products create organic marketing and memorable brand experiences.
+                  </p>
+                </div>
+
+                {/* Event Planners */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-emerald-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-emerald-600/30 to-teal-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Settings className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-emerald-300 transition-colors">Event Planners</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Offer clients something unique that sets your events apart. Easy add-on service that increases your value and client satisfaction.
+                  </p>
+                </div>
+
+                {/* Venues */}
+                <div className="group bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-black/30 hover:border-rose-500/30 transition-all duration-300 hover:scale-105">
+                  <div className="w-16 h-16 bg-gradient-to-r from-rose-600/30 to-pink-600/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-rose-300 transition-colors">Venues & Restaurants</h3>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Create unique attractions that bring customers back. Perfect for special events, themed nights, and generating social media buzz.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bottom CTA */}
+              <div className="text-center">
+                <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 backdrop-blur-xl border border-purple-500/20 rounded-2xl p-8">
+                  <h3 className="text-2xl font-bold text-white mb-4">Ready to Transform Your Events?</h3>
+                  <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
+                    No matter what type of events you host or what industry you're in, PhotoSphere adapts to your needs. 
+                    Join thousands of event professionals who've discovered the power of 3D photo experiences.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <LiquidButton variant="primary" onClick={() => setIsDemoModalOpen(true)}>
+                      Start Your Free Trial
+                    </LiquidButton>
+                    <LiquidButton variant="secondary" onClick={() => setIsDemoModalOpen(true)}>
+                      See It In Action
+                    </LiquidButton>
+                  </div>
+                  <p className="text-sm text-gray-400 mt-4">14-day free trial • No credit card required • Setup in minutes</p>
+                </div>
+              </div>
+            </div>
+
             {/* Contact CTA */}
             <div className="text-center">
               <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 backdrop-blur-xl border border-purple-500/20 rounded-2xl p-12">
