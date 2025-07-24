@@ -1,4 +1,4 @@
-this is CLaudes version. import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles, ArrowRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import HeroScene from '../components/three/HeroScene';
@@ -116,7 +116,7 @@ const FAQPage: React.FC = () => {
   const [particleTheme, setParticleTheme] = useState(PARTICLE_THEMES[0]);
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
-  // Add custom CSS animations
+  // Add custom CSS animations and magical card effects
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -139,12 +139,173 @@ const FAQPage: React.FC = () => {
         0%, 100% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
       }
+      @keyframes magical-glow {
+        0% { 
+          box-shadow: 0 0 20px var(--card-color, #7b00ff); 
+          filter: brightness(1);
+        }
+        50% { 
+          box-shadow: 0 0 30px var(--card-color, #7b00ff), 0 0 40px var(--card-color, #7b00ff); 
+          filter: brightness(1.2);
+        }
+        100% { 
+          box-shadow: 0 0 20px var(--card-color, #7b00ff); 
+          filter: brightness(1);
+        }
+      }
+      @keyframes ripple-effect {
+        0% {
+          transform: translate(-50%, -50%) scale(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(4);
+          opacity: 0;
+        }
+      }
+      @keyframes magnetic-particle {
+        0% {
+          transform: translateY(0px) translateX(0px);
+          opacity: 0.3;
+        }
+        50% {
+          opacity: 0.8;
+        }
+        100% {
+          transform: translateY(-20px) translateX(10px);
+          opacity: 0;
+        }
+      }
+      @keyframes edge-shine {
+        0% {
+          transform: translateX(-100%);
+          opacity: 0;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+      }
+      
       .animate-float-1 { animation: float-1 6s ease-in-out infinite; }
       .animate-float-2 { animation: float-2 8s ease-in-out infinite; }
       .animate-float-3 { animation: float-3 7s ease-in-out infinite; }
       .animate-gradient-x { 
         background-size: 400% 400%;
         animation: gradient-x 8s ease infinite;
+      }
+      
+      /* Magical card effects */
+      .magical-card {
+        position: relative;
+        overflow: visible;
+        perspective: 1000px;
+      }
+      
+      .magical-card::before {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: inherit;
+        padding: 2px;
+        background: linear-gradient(45deg, var(--card-color, #7b00ff), transparent, var(--card-color, #7b00ff));
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask-composite: xor;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+      }
+      
+      .magical-card:hover::before {
+        opacity: 0.8;
+        animation: edge-shine 2s ease-in-out infinite;
+      }
+      
+      .magical-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(
+          circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+          var(--card-color, #7b00ff)20 0%,
+          transparent 50%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        z-index: 1;
+      }
+      
+      .magical-card:hover::after {
+        opacity: 0.1;
+      }
+      
+      .card-ripple {
+        position: absolute;
+        border-radius: 50%;
+        background: var(--card-color, #7b00ff);
+        pointer-events: none;
+        z-index: 2;
+        animation: ripple-effect 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      .magnetic-particles {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        border-radius: inherit;
+        z-index: 1;
+      }
+      
+      .magnetic-particle {
+        position: absolute;
+        width: 2px;
+        height: 2px;
+        background: var(--card-color, #7b00ff);
+        border-radius: 50%;
+        opacity: 0;
+        animation: magnetic-particle 3s ease-in-out infinite;
+        box-shadow: 0 0 6px var(--card-color, #7b00ff);
+      }
+      
+      .edge-glow {
+        position: absolute;
+        inset: -3px;
+        border-radius: inherit;
+        background: linear-gradient(45deg, var(--card-color, #7b00ff), transparent, var(--card-color, #7b00ff));
+        opacity: 0;
+        filter: blur(8px);
+        transition: opacity 0.3s ease;
+        z-index: -1;
+      }
+      
+      .magical-card:hover .edge-glow {
+        opacity: 0.6;
+        animation: magical-glow 2s ease-in-out infinite;
+      }
+      
+      .card-highlight {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(
+          circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+          rgba(255, 255, 255, 0.1) 0%,
+          transparent 50%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        z-index: 2;
+      }
+      
+      .magical-card:hover .card-highlight {
+        opacity: 1;
       }
     `;
     document.head.appendChild(style);
@@ -153,6 +314,93 @@ const FAQPage: React.FC = () => {
       if (document.head.contains(style)) {
         document.head.removeChild(style);
       }
+    };
+  }, []);
+
+  // Add magical card interactions
+  useEffect(() => {
+    const cards = document.querySelectorAll('.magical-card');
+    
+    const handleMouseMove = (e, card) => {
+      const rect = card.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      
+      card.style.setProperty('--mouse-x', `${x}%`);
+      card.style.setProperty('--mouse-y', `${y}%`);
+      
+      // 3D tilt effect
+      const rotateY = -(x - 50) * 0.3;
+      const rotateX = (y - 50) * 0.3;
+      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+    };
+    
+    const handleMouseLeave = (card) => {
+      card.style.transform = '';
+      card.style.setProperty('--mouse-x', '50%');
+      card.style.setProperty('--mouse-y', '50%');
+    };
+    
+    const handleClick = (e, card) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Create ripple effect
+      const ripple = document.createElement('div');
+      ripple.className = 'card-ripple';
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+      ripple.style.width = '0px';
+      ripple.style.height = '0px';
+      
+      card.appendChild(ripple);
+      
+      // Remove ripple after animation
+      setTimeout(() => {
+        ripple.remove();
+      }, 600);
+      
+      // Create magnetic particles
+      createMagneticParticles(card, x, y);
+    };
+    
+    const createMagneticParticles = (card, x, y) => {
+      const container = card.querySelector('.magnetic-particles') || card;
+      
+      for (let i = 0; i < 8; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'magnetic-particle';
+        
+        const angle = (i / 8) * Math.PI * 2;
+        const distance = 30 + Math.random() * 20;
+        const particleX = x + Math.cos(angle) * distance;
+        const particleY = y + Math.sin(angle) * distance;
+        
+        particle.style.left = `${particleX}px`;
+        particle.style.top = `${particleY}px`;
+        particle.style.animationDelay = `${i * 0.1}s`;
+        
+        container.appendChild(particle);
+        
+        setTimeout(() => {
+          particle.remove();
+        }, 3000);
+      }
+    };
+    
+    cards.forEach(card => {
+      card.addEventListener('mousemove', (e) => handleMouseMove(e, card));
+      card.addEventListener('mouseleave', () => handleMouseLeave(card));
+      card.addEventListener('click', (e) => handleClick(e, card));
+    });
+    
+    return () => {
+      cards.forEach(card => {
+        card.removeEventListener('mousemove', handleMouseMove);
+        card.removeEventListener('mouseleave', handleMouseLeave);
+        card.removeEventListener('click', handleClick);
+      });
     };
   }, []);
 
