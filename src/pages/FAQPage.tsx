@@ -718,72 +718,39 @@ const FAQPage: React.FC = () => {
                       <div className="card-highlight"></div>
                       
                       <div className="card-inner relative w-full h-full transition-transform duration-800 transform-style-3d rounded-3xl">
-                        {/* Default State - Filled with accent color and metallic texture */}
-                        <div className="card-front absolute w-full h-full rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6" 
+                        {/* Default State - VIBRANT solid color cards like the screenshot */}
+                        <div className="card-front absolute w-full h-full rounded-3xl overflow-hidden flex flex-col justify-center items-center p-8" 
                              style={{ 
-                               background: `linear-gradient(135deg, ${faq.color}40 0%, ${faq.color}60 50%, ${faq.color}40 100%), linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%, rgba(255,255,255,0.1) 100%)`,
-                               boxShadow: `0 0 30px ${faq.color}60, inset 0 0 30px ${faq.color}20`
+                               background: faq.color,
+                               boxShadow: `0 0 40px ${faq.color}80, 0 0 80px ${faq.color}40`
                              }}>
-                          {/* Metallic shine overlay */}
-                          <div 
-                            className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 opacity-80 rounded-3xl"
-                            style={{
-                              background: `linear-gradient(45deg, rgba(255,255,255,0.3) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.2) 100%)`
-                            }}
-                          />
                           
-                          {/* Magical circle */}
-                          <div 
-                            className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 opacity-70 pointer-events-none"
-                            style={{ 
-                              borderColor: faq.color + 'AA',
-                              boxShadow: `0 0 20px ${faq.color}80, inset 0 0 20px ${faq.color}40`
-                            }}
-                          />
-                          
-                          {/* Magical runes with the card's color */}
-                          {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
-                            <div 
-                              key={runeIndex}
-                              className="rune absolute text-xl opacity-80 transition-all duration-500 animate-pulse z-3 pointer-events-none" 
-                              style={{ 
-                                color: faq.color,
-                                top: `${25 + Math.sin(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
-                                left: `${25 + Math.cos(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
-                                filter: `drop-shadow(0 0 15px ${faq.color}) brightness(1.2)`,
-                                textShadow: `0 0 10px ${faq.color}`
-                              }}
-                            >
-                              {rune}
-                            </div>
-                          ))}
-                          
-                          <div className="card-content relative flex flex-col justify-center items-center p-8 h-full text-center z-10">
+                          <div className="card-content relative flex flex-col justify-center items-center h-full text-center z-10">
                             <faq.icon 
-                              className="text-4xl mb-4 drop-shadow-lg animate-pulse" 
+                              className="text-6xl mb-6 text-white drop-shadow-lg" 
                               style={{ 
-                                color: '#ffffff',
-                                filter: `drop-shadow(0 0 15px ${faq.color}) brightness(1.1)`,
-                                textShadow: `0 0 20px ${faq.color}`
+                                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))'
                               }}
                             />
-                            <h2 className="font-orbitron text-xl font-bold mb-4 text-white text-center leading-tight"
+                            <h2 className="font-bold text-2xl mb-6 text-white text-center leading-tight max-w-[280px]"
                                 style={{ 
-                                  textShadow: `0 0 10px ${faq.color}, 0 2px 4px rgba(0,0,0,0.5)`,
-                                  filter: 'brightness(1.1)'
+                                  textShadow: '0 2px 4px rgba(0,0,0,0.3)'
                                 }}>
                               {faq.question}
                             </h2>
-                            <p className="text-sm leading-relaxed mb-6 text-white/90"
-                               style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+                            <p className="text-base mb-8 text-white/90 font-medium"
+                               style={{ 
+                                 textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                               }}>
                               Click to reveal the full answer
                             </p>
                             <button
-                              className="btn relative inline-block px-6 py-3 text-white border-2 border-white/40 rounded-full font-orbitron text-xs font-semibold uppercase tracking-wide cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm hover:scale-105"
+                              className="btn relative inline-block px-8 py-4 text-white border-3 rounded-full font-bold text-base uppercase tracking-wide cursor-pointer transition-all duration-300 hover:scale-105"
                               style={{ 
-                                backgroundColor: faq.color + 'CC',
-                                boxShadow: `0 0 20px ${faq.color}60, inset 0 0 10px rgba(255,255,255,0.2)`,
-                                textShadow: '0 1px 2px rgba(0,0,0,0.7)'
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: '3px solid rgba(255,255,255,0.4)',
+                                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                                backdropFilter: 'blur(10px)'
                               }}
                               onClick={(e) => {
                                 e.preventDefault();
@@ -795,7 +762,7 @@ const FAQPage: React.FC = () => {
                                 }
                               }}
                             >
-                              Read Answer
+                              READ ANSWER
                             </button>
                           </div>
                         </div>
