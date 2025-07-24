@@ -1,19 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles, ArrowRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
-import HeroScene from '../components/three/HeroScene';
-import { LandingParticleBackground } from '../components/three/LandingParticleBackground';
-import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
 import DemoRequestModal from '../components/modals/DemoRequestModal';
 
-// Fallback theme to prevent undefined theme errors
-const DEFAULT_THEME = {
-  name: 'Default Purple',
-  primary: '#7b00ff',
-  secondary: '#e6ccff',
-  background: '#070b24',
-  accent: '#9966ff'
-};
+// Fallback theme removed since we're not using particle background
 
 const faqs = [
   {
@@ -59,23 +49,11 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 const FAQPage: React.FC = () => {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
-  // Ensure we always have a valid theme object with all required properties
-  const [theme, setTheme] = useState(() => {
-    const initialTheme = PARTICLE_THEMES?.[0] || DEFAULT_THEME;
-    // Make sure the theme has all required properties
-    return {
-      name: initialTheme.name || 'Default',
-      primary: initialTheme.primary || DEFAULT_THEME.primary,
-      secondary: initialTheme.secondary || DEFAULT_THEME.secondary,
-      background: initialTheme.background || DEFAULT_THEME.background,
-      accent: initialTheme.accent || DEFAULT_THEME.primary
-    };
-  });
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
-    console.log('Current theme:', theme);
+    console.log('FAQ Page initialized');
 
     const cards = cardRefs.current;
 
@@ -655,8 +633,32 @@ const FAQPage: React.FC = () => {
     <Layout>
       <ErrorBoundary>
         <div className="relative min-h-screen bg-gradient-to-b from-[#070b24] to-[#030610] overflow-hidden">
-          {/* Only render LandingParticleBackground if we have a valid theme */}
-          {theme && theme.primary && <LandingParticleBackground theme={theme} />}
+          {/* Enhanced CSS-only background with animated particles */}
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Animated gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#070b24] via-[#0a0f2e] to-[#030610] animate-pulse"></div>
+            
+            {/* CSS-only floating particles */}
+            <div className="absolute inset-0">
+              {[...Array(50)].map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute w-1 h-1 bg-purple-400 rounded-full opacity-30"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 20}s`,
+                    animationDuration: `${15 + Math.random() * 10}s`
+                  }}
+                />
+              ))}
+            </div>
+            
+            {/* Glowing orbs */}
+            <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/20 rounded-full blur-xl animate-pulse"></div>
+            <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-blue-500/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+            <div className="absolute top-1/2 left-3/4 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '4s' }}></div>
+          </div>
           <div className="relative z-10">
             <header className="text-center mb-8 px-4">
               <h1 className="font-orbitron text-5xl font-extrabold uppercase tracking-wide bg-gradient-to-r from-[#e6ccff] via-[#7b00ff] to-[#9966ff] bg-clip-text text-transparent drop-shadow-[0_0_5px_rgba(123,0,255,0.4)]">
@@ -1007,10 +1009,28 @@ const FAQPage: React.FC = () => {
             100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
           }
 
-          @keyframes card-pulse-animation {
-            0% { opacity: 0.8; transform: scale(0.95); }
-            70% { opacity: 0.2; }
-            100% { opacity: 0; transform: scale(1.1); }
+          /* CSS Particle Animation */
+          @keyframes float-particle {
+            0%, 100% {
+              transform: translateY(0px) translateX(0px);
+              opacity: 0.3;
+            }
+            25% {
+              transform: translateY(-20px) translateX(10px);
+              opacity: 0.7;
+            }
+            50% {
+              transform: translateY(-40px) translateX(-5px);
+              opacity: 0.5;
+            }
+            75% {
+              transform: translateY(-20px) translateX(-10px);
+              opacity: 0.8;
+            }
+          }
+
+          .absolute.w-1.h-1 {
+            animation: float-particle linear infinite;
           }
         `}</style>
 
