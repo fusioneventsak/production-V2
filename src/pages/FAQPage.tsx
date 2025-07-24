@@ -180,7 +180,7 @@ const FAQPage: React.FC = () => {
       }
 
       magneticParticles?.forEach(particle => {
-        (anno (particle as HTMLElement).style.opacity = '0';
+        (particle as HTMLElement).style.opacity = '0';
         (particle as HTMLElement).style.transform = '';
       });
 
