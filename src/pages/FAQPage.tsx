@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles, ArrowRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import DemoRequestModal from '../components/modals/DemoRequestModal';
+import { LandingParticleBackground } from '../components/three/LandingParticleBackground';
+import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
 
 // Your complete PhotoSphere FAQ data
 const faqData = [
@@ -273,6 +275,7 @@ const FAQPage: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('all');
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [particleTheme, setParticleTheme] = useState(PARTICLE_THEMES[0]);
 
   // Add magical card interactions and CSS animations
   useEffect(() => {
@@ -807,154 +810,8 @@ const FAQPage: React.FC = () => {
     <Layout>
       <ErrorBoundary>
         <div className="relative min-h-screen bg-gradient-to-b from-[#070b24] to-[#030610] overflow-hidden">
-          {/* Enhanced CSS-only background with animated particles and floating photos */}
-          <div className="absolute inset-0 overflow-hidden">
-            {/* Animated gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#070b24] via-[#0a0f2e] to-[#030610] animate-pulse"></div>
-            
-            {/* Enhanced CSS-only floating particles - MORE PARTICLES */}
-            <div className="absolute inset-0">
-              {[...Array(150)].map((_, i) => (
-                <div
-                  key={`particle-${i}`}
-                  className="absolute rounded-full opacity-40"
-                  style={{
-                    width: `${Math.random() * 4 + 1}px`,
-                    height: `${Math.random() * 4 + 1}px`,
-                    backgroundColor: [
-                      '#ff00dd', '#0088ff', '#00ff88', '#ffae00', '#9966ff', 
-                      '#ff4400', '#00ffe1', '#ff0088', '#4400ff', '#8800ff'
-                    ][Math.floor(Math.random() * 10)],
-                    left: `${Math.random() * 100}%`,
-                    top: `${Math.random() * 100}%`,
-                    animationDelay: `${Math.random() * 30}s`,
-                    animationDuration: `${20 + Math.random() * 15}s`,
-                    boxShadow: `0 0 ${Math.random() * 10 + 5}px currentColor`
-                  }}
-                />
-              ))}
-            </div>
-            
-            {/* Large Floating Photos - NEW ADDITION */}
-            <div className="absolute inset-0">
-              {/* Top left floating photo */}
-              <div 
-                className="absolute top-1/4 left-1/6 w-32 h-24 rounded-xl shadow-2xl transform -rotate-12 animate-float-1 opacity-20 overflow-hidden border-2 border-white/10"
-                style={{ 
-                  background: 'linear-gradient(135deg, #ff00dd20, #0088ff20)',
-                  backdropFilter: 'blur(10px)'
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-blue-500/30"></div>
-                <div className="absolute inset-2 bg-white/5 rounded-lg flex items-center justify-center">
-                  <Camera className="w-8 h-8 text-white/60" />
-                </div>
-              </div>
-
-              {/* Top right floating photo */}
-              <div 
-                className="absolute top-1/3 right-1/5 w-28 h-36 rounded-xl shadow-2xl transform rotate-6 animate-float-2 opacity-25 overflow-hidden border-2 border-white/10"
-                style={{ 
-                  background: 'linear-gradient(135deg, #00ff8820, #ffae0020)',
-                  backdropFilter: 'blur(10px)',
-                  animationDelay: '2s'
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-green-500/30 to-yellow-500/30"></div>
-                <div className="absolute inset-2 bg-white/5 rounded-lg flex items-center justify-center">
-                  <Users className="w-8 h-8 text-white/60" />
-                </div>
-              </div>
-
-              {/* Bottom left floating photo */}
-              <div 
-                className="absolute bottom-1/4 left-1/4 w-36 h-28 rounded-xl shadow-2xl transform rotate-12 animate-float-3 opacity-15 overflow-hidden border-2 border-white/10"
-                style={{ 
-                  background: 'linear-gradient(135deg, #ff440020, #ff008820)',
-                  backdropFilter: 'blur(10px)',
-                  animationDelay: '4s'
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-pink-500/30"></div>
-                <div className="absolute inset-2 bg-white/5 rounded-lg flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-white/60" />
-                </div>
-              </div>
-
-              {/* Bottom right floating photo */}
-              <div 
-                className="absolute bottom-1/3 right-1/4 w-30 h-32 rounded-xl shadow-2xl transform -rotate-6 animate-float-1 opacity-20 overflow-hidden border-2 border-white/10"
-                style={{ 
-                  background: 'linear-gradient(135deg, #9966ff20, #4400ff20)',
-                  backdropFilter: 'blur(10px)',
-                  animationDelay: '6s'
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-indigo-500/30"></div>
-                <div className="absolute inset-2 bg-white/5 rounded-lg flex items-center justify-center">
-                  <Monitor className="w-8 h-8 text-white/60" />
-                </div>
-              </div>
-
-              {/* Center left floating photo */}
-              <div 
-                className="absolute top-1/2 left-1/12 w-24 h-32 rounded-xl shadow-2xl transform rotate-45 animate-float-2 opacity-10 overflow-hidden border-2 border-white/10"
-                style={{ 
-                  background: 'linear-gradient(135deg, #00ffe120, #0088ff20)',
-                  backdropFilter: 'blur(10px)',
-                  animationDelay: '8s'
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/30 to-blue-500/30"></div>
-                <div className="absolute inset-2 bg-white/5 rounded-lg flex items-center justify-center">
-                  <Award className="w-6 h-6 text-white/60" />
-                </div>
-              </div>
-
-              {/* Center right floating photo */}
-              <div 
-                className="absolute top-2/3 right-1/12 w-26 h-20 rounded-xl shadow-2xl transform -rotate-24 animate-float-3 opacity-18 overflow-hidden border-2 border-white/10"
-                style={{ 
-                  background: 'linear-gradient(135deg, #ffae0020, #ff440020)',
-                  backdropFilter: 'blur(10px)',
-                  animationDelay: '10s'
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/30 to-red-500/30"></div>
-                <div className="absolute inset-2 bg-white/5 rounded-lg flex items-center justify-center">
-                  <Settings className="w-6 h-6 text-white/60" />
-                </div>
-              </div>
-
-              {/* Small floating elements scattered around */}
-              {[...Array(20)].map((_, i) => (
-                <div
-                  key={`floating-${i}`}
-                  className="absolute rounded-lg shadow-lg opacity-5 border border-white/5"
-                  style={{
-                    width: `${Math.random() * 20 + 10}px`,
-                    height: `${Math.random() * 20 + 10}px`,
-                    left: `${Math.random() * 100}%`,
-                    top: `${Math.random() * 100}%`,
-                    background: `linear-gradient(135deg, ${[
-                      '#ff00dd', '#0088ff', '#00ff88', '#ffae00', '#9966ff', 
-                      '#ff4400', '#00ffe1', '#ff0088', '#4400ff', '#8800ff'
-                    ][Math.floor(Math.random() * 10)]}20, transparent)`,
-                    backdropFilter: 'blur(5px)',
-                    animation: `float-${(i % 3) + 1} ${15 + Math.random() * 10}s ease-in-out infinite`,
-                    animationDelay: `${Math.random() * 15}s`
-                  }}
-                />
-              ))}
-            </div>
-            
-            {/* Enhanced glowing orbs with more variety */}
-            <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/20 rounded-full blur-xl animate-pulse"></div>
-            <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-blue-500/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-            <div className="absolute top-1/2 left-3/4 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '4s' }}></div>
-            <div className="absolute top-1/6 right-1/3 w-28 h-28 bg-pink-500/15 rounded-full blur-xl animate-pulse" style={{ animationDelay: '6s' }}></div>
-            <div className="absolute bottom-1/6 left-1/3 w-36 h-36 bg-cyan-500/12 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '8s' }}></div>
-          </div>
+          {/* WebGL Particle Background - Replace CSS background */}
+          <LandingParticleBackground particleTheme={particleTheme} />
           
           <div className="relative z-10">
             {/* Hero Section */}
