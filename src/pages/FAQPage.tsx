@@ -168,7 +168,7 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
       <mesh>
-        <planeGeometry args={[1.4, 2.1]} />
+        <planeGeometry args={[1.0, 1.5]} />
         <meshStandardMaterial 
           map={texture}
           transparent
@@ -184,8 +184,8 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
       </mesh>
       
       {comment && textTexture && (
-        <mesh position={[0, -1.2, 0.01]}>
-          <planeGeometry args={[1.4, 0.35]} />
+        <mesh position={[0, -0.9, 0.01]}>
+          <planeGeometry args={[1.0, 0.25]} />
           <meshBasicMaterial 
             map={textTexture} 
             transparent 
@@ -901,8 +901,9 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
       imageUrl: string;
     }> = [];
 
-    const gridSize = 5; // Reduced for FAQ page
-    const floorSize = 20; // Smaller area
+    // Main grid - more spread out and positioned higher
+    const gridSize = 7; // Increased from 5
+    const floorSize = 30; // Increased area
     const spacing = floorSize / (gridSize - 1);
     
     let photoIndex = 0;
@@ -912,17 +913,18 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
         const x = (col - (gridSize - 1) / 2) * spacing;
         const z = (row - (gridSize - 1) / 2) * spacing;
         
-        const xOffset = (Math.random() - 0.5) * 0.5;
-        const zOffset = (Math.random() - 0.5) * 0.5;
+        const xOffset = (Math.random() - 0.5) * 1.0;
+        const zOffset = (Math.random() - 0.5) * 1.0;
         
-        const baseHeight = 1.5;
-        const waveHeight = Math.sin(row * 0.3) * Math.cos(col * 0.3) * 1.5;
-        const randomHeight = Math.random() * 0.8;
+        // Higher base height and more variation
+        const baseHeight = 3.0; // Raised from 1.5
+        const waveHeight = Math.sin(row * 0.3) * Math.cos(col * 0.3) * 2.0; // Increased
+        const randomHeight = Math.random() * 1.5; // Increased
         const y = baseHeight + waveHeight + randomHeight;
         
-        const rotationX = (Math.random() - 0.5) * 0.3;
-        const rotationY = (Math.random() - 0.5) * 0.6;
-        const rotationZ = (Math.random() - 0.5) * 0.2;
+        const rotationX = (Math.random() - 0.5) * 0.4;
+        const rotationY = (Math.random() - 0.5) * 0.8;
+        const rotationZ = (Math.random() - 0.5) * 0.3;
         
         const imageUrl = DEMO_PHOTOS[photoIndex % DEMO_PHOTOS.length];
         photoIndex++;
@@ -933,6 +935,50 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
           imageUrl: imageUrl,
         });
       }
+    }
+    
+    // Add extra photos at very high positions for hero section visibility
+    const heroPhotos = 15; // Number of hero photos
+    for (let i = 0; i < heroPhotos; i++) {
+      const angle = (i / heroPhotos) * Math.PI * 2;
+      const radius = 12 + Math.random() * 8; // Spread around camera view
+      const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 4;
+      const z = Math.sin(angle) * radius + (Math.random() - 0.5) * 4;
+      const y = 8 + Math.random() * 6; // Very high positions
+      
+      const rotationX = (Math.random() - 0.5) * 0.6;
+      const rotationY = (Math.random() - 0.5) * 1.2;
+      const rotationZ = (Math.random() - 0.5) * 0.4;
+      
+      const imageUrl = DEMO_PHOTOS[(photoIndex + i) % DEMO_PHOTOS.length];
+      
+      positions.push({
+        position: [x, y, z] as [number, number, number],
+        rotation: [rotationX, rotationY, rotationZ] as [number, number, number],
+        imageUrl: imageUrl,
+      });
+    }
+    
+    // Add some mid-level photos for depth
+    const midPhotos = 10;
+    for (let i = 0; i < midPhotos; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 8 + Math.random() * 12;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const y = 5 + Math.random() * 3; // Mid-level height
+      
+      const rotationX = (Math.random() - 0.5) * 0.5;
+      const rotationY = (Math.random() - 0.5) * 1.0;
+      const rotationZ = (Math.random() - 0.5) * 0.3;
+      
+      const imageUrl = DEMO_PHOTOS[(photoIndex + heroPhotos + i) % DEMO_PHOTOS.length];
+      
+      positions.push({
+        position: [x, y, z] as [number, number, number],
+        rotation: [rotationX, rotationY, rotationZ] as [number, number, number],
+        imageUrl: imageUrl,
+      });
     }
     
     return positions;
