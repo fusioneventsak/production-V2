@@ -718,55 +718,54 @@ const FAQPage: React.FC = () => {
                       <div className="card-highlight"></div>
                       
                       <div className="card-inner relative w-full h-full transition-transform duration-800 transform-style-3d rounded-3xl">
-                        {/* Default State - ULTRA VIBRANT solid color cards with metallic shine */}
-                        <div className="card-front absolute w-full h-full rounded-3xl overflow-hidden flex flex-col justify-center items-center p-8" 
-                             style={{ 
-                               background: `linear-gradient(135deg, ${faq.color} 0%, ${faq.color} 40%, #ffffff20 50%, ${faq.color} 60%, ${faq.color} 100%)`,
-                               boxShadow: `0 0 60px ${faq.color}FF, 0 0 120px ${faq.color}80, inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(0,0,0,0.2)`,
-                               border: `1px solid rgba(255,255,255,0.3)`,
-                               filter: 'brightness(1.3) saturate(1.4) contrast(1.1)'
-                             }}>
-                          
-                          {/* Metallic shine overlay */}
+                        {/* Default State - Using the beautiful third state as the first state */}
+                        <div className="card-front absolute w-full h-full rounded-3xl overflow-hidden flex flex-col justify-center items-center p-6 bg-[linear-gradient(135deg,rgba(0,10,30,0.8)_0%,rgba(0,10,40,0.9)_100%)]">
+                          {/* Magical circle with vibrant glow */}
                           <div 
-                            className="absolute inset-0 rounded-3xl"
-                            style={{
-                              background: `linear-gradient(45deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.8) 25%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.6) 75%, rgba(255,255,255,0.1) 100%)`,
-                              mixBlendMode: 'overlay'
+                            className="magical-circle absolute w-[220px] h-[220px] rounded-full border-2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-2 opacity-70 pointer-events-none"
+                            style={{ 
+                              borderColor: faq.color + '80',
+                              boxShadow: `0 0 30px ${faq.color}AA, inset 0 0 30px ${faq.color}40`
                             }}
                           />
                           
-                          <div className="card-content relative flex flex-col justify-center items-center h-full text-center z-10">
-                            <faq.icon 
-                              className="text-6xl mb-6 text-white drop-shadow-lg" 
+                          {/* Magical runes always visible and glowing */}
+                          {['✧', '⦿', '⚝', '⚜', '✴', '⚹', '⦾'].map((rune, runeIndex) => (
+                            <div 
+                              key={runeIndex}
+                              className="rune absolute text-xl opacity-80 transition-all duration-500 animate-pulse z-3 pointer-events-none" 
                               style={{ 
-                                filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4)) brightness(1.2)',
-                                textShadow: '0 0 20px rgba(255,255,255,0.8)'
+                                color: faq.color,
+                                top: `${25 + Math.sin(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
+                                left: `${25 + Math.cos(runeIndex * Math.PI * 2 / 7) * 25 + 25}%`,
+                                filter: `drop-shadow(0 0 15px ${faq.color}) brightness(1.3)`,
+                                textShadow: `0 0 20px ${faq.color}`
+                              }}
+                            >
+                              {rune}
+                            </div>
+                          ))}
+                          
+                          <div className="card-content relative flex flex-col justify-center items-center p-8 h-full text-center z-10">
+                            <faq.icon 
+                              className="text-4xl mb-4 drop-shadow-lg animate-pulse" 
+                              style={{ 
+                                color: faq.color,
+                                filter: `drop-shadow(0 0 20px ${faq.color}) brightness(1.2)`,
+                                textShadow: `0 0 25px ${faq.color}`
                               }}
                             />
-                            <h2 className="font-bold text-2xl mb-6 text-white text-center leading-tight max-w-[280px]"
-                                style={{ 
-                                  textShadow: '0 2px 8px rgba(0,0,0,0.4), 0 0 15px rgba(255,255,255,0.3)',
-                                  filter: 'brightness(1.1)'
-                                }}>
+                            <h2 className="font-orbitron text-xl font-bold mb-4 text-white text-center leading-tight">
                               {faq.question}
                             </h2>
-                            <p className="text-base mb-8 text-white font-medium"
-                               style={{ 
-                                 textShadow: '0 1px 4px rgba(0,0,0,0.4), 0 0 10px rgba(255,255,255,0.2)',
-                                 opacity: '0.95'
-                               }}>
+                            <p className="text-sm leading-relaxed mb-6 text-white/90">
                               Click to reveal the full answer
                             </p>
                             <button
-                              className="btn relative inline-block px-8 py-4 text-white border-2 rounded-full font-bold text-base uppercase tracking-wide cursor-pointer transition-all duration-300 hover:scale-105"
+                              className="btn relative inline-block px-6 py-3 text-white border-2 border-white/30 rounded-full font-orbitron text-xs font-semibold uppercase tracking-wide cursor-pointer transition-all duration-300 shadow-lg backdrop-blur-sm hover:scale-105"
                               style={{ 
-                                backgroundColor: 'rgba(255,255,255,0.25)',
-                                border: '2px solid rgba(255,255,255,0.6)',
-                                textShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                                backdropFilter: 'blur(10px)',
-                                boxShadow: `0 4px 15px rgba(0,0,0,0.2), 0 0 20px ${faq.color}60, inset 0 1px 0 rgba(255,255,255,0.4)`,
-                                filter: 'brightness(1.1)'
+                                backgroundColor: faq.color + 'B0',
+                                boxShadow: `0 0 15px ${faq.color}80`
                               }}
                               onClick={(e) => {
                                 e.preventDefault();
@@ -778,7 +777,7 @@ const FAQPage: React.FC = () => {
                                 }
                               }}
                             >
-                              READ ANSWER
+                              Read Answer
                             </button>
                           </div>
                         </div>
