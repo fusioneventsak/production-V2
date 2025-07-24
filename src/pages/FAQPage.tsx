@@ -1,133 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Points, PointMaterial, Float, Text, OrbitControls, Environment } from '@react-three/drei';
-import { ChevronDown, ChevronUp, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles } from 'lucide-react';
-import * as THREE from 'three';
-
-// Three.js animated background with particles
-const ParticleField = () => {
-  const pointsRef = useRef();
-  const particleCount = 2000;
-  
-  const positions = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
-  
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 50;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 50;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 50;
-    
-    const color = new THREE.Color();
-    color.setHSL(0.7 + Math.random() * 0.2, 0.8, 0.5 + Math.random() * 0.3);
-    colors[i * 3] = color.r;
-    colors[i * 3 + 1] = color.g;
-    colors[i * 3 + 2] = color.b;
-  }
-  
-  useFrame((state) => {
-    if (pointsRef.current) {
-      pointsRef.current.rotation.x = state.clock.elapsedTime * 0.1;
-      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.05;
-    }
-  });
-  
-  return (
-    <Points ref={pointsRef} positions={positions} colors={colors}>
-      <PointMaterial
-        transparent
-        size={0.02}
-        sizeAttenuation
-        depthWrite={false}
-        vertexColors
-        blending={THREE.AdditiveBlending}
-      />
-    </Points>
-  );
-};
-
-// Floating 3D elements
-const FloatingElements = () => {
-  return (
-    <group>
-      <Float speed={2} rotationIntensity={1} floatIntensity={2}>
-        <mesh position={[-15, 5, -10]}>
-          <boxGeometry args={[2, 2, 2]} />
-          <meshStandardMaterial color="#9333ea" transparent opacity={0.3} />
-        </mesh>
-      </Float>
-      
-      <Float speed={1.5} rotationIntensity={0.5} floatIntensity={1}>
-        <mesh position={[15, -5, -15]}>
-          <sphereGeometry args={[1.5, 32, 32]} />
-          <meshStandardMaterial color="#3b82f6" transparent opacity={0.2} />
-        </mesh>
-      </Float>
-      
-      <Float speed={3} rotationIntensity={2} floatIntensity={3}>
-        <mesh position={[0, 10, -20]}>
-          <torusGeometry args={[2, 0.5, 16, 100]} />
-          <meshStandardMaterial color="#06b6d4" transparent opacity={0.25} />
-        </mesh>
-      </Float>
-    </group>
-  );
-};
-
-// Camera animation
-const CameraController = () => {
-  const { camera } = useThree();
-  
-  useFrame((state) => {
-    camera.position.x = Math.sin(state.clock.elapsedTime * 0.1) * 2;
-    camera.position.y = Math.cos(state.clock.elapsedTime * 0.15) * 1;
-    camera.lookAt(0, 0, 0);
-  });
-  
-  return null;
-};
-
-// Three.js Scene Component
-const ThreeBackground = () => {
-  return (
-    <div className="fixed inset-0 w-full h-full" style={{ zIndex: -1 }}>
-      <Canvas
-        camera={{ position: [0, 0, 10], fov: 75 }}
-        style={{ background: 'linear-gradient(135deg, #0f0f23 0%, #1e1b4b 50%, #0f0f23 100%)' }}
-      >
-        <ambientLight intensity={0.2} />
-        <pointLight position={[10, 10, 10]} intensity={0.5} color="#9333ea" />
-        <pointLight position={[-10, -10, -10]} intensity={0.3} color="#3b82f6" />
-        
-        <ParticleField />
-        <FloatingElements />
-        <CameraController />
-        
-        <Environment preset="night" />
-      </Canvas>
-    </div>
-  );
-};
-
-// Liquid glass button component
-const LiquidButton = ({ children, onClick, variant = 'primary', className = '' }) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        group relative overflow-hidden px-8 py-4 rounded-2xl font-semibold text-white
-        transition-all duration-500 transform hover:scale-105 hover:shadow-2xl
-        ${variant === 'primary' 
-          ? 'bg-gradient-to-r from-purple-600/30 to-blue-600/30 border border-purple-500/30 hover:from-purple-500/40 hover:to-blue-500/40' 
-          : 'bg-white/10 border border-white/20 hover:bg-white/20'
-        }
-        backdrop-blur-xl ${className}
-      `}
-    >
-      <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <span className="relative z-10">{children}</span>
-    </button>
-  );
-};
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, Search, Camera, Zap, Shield, Palette, Monitor, Globe, Settings, Users, Award, Sparkles, ArrowRight } from 'lucide-react';
+import Layout from '../components/layout/Layout';
+import HeroScene from '../components/three/HeroScene';
+import LandingParticleBackground from '../components/three/LandingParticleBackground';
+import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
 
 // FAQ Item Component with animations
 const FAQItem = ({ question, answer, icon: Icon, isOpen, onToggle }) => {
@@ -211,11 +87,33 @@ const CategoryFilter = ({ categories, activeCategory, onCategoryChange }) => {
   );
 };
 
-// Main FAQ Page Component
-const FAQPage = () => {
+// Liquid glass button component
+const LiquidButton = ({ children, onClick, variant = 'primary', className = '' }) => {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        group relative overflow-hidden px-8 py-4 rounded-2xl font-semibold text-white
+        transition-all duration-500 transform hover:scale-105 hover:shadow-2xl
+        ${variant === 'primary' 
+          ? 'bg-gradient-to-r from-purple-600/30 to-blue-600/30 border border-purple-500/30 hover:from-purple-500/40 hover:to-blue-500/40' 
+          : 'bg-white/10 border border-white/20 hover:bg-white/20'
+        }
+        backdrop-blur-xl ${className}
+      `}
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <span className="relative z-10">{children}</span>
+    </button>
+  );
+};
+
+const FAQPage: React.FC = () => {
   const [openItems, setOpenItems] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  const [particleTheme, setParticleTheme] = useState(PARTICLE_THEMES[0]);
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   const categories = [
     { id: 'all', name: 'All Topics', icon: Globe },
@@ -316,6 +214,11 @@ const FAQPage = () => {
     return matchesSearch && matchesCategory;
   });
 
+  // Handle theme changes from HeroScene
+  const handleThemeChange = (newTheme: typeof PARTICLE_THEMES[0]) => {
+    setParticleTheme(newTheme);
+  };
+
   useEffect(() => {
     // Add JSON-LD structured data for SEO
     const structuredData = {
@@ -336,124 +239,174 @@ const FAQPage = () => {
     script.text = JSON.stringify(structuredData);
     document.head.appendChild(script);
 
+    // Set page title and meta description for SEO
+    document.title = 'FAQ - PhotoSphere 3D Photobooth Software | Everything You Need to Know';
+    
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', 'Get answers to all your photobooth software questions. Learn about PhotoSphere\'s 3D displays, DSLR compatibility, virtual photobooths, branding options, and professional features.');
+    } else {
+      const meta = document.createElement('meta');
+      meta.name = 'description';
+      meta.content = 'Get answers to all your photobooth software questions. Learn about PhotoSphere\'s 3D displays, DSLR compatibility, virtual photobooths, branding options, and professional features.';
+      document.head.appendChild(meta);
+    }
+
     return () => {
-      document.head.removeChild(script);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
     };
   }, []);
 
   return (
-    <div className="min-h-screen text-white relative overflow-hidden">
-      {/* Three.js Background */}
-      <ThreeBackground />
-      
-      {/* SEO Meta Tags */}
-      <div style={{ display: 'none' }}>
-        <h1>PhotoSphere FAQ - Complete Guide to 3D Photobooth Software</h1>
-        <meta name="description" content="Get answers to all your photobooth software questions. Learn about PhotoSphere's 3D displays, DSLR compatibility, virtual photobooths, branding options, and professional features." />
-        <meta name="keywords" content="photobooth software FAQ, 3D photobooth, virtual photobooth, DSLR photobooth, free photobooth software, photobooth display, event photography software" />
-      </div>
+    <Layout>
+      {/* Particle Background - covers entire page */}
+      <LandingParticleBackground particleTheme={particleTheme} />
 
-      {/* Header */}
-      <div className="relative z-10 pt-20 pb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="mb-8">
-            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mb-6">
-              Frequently Asked Questions
-            </h1>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-              Everything you need to know about PhotoSphere's revolutionary 3D photobooth platform. 
-              Find answers about compatibility, features, pricing, and setup.
-            </p>
+      {/* All content sections with proper z-index */}
+      <div className="relative z-[5]">
+        {/* Hero Section with WebGL Background */}
+        <div className="relative overflow-hidden min-h-[70vh] flex items-center">
+          {/* WebGL Scene Background */}
+          <div 
+            className="absolute inset-0 w-full h-full z-[10]" 
+            style={{ 
+              pointerEvents: 'auto',
+              touchAction: 'pan-x pan-y'
+            }}
+          >
+            <HeroScene onThemeChange={handleThemeChange} />
+          </div>
+          
+          {/* Hero Content */}
+          <div className="relative z-[20] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32 pointer-events-none">
+            <div className="text-center lg:text-left lg:w-1/2">
+              {/* Abstract diffused gradient overlay behind text */}
+              <div className="relative">
+                <div className="absolute -inset-8 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
+                <div className="absolute -inset-4 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
+                <div className="absolute -inset-2 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
+                
+                <div className="relative">
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+                    <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
+                      Frequently Asked
+                    </span>
+                    <span className="block drop-shadow-lg">Questions</span>
+                  </h1>
+                  
+                  <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg">
+                    Everything you need to know about PhotoSphere's revolutionary 3D photobooth platform. 
+                    Find answers about compatibility, features, pricing, and setup.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 pointer-events-auto">
+                    <button
+                      onClick={() => setIsDemoModalOpen(true)}
+                      className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
+                    >
+                      Request Demo
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 max-w-4xl mx-auto">
-            <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4">
-              <div className="text-2xl font-bold text-purple-400 mb-1">500+</div>
-              <div className="text-sm text-gray-400">Photos Per Event</div>
-            </div>
-            <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4">
-              <div className="text-2xl font-bold text-blue-400 mb-1">&lt;1s</div>
-              <div className="text-sm text-gray-400">Real-time Display</div>
-            </div>
-            <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4">
-              <div className="text-2xl font-bold text-green-400 mb-1">∞</div>
-              <div className="text-sm text-gray-400">Simultaneous Users</div>
-            </div>
-            <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4">
-              <div className="text-2xl font-bold text-yellow-400 mb-1">0</div>
-              <div className="text-sm text-gray-400">Setup Time</div>
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-[20] pointer-events-none">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-purple-400 mb-1">500+</div>
+                <div className="text-sm text-gray-400">Photos Per Event</div>
+              </div>
+              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-blue-400 mb-1">&lt;1s</div>
+                <div className="text-sm text-gray-400">Real-time Display</div>
+              </div>
+              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-green-400 mb-1">∞</div>
+                <div className="text-sm text-gray-400">Simultaneous Users</div>
+              </div>
+              <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-yellow-400 mb-1">0</div>
+                <div className="text-sm text-gray-400">Setup Time</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        {/* Search Bar */}
-        <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-        
-        {/* Category Filters */}
-        <CategoryFilter 
-          categories={categories} 
-          activeCategory={activeCategory} 
-          onCategoryChange={setActiveCategory} 
-        />
-
-        {/* FAQ Items */}
-        <div className="space-y-4">
-          {filteredFAQs.map((item) => (
-            <FAQItem
-              key={item.id}
-              question={item.question}
-              answer={item.answer}
-              icon={item.icon}
-              isOpen={openItems.has(item.id)}
-              onToggle={() => toggleItem(item.id)}
+        {/* FAQ Content Section */}
+        <div className="relative z-10 py-20 bg-gradient-to-b from-black/10 to-black/30">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Search Bar */}
+            <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+            
+            {/* Category Filters */}
+            <CategoryFilter 
+              categories={categories} 
+              activeCategory={activeCategory} 
+              onCategoryChange={setActiveCategory} 
             />
-          ))}
-        </div>
 
-        {/* No Results */}
-        {filteredFAQs.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-24 h-24 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-xl border border-purple-500/30">
-              <Search className="w-12 h-12 text-white/70" />
+            {/* FAQ Items */}
+            <div className="space-y-4 mb-20">
+              {filteredFAQs.map((item) => (
+                <FAQItem
+                  key={item.id}
+                  question={item.question}
+                  answer={item.answer}
+                  icon={item.icon}
+                  isOpen={openItems.has(item.id)}
+                  onToggle={() => toggleItem(item.id)}
+                />
+              ))}
             </div>
-            <h3 className="text-2xl font-semibold text-white mb-3">No results found</h3>
-            <p className="text-gray-400 mb-6">Try adjusting your search terms or category filter.</p>
-            <LiquidButton onClick={() => { setSearchTerm(''); setActiveCategory('all'); }}>
-              Clear Filters
-            </LiquidButton>
-          </div>
-        )}
 
-        {/* Contact CTA */}
-        <div className="mt-20 text-center">
-          <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 backdrop-blur-xl border border-purple-500/20 rounded-2xl p-12">
-            <div className="max-w-3xl mx-auto">
-              <div className="w-20 h-20 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-sm border border-purple-500/30">
-                <Sparkles className="w-10 h-10 text-white" />
+            {/* No Results */}
+            {filteredFAQs.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-24 h-24 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-xl border border-purple-500/30">
+                  <Search className="w-12 h-12 text-white/70" />
+                </div>
+                <h3 className="text-2xl font-semibold text-white mb-3">No results found</h3>
+                <p className="text-gray-400 mb-6">Try adjusting your search terms or category filter.</p>
+                <LiquidButton onClick={() => { setSearchTerm(''); setActiveCategory('all'); }}>
+                  Clear Filters
+                </LiquidButton>
               </div>
-              <h3 className="text-3xl font-bold text-white mb-4">Still Have Questions?</h3>
-              <p className="text-gray-300 mb-8 text-lg leading-relaxed">
-                Can't find what you're looking for? We're here to help! Contact our support team 
-                for personalized assistance with your PhotoSphere setup, technical questions, 
-                or custom requirements for your events.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <LiquidButton variant="primary">
-                  Contact Support
-                </LiquidButton>
-                <LiquidButton variant="secondary">
-                  Schedule Demo
-                </LiquidButton>
+            )}
+
+            {/* Contact CTA */}
+            <div className="text-center">
+              <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 backdrop-blur-xl border border-purple-500/20 rounded-2xl p-12">
+                <div className="max-w-3xl mx-auto">
+                  <div className="w-20 h-20 bg-gradient-to-r from-purple-600/30 to-blue-600/30 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-sm border border-purple-500/30">
+                    <Sparkles className="w-10 h-10 text-white" />
+                  </div>
+                  <h3 className="text-3xl font-bold text-white mb-4">Still Have Questions?</h3>
+                  <p className="text-gray-300 mb-8 text-lg leading-relaxed">
+                    Can't find what you're looking for? We're here to help! Contact our support team 
+                    for personalized assistance with your PhotoSphere setup, technical questions, 
+                    or custom requirements for your events.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <LiquidButton variant="primary">
+                      Contact Support
+                    </LiquidButton>
+                    <LiquidButton variant="secondary">
+                      Schedule Demo
+                    </LiquidButton>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
