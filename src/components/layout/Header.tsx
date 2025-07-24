@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Menu, X, Home, DollarSign, LogIn } from 'lucide-react';
+import { Users, Menu, X, Home, DollarSign, LogIn, HelpCircle } from 'lucide-react';
 import DemoRequestModal from '../modals/DemoRequestModal';
 
 const Header: React.FC = () => {
@@ -112,6 +112,14 @@ const Header: React.FC = () => {
             >
               <Home className="h-8 w-8 mr-4" />
               Home
+            </Link>
+            <Link 
+              to="/faq" 
+              className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <HelpCircle className="h-8 w-8 mr-4" />
+              FAQ
             </Link>
             <Link 
               to="/blog" 
