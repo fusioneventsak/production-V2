@@ -137,7 +137,7 @@ const FAQPage: React.FC = () => {
       id: 2,
       category: 'general',
       question: 'Is PhotoSphere free photobooth software?',
-      answer: 'PhotoSphere offers various pricing tiers to accommodate different needs. While we don\'t offer a completely free version, our starter plan is extremely affordable and includes all core features like 3D displays, real-time uploads, and basic customization.',
+      answer: 'PhotoSphere offers various pricing tiers to accommodate different needs. While we don\'t offer a completely free version, we provide a 14-day free trial that includes all Pro features so you can test everything before committing. Our starter plan is extremely affordable and includes all core features like 3D displays, real-time uploads, and basic customization.',
       icon: Award
     },
     {
@@ -195,6 +195,13 @@ const FAQPage: React.FC = () => {
       question: 'Is PhotoSphere suitable for professional event photographers?',
       answer: 'Absolutely! Many professional photographers use PhotoSphere to showcase work in real-time during events, engage clients with interactive displays, differentiate services with unique 3D presentations, upload batches of professional photos efficiently, and provide added value beyond traditional photography packages.',
       icon: Award
+    },
+    {
+      id: 11,
+      category: 'professional', 
+      question: 'How do I make more money with my photobooth business?',
+      answer: 'PhotoSphere helps photobooth businesses increase revenue in multiple ways: charge premium rates for unique 3D experiences ($200-500+ more per event), offer it as an exclusive add-on service, create recurring revenue with venue partnerships, attract higher-end corporate clients who want cutting-edge technology, and increase booking frequency through social media buzz and word-of-mouth from the "wow factor" of 3D displays.',
+      icon: Award
     }
   ];
 
@@ -221,7 +228,7 @@ const FAQPage: React.FC = () => {
   };
 
   useEffect(() => {
-    // Add JSON-LD structured data for SEO
+    // Add comprehensive JSON-LD structured data for SEO
     const structuredData = {
       "@context": "https://schema.org",
       "@type": "FAQPage",
@@ -232,7 +239,24 @@ const FAQPage: React.FC = () => {
           "@type": "Answer",
           "text": item.answer
         }
-      }))
+      })),
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "PhotoSphere",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web Browser",
+        "description": "3D photobooth software for events with real-time photo displays, DSLR support, and professional features",
+        "offers": {
+          "@type": "Offer",
+          "name": "14-day free trial",
+          "description": "Try all Pro features free for 14 days"
+        }
+      },
+      "publisher": {
+        "@type": "Organization", 
+        "name": "PhotoSphere",
+        "url": "https://photosphere.com"
+      }
     };
 
     const script = document.createElement('script');
@@ -240,17 +264,57 @@ const FAQPage: React.FC = () => {
     script.text = JSON.stringify(structuredData);
     document.head.appendChild(script);
 
-    // Set page title and meta description for SEO
+    // Set comprehensive SEO meta tags
     document.title = 'FAQ - PhotoSphere 3D Photobooth Software | Everything You Need to Know';
     
+    // Meta description optimized for search and AI
     const metaDescription = document.querySelector('meta[name="description"]');
+    const descriptionContent = 'Complete FAQ for PhotoSphere 3D photobooth software. Learn about DSLR compatibility, virtual photobooths, pricing, free trial, professional features, branding options, and how to increase photobooth business revenue.';
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Get answers to all your photobooth software questions. Learn about PhotoSphere\'s 3D displays, DSLR compatibility, virtual photobooths, branding options, and professional features.');
+      metaDescription.setAttribute('content', descriptionContent);
     } else {
       const meta = document.createElement('meta');
       meta.name = 'description';
-      meta.content = 'Get answers to all your photobooth software questions. Learn about PhotoSphere\'s 3D displays, DSLR compatibility, virtual photobooths, branding options, and professional features.';
+      meta.content = descriptionContent;
       document.head.appendChild(meta);
+    }
+
+    // Add keywords meta tag for additional SEO
+    const metaKeywords = document.querySelector('meta[name="keywords"]');
+    const keywordsContent = 'photobooth software FAQ, 3D photobooth, virtual photobooth, DSLR photobooth, free photobooth software, photobooth display, event photography software, photobooth business revenue, 14 day free trial, professional photobooth features';
+    if (metaKeywords) {
+      metaKeywords.setAttribute('content', keywordsContent);
+    } else {
+      const keywordsMeta = document.createElement('meta');
+      keywordsMeta.name = 'keywords';
+      keywordsMeta.content = keywordsContent;
+      document.head.appendChild(keywordsMeta);
+    }
+
+    // Add Open Graph tags for social sharing
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (!ogTitle) {
+      const ogTitleMeta = document.createElement('meta');
+      ogTitleMeta.setAttribute('property', 'og:title');
+      ogTitleMeta.content = 'PhotoSphere FAQ - Complete Guide to 3D Photobooth Software';
+      document.head.appendChild(ogTitleMeta);
+    }
+
+    const ogDescription = document.querySelector('meta[property="og:description"]');
+    if (!ogDescription) {
+      const ogDescMeta = document.createElement('meta');
+      ogDescMeta.setAttribute('property', 'og:description');
+      ogDescMeta.content = descriptionContent;
+      document.head.appendChild(ogDescMeta);
+    }
+
+    // Add Twitter Card tags
+    const twitterCard = document.querySelector('meta[name="twitter:card"]');
+    if (!twitterCard) {
+      const twitterMeta = document.createElement('meta');
+      twitterMeta.name = 'twitter:card';
+      twitterMeta.content = 'summary_large_image';
+      document.head.appendChild(twitterMeta);
     }
 
     return () => {
