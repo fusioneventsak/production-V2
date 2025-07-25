@@ -34,9 +34,6 @@ const FuturisticKioskShowcase: React.FC = () => {
             {/* Main Display Area - Much Larger */}
             <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', minHeight: '500px' }}>
               
-              {/* Anti-Reflective Coating */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/3 via-transparent to-transparent pointer-events-none rounded-lg"></div>
-              
               {/* Loading State */}
               {isLoading && (
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
@@ -51,7 +48,7 @@ const FuturisticKioskShowcase: React.FC = () => {
                 </div>
               )}
               
-              {/* Main Content - Large Iframe */}
+              {/* Main Content - Large Iframe - No Obstructions */}
               {!isLoading && (
                 <iframe
                   src="https://selfieholosphere.com/collage/BCBJ"
@@ -183,20 +180,20 @@ const ShowcasePage: React.FC = () => {
             
             {/* Hero Content - Centered at Top */}
             <div className="text-center mb-16">
-              <div className="relative">
-                {/* Abstract diffused gradient overlay behind text */}
-                <div className="absolute -inset-8 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
-                <div className="absolute -inset-4 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
-                <div className="absolute -inset-2 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
+              <div className="relative px-4">
+                {/* Abstract diffused gradient overlay behind text - adjusted positioning */}
+                <div className="absolute -inset-12 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
+                <div className="absolute -inset-8 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
+                <div className="absolute -inset-4 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
                 
-                <div className="relative">
+                <div className="relative py-4">
                   <div className="inline-flex items-center px-4 py-2 bg-purple-500/20 backdrop-blur-sm border border-purple-500/30 rounded-full mb-6">
                     <Sparkles className="w-4 h-4 text-purple-300 mr-2" />
                     <span className="text-purple-200 text-sm font-medium">Live Demo</span>
                   </div>
                   
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-                    <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+                    <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg pb-2">
                       Experience the Magic
                     </span>
                     <span className="block drop-shadow-lg">of PhotoSphere</span>
