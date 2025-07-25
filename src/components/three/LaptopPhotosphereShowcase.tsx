@@ -28,85 +28,128 @@ const LaptopModel: React.FC<LaptopModelProps> = ({
   })
 
   useEffect(() => {
-    // Create iframe texture that actually shows the photosphere
-    const iframe = document.createElement('iframe');
-    iframe.src = 'https://selfieholosphere.com/collage/BCBJ';
-    iframe.width = '1024';
-    iframe.height = '640';
-    iframe.style.border = 'none';
-    iframe.style.background = '#1a1a2e';
+    // Create a more realistic photosphere interface simulation
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 800;
+    const ctx = canvas.getContext('2d');
     
-    // Wait for iframe to load, then capture it
-    iframe.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1024;
-      canvas.height = 640;
-      const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Dark background like the actual site
+      const gradient = ctx.createLinearGradient(0, 0, 1280, 800);
+      gradient.addColorStop(0, '#0a0a0a');
+      gradient.addColorStop(0.5, '#1a1a2e');
+      gradient.addColorStop(1, '#16213e');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1280, 800);
       
-      if (ctx) {
-        // Create a gradient background to simulate the photosphere interface
-        const gradient = ctx.createLinearGradient(0, 0, 1024, 640);
-        gradient.addColorStop(0, '#1a1a2e');
-        gradient.addColorStop(0.5, '#16213e');
-        gradient.addColorStop(1, '#0f0f23');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 1024, 640);
+      // Add the main title
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 48px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Selfie Holosphere', 640, 120);
+      
+      ctx.font = '28px Arial';
+      ctx.fillStyle = '#a0a0a0';
+      ctx.fillText('BCBJ Collection - Live Interactive Experience', 640, 160);
+      
+      // Add floating 3D photo representations in a sphere-like arrangement
+      const photos = [
+        { x: 320, y: 280, size: 80, rotation: -15, color: '#8b5cf6' },
+        { x: 520, y: 240, size: 90, rotation: 10, color: '#06b6d4' },
+        { x: 760, y: 290, size: 75, rotation: -8, color: '#f59e0b' },
+        { x: 960, y: 260, size: 85, rotation: 20, color: '#10b981' },
+        { x: 400, y: 380, size: 70, rotation: 25, color: '#ec4899' },
+        { x: 640, y: 340, size: 95, rotation: -12, color: '#3b82f6' },
+        { x: 880, y: 390, size: 80, rotation: 15, color: '#ef4444' },
+        { x: 280, y: 480, size: 75, rotation: -20, color: '#8b5cf6' },
+        { x: 580, y: 450, size: 85, rotation: 8, color: '#06b6d4' },
+        { x: 840, y: 500, size: 90, rotation: -25, color: '#f59e0b' },
+      ];
+      
+      // Draw floating photos with perspective
+      photos.forEach((photo, i) => {
+        ctx.save();
+        ctx.translate(photo.x, photo.y);
+        ctx.rotate((photo.rotation * Math.PI) / 180);
         
-        // Add photosphere UI elements
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 42px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Selfie Holosphere', 512, 200);
+        // Add shadow for depth
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(-photo.size/2 + 3, -photo.size*0.6 + 3, photo.size, photo.size * 0.6);
         
-        ctx.font = '28px Arial';
-        ctx.fillText('Interactive 3D Photo Experience', 512, 250);
+        // Photo frame
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-photo.size/2 - 2, -photo.size*0.6 - 2, photo.size + 4, photo.size * 0.6 + 4);
         
-        ctx.font = '20px Arial';
-        ctx.fillStyle = '#888';
-        ctx.fillText('BCBJ Collection - Live Demo', 512, 290);
+        // Photo content
+        ctx.fillStyle = photo.color;
+        ctx.fillRect(-photo.size/2, -photo.size*0.6, photo.size, photo.size * 0.6);
         
-        // Add floating photo representations
-        ctx.fillStyle = '#667eea';
-        for (let i = 0; i < 12; i++) {
-          const x = 150 + (i % 4) * 180;
-          const y = 350 + Math.floor(i / 4) * 80;
-          const size = 60 + Math.sin(i) * 10;
-          
-          ctx.fillRect(x, y, size, size * 0.75);
-          ctx.fillStyle = i % 2 === 0 ? '#8b5cf6' : '#06b6d4';
-        }
+        // Add some photo details
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(-photo.size/2 + 5, -photo.size*0.6 + 5, photo.size - 10, 8);
+        ctx.fillRect(-photo.size/2 + 5, -photo.size*0.6 + 18, photo.size - 20, 6);
         
-        // Add UI chrome
-        ctx.strokeStyle = '#667eea';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(80, 80, 864, 480);
-        
-        // Add floating particles
-        ctx.fillStyle = '#667eea';
-        for (let i = 0; i < 20; i++) {
-          ctx.beginPath();
-          ctx.arc(
-            100 + Math.random() * 824, 
-            100 + Math.random() * 440, 
-            2 + Math.random() * 3, 
-            0, 
-            Math.PI * 2
-          );
-          ctx.fill();
-        }
+        ctx.restore();
+      });
+      
+      // Add connecting lines to show 3D space
+      ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      
+      for (let i = 0; i < photos.length - 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(photos[i].x, photos[i].y);
+        ctx.lineTo(photos[i + 1].x, photos[i + 1].y);
+        ctx.stroke();
       }
       
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.needsUpdate = true;
-      setIframeTexture(texture);
-    };
-    
-    // Trigger load immediately with fallback
-    setTimeout(() => {
-      if (!iframeTexture) {
-        iframe.onload(null as any);
+      // Add UI elements
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.2)';
+      ctx.fillRect(50, 650, 200, 100);
+      ctx.strokeStyle = '#8b5cf6';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(50, 650, 200, 100);
+      
+      ctx.fillStyle = 'white';
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('🎯 Controls', 70, 680);
+      ctx.fillText('📸 Photos: 47', 70, 700);
+      ctx.fillText('🎨 Animation: Wave', 70, 720);
+      ctx.fillText('⚡ Live Updates', 70, 740);
+      
+      // Add upload indicator
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.2)';
+      ctx.fillRect(1030, 650, 200, 100);
+      ctx.strokeStyle = '#06b6d4';
+      ctx.strokeRect(1030, 650, 200, 100);
+      
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'left';
+      ctx.fillText('📱 Upload', 1050, 680);
+      ctx.fillText('QR Code: BCBJ', 1050, 700);
+      ctx.fillText('Recent: 2m ago', 1050, 720);
+      ctx.fillText('✨ Real-time', 1050, 740);
+      
+      // Add floating particles
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.6)';
+      for (let i = 0; i < 30; i++) {
+        const x = Math.random() * 1280;
+        const y = Math.random() * 800;
+        const size = Math.random() * 3 + 1;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
       }
-    }, 1000);
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    setIframeTexture(texture);
   }, []);
 
   return (
@@ -115,7 +158,7 @@ const LaptopModel: React.FC<LaptopModelProps> = ({
         ref={meshRef}
         position={position}
         rotation={rotation}
-        scale={scale}
+        scale={scale * 1.8}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
       >
@@ -211,9 +254,9 @@ const Scene: React.FC = () => {
   const { camera } = useThree()
   
   useEffect(() => {
-    // Ensure camera is properly positioned
+    // Ensure camera is properly positioned for prominence
     if (camera) {
-      camera.position.set(0, 2, 6)
+      camera.position.set(0, 1, 5)
       camera.lookAt(0, 0, 0)
       camera.updateProjectionMatrix()
     }
@@ -239,8 +282,8 @@ const Scene: React.FC = () => {
           enableZoom={true}
           maxPolarAngle={Math.PI / 2.2}
           minPolarAngle={Math.PI / 6}
-          minDistance={4}
-          maxDistance={12}
+          minDistance={3}
+          maxDistance={8}
           autoRotate={false}
           enableRotate={true}
           maxAzimuthAngle={Math.PI / 4}
@@ -277,13 +320,13 @@ const LaptopPhotosphereShowcase: React.FC = () => {
   }
 
   return (
-    <div className="w-full h-[500px] relative">
+    <div className="w-full h-[600px] relative">
       {/* 3D Canvas */}
       <div className="w-full h-full">
         {isLoaded && (
           <Canvas
             shadows
-            camera={{ position: [0, 2, 6], fov: 50 }}
+            camera={{ position: [0, 1, 5], fov: 45 }}
             gl={{ antialias: true, alpha: true }}
             style={{ background: 'transparent' }}
             onError={handleError}
