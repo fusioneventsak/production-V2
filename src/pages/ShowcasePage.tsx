@@ -378,9 +378,9 @@ const ShowcasePage: React.FC = () => {
       onClose={() => setIsDemoModalOpen(false)} 
     />
 
-    {/* Photobooth Full-Screen Modal */}
+    {/* Photobooth Phone-Style Modal */}
     {isPhotoboothModalOpen && (
-      <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4">
         {/* Close button */}
         <button
           onClick={() => setIsPhotoboothModalOpen(false)}
@@ -391,19 +391,36 @@ const ShowcasePage: React.FC = () => {
           </svg>
         </button>
         
-        {/* Modal header */}
-        <div className="absolute top-6 left-6 z-60">
-          <h3 className="text-white text-xl font-bold">Add Your Selfie to BCBJ Collection</h3>
-          <p className="text-gray-300 text-sm mt-1">Your photo will appear in the live PhotoSphere above!</p>
+        {/* Phone-like container */}
+        <div className="relative bg-black rounded-3xl p-4 shadow-2xl" style={{ width: '380px', height: '680px' }}>
+          {/* Phone bezel/frame */}
+          <div className="w-full h-full bg-gray-900 rounded-2xl overflow-hidden relative">
+            {/* Status bar area */}
+            <div className="absolute top-0 left-0 right-0 h-8 bg-black/50 z-10 flex items-center justify-center">
+              <div className="text-white text-xs font-medium">Add Your Selfie to BCBJ</div>
+            </div>
+            
+            {/* Iframe in phone container */}
+            <iframe
+              src="https://selfieholosphere.com/photobooth/BCBJ"
+              className="w-full h-full border-0 rounded-2xl"
+              title="PhotoSphere Photobooth - Add Your Selfie"
+              allow="camera; microphone; clipboard-write"
+            />
+            
+            {/* Bottom indicator */}
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-white/30 rounded-full"></div>
+          </div>
+          
+          {/* Phone shine effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-3xl pointer-events-none"></div>
         </div>
         
-        {/* Full-screen iframe */}
-        <iframe
-          src="https://selfieholosphere.com/photobooth/BCBJ"
-          className="w-full h-full border-0"
-          title="PhotoSphere Photobooth - Add Your Selfie"
-          allow="camera; microphone; clipboard-write"
-        />
+        {/* Instruction text */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center">
+          <p className="text-white text-lg font-semibold mb-2">📱 Take Your Selfie</p>
+          <p className="text-gray-300 text-sm">Your photo will appear in the PhotoSphere above!</p>
+        </div>
       </div>
     )}
     </>
