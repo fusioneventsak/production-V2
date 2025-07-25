@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
-import { LandingParticleBackground, PARTICLE_THEMES } from '../components/three/LandingParticleBackground';
+import { LandingParticleBackground } from '../components/three/LandingParticleBackground';
+import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
 import LaptopPhotosphereShowcase from '../components/three/LaptopPhotosphereShowcase';
 import { ArrowRight, Camera, Eye, Share2, Sparkles, Play, Monitor, Smartphone, Users } from 'lucide-react';
 
