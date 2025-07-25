@@ -156,9 +156,9 @@ const LaptopModel: React.FC<LaptopModelProps> = ({
     <Float speed={1.5} rotationIntensity={0.1} floatIntensity={0.1}>
       <group
         ref={meshRef}
-        position={position}
+        position={[-0.5, 0, 0]}
         rotation={rotation}
-        scale={scale * 1.8}
+        scale={scale * 1.5}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
       >
@@ -254,10 +254,10 @@ const Scene: React.FC = () => {
   const { camera } = useThree()
   
   useEffect(() => {
-    // Ensure camera is properly positioned for prominence
+    // Position camera to center the laptop properly
     if (camera) {
-      camera.position.set(0, 1, 5)
-      camera.lookAt(0, 0, 0)
+      camera.position.set(0, 0.5, 4)
+      camera.lookAt(-0.5, 0, 0)  // Look at the laptop's position
       camera.updateProjectionMatrix()
     }
   }, [camera])
@@ -282,8 +282,8 @@ const Scene: React.FC = () => {
           enableZoom={true}
           maxPolarAngle={Math.PI / 2.2}
           minPolarAngle={Math.PI / 6}
-          minDistance={3}
-          maxDistance={8}
+          minDistance={2.5}
+          maxDistance={7}
           autoRotate={false}
           enableRotate={true}
           maxAzimuthAngle={Math.PI / 4}
@@ -326,7 +326,7 @@ const LaptopPhotosphereShowcase: React.FC = () => {
         {isLoaded && (
           <Canvas
             shadows
-            camera={{ position: [0, 1, 5], fov: 45 }}
+            camera={{ position: [0, 0.5, 4], fov: 55 }}
             gl={{ antialias: true, alpha: true }}
             style={{ background: 'transparent' }}
             onError={handleError}
