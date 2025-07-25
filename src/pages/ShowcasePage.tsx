@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { LandingParticleBackground } from '../components/three/LandingParticleBackground';
 import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
-import LaptopPhotosphereShowcase from '../components/three/LaptopPhotosphereShowcase';
+import FuturisticKioskShowcase from '../components/showcase/FuturisticKioskShowcase';
 import { ArrowRight, Camera, Eye, Share2, Sparkles, Play, Monitor, Smartphone, Users } from 'lucide-react';
 
 const ShowcasePage: React.FC = () => {
@@ -113,12 +113,12 @@ const ShowcasePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Right Content - 3D Laptop Showcase */}
+              {/* Right Content - Futuristic Kiosk Showcase */}
               <div className="flex justify-center lg:justify-end">
                 <div className="relative">
-                  <LaptopPhotosphereShowcase />
-                  <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 border border-purple-500/30">
-                    <p className="text-purple-300 text-sm font-medium">Interactive 3D Preview</p>
+                  <FuturisticKioskShowcase />
+                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-lg px-6 py-3 border border-purple-500/30">
+                    <p className="text-purple-300 text-sm font-medium">🔴 Live Demo - Real PhotoSphere Interface</p>
                   </div>
                 </div>
               </div>
