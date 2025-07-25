@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { LandingParticleBackground } from '../components/three/LandingParticleBackground';
 import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
+import DemoRequestModal from '../components/modals/DemoRequestModal';
 import { ArrowRight, Camera, Eye, Share2, Sparkles, Play, Monitor, Smartphone, Users } from 'lucide-react';
 
 // Futuristic Kiosk Component
