@@ -1,5 +1,5 @@
-```tsx
 import React, { useState, useEffect, useRef } from 'react';
+import './FuturisticKioskShowcase.css'; // Import the separate CSS file
 
 // Futuristic Kiosk Component with Hyper-Realistic Design and Interaction Indicator
 const FuturisticKioskShowcase: React.FC = React.memo(() => {
@@ -247,46 +247,3 @@ const FuturisticKioskShowcase: React.FC = React.memo(() => {
 });
 
 export default FuturisticKioskShowcase;
-
-<style>
-{`
-  /* Perspective for 3D effect */
-  .perspective-1200 {
-    perspective: 1200px;
-  }
-
-  /* Slow pulse animation for ambient glow */
-  @keyframes pulse-slow {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 0.9; }
-  }
-  .animate-pulse-slow {
-    animation: pulse-slow 4s ease-in-out infinite;
-  }
-
-  /* Ventilation animation */
-  @keyframes ventilation {
-    0%, 100% { transform: scaleY(1); }
-    50% { transform: scaleY(0.65); }
-  }
-  .animate-ventilation {
-    animation: ventilation 2.5s ease-in-out infinite;
-  }
-
-  /* Disable heavy animations on mobile */
-  @media (max-width: 640px) {
-    .animate-pulse-slow, .animate-ventilation {
-      animation: none;
-    }
-    .transform-gpu {
-      transform: none !important;
-    }
-    .group-hover\\:scale-\\[1\\.03\\] {
-      transform: none !important;
-    }
-    .group-hover\\:blur-xl {
-      filter: blur(12px) !important;
-    }
-  }
-`}
-</style>
