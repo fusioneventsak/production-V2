@@ -211,8 +211,12 @@ const Scene: React.FC = () => {
   const { camera } = useThree()
   
   useEffect(() => {
-    camera.position.set(0, 2, 4)
-    camera.lookAt(0, 0, 0)
+    // Ensure camera is properly positioned
+    if (camera) {
+      camera.position.set(0, 2, 6)
+      camera.lookAt(0, 0, 0)
+      camera.updateProjectionMatrix()
+    }
   }, [camera])
 
   return (
@@ -229,29 +233,48 @@ const Scene: React.FC = () => {
       
       <LaptopModel />
       
-      <OrbitControls 
-        enablePan={false}
-        enableZoom={true}
-        maxPolarAngle={Math.PI / 2.2}
-        minPolarAngle={Math.PI / 6}
-        minDistance={3}
-        maxDistance={10}
-        autoRotate={false}
-        enableRotate={true}
-        maxAzimuthAngle={Math.PI / 4}
-        minAzimuthAngle={-Math.PI / 4}
-      />
+      {camera && (
+        <OrbitControls 
+          enablePan={false}
+          enableZoom={true}
+          maxPolarAngle={Math.PI / 2.2}
+          minPolarAngle={Math.PI / 6}
+          minDistance={4}
+          maxDistance={12}
+          autoRotate={false}
+          enableRotate={true}
+          maxAzimuthAngle={Math.PI / 4}
+          minAzimuthAngle={-Math.PI / 4}
+        />
+      )}
     </>
   )
 }
 
 const LaptopPhotosphereShowcase: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  const handleError = (error: Error) => {
+    console.error('3D Scene Error:', error)
+    setError(error.message)
+  }
+
+  if (error) {
+    return (
+      <div className="w-full h-[500px] flex items-center justify-center bg-gray-900 rounded-lg">
+        <div className="text-center">
+          <div className="text-red-400 mb-2">Error loading 3D scene</div>
+          <div className="text-gray-400 text-sm">WebGL might not be supported</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full h-[500px] relative">
@@ -260,9 +283,10 @@ const LaptopPhotosphereShowcase: React.FC = () => {
         {isLoaded && (
           <Canvas
             shadows
-            camera={{ position: [0, 2, 4], fov: 50 }}
+            camera={{ position: [0, 2, 6], fov: 50 }}
             gl={{ antialias: true, alpha: true }}
             style={{ background: 'transparent' }}
+            onError={handleError}
           >
             <Suspense fallback={null}>
               <Scene />
