@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// Futuristic Kiosk Component with Hyper-Realistic Design
+// Futuristic Kiosk Component with Hyper-Realistic Design and Interaction Indicator
 const FuturisticKioskShowcase = React.memo(() => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [showIndicator, setShowIndicator] = useState(true); // State for indicator visibility
   const kioskRef = useRef(null);
 
   // Loading timer
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 2000);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      setShowIndicator(false); // Hide indicator after initial load
+    }, 4000); // Show indicator for 4s after loading
     return () => clearTimeout(timer);
   }, []);
 
@@ -25,17 +29,22 @@ const FuturisticKioskShowcase = React.memo(() => {
     const rect = kioskRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setTilt({ x: x * 15, y: y * 15 }); // Reduced tilt intensity for smoother effect
+    setTilt({ x: x * 15, y: y * 15 });
   };
 
-  // Reset tilt on mouse leave
+  // Reset tilt and show indicator on hover
+  const handleMouseEnter = () => {
+    setShowIndicator(true); // Show indicator on hover
+  };
+
   const handleMouseLeave = () => {
     setTilt({ x: 0, y: 0 });
+    setShowIndicator(false); // Hide indicator when not hovering
   };
 
   // Audio feedback for interactions
   const playSound = () => {
-    const audio = new Audio('/sounds/futuristic-click.mp3'); // Ensure this file exists or remove
+    const audio = new Audio('/sounds/futuristic-click.mp3');
     audio.play().catch((err) => console.log('Audio playback failed:', err));
   };
 
@@ -43,6 +52,7 @@ const FuturisticKioskShowcase = React.memo(() => {
     <div
       className="relative w-full max-w-5xl mx-auto perspective-1200 px-4 sm:px-6"
       onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       ref={kioskRef}
     >
@@ -74,6 +84,34 @@ const FuturisticKioskShowcase = React.memo(() => {
                   transform: `translate(${tilt.x * 4}px, ${tilt.y * 4}px)`,
                 }}
               ></div>
+
+              {/* Interaction Indicator */}
+              <div
+                className={`absolute top-4 left-4 flex items-center space-x-2 transition-opacity duration-300 ${
+                  showIndicator && !isLoading ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <div className="relative w-8 h-8">
+                  <svg
+                    className="w-full h-full text-purple-400 animate-pulse"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M8 7h12m0 0l-4-4m4 4l-4 4m-12 5h12m0 0l-4 4m4-4l-4-4"
+                    ></path>
+                  </svg>
+                  <div className="absolute inset-0 bg-purple-600/30 rounded-full blur-sm animate-pulse-slow"></div>
+                </div>
+                <div className="bg-black/80 backdrop-blur-md rounded-lg px-3 py-1 border border-purple-600/50">
+                  <span className="text-purple-400 text-xs font-medium">Drag to Explore</span>
+                </div>
+              </div>
 
               {/* Loading State with Holographic Animation */}
               {isLoading && (
