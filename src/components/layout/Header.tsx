@@ -84,6 +84,13 @@ const Header: React.FC = () => {
               </Link>
               
               <button
+                onClick={() => setIsDemoModalOpen(true)}
+                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 rounded-md hover:from-purple-700 hover:to-blue-600 transition-colors"
+              >
+                Request Demo
+              </button>
+              
+              <button
                 onClick={toggleMenu}
                 className="p-2 rounded-md text-gray-200 hover:text-white hover:bg-purple-500/20 transition-colors"
                 aria-label="Toggle menu"
