@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const FuturisticKioskShowcase = () => {
+const FuturisticKioskShowcase: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
