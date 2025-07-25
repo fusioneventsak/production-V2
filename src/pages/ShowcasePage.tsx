@@ -123,6 +123,7 @@ const ShowcasePage: React.FC = () => {
   // State for particle theme - similar to Landing page
   const [particleTheme, setParticleTheme] = useState(PARTICLE_THEMES[0]);
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+  const [isPhotoboothModalOpen, setIsPhotoboothModalOpen] = useState(false);
 
   const features = [
     {
@@ -233,6 +234,17 @@ const ShowcasePage: React.FC = () => {
             <div className="flex justify-center">
               <div className="relative">
                 <FuturisticKioskShowcase />
+                
+                {/* Add Your Selfie Button - Top Center */}
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+                  <button
+                    onClick={() => setIsPhotoboothModalOpen(true)}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 animate-pulse"
+                  >
+                    <Camera className="w-5 h-5 mr-2 inline" />
+                    Add Your Selfie
+                  </button>
+                </div>
                 
                 {/* Interactive Indicator Card - Top Right */}
                 <div className="absolute top-8 right-8 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-purple-500/30 shadow-lg animate-pulse">
@@ -365,6 +377,35 @@ const ShowcasePage: React.FC = () => {
       isOpen={isDemoModalOpen} 
       onClose={() => setIsDemoModalOpen(false)} 
     />
+
+    {/* Photobooth Full-Screen Modal */}
+    {isPhotoboothModalOpen && (
+      <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm">
+        {/* Close button */}
+        <button
+          onClick={() => setIsPhotoboothModalOpen(false)}
+          className="absolute top-6 right-6 z-60 bg-black/50 hover:bg-black/70 text-white rounded-full p-3 transition-all duration-300"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        
+        {/* Modal header */}
+        <div className="absolute top-6 left-6 z-60">
+          <h3 className="text-white text-xl font-bold">Add Your Selfie to BCBJ Collection</h3>
+          <p className="text-gray-300 text-sm mt-1">Your photo will appear in the live PhotoSphere above!</p>
+        </div>
+        
+        {/* Full-screen iframe */}
+        <iframe
+          src="https://selfieholosphere.com/photobooth/BCBJ"
+          className="w-full h-full border-0"
+          title="PhotoSphere Photobooth - Add Your Selfie"
+          allow="camera; microphone; clipboard-write"
+        />
+      </div>
+    )}
     </>
   );
 };
