@@ -178,63 +178,61 @@ const ShowcasePage: React.FC = () => {
       <div className="relative z-[5]">
         
         {/* Hero Section */}
-        <div className="relative overflow-hidden min-h-[100vh] flex items-center">
+        <div className="relative overflow-hidden min-h-[100vh] flex flex-col items-center justify-center">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              
-              {/* Left Content */}
-              <div className="text-center lg:text-left">
+            
+            {/* Hero Content - Centered at Top */}
+            <div className="text-center mb-16">
+              <div className="relative">
+                {/* Abstract diffused gradient overlay behind text */}
+                <div className="absolute -inset-8 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
+                <div className="absolute -inset-4 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
+                <div className="absolute -inset-2 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
+                
                 <div className="relative">
-                  {/* Abstract diffused gradient overlay behind text */}
-                  <div className="absolute -inset-8 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
-                  <div className="absolute -inset-4 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
-                  <div className="absolute -inset-2 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
+                  <div className="inline-flex items-center px-4 py-2 bg-purple-500/20 backdrop-blur-sm border border-purple-500/30 rounded-full mb-6">
+                    <Sparkles className="w-4 h-4 text-purple-300 mr-2" />
+                    <span className="text-purple-200 text-sm font-medium">Live Demo</span>
+                  </div>
                   
-                  <div className="relative">
-                    <div className="inline-flex items-center px-4 py-2 bg-purple-500/20 backdrop-blur-sm border border-purple-500/30 rounded-full mb-6">
-                      <Sparkles className="w-4 h-4 text-purple-300 mr-2" />
-                      <span className="text-purple-200 text-sm font-medium">Live Demo</span>
-                    </div>
-                    
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-                      <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
-                        Experience the Magic
-                      </span>
-                      <span className="block drop-shadow-lg">of PhotoSphere</span>
-                    </h1>
-                    
-                    <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg">
-                      See how your event photos come alive in an interactive 3D environment. 
-                      This is what your guests will experience when they visit your PhotoSphere.
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                      <Link
-                        to="/join"
-                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl pointer-events-auto"
-                      >
-                        <Play className="w-5 h-5 mr-2" />
-                        Try Live Demo
-                        <ArrowRight className="w-5 h-5 ml-2" />
-                      </Link>
-                      <Link
-                        to="/dashboard"
-                        className="inline-flex items-center px-6 py-3 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-lg hover:bg-white/20 transition-all duration-300 border border-white/20 pointer-events-auto"
-                      >
-                        Create Your Own
-                      </Link>
-                    </div>
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+                    <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
+                      Experience the Magic
+                    </span>
+                    <span className="block drop-shadow-lg">of PhotoSphere</span>
+                  </h1>
+                  
+                  <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg max-w-3xl mx-auto">
+                    See how your event photos come alive in an interactive 3D environment. 
+                    This is what your guests will experience when they visit your PhotoSphere.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Link
+                      to="/join"
+                      className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl pointer-events-auto"
+                    >
+                      <Play className="w-5 h-5 mr-2" />
+                      Try Live Demo
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Link>
+                    <Link
+                      to="/dashboard"
+                      className="inline-flex items-center px-6 py-3 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-lg hover:bg-white/20 transition-all duration-300 border border-white/20 pointer-events-auto"
+                    >
+                      Create Your Own
+                    </Link>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Right Content - Futuristic Kiosk Showcase */}
-              <div className="flex justify-center lg:justify-end">
-                <div className="relative">
-                  <FuturisticKioskShowcase />
-                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-lg px-6 py-3 border border-purple-500/30">
-                    <p className="text-purple-300 text-sm font-medium">🔴 Live Demo - Real PhotoSphere Interface</p>
-                  </div>
+            {/* Centered Kiosk Display */}
+            <div className="flex justify-center">
+              <div className="relative">
+                <FuturisticKioskShowcase />
+                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-lg px-6 py-3 border border-purple-500/30">
+                  <p className="text-purple-300 text-sm font-medium">🔴 Live Demo - Real PhotoSphere Interface</p>
                 </div>
               </div>
             </div>
