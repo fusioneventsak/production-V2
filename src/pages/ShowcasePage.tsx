@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
-import FuturisticKioskShowcase from '../components/FuturisticKioskShowcase'; // Import the new component
+import FuturisticKioskShowcase from '../components/FuturisticKioskShowcase'; // Correct import
 import { LandingParticleBackground } from '../components/three/LandingParticleBackground';
 import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
 import { ArrowRight, Camera, Eye, Share2, Sparkles, Play, Monitor, Smartphone, Users } from 'lucide-react';
 
-const ShowcasePage = () => {
+const ShowcasePage: React.FC = () => {
   const [particleTheme] = useState(PARTICLE_THEMES[0]);
 
   const features = [
@@ -66,7 +66,7 @@ const ShowcasePage = () => {
             {/* Hero Content - Centered at Top */}
             <div className="text-center mb-16">
               <div className="relative px-4">
-                {/* Abstract diffused gradient overlay behind text - adjusted positioning */}
+                {/* Abstract diffused gradient overlay behind text */}
                 <div className="absolute -inset-12 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
                 <div className="absolute -inset-8 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
                 <div className="absolute -inset-4 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
