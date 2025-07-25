@@ -39,16 +39,9 @@ const Header: React.FC = () => {
               </Link>
             </div>
             
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-1">
-              <Link
-                to="/showcase"
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
-              >
-                <Eye className="h-4 w-4 mr-1" />
-                Showcase
-              </Link>
-              
+            {/* Mobile and Desktop Navigation */}
+            <div className="flex items-center space-x-3">
+              {/* Mobile Elements - Always visible on mobile */}
               <Link
                 to="/join"
                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
@@ -63,24 +56,6 @@ const Header: React.FC = () => {
               >
                 <LogIn className="h-4 w-4 mr-1" />
                 Login
-              </Link>
-              
-              <button
-                onClick={() => setIsDemoModalOpen(true)}
-                className="ml-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 rounded-md hover:from-purple-700 hover:to-blue-600 transition-colors"
-              >
-                Request Demo
-              </button>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="flex items-center space-x-3 md:hidden">
-              <Link
-                to="/join"
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
-              >
-                <Users className="h-4 w-4 mr-1" />
-                Join
               </Link>
               
               <button
