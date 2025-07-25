@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
-import FuturisticKioskShowcase from '../components/FuturisticKioskShowcase'; // Correct import
+import FuturisticKioskShowcase from './FuturisticKioskShowcase'; // Updated import path
 import { LandingParticleBackground } from '../components/three/LandingParticleBackground';
 import { PARTICLE_THEMES } from '../components/three/MilkyWayParticleSystem';
 import { ArrowRight, Camera, Eye, Share2, Sparkles, Play, Monitor, Smartphone, Users } from 'lucide-react';
