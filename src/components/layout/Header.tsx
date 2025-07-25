@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Menu, X, Home, DollarSign, LogIn, HelpCircle } from 'lucide-react';
+import { Users, Menu, X, Home, DollarSign, LogIn, HelpCircle, Eye } from 'lucide-react';
 import DemoRequestModal from '../modals/DemoRequestModal';
 
 const Header: React.FC = () => {
@@ -39,8 +39,16 @@ const Header: React.FC = () => {
               </Link>
             </div>
             
-            {/* Mobile menu button */}
-            <div className="flex items-center space-x-3">
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-1">
+              <Link
+                to="/showcase"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Showcase
+              </Link>
+              
               <Link
                 to="/join"
                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
@@ -59,10 +67,21 @@ const Header: React.FC = () => {
               
               <button
                 onClick={() => setIsDemoModalOpen(true)}
-                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 rounded-md hover:from-purple-700 hover:to-blue-600 transition-colors"
+                className="ml-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 rounded-md hover:from-purple-700 hover:to-blue-600 transition-colors"
               >
                 Request Demo
               </button>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="flex items-center space-x-3 md:hidden">
+              <Link
+                to="/join"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
+              >
+                <Users className="h-4 w-4 mr-1" />
+                Join
+              </Link>
               
               <button
                 onClick={toggleMenu}
@@ -112,6 +131,14 @@ const Header: React.FC = () => {
             >
               <Home className="h-8 w-8 mr-4" />
               Home
+            </Link>
+            <Link 
+              to="/showcase" 
+              className="flex items-center text-3xl font-medium text-white hover:text-purple-300 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <Eye className="h-8 w-8 mr-4" />
+              Showcase
             </Link>
             <Link 
               to="/faq" 
