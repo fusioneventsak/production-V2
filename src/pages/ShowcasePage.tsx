@@ -228,6 +228,16 @@ const ShowcasePage: React.FC = () => {
             <div className="flex justify-center">
               <div className="relative">
                 <FuturisticKioskShowcase />
+                
+                {/* Interactive Indicator Card */}
+                <div className="absolute top-8 right-8 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-purple-500/30 shadow-lg animate-pulse">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
+                    <span className="text-purple-300 text-sm font-medium">Interactive</span>
+                  </div>
+                  <p className="text-gray-300 text-xs mt-1">👆 Move me around</p>
+                </div>
+                
                 <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-lg px-6 py-3 border border-purple-500/30">
                   <p className="text-purple-300 text-sm font-medium">🔴 Live Demo - Real PhotoSphere Interface</p>
                 </div>
