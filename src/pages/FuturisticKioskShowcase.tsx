@@ -1,12 +1,13 @@
+```tsx
 import React, { useState, useEffect, useRef } from 'react';
 
 // Futuristic Kiosk Component with Hyper-Realistic Design and Interaction Indicator
-const FuturisticKioskShowcase = React.memo(() => {
+const FuturisticKioskShowcase: React.FC = React.memo(() => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [showIndicator, setShowIndicator] = useState(true); // State for indicator visibility
-  const kioskRef = useRef(null);
+  const kioskRef = useRef<HTMLDivElement>(null);
 
   // Loading timer
   useEffect(() => {
@@ -24,7 +25,7 @@ const FuturisticKioskShowcase = React.memo(() => {
   }, []);
 
   // Tilt effect on mouse move
-  const handleMouseMove = (e) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!kioskRef.current) return;
     const rect = kioskRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
@@ -32,14 +33,14 @@ const FuturisticKioskShowcase = React.memo(() => {
     setTilt({ x: x * 15, y: y * 15 });
   };
 
-  // Reset tilt and show indicator on hover
+  // Show indicator on hover
   const handleMouseEnter = () => {
-    setShowIndicator(true); // Show indicator on hover
+    setShowIndicator(true);
   };
 
   const handleMouseLeave = () => {
     setTilt({ x: 0, y: 0 });
-    setShowIndicator(false); // Hide indicator when not hovering
+    setShowIndicator(false);
   };
 
   // Audio feedback for interactions
