@@ -216,12 +216,14 @@ const ShowcasePage: React.FC = () => {
                       Request Live Demo
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </button>
-                    <Link
-                      to="/join"
+                    <a
+                      href="https://selfieholosphere.com/photobooth/BCBJ"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center px-6 py-3 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-lg hover:bg-white/20 transition-all duration-300 border border-white/20 pointer-events-auto"
                     >
-                      Try Now
-                    </Link>
+                      Try the Photobooth
+                    </a>
                   </div>
                 </div>
               </div>
@@ -338,13 +340,15 @@ const ShowcasePage: React.FC = () => {
                   <Play className="w-5 h-5 mr-2" />
                   Request Live Demo
                 </button>
-                <Link
-                  to="/join"
+                <a
+                  href="https://selfieholosphere.com/photobooth/BCBJ"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center px-8 py-4 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-lg hover:bg-white/20 transition-all duration-300 border border-white/20"
                 >
-                  Try Now
+                  Try the Photobooth
                   <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
+                </a>
               </div>
               
               <p className="text-sm text-gray-400 mt-6">
