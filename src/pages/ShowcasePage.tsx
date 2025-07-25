@@ -16,40 +16,43 @@ const FuturisticKioskShowcase: React.FC = () => {
   }, []);
 
   return (
-    <div className="relative w-full max-w-6xl mx-auto">
+    <div className="relative w-full max-w-6xl mx-auto px-4">
       {/* Main Kiosk Body */}
-      <div className="relative bg-gradient-to-b from-gray-300 via-gray-400 to-gray-600 rounded-3xl p-6 shadow-2xl">
+      <div className="relative bg-gradient-to-b from-gray-300 via-gray-400 to-gray-600 rounded-3xl p-3 md:p-6 shadow-2xl">
         
         {/* Metallic Surface Effects */}
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-black/20"></div>
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-transparent via-white/10 to-transparent"></div>
         
         {/* Chrome Bezel */}
-        <div className="relative bg-gradient-to-b from-gray-100 via-gray-300 to-gray-500 rounded-2xl p-4 shadow-inner">
+        <div className="relative bg-gradient-to-b from-gray-100 via-gray-300 to-gray-500 rounded-2xl p-2 md:p-4 shadow-inner">
           <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/30 rounded-2xl"></div>
           
           {/* Screen Frame */}
-          <div className="relative bg-black rounded-xl p-3 shadow-2xl">
+          <div className="relative bg-black rounded-xl p-2 md:p-3 shadow-2xl">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl blur-sm"></div>
             
-            {/* Main Display Area - Much Larger */}
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', minHeight: '500px' }}>
+            {/* Main Display Area - Responsive */}
+            <div className="relative bg-black rounded-lg overflow-hidden" style={{ 
+              aspectRatio: '16/9', 
+              minHeight: window.innerWidth < 768 ? '280px' : '500px' 
+            }}>
               
               {/* Loading State */}
               {isLoading && (
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-20 h-20 mx-auto mb-6 relative">
-                      <div className="absolute inset-0 rounded-full border-4 border-blue-500/30"></div>
-                      <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
+                    <div className="w-12 md:w-20 h-12 md:h-20 mx-auto mb-4 md:mb-6 relative">
+                      <div className="absolute inset-0 rounded-full border-2 md:border-4 border-blue-500/30"></div>
+                      <div className="absolute inset-0 rounded-full border-2 md:border-4 border-blue-500 border-t-transparent animate-spin"></div>
                     </div>
-                    <p className="text-blue-300 text-xl font-semibold">PhotoSphere</p>
-                    <p className="text-gray-400 text-sm mt-2">Initializing Display...</p>
+                    <p className="text-blue-300 text-lg md:text-xl font-semibold">PhotoSphere</p>
+                    <p className="text-gray-400 text-xs md:text-sm mt-2">Initializing Display...</p>
                   </div>
                 </div>
               )}
               
-              {/* Main Content - Large Iframe - No Obstructions */}
+              {/* Main Content - Large Iframe - Responsive */}
               {!isLoading && (
                 <iframe
                   src="https://selfieholosphere.com/collage/BCBJ"
@@ -62,59 +65,59 @@ const FuturisticKioskShowcase: React.FC = () => {
             </div>
           </div>
           
-          {/* Minimal Status Bar */}
-          <div className="flex justify-between items-center mt-3 px-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
+          {/* Minimal Status Bar - Responsive */}
+          <div className="flex justify-between items-center mt-2 md:mt-3 px-2 md:px-4">
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <div className="flex items-center space-x-1 md:space-x-2">
+                <div className="w-1.5 md:w-2 h-1.5 md:h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
                 <span className="text-gray-600 text-xs font-medium">LIVE</span>
               </div>
             </div>
             
-            <div className="text-gray-500 text-xs font-mono bg-gray-200/50 px-2 py-1 rounded">
+            <div className="text-gray-500 text-xs font-mono bg-gray-200/50 px-2 py-1 rounded hidden md:block">
               PhotoSphere Display
             </div>
           </div>
         </div>
         
-        {/* Metallic Ventilation Grilles */}
-        <div className="absolute bottom-8 left-8 right-8 flex justify-center space-x-2">
+        {/* Metallic Ventilation Grilles - Hidden on mobile */}
+        <div className="absolute bottom-6 md:bottom-8 left-4 md:left-8 right-4 md:right-8 justify-center space-x-2 hidden md:flex">
           {[...Array(12)].map((_, i) => (
-            <div key={i} className="w-1 h-6 bg-gradient-to-b from-gray-400 to-gray-600 rounded-full shadow-inner"></div>
+            <div key={i} className="w-1 h-4 md:h-6 bg-gradient-to-b from-gray-400 to-gray-600 rounded-full shadow-inner"></div>
           ))}
         </div>
         
-        {/* Chrome Power Button */}
-        <div className="absolute bottom-4 right-6">
-          <div className="w-10 h-10 bg-gradient-to-b from-gray-200 via-gray-300 to-gray-500 rounded-full flex items-center justify-center shadow-lg border border-gray-400">
-            <div className="w-5 h-5 border-2 border-gray-600 rounded-full relative bg-gradient-to-b from-gray-100 to-gray-300">
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-0.5 h-2 bg-gray-600 rounded-full"></div>
+        {/* Chrome Power Button - Responsive */}
+        <div className="absolute bottom-2 md:bottom-4 right-3 md:right-6">
+          <div className="w-6 md:w-10 h-6 md:h-10 bg-gradient-to-b from-gray-200 via-gray-300 to-gray-500 rounded-full flex items-center justify-center shadow-lg border border-gray-400">
+            <div className="w-3 md:w-5 h-3 md:h-5 border-1 md:border-2 border-gray-600 rounded-full relative bg-gradient-to-b from-gray-100 to-gray-300">
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1 w-0.5 h-1 md:h-2 bg-gray-600 rounded-full"></div>
             </div>
           </div>
         </div>
         
-        {/* Brand Plate */}
-        <div className="absolute bottom-4 left-6">
-          <div className="bg-gradient-to-b from-gray-200 to-gray-400 rounded-lg px-4 py-2 border border-gray-500 shadow-lg">
-            <span className="text-gray-800 text-sm font-bold">PhotoSphere</span>
+        {/* Brand Plate - Responsive */}
+        <div className="absolute bottom-2 md:bottom-4 left-3 md:left-6">
+          <div className="bg-gradient-to-b from-gray-200 to-gray-400 rounded-lg px-2 md:px-4 py-1 md:py-2 border border-gray-500 shadow-lg">
+            <span className="text-gray-800 text-xs md:text-sm font-bold">PhotoSphere</span>
           </div>
         </div>
         
-        {/* Status LEDs */}
-        <div className="absolute top-4 right-6 flex space-x-3">
-          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
-          <div className="w-3 h-3 bg-blue-400 rounded-full shadow-lg shadow-blue-400/50"></div>
+        {/* Status LEDs - Responsive */}
+        <div className="absolute top-2 md:top-4 right-3 md:right-6 flex space-x-2 md:space-x-3">
+          <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
+          <div className="w-2 md:w-3 h-2 md:h-3 bg-blue-400 rounded-full shadow-lg shadow-blue-400/50"></div>
         </div>
       </div>
       
-      {/* Metallic Stand Base */}
-      <div className="relative mx-auto w-40 h-12 bg-gradient-to-b from-gray-400 via-gray-500 to-gray-700 rounded-b-2xl shadow-xl">
+      {/* Metallic Stand Base - Responsive */}
+      <div className="relative mx-auto w-24 md:w-40 h-6 md:h-12 bg-gradient-to-b from-gray-400 via-gray-500 to-gray-700 rounded-b-2xl shadow-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-black/20 rounded-b-2xl"></div>
-        <div className="absolute top-0 left-4 right-4 h-1 bg-gradient-to-r from-gray-300 to-gray-500 rounded-full"></div>
+        <div className="absolute top-0 left-2 md:left-4 right-2 md:right-4 h-0.5 md:h-1 bg-gradient-to-r from-gray-300 to-gray-500 rounded-full"></div>
       </div>
       
-      {/* Floor Shadow */}
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/20 to-transparent transform scale-x-150 blur-lg pointer-events-none"></div>
+      {/* Floor Shadow - Responsive */}
+      <div className="absolute bottom-0 left-0 right-0 h-8 md:h-16 bg-gradient-to-t from-black/20 to-transparent transform scale-x-150 blur-lg pointer-events-none"></div>
     </div>
   );
 };
@@ -235,33 +238,33 @@ const ShowcasePage: React.FC = () => {
               <div className="relative">
                 <FuturisticKioskShowcase />
                 
-                {/* Add Your Selfie Button - Top Center */}
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+                {/* Add Your Selfie Button - Top Center - Responsive */}
+                <div className="absolute top-2 md:top-4 left-1/2 transform -translate-x-1/2 z-10">
                   <button
                     onClick={() => setIsPhotoboothModalOpen(true)}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 animate-pulse"
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold px-3 md:px-6 py-2 md:py-3 text-sm md:text-base rounded-full shadow-lg hover:shadow-xl transition-all duration-300 animate-pulse"
                   >
-                    <Camera className="w-5 h-5 mr-2 inline" />
+                    <Camera className="w-4 md:w-5 h-4 md:h-5 mr-1 md:mr-2 inline" />
                     Add Your Selfie
                   </button>
                 </div>
                 
-                {/* Interactive Indicator Card - Top Right */}
-                <div className="absolute top-8 right-8 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-purple-500/30 shadow-lg animate-pulse">
+                {/* Interactive Indicator Card - Top Right - Responsive */}
+                <div className="absolute top-6 md:top-8 right-4 md:right-8 bg-black/80 backdrop-blur-sm rounded-lg px-3 md:px-4 py-2 md:py-3 border border-purple-500/30 shadow-lg animate-pulse">
                   <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
-                    <span className="text-purple-300 text-sm font-medium">Interactive</span>
+                    <div className="w-1.5 md:w-2 h-1.5 md:h-2 bg-green-400 rounded-full animate-ping"></div>
+                    <span className="text-purple-300 text-xs md:text-sm font-medium">Interactive</span>
                   </div>
-                  <p className="text-gray-300 text-xs mt-1">👆 Move me around</p>
+                  <p className="text-gray-300 text-xs mt-1 hidden md:block">👆 Move me around</p>
                 </div>
                 
-                {/* Zoom Indicator Card - Bottom Left */}
-                <div className="absolute bottom-20 left-8 bg-black/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-blue-500/30 shadow-lg animate-pulse delay-500">
+                {/* Zoom Indicator Card - Bottom Left - Responsive */}
+                <div className="absolute bottom-16 md:bottom-20 left-4 md:left-8 bg-black/80 backdrop-blur-sm rounded-lg px-3 md:px-4 py-2 md:py-3 border border-blue-500/30 shadow-lg animate-pulse delay-500">
                   <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
-                    <span className="text-blue-300 text-sm font-medium">Zoom</span>
+                    <div className="w-1.5 md:w-2 h-1.5 md:h-2 bg-blue-400 rounded-full animate-ping"></div>
+                    <span className="text-blue-300 text-xs md:text-sm font-medium">Zoom</span>
                   </div>
-                  <p className="text-gray-300 text-xs mt-1">🖱️ Scroll or 🤏 Pinch</p>
+                  <p className="text-gray-300 text-xs mt-1 hidden md:block">🖱️ Scroll or 🤏 Pinch</p>
                 </div>
                 
                 <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-lg px-6 py-3 border border-purple-500/30">
@@ -378,48 +381,56 @@ const ShowcasePage: React.FC = () => {
       onClose={() => setIsDemoModalOpen(false)} 
     />
 
-    {/* Photobooth Phone-Style Modal */}
+    {/* Photobooth Phone-Style Modal - Mobile Optimized */}
     {isPhotoboothModalOpen && (
-      <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-2 md:p-4">
         {/* Close button */}
         <button
           onClick={() => setIsPhotoboothModalOpen(false)}
-          className="absolute top-6 right-6 z-60 bg-black/50 hover:bg-black/70 text-white rounded-full p-3 transition-all duration-300"
+          className="absolute top-4 md:top-6 right-4 md:right-6 z-60 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 md:p-3 transition-all duration-300"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 md:w-6 h-5 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
         
-        {/* Phone-like container */}
-        <div className="relative bg-black rounded-3xl p-4 shadow-2xl" style={{ width: '380px', height: '680px' }}>
+        {/* Phone-like container - Responsive */}
+        <div 
+          className="relative bg-black rounded-2xl md:rounded-3xl p-2 md:p-4 shadow-2xl mx-auto"
+          style={{ 
+            width: window.innerWidth < 768 ? 'calc(100vw - 32px)' : '380px',
+            maxWidth: '380px',
+            height: window.innerWidth < 768 ? 'calc(100vh - 120px)' : '680px',
+            maxHeight: '680px'
+          }}
+        >
           {/* Phone bezel/frame */}
-          <div className="w-full h-full bg-gray-900 rounded-2xl overflow-hidden relative">
+          <div className="w-full h-full bg-gray-900 rounded-xl md:rounded-2xl overflow-hidden relative">
             {/* Status bar area */}
-            <div className="absolute top-0 left-0 right-0 h-8 bg-black/50 z-10 flex items-center justify-center">
+            <div className="absolute top-0 left-0 right-0 h-6 md:h-8 bg-black/50 z-10 flex items-center justify-center">
               <div className="text-white text-xs font-medium">Add Your Selfie to BCBJ</div>
             </div>
             
             {/* Iframe in phone container */}
             <iframe
               src="https://selfieholosphere.com/photobooth/BCBJ"
-              className="w-full h-full border-0 rounded-2xl"
+              className="w-full h-full border-0 rounded-xl md:rounded-2xl"
               title="PhotoSphere Photobooth - Add Your Selfie"
               allow="camera; microphone; clipboard-write"
             />
             
             {/* Bottom indicator */}
-            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-white/30 rounded-full"></div>
+            <div className="absolute bottom-1 md:bottom-2 left-1/2 transform -translate-x-1/2 w-16 md:w-20 h-0.5 md:h-1 bg-white/30 rounded-full"></div>
           </div>
           
           {/* Phone shine effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-3xl pointer-events-none"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-2xl md:rounded-3xl pointer-events-none"></div>
         </div>
         
-        {/* Instruction text */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center">
-          <p className="text-white text-lg font-semibold mb-2">📱 Take Your Selfie</p>
-          <p className="text-gray-300 text-sm">Your photo will appear in the PhotoSphere above!</p>
+        {/* Instruction text - Responsive */}
+        <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 text-center px-4">
+          <p className="text-white text-base md:text-lg font-semibold mb-1 md:mb-2">📱 Take Your Selfie</p>
+          <p className="text-gray-300 text-xs md:text-sm">Your photo will appear in the PhotoSphere above!</p>
         </div>
       </div>
     )}
