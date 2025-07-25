@@ -9,10 +9,20 @@ import { ArrowRight, Camera, Eye, Share2, Sparkles, Play, Monitor, Smartphone, U
 // Futuristic Kiosk Component
 const FuturisticKioskShowcase: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   return (
@@ -32,11 +42,14 @@ const FuturisticKioskShowcase: React.FC = () => {
           <div className="relative bg-black rounded-xl p-2 md:p-3 shadow-2xl">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl blur-sm"></div>
             
-            {/* Main Display Area - Responsive */}
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ 
-              aspectRatio: '16/9', 
-              minHeight: window.innerWidth < 768 ? '280px' : '500px' 
-            }}>
+            {/* Main Display Area - Fully Responsive */}
+            <div 
+              className="relative bg-black rounded-lg overflow-hidden w-full"
+              style={{ 
+                aspectRatio: '16/9',
+                height: windowWidth < 768 ? '280px' : '500px'
+              }}
+            >
               
               {/* Loading State */}
               {isLoading && (
@@ -52,7 +65,7 @@ const FuturisticKioskShowcase: React.FC = () => {
                 </div>
               )}
               
-              {/* Main Content - Large Iframe - Responsive */}
+              {/* Main Content - Responsive Iframe */}
               {!isLoading && (
                 <iframe
                   src="https://selfieholosphere.com/collage/BCBJ"
@@ -394,14 +407,12 @@ const ShowcasePage: React.FC = () => {
           </svg>
         </button>
         
-        {/* Phone-like container - Responsive */}
+        {/* Phone-like container - Fully Responsive */}
         <div 
-          className="relative bg-black rounded-2xl md:rounded-3xl p-2 md:p-4 shadow-2xl mx-auto"
+          className="relative bg-black rounded-2xl md:rounded-3xl p-2 md:p-4 shadow-2xl mx-auto w-full max-w-sm md:max-w-none"
           style={{ 
-            width: window.innerWidth < 768 ? 'calc(100vw - 32px)' : '380px',
-            maxWidth: '380px',
-            height: window.innerWidth < 768 ? 'calc(100vh - 120px)' : '680px',
-            maxHeight: '680px'
+            width: 'min(calc(100vw - 32px), 380px)',
+            height: 'min(calc(100vh - 120px), 680px)'
           }}
         >
           {/* Phone bezel/frame */}
