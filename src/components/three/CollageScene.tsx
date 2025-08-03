@@ -1288,6 +1288,29 @@ const EnhancedAnimationController: React.FC<{
           safePhotos
         );
         patternState = pattern.generatePositions(time);
+        
+        // FIXED: Adjust pattern heights to be just above floor level
+        // Floor is at Y=-12, so we want patterns to start around Y=-8 to Y=0
+        const floorLevel = -8; // Just above the floor at Y=-12
+        
+        if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
+          // Lower the spiral and wave patterns significantly
+          patternState.positions = patternState.positions.map((pos, index) => {
+            const [x, y, z] = pos;
+            let adjustedY = y;
+            
+            if (settings.animationPattern === 'spiral') {
+              // For spiral: start at floor level and go up more gradually
+              adjustedY = floorLevel + (y * 0.5); // Reduce height by 50%
+            } else if (settings.animationPattern === 'wave') {
+              // For wave: keep oscillation but much closer to floor
+              adjustedY = floorLevel + 2 + (y * 0.3); // Start 2 units above floor, reduce oscillation
+            }
+            
+            return [x, adjustedY, z];
+          });
+        }
+        
       } catch (error) {
         console.error('Pattern generation error:', error);
         const positions = [];
@@ -1296,7 +1319,7 @@ const EnhancedAnimationController: React.FC<{
         for (let i = 0; i < (settings.photoCount || 100); i++) {
           const x = (i % 10) * spacing - (spacing * 5);
           const z = Math.floor(i / 10) * spacing - (spacing * 5);
-          positions.push([x, 0, z]);
+          positions.push([x, -6, z]); // Position just above floor
           rotations.push([0, 0, 0]);
         }
         patternState = { positions, rotations };
@@ -1318,7 +1341,7 @@ const EnhancedAnimationController: React.FC<{
           
           photosWithPositions.push({
             ...photo,
-            targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
+            targetPosition: patternState.positions[slotIndex] || [0, -6, 0],
             targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
             displayIndex: slotIndex,
             slotIndex,
@@ -1334,7 +1357,7 @@ const EnhancedAnimationController: React.FC<{
           photosWithPositions.push({
             id: `placeholder-${i}`,
             url: '',
-            targetPosition: patternState.positions[i] || [0, 0, 0],
+            targetPosition: patternState.positions[i] || [0, -6, 0],
             targetRotation: patternState.rotations?.[i] || [0, 0, 0],
             displayIndex: i,
             slotIndex: i,
