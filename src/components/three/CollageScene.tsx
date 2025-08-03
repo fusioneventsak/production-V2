@@ -200,7 +200,7 @@ const createUltraHighQualityTexture = async (
         
         // Enhanced color management with transparency support
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.flipY = false;
+        texture.flipY = true; // FIXED: Restore flipY to prevent upside down images
         texture.premultipliedAlpha = false; // Better transparency handling
         
         resolve(texture);
@@ -287,7 +287,7 @@ const PhysicsPhotoMesh: React.FC<{
           }
           
           loadedTexture.colorSpace = THREE.SRGBColorSpace;
-          loadedTexture.flipY = false;
+          loadedTexture.flipY = true; // FIXED: Restore flipY to prevent upside down images
           loadedTexture.premultipliedAlpha = false;
           
           setTexture(loadedTexture);
