@@ -1,4 +1,4 @@
-// src/components/collage/SceneSettings.tsx - Enhanced with Environment Controls
+// src/components/collage/SceneSettings.tsx - Enhanced with Environment Controls and Advanced Camera Settings
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers } from 'lucide-react';
@@ -18,6 +18,20 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingEnabled?: boolean;
   ceilingHeight?: number;
   roomDepth?: number;
+  
+  // Enhanced Auto-Rotate Camera Settings
+  cameraAutoRotateSpeed?: number;
+  cameraAutoRotateRadius?: number;
+  cameraAutoRotateHeight?: number;
+  cameraAutoRotateElevationMin?: number;
+  cameraAutoRotateElevationMax?: number;
+  cameraAutoRotateElevationSpeed?: number;
+  cameraAutoRotateDistanceVariation?: number;
+  cameraAutoRotateDistanceSpeed?: number;
+  cameraAutoRotateVerticalDrift?: number;
+  cameraAutoRotateVerticalDriftSpeed?: number;
+  cameraAutoRotateFocusOffset?: [number, number, number];
+  cameraAutoRotatePauseOnInteraction?: number;
 }
 
 const EnhancedSceneSettings: React.FC<{
@@ -403,37 +417,226 @@ const EnhancedSceneSettings: React.FC<{
                   className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
                 >
                   <option value="manual">📱 Manual Control Only</option>
-                  <option value="auto-rotate">🔄 Auto Rotate (Simple)</option>
+                  <option value="auto-rotate">🔄 Auto Rotate (Enhanced)</option>
                   <option value="cinematic">🎬 Cinematic Animations</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-400">
-                  {settings.cameraRotationEnabled ? 'Simple circular rotation around the scene' : 
+                  {settings.cameraRotationEnabled ? 'Enhanced auto-rotation with fine controls' : 
                    settings.cameraAnimation?.enabled ? 'Advanced cinematic camera movements' : 
                    'Full manual control with mouse/touch only'}
                 </p>
               </div>
 
-              {/* Auto Rotate Settings */}
+              {/* Enhanced Auto Rotate Settings */}
               {settings.cameraRotationEnabled && (
-                <div className="bg-blue-900/20 p-3 rounded-lg space-y-3">
-                  <h5 className="text-xs font-medium text-blue-300">Auto Rotate Settings</h5>
+                <div className="bg-blue-900/20 p-4 rounded-lg space-y-4">
+                  <h5 className="text-sm font-medium text-blue-300">🔄 Enhanced Auto Rotate Settings</h5>
                   
+                  {/* Basic Controls */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">
+                        Rotation Speed
+                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5).toFixed(1)}x</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="3.0"
+                        step="0.1"
+                        value={settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAutoRotateSpeed: parseFloat(e.target.value),
+                          cameraRotationSpeed: parseFloat(e.target.value) // Keep compatibility
+                        }, true)}
+                        className="w-full bg-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">
+                        Distance
+                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateRadius || settings.cameraDistance || 25).toFixed(0)} units</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        step="1"
+                        value={settings.cameraAutoRotateRadius || settings.cameraDistance || 25}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAutoRotateRadius: parseFloat(e.target.value),
+                          cameraDistance: parseFloat(e.target.value) // Keep compatibility
+                        }, true)}
+                        className="w-full bg-gray-800"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm text-gray-300 mb-2">
-                      Rotation Speed
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraRotationSpeed?.toFixed(1) || '0.5'}x</span>
+                      Height
+                      <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateHeight || settings.cameraHeight || 5).toFixed(0)} units</span>
                     </label>
                     <input
                       type="range"
-                      min="0.1"
-                      max="2"
-                      step="0.1"
-                      value={settings.cameraRotationSpeed || 0.5}
+                      min="0"
+                      max="50"
+                      step="1"
+                      value={settings.cameraAutoRotateHeight || settings.cameraHeight || 5}
                       onChange={(e) => onSettingsChange({ 
-                        cameraRotationSpeed: parseFloat(e.target.value) 
+                        cameraAutoRotateHeight: parseFloat(e.target.value),
+                        cameraHeight: parseFloat(e.target.value) // Keep compatibility
                       }, true)}
                       className="w-full bg-gray-800"
                     />
+                  </div>
+
+                  {/* Advanced Controls */}
+                  <div className="border-t border-gray-700 pt-4">
+                    <h6 className="text-xs font-medium text-gray-300 mb-3">⚙️ Advanced Movement Controls</h6>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-300 mb-2">
+                          Elevation Range Min
+                          <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAutoRotateElevationMin || Math.PI/6) * 180 / Math.PI)}°</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={Math.PI/8}
+                          max={Math.PI/2}
+                          step={Math.PI/180}
+                          value={settings.cameraAutoRotateElevationMin || Math.PI/6}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAutoRotateElevationMin: parseFloat(e.target.value)
+                          }, true)}
+                          className="w-full bg-gray-800"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-gray-300 mb-2">
+                          Elevation Range Max
+                          <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAutoRotateElevationMax || Math.PI/3) * 180 / Math.PI)}°</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={Math.PI/4}
+                          max={Math.PI/2}
+                          step={Math.PI/180}
+                          value={settings.cameraAutoRotateElevationMax || Math.PI/3}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAutoRotateElevationMax: parseFloat(e.target.value)
+                          }, true)}
+                          className="w-full bg-gray-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">
+                        Elevation Speed
+                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateElevationSpeed || 0.3).toFixed(1)}x</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="2.0"
+                        step="0.1"
+                        value={settings.cameraAutoRotateElevationSpeed || 0.3}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAutoRotateElevationSpeed: parseFloat(e.target.value)
+                        }, true)}
+                        className="w-full bg-gray-800"
+                      />
+                      <p className="mt-1 text-xs text-gray-400">How fast the camera moves up and down</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-300 mb-2">
+                          Distance Variation
+                          <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateDistanceVariation || 0).toFixed(0)} units</span>
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          step="1"
+                          value={settings.cameraAutoRotateDistanceVariation || 0}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAutoRotateDistanceVariation: parseFloat(e.target.value)
+                          }, true)}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="mt-1 text-xs text-gray-400">Breathing in/out effect</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-gray-300 mb-2">
+                          Distance Speed
+                          <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateDistanceSpeed || 0.2).toFixed(1)}x</span>
+                        </label>
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="1.0"
+                          step="0.1"
+                          value={settings.cameraAutoRotateDistanceSpeed || 0.2}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAutoRotateDistanceSpeed: parseFloat(e.target.value)
+                          }, true)}
+                          className="w-full bg-gray-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">
+                        Vertical Drift
+                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateVerticalDrift || 0).toFixed(1)} units</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        step="0.5"
+                        value={settings.cameraAutoRotateVerticalDrift || 0}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAutoRotateVerticalDrift: parseFloat(e.target.value)
+                        }, true)}
+                        className="w-full bg-gray-800"
+                      />
+                      <p className="mt-1 text-xs text-gray-400">Vertical floating of focus point</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-2">
+                        Pause After Interaction
+                        <span className="ml-2 text-xs text-gray-400">{((settings.cameraAutoRotatePauseOnInteraction || 500) / 1000).toFixed(1)}s</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="100"
+                        max="5000"
+                        step="100"
+                        value={settings.cameraAutoRotatePauseOnInteraction || 500}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAutoRotatePauseOnInteraction: parseInt(e.target.value)
+                        }, true)}
+                        className="w-full bg-gray-800"
+                      />
+                      <p className="mt-1 text-xs text-gray-400">How long to pause after manual camera control</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-800/50 p-3 rounded text-xs text-gray-400">
+                    💡 <strong>Enhanced Auto-Rotate Features:</strong>
+                    <br />• Dynamic elevation changes (up/down movement)
+                    <br />• Distance breathing effect (in/out movement)
+                    <br />• Vertical focus drift for natural motion
+                    <br />• Configurable pause after user interaction
                   </div>
                 </div>
               )}
