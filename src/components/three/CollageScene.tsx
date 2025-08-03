@@ -132,13 +132,13 @@ class EnhancedSlotManager {
   assignSlots(photos: Photo[]): Map<string, number> {
     const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
     
-    // Update aspect ratios
+    // Update aspect ratios - only for photos that don't already have stored ratios
     safePhotos.forEach(photo => {
-      if (photo.width && photo.height) {
-        this.photoAspectRatios.set(photo.id, photo.width / photo.height);
-      } else {
-        // Default to 16:9 if no dimensions provided
-        this.photoAspectRatios.set(photo.id, 16/9);
+      if (!this.photoAspectRatios.has(photo.id)) {
+        if (photo.width && photo.height) {
+          this.photoAspectRatios.set(photo.id, photo.width / photo.height);
+        }
+        // Don't set a default - let the component detect it from the actual image
       }
     });
     
@@ -171,12 +171,12 @@ class EnhancedSlotManager {
     return new Map(this.slotAssignments);
   }
 
-  getAspectRatio(photoId: string): number {
-    return this.photoAspectRatios.get(photoId) || 16/9;
+  getAspectRatio(photoId: string): number | null {
+    return this.photoAspectRatios.get(photoId) || null; // Return null if not detected
   }
 }
 
-// Ultra-High Quality Texture Loader
+// Ultra-High Quality Texture Loader with Transparency Support
 const createUltraHighQualityTexture = async (
   imageUrl: string, 
   gl: THREE.WebGLRenderer
@@ -184,46 +184,30 @@ const createUltraHighQualityTexture = async (
   return new Promise((resolve, reject) => {
     const loader = new THREE.TextureLoader();
     
-    // Create image element for dimension detection
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      loader.load(
-        imageUrl,
-        (texture) => {
-          // Ultra-high quality settings
-          texture.minFilter = THREE.LinearMipmapLinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.format = THREE.RGBAFormat;
-          texture.generateMipmaps = true;
-          
-          // Maximum anisotropic filtering for crystal clear distant images
-          if (gl?.capabilities?.getMaxAnisotropy) {
-            texture.anisotropy = gl.capabilities.getMaxAnisotropy();
-          }
-          
-          // Enhanced color management
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.flipY = false;
-          texture.premultipliedAlpha = false;
-          
-          // No compression - maintain original quality
-          texture.userData = {
-            originalWidth: img.naturalWidth,
-            originalHeight: img.naturalHeight,
-            aspectRatio: img.naturalWidth / img.naturalHeight
-          };
-          
-          resolve(texture);
-        },
-        undefined,
-        reject
-      );
-    };
-    
-    img.onerror = reject;
-    img.src = imageUrl;
+    loader.load(
+      imageUrl,
+      (texture) => {
+        // Ultra-high quality settings
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.format = THREE.RGBAFormat; // Support transparency
+        texture.generateMipmaps = true;
+        
+        // Maximum anisotropic filtering for crystal clear distant images
+        if (gl?.capabilities?.getMaxAnisotropy) {
+          texture.anisotropy = gl.capabilities.getMaxAnisotropy();
+        }
+        
+        // Enhanced color management with transparency support
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.flipY = false;
+        texture.premultipliedAlpha = false; // Better transparency handling
+        
+        resolve(texture);
+      },
+      undefined,
+      reject
+    );
   });
 };
 
@@ -238,26 +222,35 @@ const PhysicsPhotoMesh: React.FC<{
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [cameraDistance, setCameraDistance] = useState(20);
+  const [detectedAspectRatio, setDetectedAspectRatio] = useState<number | null>(null);
   
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
   const resourceManager = useMemo(() => ResourceManager.getInstance(), []);
   
-  // Calculate actual dimensions based on aspect ratio
+  // Calculate actual dimensions based on detected or provided aspect ratio
   const computedDimensions = useMemo(() => {
     const baseSize = settings.photoSize || 4.0;
-    const aspectRatio = photo.computedSize ? photo.computedSize[0] / photo.computedSize[1] : 16/9;
+    
+    // Priority: detected aspect ratio > provided computedSize > square fallback
+    let aspectRatio = 1; // Default to square
+    
+    if (detectedAspectRatio) {
+      aspectRatio = detectedAspectRatio;
+    } else if (photo.computedSize && photo.computedSize[0] && photo.computedSize[1]) {
+      aspectRatio = photo.computedSize[0] / photo.computedSize[1];
+    }
     
     if (aspectRatio > 1) {
-      // Landscape: maintain width, adjust height
+      // Landscape: maintain height, adjust width
       return [baseSize * aspectRatio, baseSize];
     } else {
-      // Portrait: maintain height, adjust width  
+      // Portrait: maintain width, adjust height  
       return [baseSize, baseSize / aspectRatio];
     }
-  }, [settings.photoSize, photo.computedSize]);
+  }, [settings.photoSize, photo.computedSize, detectedAspectRatio]);
 
-  // Ultra-high quality texture loading
+  // Ultra-high quality texture loading with aspect ratio detection
   useEffect(() => {
     if (!photo.url) {
       setIsLoading(false);
@@ -265,18 +258,55 @@ const PhysicsPhotoMesh: React.FC<{
     }
 
     const imageUrl = photo.url.includes('?') 
-      ? `${photo.url}&no_compress=1&quality=100&t=${Date.now()}`
-      : `${photo.url}?no_compress=1&quality=100&t=${Date.now()}`;
+      ? `${photo.url}&quality=100&t=${Date.now()}` // Simplified URL params
+      : `${photo.url}?quality=100&t=${Date.now()}`;
 
-    resourceManager.getTexture(imageUrl, () => 
-      createUltraHighQualityTexture(imageUrl, gl)
-    ).then(loadedTexture => {
-      setTexture(loadedTexture);
+    // Simplified loading - detect aspect ratio directly from texture load
+    const loader = new THREE.TextureLoader();
+    
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      // Detect actual aspect ratio from loaded image
+      const actualAspectRatio = img.naturalWidth / img.naturalHeight;
+      setDetectedAspectRatio(actualAspectRatio);
+      
+      // Load texture with transparency support
+      loader.load(
+        imageUrl,
+        (loadedTexture) => {
+          // High quality settings but simplified
+          loadedTexture.minFilter = THREE.LinearMipmapLinearFilter;
+          loadedTexture.magFilter = THREE.LinearFilter;
+          loadedTexture.format = THREE.RGBAFormat; // Support transparency
+          loadedTexture.generateMipmaps = true;
+          
+          if (gl?.capabilities?.getMaxAnisotropy) {
+            loadedTexture.anisotropy = Math.min(16, gl.capabilities.getMaxAnisotropy());
+          }
+          
+          loadedTexture.colorSpace = THREE.SRGBColorSpace;
+          loadedTexture.flipY = false;
+          loadedTexture.premultipliedAlpha = false;
+          
+          setTexture(loadedTexture);
+          setIsLoading(false);
+        },
+        undefined,
+        (error) => {
+          console.error('Texture loading failed:', error);
+          setIsLoading(false);
+        }
+      );
+    };
+    
+    img.onerror = () => {
+      console.error('Failed to load image for aspect ratio detection:', imageUrl);
       setIsLoading(false);
-    }).catch(error => {
-      console.error('High quality texture loading failed:', error);
-      setIsLoading(false);
-    });
+    };
+    
+    img.src = imageUrl;
   }, [photo.url, gl, resourceManager]);
 
   // Distance-based quality optimization
@@ -330,69 +360,74 @@ const PhysicsPhotoMesh: React.FC<{
     }
   });
 
-  // Ultra-high quality material
+  // Ultra-high quality material with transparency support
   const material = useMemo(() => {
     if (texture) {
+      // Detect if image has transparency by checking format or file extension
+      const hasTransparency = photo.url.toLowerCase().includes('.png') || 
+                             photo.url.toLowerCase().includes('.webp') ||
+                             texture.format === THREE.RGBAFormat;
+      
       return new THREE.MeshStandardMaterial({
         map: texture,
-        transparent: false,
+        transparent: hasTransparency, // Enable transparency for PNG/WebP
         side: THREE.DoubleSide,
         metalness: 0,
         roughness: Math.max(0.05, 0.15 - (cameraDistance * 0.002)), // Sharper at distance
         toneMapped: false, // Preserve original colors
         color: new THREE.Color().setScalar(settings.photoBrightness || 1.0),
         envMapIntensity: 0.2,
+        alphaTest: hasTransparency ? 0.01 : 0, // Small alpha test for transparency
+        premultipliedAlpha: false, // Better transparency rendering
       });
     } else {
-      // Ultra-high quality empty slot
+      // High quality empty slot (keeping original logic but faster)
       const canvas = document.createElement('canvas');
-      canvas.width = 2048; // 4K empty slots
-      canvas.height = 2048;
+      canvas.width = 512; // Reduced from 2048 for performance
+      canvas.height = 512;
       const ctx = canvas.getContext('2d')!;
       
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
       ctx.fillStyle = settings.emptySlotColor || '#1A1A1A';
-      ctx.fillRect(0, 0, 2048, 2048);
+      ctx.fillRect(0, 0, 512, 512);
       
-      // High-res grid pattern
+      // Simple grid pattern
       if (settings.animationPattern === 'grid') {
-        ctx.strokeStyle = '#ffffff10';
-        ctx.lineWidth = 4;
-        for (let i = 0; i <= 2048; i += 128) {
+        ctx.strokeStyle = '#ffffff15';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= 512; i += 64) {
           ctx.beginPath();
           ctx.moveTo(i, 0);
-          ctx.lineTo(i, 2048);
+          ctx.lineTo(i, 512);
           ctx.stroke();
           ctx.beginPath();
           ctx.moveTo(0, i);
-          ctx.lineTo(2048, i);
+          ctx.lineTo(512, i);
           ctx.stroke();
         }
       }
       
       const emptyTexture = new THREE.CanvasTexture(canvas);
-      emptyTexture.minFilter = THREE.LinearMipmapLinearFilter;
+      emptyTexture.minFilter = THREE.LinearFilter; // Simplified for performance
       emptyTexture.magFilter = THREE.LinearFilter;
-      emptyTexture.anisotropy = 16;
       
       return new THREE.MeshStandardMaterial({
         map: emptyTexture,
         transparent: false,
         side: THREE.DoubleSide,
-        roughness: 0.1,
+        roughness: 0.2,
         metalness: 0,
       });
     }
-  }, [texture, settings.emptySlotColor, settings.animationPattern, settings.photoBrightness, cameraDistance]);
+  }, [texture, settings.emptySlotColor, settings.animationPattern, settings.photoBrightness, cameraDistance, photo.url]);
 
-  // High-subdivision geometry for smooth distant appearance
+  // Simplified geometry for better performance
   const geometry = useMemo(() => {
     const [width, height] = computedDimensions;
-    const key = `${width}-${height}`;
+    const key = `${width.toFixed(1)}-${height.toFixed(1)}`;
     
     return resourceManager.getGeometry(key, () => {
-      const segments = Math.max(16, Math.floor(Math.max(width, height) * 4));
+      // Reduced segments for better performance
+      const segments = Math.max(4, Math.floor(Math.max(width, height)));
       return new THREE.PlaneGeometry(width, height, segments, segments);
     });
   }, [computedDimensions, resourceManager]);
@@ -452,64 +487,78 @@ const InstancedPhotoRenderer: React.FC<{
   );
 };
 
-// Enhanced Lighting with Volumetric Effects
-const VolumetricLightingSystem: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+// Enhanced Lighting (Simplified for Performance)
+const EnhancedLightingSystem: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
-  
-  const lights = useMemo(() => {
-    const lightCount = Math.min(settings.spotlightCount || 4, 6);
-    return Array.from({ length: lightCount }, (_, i) => {
-      const angle = (i / lightCount) * Math.PI * 2;
-      const radius = 25 + Math.sin(i * 2.1) * 8;
-      const height = 20 + Math.cos(i * 1.9) * 10;
+  const targetRefs = useRef<THREE.Object3D[]>([]);
+
+  const spotlights = useMemo(() => {
+    const lights = [];
+    const count = Math.min(settings.spotlightCount || 4, 4);
+    
+    // Ensure we have enough target refs
+    while (targetRefs.current.length < count) {
+      targetRefs.current.push(new THREE.Object3D());
+    }
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const distance = Math.max(20, settings.spotlightDistance || 30);
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      const y = Math.max(15, settings.spotlightHeight || 25);
       
-      return {
-        position: [
-          Math.cos(angle) * radius,
-          height,
-          Math.sin(angle) * radius
-        ] as [number, number, number],
-        color: settings.spotlightColor || '#ffffff',
-        intensity: (settings.spotlightIntensity || 100) / 100 * (0.8 + Math.sin(i * 2.7) * 0.2),
-      };
-    });
-  }, [settings.spotlightCount, settings.spotlightColor, settings.spotlightIntensity]);
+      targetRefs.current[i].position.set(0, (settings.wallHeight || 0) / 2, 0);
+      
+      lights.push({
+        key: `spotlight-${i}`,
+        position: [x, y, z] as [number, number, number],
+        target: targetRefs.current[i],
+      });
+    }
+    return lights;
+  }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
 
   return (
     <group ref={groupRef}>
-      <ambientLight intensity={(settings.ambientLightIntensity || 0.4) * 0.3} />
-      
-      {/* Enhanced directional light with soft shadows */}
-      <directionalLight
-        position={[30, 40, 30]}
-        intensity={0.15}
-        castShadow={settings.shadowsEnabled}
-        shadow-mapSize={[4096, 4096]} // Higher resolution shadows
-        shadow-camera-far={300}
-        shadow-camera-left={-150}
-        shadow-camera-right={150}
-        shadow-camera-top={150}
-        shadow-camera-bottom={-150}
-        shadow-bias={-0.0001}
-        shadow-normalBias={0.02}
+      <ambientLight 
+        intensity={(settings.ambientLightIntensity || 0.4) * 0.5} 
+        color="#ffffff" 
       />
       
-      {/* Volumetric spotlights */}
-      {lights.map((light, index) => (
-        <spotLight
-          key={index}
-          position={light.position}
-          intensity={light.intensity * 12}
-          angle={Math.PI / 4}
-          penumbra={0.5}
-          color={light.color}
-          distance={100}
-          decay={1.5}
-          castShadow={settings.shadowsEnabled}
-          shadow-mapSize={[2048, 2048]}
-          shadow-camera-near={1}
-          shadow-camera-far={80}
-        />
+      <directionalLight
+        position={[20, 30, 20]}
+        intensity={0.1}
+        color="#ffffff"
+        castShadow={settings.shadowsEnabled}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-far={200}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
+        shadow-bias={-0.0001}
+      />
+      
+      {spotlights.map((light, index) => (
+        <group key={light.key}>
+          <spotLight
+            position={light.position}
+            target={light.target}
+            angle={Math.max(0.2, Math.min(Math.PI / 3, settings.spotlightAngle || 0.8))}
+            penumbra={settings.spotlightPenumbra || 0.4}
+            intensity={((settings.spotlightIntensity || 150) / 100) * 8}
+            color={settings.spotlightColor || '#ffffff'}
+            distance={settings.spotlightDistance * 3 || 120}
+            decay={1}
+            castShadow={settings.shadowsEnabled}
+            shadow-mapSize={[1024, 1024]}
+            shadow-camera-near={0.5}
+            shadow-camera-far={settings.spotlightDistance * 2 || 100}
+            shadow-bias={-0.0001}
+          />
+          <primitive object={light.target} />
+        </group>
       ))}
     </group>
   );
@@ -656,15 +705,20 @@ const EnhancedAnimationController: React.FC<{
           const aspectRatio = slotManagerRef.current.getAspectRatio(photo.id);
           const baseSize = settings.photoSize || 4.0;
           
+          // Only set computedSize if we have aspect ratio data, otherwise let component detect it
+          const computedSize = aspectRatio ? (
+            aspectRatio > 1 
+              ? [baseSize * aspectRatio, baseSize]
+              : [baseSize, baseSize / aspectRatio]
+          ) : undefined;
+          
           photosWithPositions.push({
             ...photo,
             targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
             targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
             displayIndex: slotIndex,
             slotIndex,
-            computedSize: aspectRatio > 1 
-              ? [baseSize * aspectRatio, baseSize]
-              : [baseSize, baseSize / aspectRatio]
+            computedSize
           });
         }
       }
@@ -681,7 +735,7 @@ const EnhancedAnimationController: React.FC<{
             targetRotation: patternState.rotations?.[i] || [0, 0, 0],
             displayIndex: i,
             slotIndex: i,
-            computedSize: [baseSize * (16/9), baseSize]
+            computedSize: [baseSize, baseSize] // Square empty slots
           });
         }
       }
@@ -839,7 +893,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         )}
         
         {/* Enhanced Lighting */}
-        <VolumetricLightingSystem settings={safeSettings} />
+        <EnhancedLightingSystem settings={safeSettings} />
         
         {/* Enhanced Floor and Grid */}
         <ReflectiveFloor settings={safeSettings} />
@@ -847,8 +901,8 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {safeSettings.gridEnabled && (
           <gridHelper
             args={[
-              safeSettings.gridSize || 300,
-              safeSettings.gridDivisions || 40,
+              safeSettings.gridSize || 200,
+              safeSettings.gridDivisions || 30,
               safeSettings.gridColor || '#444444',
               safeSettings.gridColor || '#444444'
             ]}
