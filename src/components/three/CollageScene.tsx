@@ -1529,25 +1529,25 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* Enhanced Lighting */}
         <EnhancedLightingSystem settings={safeSettings} />
         
-        {/* Textured Floor and Grid - Only show for default environment */}
-        {(!safeSettings.sceneEnvironment || safeSettings.sceneEnvironment === 'default') && (
-          <>
-            <TexturedFloor settings={safeSettings} />
-            
-            {safeSettings.gridEnabled && (
-              <gridHelper
-                args={[
-                  safeSettings.gridSize || 200,
-                  safeSettings.gridDivisions || 30,
-                  safeSettings.gridColor || '#444444',
-                  safeSettings.gridColor || '#444444'
-                ]}
-                position={[0, -11.99, 0]}
-                material-opacity={safeSettings.gridOpacity || 1.0}
-                material-transparent={true}
-              />
-            )}
-          </>
+        {/* Textured Floor - Always show unless sphere environment */}
+        {safeSettings.sceneEnvironment !== 'sphere' && (
+          <TexturedFloor settings={safeSettings} />
+        )}
+        
+        {/* Grid - Only show for default environment */}
+        {(!safeSettings.sceneEnvironment || safeSettings.sceneEnvironment === 'default') && 
+         safeSettings.gridEnabled && (
+          <gridHelper
+            args={[
+              safeSettings.gridSize || 200,
+              safeSettings.gridDivisions || 30,
+              safeSettings.gridColor || '#444444',
+              safeSettings.gridColor || '#444444'
+            ]}
+            position={[0, -11.99, 0]}
+            material-opacity={safeSettings.gridOpacity || 1.0}
+            material-transparent={true}
+          />
         )}
         
         {/* Enhanced Animation Controller */}
