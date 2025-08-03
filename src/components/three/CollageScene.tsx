@@ -176,39 +176,35 @@ class EnhancedSlotManager {
   }
 }
 
-// Ultra-High Quality Texture Loader with Transparency Support
-const createUltraHighQualityTexture = async (
-  imageUrl: string, 
-  gl: THREE.WebGLRenderer
-): Promise<THREE.Texture> => {
-  return new Promise((resolve, reject) => {
-    const loader = new THREE.TextureLoader();
-    
-    loader.load(
-      imageUrl,
-      (texture) => {
-        // Ultra-high quality settings
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.format = THREE.RGBAFormat; // Support transparency
-        texture.generateMipmaps = true;
-        
-        // Maximum anisotropic filtering for crystal clear distant images
-        if (gl?.capabilities?.getMaxAnisotropy) {
-          texture.anisotropy = gl.capabilities.getMaxAnisotropy();
-        }
-        
-        // Enhanced color management with transparency support
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.flipY = true; // FIXED: Restore flipY to prevent upside down images
-        texture.premultipliedAlpha = false; // Better transparency handling
-        
-        resolve(texture);
-      },
-      undefined,
-      reject
-    );
-  });
+// Background renderer with gradient support
+const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const { scene, gl } = useThree();
+  
+  useEffect(() => {
+    try {
+      if (settings.backgroundGradient) {
+        // For gradient backgrounds, make WebGL transparent so CSS gradient shows through
+        scene.background = null;
+        gl.setClearColor('#000000', 0); // Transparent
+      } else {
+        // For solid backgrounds, use Three.js background color
+        scene.background = new THREE.Color(settings.backgroundColor || '#000000');
+        gl.setClearColor(settings.backgroundColor || '#000000', 1);
+      }
+    } catch (error) {
+      console.error('Background render error:', error);
+    }
+  }, [
+    scene, 
+    gl, 
+    settings.backgroundColor, 
+    settings.backgroundGradient,
+    settings.backgroundGradientStart,
+    settings.backgroundGradientEnd,
+    settings.backgroundGradientAngle
+  ]);
+
+  return null;
 };
 
 // Simplified High-Performance Photo Component (Based on Original)
@@ -823,18 +819,18 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           const pixelRatio = Math.min(window.devicePixelRatio, 2);
           state.gl.setPixelRatio(pixelRatio);
           
-          // Enhanced texture settings
-          state.gl.capabilities.getMaxAnisotropy();
-          
+          // Set initial background based on gradient setting  
           if (safeSettings.backgroundGradient) {
-            state.gl.setClearColor('#000000', 0);
+            state.gl.setClearColor('#000000', 0); // Transparent for gradients
+          } else {
+            state.gl.setClearColor(safeSettings.backgroundColor || '#000000', 1);
           }
         }}
         performance={{ min: 0.8 }} // Back to original performance settings
         linear={true}
       >
         {/* Background Management */}
-        <color attach="background" args={[safeSettings.backgroundColor || '#000000']} />
+        <BackgroundRenderer settings={safeSettings} />
         
         {/* Enhanced Controls */}
         <EnhancedCameraControls settings={safeSettings} />
