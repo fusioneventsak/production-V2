@@ -409,6 +409,25 @@ const StudioEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ sett
     </group>
   );
 };
+
+// Scene Environment Manager
+const SceneEnvironmentManager: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const environment = settings.sceneEnvironment || 'default';
+
+  switch (environment) {
+    case 'cube':
+      return <CubeEnvironment settings={settings} />;
+    case 'sphere':
+      return <SphereEnvironment settings={settings} />;
+    case 'gallery':
+      return <GalleryEnvironment settings={settings} />;
+    case 'studio':
+      return <StudioEnvironment settings={settings} />;
+    case 'default':
+    default:
+      return null; // Default open space
+  }
+};
 class EnhancedSlotManager {
   private slotAssignments = new Map<string, number>();
   private occupiedSlots = new Set<number>();
