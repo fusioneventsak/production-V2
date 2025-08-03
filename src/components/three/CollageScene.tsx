@@ -211,8 +211,8 @@ const createUltraHighQualityTexture = async (
   });
 };
 
-// Advanced Physics-Based Photo Component
-const PhysicsPhotoMesh: React.FC<{
+// Simplified High-Performance Photo Component (Based on Original)
+const OptimizedPhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   settings: SceneSettings;
   shouldFaceCamera: boolean;
@@ -221,20 +221,86 @@ const PhysicsPhotoMesh: React.FC<{
   const { camera, gl } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [cameraDistance, setCameraDistance] = useState(20);
+  const [hasError, setHasError] = useState(false);
   const [detectedAspectRatio, setDetectedAspectRatio] = useState<number | null>(null);
   
+  const isInitializedRef = useRef(false);
+  const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
-  const resourceManager = useMemo(() => ResourceManager.getInstance(), []);
-  
-  // Calculate actual dimensions based on detected or provided aspect ratio
+
+  // Initialize position immediately to prevent jarring movements
+  useEffect(() => {
+    currentPosition.current.set(...photo.targetPosition);
+    currentRotation.current.set(...photo.targetRotation);
+  }, [photo.targetPosition, photo.targetRotation]);
+
+  // Simple, fast texture loading
+  useEffect(() => {
+    if (!photo.url) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loader = new THREE.TextureLoader();
+    setIsLoading(true);
+    setHasError(false);
+    
+    // Create image for aspect ratio detection
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const actualAspectRatio = img.naturalWidth / img.naturalHeight;
+      setDetectedAspectRatio(actualAspectRatio);
+      
+      const imageUrl = photo.url.includes('?') 
+        ? `${photo.url}&t=${Date.now()}`
+        : `${photo.url}?t=${Date.now()}`;
+
+      loader.load(imageUrl, (loadedTexture) => {
+        // High quality settings but simple and fast
+        loadedTexture.generateMipmaps = true;
+        loadedTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        loadedTexture.magFilter = THREE.LinearFilter;
+        loadedTexture.format = THREE.RGBAFormat;
+        
+        // Apply anisotropic filtering for distance quality
+        if (gl && gl.capabilities.getMaxAnisotropy) {
+          loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
+        }
+
+        loadedTexture.colorSpace = THREE.SRGBColorSpace;
+        loadedTexture.flipY = true;
+        loadedTexture.premultipliedAlpha = false;
+
+        setTexture(loadedTexture);
+        setIsLoading(false);
+      }, undefined, () => {
+        setHasError(true);
+        setIsLoading(false);
+      });
+    };
+    
+    img.onerror = () => {
+      setHasError(true);
+      setIsLoading(false);
+    };
+    
+    img.src = photo.url;
+
+    return () => {
+      if (texture) {
+        texture.dispose();
+      }
+    };
+  }, [photo.url, gl]);
+
+  // Calculate dimensions based on detected aspect ratio
   const computedDimensions = useMemo(() => {
     const baseSize = settings.photoSize || 4.0;
     
-    // Priority: detected aspect ratio > provided computedSize > square fallback
-    let aspectRatio = 1; // Default to square
-    
+    let aspectRatio = 1;
     if (detectedAspectRatio) {
       aspectRatio = detectedAspectRatio;
     } else if (photo.computedSize && photo.computedSize[0] && photo.computedSize[1]) {
@@ -242,116 +308,48 @@ const PhysicsPhotoMesh: React.FC<{
     }
     
     if (aspectRatio > 1) {
-      // Landscape: maintain height, adjust width
       return [baseSize * aspectRatio, baseSize];
     } else {
-      // Portrait: maintain width, adjust height  
       return [baseSize, baseSize / aspectRatio];
     }
   }, [settings.photoSize, photo.computedSize, detectedAspectRatio]);
 
-  // Ultra-high quality texture loading with aspect ratio detection
-  useEffect(() => {
-    if (!photo.url) {
-      setIsLoading(false);
-      return;
-    }
-
-    const imageUrl = photo.url.includes('?') 
-      ? `${photo.url}&quality=100&t=${Date.now()}` // Simplified URL params
-      : `${photo.url}?quality=100&t=${Date.now()}`;
-
-    // Simplified loading - detect aspect ratio directly from texture load
-    const loader = new THREE.TextureLoader();
-    
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      // Detect actual aspect ratio from loaded image
-      const actualAspectRatio = img.naturalWidth / img.naturalHeight;
-      setDetectedAspectRatio(actualAspectRatio);
-      
-      // Load texture with transparency support
-      loader.load(
-        imageUrl,
-        (loadedTexture) => {
-          // High quality settings but simplified
-          loadedTexture.minFilter = THREE.LinearMipmapLinearFilter;
-          loadedTexture.magFilter = THREE.LinearFilter;
-          loadedTexture.format = THREE.RGBAFormat; // Support transparency
-          loadedTexture.generateMipmaps = true;
-          
-          if (gl?.capabilities?.getMaxAnisotropy) {
-            loadedTexture.anisotropy = Math.min(16, gl.capabilities.getMaxAnisotropy());
-          }
-          
-          loadedTexture.colorSpace = THREE.SRGBColorSpace;
-          loadedTexture.flipY = true; // FIXED: Restore flipY to prevent upside down images
-          loadedTexture.premultipliedAlpha = false;
-          
-          setTexture(loadedTexture);
-          setIsLoading(false);
-        },
-        undefined,
-        (error) => {
-          console.error('Texture loading failed:', error);
-          setIsLoading(false);
-        }
-      );
-    };
-    
-    img.onerror = () => {
-      console.error('Failed to load image for aspect ratio detection:', imageUrl);
-      setIsLoading(false);
-    };
-    
-    img.src = imageUrl;
-  }, [photo.url, gl, resourceManager]);
-
-  // Distance-based quality optimization
+  // Camera facing logic (from original)
   useFrame(() => {
-    if (!meshRef.current) return;
+    if (!meshRef.current || !shouldFaceCamera) return;
 
     const mesh = meshRef.current;
-    const distance = camera.position.distanceTo(mesh.position);
-    setCameraDistance(distance);
+    const currentPositionArray = mesh.position.toArray() as [number, number, number];
+    
+    const positionChanged = currentPositionArray.some((coord, index) => 
+      Math.abs(coord - lastPositionRef.current[index]) > 0.01
+    );
 
-    // Enhanced camera facing with smooth quaternion interpolation
-    if (shouldFaceCamera) {
-      const targetQuaternion = new THREE.Quaternion();
-      const lookAtMatrix = new THREE.Matrix4().lookAt(
-        mesh.position,
-        camera.position,
-        new THREE.Vector3(0, 1, 0)
-      );
-      targetQuaternion.setFromRotationMatrix(lookAtMatrix);
-      mesh.quaternion.slerp(targetQuaternion, 0.05);
+    if (positionChanged || !isInitializedRef.current) {
+      mesh.lookAt(camera.position);
+      lastPositionRef.current = currentPositionArray;
+      isInitializedRef.current = true;
     }
   });
 
-  // Smooth physics-based animation
-  useFrame((state, delta) => {
+  // Smooth animation (from original)
+  useFrame(() => {
     if (!meshRef.current) return;
 
     const targetPosition = new THREE.Vector3(...photo.targetPosition);
     const targetRotation = new THREE.Euler(...photo.targetRotation);
-    const distance = currentPosition.current.distanceTo(targetPosition);
 
-    // Enhanced easing with delta time compensation
-    const easingFactor = 1 - Math.exp(-6 * delta);
-    
-    if (distance > TELEPORT_THRESHOLD) {
+    const distance = currentPosition.current.distanceTo(targetPosition);
+    const isTeleport = distance > TELEPORT_THRESHOLD;
+
+    if (isTeleport) {
       currentPosition.current.copy(targetPosition);
       currentRotation.current.copy(targetRotation);
     } else {
-      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING * easingFactor);
-      
-      if (!shouldFaceCamera) {
-        currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
-        currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
-        currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
-      }
+      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING);
+      currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
+      currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
+      currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
     }
 
     meshRef.current.position.copy(currentPosition.current);
@@ -360,128 +358,86 @@ const PhysicsPhotoMesh: React.FC<{
     }
   });
 
-  // Ultra-high quality material with transparency support
+  // Simple, fast material
   const material = useMemo(() => {
     if (texture) {
-      // Detect if image has transparency by checking format or file extension
       const hasTransparency = photo.url.toLowerCase().includes('.png') || 
-                             photo.url.toLowerCase().includes('.webp') ||
-                             texture.format === THREE.RGBAFormat;
+                             photo.url.toLowerCase().includes('.webp');
       
       return new THREE.MeshStandardMaterial({
         map: texture,
-        transparent: hasTransparency, // Enable transparency for PNG/WebP
+        transparent: hasTransparency,
         side: THREE.DoubleSide,
-        metalness: 0,
-        roughness: Math.max(0.05, 0.15 - (cameraDistance * 0.002)), // Sharper at distance
-        toneMapped: false, // Preserve original colors
+        toneMapped: false,
         color: new THREE.Color().setScalar(settings.photoBrightness || 1.0),
-        envMapIntensity: 0.2,
-        alphaTest: hasTransparency ? 0.01 : 0, // Small alpha test for transparency
-        premultipliedAlpha: false, // Better transparency rendering
+        metalness: 0,
+        roughness: 0.2,
+        alphaTest: hasTransparency ? 0.01 : 0,
+        premultipliedAlpha: false,
       });
     } else {
-      // High quality empty slot (keeping original logic but faster)
+      // Simple empty slot
       const canvas = document.createElement('canvas');
-      canvas.width = 512; // Reduced from 2048 for performance
-      canvas.height = 512;
+      canvas.width = 256; // Very small for performance
+      canvas.height = 256;
       const ctx = canvas.getContext('2d')!;
       
       ctx.fillStyle = settings.emptySlotColor || '#1A1A1A';
-      ctx.fillRect(0, 0, 512, 512);
+      ctx.fillRect(0, 0, 256, 256);
       
-      // Simple grid pattern
       if (settings.animationPattern === 'grid') {
-        ctx.strokeStyle = '#ffffff15';
-        ctx.lineWidth = 2;
-        for (let i = 0; i <= 512; i += 64) {
+        ctx.strokeStyle = '#ffffff20';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 256; i += 32) {
           ctx.beginPath();
           ctx.moveTo(i, 0);
-          ctx.lineTo(i, 512);
+          ctx.lineTo(i, 256);
           ctx.stroke();
           ctx.beginPath();
           ctx.moveTo(0, i);
-          ctx.lineTo(512, i);
+          ctx.lineTo(256, i);
           ctx.stroke();
         }
       }
       
       const emptyTexture = new THREE.CanvasTexture(canvas);
-      emptyTexture.minFilter = THREE.LinearFilter; // Simplified for performance
-      emptyTexture.magFilter = THREE.LinearFilter;
-      
       return new THREE.MeshStandardMaterial({
         map: emptyTexture,
         transparent: false,
         side: THREE.DoubleSide,
-        roughness: 0.2,
-        metalness: 0,
+        color: 0xffffff,
       });
     }
-  }, [texture, settings.emptySlotColor, settings.animationPattern, settings.photoBrightness, cameraDistance, photo.url]);
-
-  // Simplified geometry for better performance
-  const geometry = useMemo(() => {
-    const [width, height] = computedDimensions;
-    const key = `${width.toFixed(1)}-${height.toFixed(1)}`;
-    
-    return resourceManager.getGeometry(key, () => {
-      // Reduced segments for better performance
-      const segments = Math.max(4, Math.floor(Math.max(width, height)));
-      return new THREE.PlaneGeometry(width, height, segments, segments);
-    });
-  }, [computedDimensions, resourceManager]);
+  }, [texture, settings.emptySlotColor, settings.animationPattern, settings.photoBrightness, photo.url]);
 
   return (
     <mesh
       ref={meshRef}
-      geometry={geometry}
       material={material}
       castShadow
       receiveShadow
-      frustumCulled={false} // Never cull for consistent quality
-    />
+    >
+      <planeGeometry args={[computedDimensions[0], computedDimensions[1]]} />
+    </mesh>
   );
 });
 
-// Instanced Photo Renderer for Performance
-const InstancedPhotoRenderer: React.FC<{
-  photosWithPositions: PhotoWithPosition[];
+// Simple Photo Renderer for Performance
+const SimplePhotoRenderer: React.FC<{ 
+  photosWithPositions: PhotoWithPosition[]; 
   settings: SceneSettings;
 }> = ({ photosWithPositions, settings }) => {
-  const instancedMeshRef = useRef<THREE.InstancedMesh>(null);
   const shouldFaceCamera = settings.animationPattern === 'float';
   
-  // Group photos by size for instancing
-  const photoGroups = useMemo(() => {
-    const groups = new Map<string, PhotoWithPosition[]>();
-    
-    photosWithPositions.forEach(photo => {
-      const [width, height] = photo.computedSize || [16/9 * 4, 4];
-      const key = `${width.toFixed(2)}-${height.toFixed(2)}`;
-      
-      if (!groups.has(key)) {
-        groups.set(key, []);
-      }
-      groups.get(key)!.push(photo);
-    });
-    
-    return groups;
-  }, [photosWithPositions]);
-
   return (
     <group>
-      {Array.from(photoGroups.entries()).map(([sizeKey, photos]) => (
-        <group key={sizeKey}>
-          {photos.map((photo) => (
-            <PhysicsPhotoMesh
-              key={`${photo.id}-${photo.slotIndex}`}
-              photo={photo}
-              settings={settings}
-              shouldFaceCamera={shouldFaceCamera}
-            />
-          ))}
-        </group>
+      {photosWithPositions.map((photo) => (
+        <OptimizedPhotoMesh
+          key={`${photo.id}-${photo.slotIndex}`}
+          photo={photo}
+          settings={settings}
+          shouldFaceCamera={shouldFaceCamera}
+        />
       ))}
     </group>
   );
@@ -723,7 +679,7 @@ const EnhancedAnimationController: React.FC<{
         }
       }
       
-      // Add empty slots
+      // Add empty slots with 9:16 aspect ratio
       for (let i = 0; i < (settings.photoCount || 100); i++) {
         const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
         if (!hasPhoto) {
@@ -735,7 +691,7 @@ const EnhancedAnimationController: React.FC<{
             targetRotation: patternState.rotations?.[i] || [0, 0, 0],
             displayIndex: i,
             slotIndex: i,
-            computedSize: [baseSize, baseSize] // Square empty slots
+            computedSize: [baseSize * (9/16), baseSize] // 9:16 empty slots (portrait)
           });
         }
       }
@@ -872,7 +828,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
             state.gl.setClearColor('#000000', 0);
           }
         }}
-        performance={{ min: 0.7 }} // Slightly lower for quality priority
+        performance={{ min: 0.8 }} // Back to original performance settings
         linear={true}
       >
         {/* Background Management */}
@@ -919,8 +875,8 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           onPositionsUpdate={setPhotosWithPositions}
         />
         
-        {/* Ultra-High Quality Photo Renderer */}
-        <InstancedPhotoRenderer 
+        {/* Simple High-Performance Photo Renderer */}
+        <SimplePhotoRenderer 
           photosWithPositions={photosWithPositions}
           settings={safeSettings}
         />
