@@ -1,7 +1,7 @@
 // Enhanced CollageScene with Advanced Performance, Quality, and Visual Features
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, useGesture } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
@@ -515,52 +515,73 @@ const VolumetricLightingSystem: React.FC<{ settings: SceneSettings }> = ({ setti
   );
 };
 
-// Gesture-Based Controls for Touch Devices
-const GestureControls: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
-  const { camera, gl } = useThree();
+// Enhanced Camera Controls with Touch Support
+const EnhancedCameraControls: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const { camera } = useThree();
   const controlsRef = useRef<any>();
+  const userInteractingRef = useRef(false);
+  const lastInteractionTimeRef = useRef(0);
   
-  const bind = useGesture({
-    onDrag: ({ offset: [x, y], pinching, cancel }) => {
-      if (pinching) cancel();
-      if (!settings.cameraEnabled) return;
+  // Initialize camera position
+  useEffect(() => {
+    if (camera && controlsRef.current) {
+      const initialDistance = settings.cameraDistance || 25;
+      const initialHeight = settings.cameraHeight || 5;
+      const initialPosition = new THREE.Vector3(
+        initialDistance,
+        initialHeight,
+        initialDistance
+      );
+      camera.position.copy(initialPosition);
       
-      // Enhanced touch rotation
-      const sensitivity = 0.005;
-      camera.position.x = Math.sin(x * sensitivity) * 30;
-      camera.position.z = Math.cos(x * sensitivity) * 30;
-      camera.position.y = Math.max(-10, Math.min(30, y * sensitivity * 20));
-      camera.lookAt(0, 0, 0);
-    },
-    onPinch: ({ offset: [scale], origin: [ox, oy] }) => {
-      if (!settings.cameraEnabled) return;
+      const target = new THREE.Vector3(0, initialHeight * 0.3, 0);
+      controlsRef.current.target.copy(target);
+      controlsRef.current.update();
+    }
+  }, [camera, settings.cameraDistance, settings.cameraHeight]);
+
+  // Handle user interaction detection
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      lastInteractionTimeRef.current = Date.now();
+      setTimeout(() => {
+        userInteractingRef.current = false;
+      }, 500);
+    };
+
+    const controls = controlsRef.current;
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+
+    return () => {
+      controls.removeEventListener('start', handleStart);
+      controls.removeEventListener('end', handleEnd);
+    };
+  }, []);
+
+  // Auto rotation when enabled
+  useFrame((state, delta) => {
+    if (!controlsRef.current) return;
+
+    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
+    if (settings.cameraRotationEnabled && !userInteractingRef.current) {
+      const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
+      const spherical = new THREE.Spherical().setFromVector3(offset);
       
-      // Enhanced pinch zoom
-      const zoom = Math.max(0.3, Math.min(3, scale / 100));
-      const distance = 20 / zoom;
+      spherical.theta += (settings.cameraRotationSpeed || 0.5) * delta;
       
-      const currentDistance = camera.position.length();
-      const factor = distance / currentDistance;
-      
-      camera.position.multiplyScalar(factor);
-    },
-    onWheel: ({ delta: [, dy] }) => {
-      if (!settings.cameraEnabled) return;
-      
-      // Enhanced mouse wheel zoom
-      const factor = 1 + (dy * 0.001);
-      camera.position.multiplyScalar(Math.max(0.1, Math.min(5, factor)));
+      const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
+      camera.position.copy(newPosition);
+      controlsRef.current.update();
     }
   });
-
-  useEffect(() => {
-    const element = gl.domElement;
-    const cleanup = bind();
-    
-    return () => {
-      cleanup();
-    };
-  }, [bind, gl]);
 
   return (
     <OrbitControls
@@ -571,11 +592,23 @@ const GestureControls: React.FC<{ settings: SceneSettings }> = ({ settings }) =>
       enableRotate={true}
       minDistance={8}
       maxDistance={300}
+      minPolarAngle={Math.PI / 6}
+      maxPolarAngle={Math.PI - Math.PI / 6}
       enableDamping={true}
       dampingFactor={0.03}
       zoomSpeed={1.5}
       rotateSpeed={1.2}
       panSpeed={1.2}
+      // Enhanced touch controls
+      touches={{
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      }}
+      mouseButtons={{
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
+      }}
     />
   );
 };
@@ -792,7 +825,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         <color attach="background" args={[safeSettings.backgroundColor || '#000000']} />
         
         {/* Enhanced Controls */}
-        <GestureControls settings={safeSettings} />
+        <EnhancedCameraControls settings={safeSettings} />
         <CameraAnimationController config={safeSettings.cameraAnimation} />
         
         {/* Particle System */}
