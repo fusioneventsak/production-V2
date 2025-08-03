@@ -21,10 +21,10 @@ type Photo = {
 
 type CollageSceneProps = {
   photos: Photo[];
-  settings: SceneSettings;
+  settings: ExtendedSceneSettings; // Use extended settings
   width?: number;
   height?: number;
-  onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
+  onSettingsChange?: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
 };
 
 type PhotoWithPosition = Photo & {
@@ -91,7 +91,324 @@ class ResourceManager {
   }
 }
 
-// Enhanced Slot Manager with Aspect Ratio Support
+// Scene Environment Types
+type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
+type FloorTexture = 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+
+// Extended settings for scene environments
+interface ExtendedSceneSettings extends SceneSettings {
+  sceneEnvironment?: SceneEnvironment;
+  floorTexture?: FloorTexture;
+  customFloorTextureUrl?: string;
+  environmentIntensity?: number;
+  cubeTextureUrl?: string;
+  sphereTextureUrl?: string;
+  wallHeight?: number;
+  wallThickness?: number;
+  ceilingEnabled?: boolean;
+  ceilingHeight?: number;
+  roomDepth?: number;
+}
+
+// Floor Texture Creator
+class FloorTextureFactory {
+  static createTexture(type: FloorTexture, size: number = 512, customUrl?: string): THREE.Texture {
+    if (type === 'custom' && customUrl) {
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load(customUrl);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(8, 8);
+      return texture;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    switch (type) {
+      case 'marble':
+        // Create marble texture
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#f8f8ff');
+        gradient.addColorStop(0.3, '#e6e6fa');
+        gradient.addColorStop(0.6, '#dda0dd');
+        gradient.addColorStop(1, '#d8bfd8');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Add marble veins
+        ctx.strokeStyle = '#c0c0c0';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 20; i++) {
+          ctx.beginPath();
+          ctx.moveTo(Math.random() * size, Math.random() * size);
+          ctx.bezierCurveTo(
+            Math.random() * size, Math.random() * size,
+            Math.random() * size, Math.random() * size,
+            Math.random() * size, Math.random() * size
+          );
+          ctx.stroke();
+        }
+        break;
+
+      case 'wood':
+        // Create wood texture
+        const woodGradient = ctx.createLinearGradient(0, 0, 0, size);
+        woodGradient.addColorStop(0, '#8B4513');
+        woodGradient.addColorStop(0.3, '#A0522D');
+        woodGradient.addColorStop(0.7, '#CD853F');
+        woodGradient.addColorStop(1, '#DEB887');
+        ctx.fillStyle = woodGradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Add wood grain
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 1;
+        for (let y = 0; y < size; y += 8) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size, y + Math.sin(y * 0.1) * 4);
+          ctx.stroke();
+        }
+        break;
+
+      case 'concrete':
+        // Create concrete texture
+        ctx.fillStyle = '#696969';
+        ctx.fillRect(0, 0, size, size);
+        
+        // Add concrete speckles
+        for (let i = 0; i < 1000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#808080' : '#556B2F';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+        }
+        break;
+
+      case 'metal':
+        // Create brushed metal texture
+        const metalGradient = ctx.createLinearGradient(0, 0, size, 0);
+        metalGradient.addColorStop(0, '#C0C0C0');
+        metalGradient.addColorStop(0.5, '#A9A9A9');
+        metalGradient.addColorStop(1, '#808080');
+        ctx.fillStyle = metalGradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Add brushed lines
+        ctx.strokeStyle = '#B8B8B8';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < size; x += 4) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, size);
+          ctx.stroke();
+        }
+        break;
+
+      case 'glass':
+        // Create glass texture
+        ctx.fillStyle = '#E0F6FF';
+        ctx.fillRect(0, 0, size, size);
+        
+        // Add glass reflection lines
+        ctx.strokeStyle = '#FFFFFF80';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 10; i++) {
+          const x = (i * size) / 10;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + 50, size);
+          ctx.stroke();
+        }
+        break;
+
+      case 'checkerboard':
+        // Create checkerboard pattern
+        const tileSize = size / 16;
+        for (let x = 0; x < 16; x++) {
+          for (let y = 0; y < 16; y++) {
+            ctx.fillStyle = (x + y) % 2 === 0 ? '#FFFFFF' : '#000000';
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
+        break;
+
+      default: // 'solid'
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(0, 0, size, size);
+        break;
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = 16;
+    
+    return texture;
+  }
+}
+
+// Environment Scene Components
+const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const wallSize = (settings.floorSize || 200) * 0.8;
+  const wallHeight = settings.wallHeight || 40;
+  const wallThickness = settings.wallThickness || 2;
+
+  const wallMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: settings.floorColor || '#3A3A3A',
+      metalness: 0.1,
+      roughness: 0.8,
+      side: THREE.DoubleSide,
+    });
+  }, [settings.floorColor]);
+
+  return (
+    <group>
+      {/* Back Wall */}
+      <mesh position={[0, wallHeight / 2, -wallSize / 2]} receiveShadow>
+        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      
+      {/* Left Wall */}
+      <mesh position={[-wallSize / 2, wallHeight / 2, 0]} receiveShadow>
+        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      
+      {/* Right Wall */}
+      <mesh position={[wallSize / 2, wallHeight / 2, 0]} receiveShadow>
+        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+
+      {/* Ceiling (optional) */}
+      {settings.ceilingEnabled && (
+        <mesh position={[0, settings.ceilingHeight || wallHeight, 0]} receiveShadow>
+          <planeGeometry args={[wallSize, wallSize]} />
+          <meshStandardMaterial color={settings.floorColor || '#2A2A2A'} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+};
+
+const SphereEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const sphereRadius = (settings.floorSize || 200) * 0.6;
+
+  const sphereMaterial = useMemo(() => {
+    if (settings.sphereTextureUrl) {
+      const texture = new THREE.TextureLoader().load(settings.sphereTextureUrl);
+      return new THREE.MeshStandardMaterial({
+        map: texture,
+        side: THREE.BackSide, // View from inside
+        metalness: 0,
+        roughness: 0.8,
+      });
+    }
+    
+    return new THREE.MeshStandardMaterial({
+      color: settings.floorColor || '#1A1A2E',
+      side: THREE.BackSide,
+      metalness: 0.1,
+      roughness: 0.9,
+    });
+  }, [settings.floorColor, settings.sphereTextureUrl]);
+
+  return (
+    <mesh position={[0, 0, 0]}>
+      <sphereGeometry args={[sphereRadius, 64, 32]} />
+      <primitive object={sphereMaterial} attach="material" />
+    </mesh>
+  );
+};
+
+const GalleryEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const roomWidth = settings.floorSize || 200;
+  const roomHeight = settings.wallHeight || 50;
+  const roomDepth = settings.roomDepth || roomWidth;
+
+  return (
+    <group>
+      {/* Gallery Walls */}
+      <mesh position={[0, roomHeight / 2, -roomDepth / 2]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomHeight]} />
+        <meshStandardMaterial color="#F5F5F5" />
+      </mesh>
+      
+      <mesh position={[-roomWidth / 2, roomHeight / 2, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[roomDepth, roomHeight]} />
+        <meshStandardMaterial color="#F0F0F0" />
+      </mesh>
+      
+      <mesh position={[roomWidth / 2, roomHeight / 2, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[roomDepth, roomHeight]} />
+        <meshStandardMaterial color="#F0F0F0" />
+      </mesh>
+
+      {/* Gallery Ceiling */}
+      <mesh position={[0, roomHeight, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomDepth]} />
+        <meshStandardMaterial color="#FFFFFF" />
+      </mesh>
+
+      {/* Gallery Track Lighting */}
+      {Array.from({ length: 4 }, (_, i) => (
+        <spotLight
+          key={i}
+          position={[(i - 1.5) * (roomWidth / 4), roomHeight - 5, 0]}
+          angle={Math.PI / 6}
+          penumbra={0.3}
+          intensity={2}
+          color="#FFFFFF"
+          castShadow
+        />
+      ))}
+    </group>
+  );
+};
+
+const StudioEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const studioSize = settings.floorSize || 200;
+
+  return (
+    <group>
+      {/* Curved Backdrop (Cyc Wall) */}
+      <mesh position={[0, studioSize / 4, -studioSize / 3]}>
+        <cylinderGeometry args={[studioSize / 2, studioSize / 2, studioSize / 2, 32, 1, false, 0, Math.PI]} />
+        <meshStandardMaterial color="#E8E8E8" side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Studio Lighting Rig */}
+      <group position={[0, studioSize / 2, 0]}>
+        {Array.from({ length: 6 }, (_, i) => {
+          const angle = (i / 6) * Math.PI * 2;
+          const radius = studioSize / 3;
+          return (
+            <spotLight
+              key={i}
+              position={[Math.cos(angle) * radius, 0, Math.sin(angle) * radius]}
+              target-position={[0, -studioSize / 4, 0]}
+              angle={Math.PI / 4}
+              penumbra={0.4}
+              intensity={1.5}
+              color="#FFFFFF"
+              castShadow
+            />
+          );
+        })}
+      </group>
+    </group>
+  );
+};
 class EnhancedSlotManager {
   private slotAssignments = new Map<string, number>();
   private occupiedSlots = new Set<number>();
@@ -177,7 +494,7 @@ class EnhancedSlotManager {
 }
 
 // Background renderer with gradient support
-const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+const BackgroundRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const { scene, gl } = useThree();
   
   useEffect(() => {
@@ -207,10 +524,10 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
   return null;
 };
 
-// Simplified High-Performance Photo Component (Based on Original)
+// Optimized Photo Component
 const OptimizedPhotoMesh: React.FC<{
   photo: PhotoWithPosition;
-  settings: SceneSettings;
+  settings: ExtendedSceneSettings;
   shouldFaceCamera: boolean;
 }> = React.memo(({ photo, settings, shouldFaceCamera }) => {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -421,7 +738,7 @@ const OptimizedPhotoMesh: React.FC<{
 // Simple Photo Renderer for Performance
 const SimplePhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
-  settings: SceneSettings;
+  settings: ExtendedSceneSettings;
 }> = ({ photosWithPositions, settings }) => {
   const shouldFaceCamera = settings.animationPattern === 'float';
   
@@ -440,7 +757,7 @@ const SimplePhotoRenderer: React.FC<{
 };
 
 // Enhanced Lighting (Simplified for Performance)
-const EnhancedLightingSystem: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
   const targetRefs = useRef<THREE.Object3D[]>([]);
 
@@ -517,7 +834,7 @@ const EnhancedLightingSystem: React.FC<{ settings: SceneSettings }> = ({ setting
 };
 
 // Enhanced Camera Controls with Touch Support
-const EnhancedCameraControls: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
   const userInteractingRef = useRef(false);
@@ -616,7 +933,7 @@ const EnhancedCameraControls: React.FC<{ settings: SceneSettings }> = ({ setting
 
 // Enhanced Animation Controller (Simplified - No Collision System)
 const EnhancedAnimationController: React.FC<{
-  settings: SceneSettings;
+  settings: ExtendedSceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
@@ -719,21 +1036,54 @@ const EnhancedAnimationController: React.FC<{
   return null;
 };
 
-// Enhanced Floor with Reflections
-const ReflectiveFloor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+// Enhanced Floor with Multiple Textures
+const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
+  const floorTexture = useMemo(() => {
+    return FloorTextureFactory.createTexture(
+      settings.floorTexture || 'solid',
+      1024,
+      settings.customFloorTextureUrl
+    );
+  }, [settings.floorTexture, settings.customFloorTextureUrl]);
+
   const floorMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: settings.floorColor || '#1A1A1A',
+    const material = new THREE.MeshStandardMaterial({
+      map: floorTexture,
+      color: settings.floorColor || '#FFFFFF',
       transparent: (settings.floorOpacity || 1) < 1,
       opacity: settings.floorOpacity || 1,
-      metalness: Math.min(settings.floorMetalness || 0.7, 0.95),
-      roughness: Math.max(settings.floorRoughness || 0.3, 0.05),
+      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
+      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
       side: THREE.DoubleSide,
-      envMapIntensity: 1.5, // Enhanced reflections
+      envMapIntensity: 0.5,
     });
-  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness]);
+
+    // Adjust material properties based on floor texture type
+    switch (settings.floorTexture) {
+      case 'marble':
+        material.metalness = 0.1;
+        material.roughness = 0.2;
+        break;
+      case 'metal':
+        material.metalness = 0.9;
+        material.roughness = 0.1;
+        break;
+      case 'glass':
+        material.metalness = 0;
+        material.roughness = 0.05;
+        material.transparent = true;
+        material.opacity = 0.8;
+        break;
+      case 'wood':
+        material.metalness = 0;
+        material.roughness = 0.8;
+        break;
+    }
+
+    return material;
+  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness, settings.floorTexture, floorTexture]);
 
   return (
     <mesh
@@ -848,11 +1198,14 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           />
         )}
         
+        {/* Scene Environment (Cube, Sphere, Gallery, Studio) */}
+        <SceneEnvironmentManager settings={safeSettings} />
+        
         {/* Enhanced Lighting */}
         <EnhancedLightingSystem settings={safeSettings} />
         
-        {/* Enhanced Floor and Grid */}
-        <ReflectiveFloor settings={safeSettings} />
+        {/* Textured Floor and Grid */}
+        <TexturedFloor settings={safeSettings} />
         
         {safeSettings.gridEnabled && (
           <gridHelper
@@ -886,7 +1239,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
 });
 
 // Helper function to get current particle theme
-const getCurrentParticleTheme = (settings: SceneSettings) => {
+const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
   const themeName = settings.particles?.theme ?? 'Purple Magic';
   return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
 };
