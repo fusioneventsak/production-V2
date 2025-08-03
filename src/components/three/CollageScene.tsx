@@ -836,13 +836,15 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         <EnhancedCameraControls settings={safeSettings} />
         <CameraAnimationController config={safeSettings.cameraAnimation} />
         
-        {/* Particle System */}
+        {/* Particle System with Floor Scaling */}
         {safeSettings.particles?.enabled && (
           <MilkyWayParticleSystem
             colorTheme={getCurrentParticleTheme(safeSettings)}
             intensity={safeSettings.particles?.intensity ?? 0.7}
             enabled={safeSettings.particles?.enabled ?? true}
             photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
+            floorSize={safeSettings.floorSize || 200} // Pass floor size for scaling
+            gridSize={safeSettings.gridSize || 200} // Pass grid size for reference
           />
         )}
         
