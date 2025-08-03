@@ -14,6 +14,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   sphereTextureUrl?: string;
   wallHeight?: number;
   wallThickness?: number;
+  wallColor?: string;
   ceilingEnabled?: boolean;
   ceilingHeight?: number;
   roomDepth?: number;
@@ -26,7 +27,7 @@ const EnhancedSceneSettings: React.FC<{
 }> = ({ settings, onSettingsChange, onReset }) => {
   return (
     <div className="space-y-6">
-      {/* NEW: Scene Environment Section */}
+      {/* Scene Environment Section */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Building className="h-4 w-4 mr-2" />
@@ -58,7 +59,7 @@ const EnhancedSceneSettings: React.FC<{
             </p>
           </div>
 
-          {/* Environment-specific settings */}
+          {/* Cube Environment Settings */}
           {settings.sceneEnvironment === 'cube' && (
             <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
               <h5 className="text-xs font-medium text-gray-300">Cube Room Settings</h5>
@@ -148,6 +149,7 @@ const EnhancedSceneSettings: React.FC<{
             </div>
           )}
 
+          {/* Sphere Environment Settings */}
           {settings.sceneEnvironment === 'sphere' && (
             <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
               <h5 className="text-xs font-medium text-gray-300">Sphere Settings</h5>
@@ -195,6 +197,7 @@ const EnhancedSceneSettings: React.FC<{
             </div>
           )}
 
+          {/* Gallery Environment Settings */}
           {settings.sceneEnvironment === 'gallery' && (
             <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
               <h5 className="text-xs font-medium text-gray-300">Gallery Settings</h5>
@@ -245,27 +248,41 @@ const EnhancedSceneSettings: React.FC<{
                 🖼️ Includes professional track lighting and infinite height walls
               </p>
             </div>
-          )}-300 mb-2">
-                  Room Depth
-                  <span className="ml-2 text-xs text-gray-400">{settings.roomDepth || settings.floorSize || 200} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="100"
-                  max="400"
-                  step="20"
-                  value={settings.roomDepth || settings.floorSize || 200}
-                  onChange={(e) => onSettingsChange({ roomDepth: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
           )}
 
+          {/* Studio Environment Settings */}
           {settings.sceneEnvironment === 'studio' && (
-            <div className="bg-gray-800/50 p-3 rounded-lg">
+            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
               <h5 className="text-xs font-medium text-gray-300">Studio Settings</h5>
-              <p className="text-xs text-gray-400 mt-1">Studio environment includes automatic curved backdrop and 6-point lighting rig.</p>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Backdrop Color</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="color"
+                    value={settings.wallColor || '#E8E8E8'}
+                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                  />
+                  <select
+                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
+                  >
+                    <option value="">Studio Presets</option>
+                    <option value="#FFFFFF">⚪ White Cyc</option>
+                    <option value="#E8E8E8">⚪ Light Gray</option>
+                    <option value="#D3D3D3">⚪ Silver Cyc</option>
+                    <option value="#000000">⚫ Black Cyc</option>
+                    <option value="#2F4F4F">⚫ Dark Slate</option>
+                    <option value="#008000">🟢 Green Screen</option>
+                    <option value="#0000FF">🔵 Blue Screen</option>
+                  </select>
+                </div>
+              </div>
+              
+              <p className="text-xs text-gray-400">
+                📸 Features curved backdrop and 6-point professional lighting rig
+              </p>
             </div>
           )}
         </div>
@@ -330,418 +347,6 @@ const EnhancedSceneSettings: React.FC<{
                 }, true)}
                 className="w-full bg-gray-800"
               />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Photo Count and Size */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <ImageIcon className="h-4 w-4 mr-2" />
-          Photo Display
-        </h4>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Photo Count
-              <span className="ml-2 text-xs text-gray-400">
-                {settings.animationPattern === 'grid' && settings.patterns?.grid?.photoCount !== undefined
-                  ? settings.patterns.grid.photoCount
-                  : settings.animationPattern === 'float' && settings.patterns?.float?.photoCount !== undefined
-                  ? settings.patterns.float.photoCount
-                  : settings.animationPattern === 'wave' && settings.patterns?.wave?.photoCount !== undefined
-                  ? settings.patterns.wave.photoCount
-                  : settings.animationPattern === 'spiral' && settings.patterns?.spiral?.photoCount !== undefined
-                  ? settings.patterns.spiral.photoCount
-                  : settings.photoCount} photos
-              </span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="500"
-              step="1"
-              value={
-                settings.animationPattern === 'grid' && settings.patterns?.grid?.photoCount !== undefined
-                  ? settings.patterns.grid.photoCount
-                  : settings.animationPattern === 'float' && settings.patterns?.float?.photoCount !== undefined
-                  ? settings.patterns.float.photoCount
-                  : settings.animationPattern === 'wave' && settings.patterns?.wave?.photoCount !== undefined
-                  ? settings.patterns.wave.photoCount
-                  : settings.animationPattern === 'spiral' && settings.patterns?.spiral?.photoCount !== undefined
-                  ? settings.patterns.spiral.photoCount
-                  : settings.photoCount
-              }
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                
-                // Update both the global photoCount and the pattern-specific photoCount
-                const updates: Partial<ExtendedSceneSettings> = {
-                  photoCount: value
-                };
-                
-                // Add pattern-specific update
-                if (settings.animationPattern === 'grid') {
-                  updates.patterns = {
-                    grid: {
-                      photoCount: value
-                    }
-                  };
-                } else if (settings.animationPattern === 'float') {
-                  updates.patterns = {
-                    float: {
-                      photoCount: value
-                    }
-                  };
-                } else if (settings.animationPattern === 'wave') {
-                  updates.patterns = {
-                    wave: {
-                      photoCount: value
-                    }
-                  };
-                } else if (settings.animationPattern === 'spiral') {
-                  updates.patterns = {
-                    spiral: {
-                      photoCount: value
-                    }
-                  };
-                }
-                
-                onSettingsChange(updates);
-              }}
-              className="w-full bg-gray-800"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Number of photos to display simultaneously
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Photo Size
-              <span className="ml-2 text-xs text-gray-400">{settings.photoSize.toFixed(1)} units</span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="20"
-              step="0.5"
-              value={settings.photoSize}
-              onChange={(e) => onSettingsChange({ 
-                photoSize: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Photo size multiplier (1 = small, 20 = huge)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Photo Brightness
-              <span className="ml-2 text-xs text-gray-400">{(settings.photoBrightness * 100).toFixed(0)}%</span>
-            </label>
-            <input
-              type="range"
-              min="0.1"
-              max="3"
-              step="0.1"
-              value={settings.photoBrightness}
-              onChange={(e) => onSettingsChange({ 
-                photoBrightness: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Adjust photo brightness independently (10% = very dark, 300% = very bright)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Empty Slot Color
-            </label>
-            <input
-              type="color"
-              value={settings.emptySlotColor}
-              onChange={(e) => onSettingsChange({ 
-                emptySlotColor: e.target.value 
-              }, true)}
-              className="w-full h-8 rounded cursor-pointer bg-gray-800"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* NEW: Floor Texture Section */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Layers className="h-4 w-4 mr-2" />
-          Floor Texture
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.floorEnabled}
-              onChange={(e) => onSettingsChange({ 
-                floorEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Show Floor
-            </label>
-          </div>
-
-          {settings.floorEnabled && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Texture Type</label>
-                <select
-                  value={settings.floorTexture || 'solid'}
-                  onChange={(e) => onSettingsChange({ 
-                    floorTexture: e.target.value as ExtendedSceneSettings['floorTexture']
-                  })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-                >
-                  <option value="solid">🎨 Solid Color</option>
-                  <option value="marble">⚪ Marble</option>
-                  <option value="wood">🪵 Wood</option>
-                  <option value="concrete">🏗️ Concrete</option>
-                  <option value="metal">⚙️ Metal</option>
-                  <option value="glass">💎 Glass</option>
-                  <option value="checkerboard">♟️ Checkerboard</option>
-                  <option value="custom">🖼️ Custom Image</option>
-                </select>
-              </div>
-
-              {settings.floorTexture === 'custom' && (
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">Custom Texture URL</label>
-                  <input
-                    type="url"
-                    value={settings.customFloorTextureUrl || ''}
-                    onChange={(e) => onSettingsChange({ customFloorTextureUrl: e.target.value }, true)}
-                    placeholder="https://example.com/floor-texture.jpg"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">URL to your custom floor texture image</p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.floorColor}
-                    onChange={(e) => onSettingsChange({ 
-                      floorColor: e.target.value 
-                    }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ floorColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Earth Tone Presets</option>
-                    <option value="#8B4513">🟤 Saddle Brown</option>
-                    <option value="#A0522D">🟤 Sienna</option>
-                    <option value="#CD853F">🟤 Peru</option>
-                    <option value="#D2691E">🟠 Chocolate</option>
-                    <option value="#BC8F8F">🟤 Rosy Brown</option>
-                    <option value="#F4A460">🟤 Sandy Brown</option>
-                    <option value="#DEB887">🟤 Burlywood</option>
-                    <option value="#D2B48C">🟤 Tan</option>
-                    <option value="#DAA520">🟡 Goldenrod</option>
-                    <option value="#B8860B">🟡 Dark Goldenrod</option>
-                    <option value="#228B22">🟢 Forest Green</option>
-                    <option value="#6B8E23">🟢 Olive Drab</option>
-                    <option value="#9ACD32">🟢 Yellow Green</option>
-                    <option value="#8FBC8F">🟢 Dark Sea Green</option>
-                    <option value="#20B2AA">🔵 Light Sea Green</option>
-                    <option value="#5F9EA0">🔵 Cadet Blue</option>
-                    <option value="#708090">🔘 Slate Gray</option>
-                    <option value="#2F4F4F">🔘 Dark Slate Gray</option>
-                    <option value="#696969">🔘 Dim Gray</option>
-                    <option value="#778899">🔘 Light Slate Gray</option>
-                    <option value="#F5F5DC">🟡 Beige</option>
-                    <option value="#FFFAF0">🟡 Floral White</option>
-                    <option value="#FDF5E6">🟡 Old Lace</option>
-                    <option value="#FAEBD7">🟡 Antique White</option>
-                  </select>
-                </div>
-                <p className="mt-1 text-xs text-gray-400">
-                  {settings.floorTexture === 'solid' ? 'Main floor color' : 'Base color that influences the texture pattern'}
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Floor Size
-                  <span className="ml-2 text-xs text-gray-400">{settings.floorSize} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="50"
-                  max="400"
-                  step="10"
-                  value={settings.floorSize}
-                  onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Floor Opacity
-                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorOpacity * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.floorOpacity}
-                  onChange={(e) => onSettingsChange({
-                    floorOpacity: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Metalness
-                  <span className="ml-2 text-xs text-gray-400">{Math.round((settings.floorMetalness || 0.5) * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.floorMetalness || 0.5}
-                  onChange={(e) => onSettingsChange({
-                    floorMetalness: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Roughness
-                  <span className="ml-2 text-xs text-gray-400">{Math.round((settings.floorRoughness || 0.5) * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.floorRoughness || 0.5}
-                  onChange={(e) => onSettingsChange({
-                    floorRoughness: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Grid Settings */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Grid className="h-4 w-4 mr-2" />
-          Grid Lines
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.gridEnabled}
-              onChange={(e) => onSettingsChange({ 
-                gridEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Show Grid Lines
-            </label>
-          </div>
-
-          {settings.gridEnabled && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Grid Color</label>
-                <input
-                  type="color"
-                  value={settings.gridColor}
-                  onChange={(e) => onSettingsChange({ 
-                    gridColor: e.target.value 
-                  }, true)}
-                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Size
-                  <span className="ml-2 text-xs text-gray-400">{settings.gridSize} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="50"
-                  max="400"
-                  step="10"
-                  value={settings.gridSize}
-                  onChange={(e) => onSettingsChange({ gridSize: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Divisions
-                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridDivisions)} lines</span>
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="5"
-                  value={settings.gridDivisions}
-                  onChange={(e) => onSettingsChange({
-                    gridDivisions: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Opacity
-                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridOpacity * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.gridOpacity}
-                  onChange={(e) => onSettingsChange({
-                    gridOpacity: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
             </div>
           )}
         </div>
@@ -1020,6 +625,234 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
+      {/* Photo Count and Size */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <ImageIcon className="h-4 w-4 mr-2" />
+          Photo Display
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Photo Count
+              <span className="ml-2 text-xs text-gray-400">{settings.photoCount} photos</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="500"
+              step="1"
+              value={settings.photoCount}
+              onChange={(e) => onSettingsChange({ photoCount: parseInt(e.target.value) })}
+              className="w-full bg-gray-800"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Number of photos to display simultaneously
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Photo Size
+              <span className="ml-2 text-xs text-gray-400">{settings.photoSize.toFixed(1)} units</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="20"
+              step="0.5"
+              value={settings.photoSize}
+              onChange={(e) => onSettingsChange({ 
+                photoSize: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Photo size multiplier (1 = small, 20 = huge)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Photo Brightness
+              <span className="ml-2 text-xs text-gray-400">{(settings.photoBrightness * 100).toFixed(0)}%</span>
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="3"
+              step="0.1"
+              value={settings.photoBrightness}
+              onChange={(e) => onSettingsChange({ 
+                photoBrightness: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Adjust photo brightness independently (10% = very dark, 300% = very bright)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Empty Slot Color
+            </label>
+            <input
+              type="color"
+              value={settings.emptySlotColor}
+              onChange={(e) => onSettingsChange({ 
+                emptySlotColor: e.target.value 
+              }, true)}
+              className="w-full h-8 rounded cursor-pointer bg-gray-800"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Floor Texture Section */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Layers className="h-4 w-4 mr-2" />
+          Floor Texture
+        </h4>
+        
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.floorEnabled}
+              onChange={(e) => onSettingsChange({ 
+                floorEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Show Floor
+            </label>
+          </div>
+
+          {settings.floorEnabled && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Texture Type</label>
+                <select
+                  value={settings.floorTexture || 'solid'}
+                  onChange={(e) => onSettingsChange({ 
+                    floorTexture: e.target.value as ExtendedSceneSettings['floorTexture']
+                  })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+                >
+                  <option value="solid">🎨 Solid Color</option>
+                  <option value="marble">⚪ Marble</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="concrete">🏗️ Concrete</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="glass">💎 Glass</option>
+                  <option value="checkerboard">♟️ Checkerboard</option>
+                  <option value="custom">🖼️ Custom Image</option>
+                </select>
+              </div>
+
+              {settings.floorTexture === 'custom' && (
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">Custom Texture URL</label>
+                  <input
+                    type="url"
+                    value={settings.customFloorTextureUrl || ''}
+                    onChange={(e) => onSettingsChange({ customFloorTextureUrl: e.target.value }, true)}
+                    placeholder="https://example.com/floor-texture.jpg"
+                    className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">URL to your custom floor texture image</p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="color"
+                    value={settings.floorColor}
+                    onChange={(e) => onSettingsChange({ 
+                      floorColor: e.target.value 
+                    }, true)}
+                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                  />
+                  <select
+                    onChange={(e) => onSettingsChange({ floorColor: e.target.value }, true)}
+                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
+                  >
+                    <option value="">Earth Tone Presets</option>
+                    <option value="#8B4513">🟤 Saddle Brown</option>
+                    <option value="#A0522D">🟤 Sienna</option>
+                    <option value="#CD853F">🟤 Peru</option>
+                    <option value="#D2691E">🟠 Chocolate</option>
+                    <option value="#BC8F8F">🟤 Rosy Brown</option>
+                    <option value="#F4A460">🟤 Sandy Brown</option>
+                    <option value="#DEB887">🟤 Burlywood</option>
+                    <option value="#D2B48C">🟤 Tan</option>
+                    <option value="#DAA520">🟡 Goldenrod</option>
+                    <option value="#B8860B">🟡 Dark Goldenrod</option>
+                    <option value="#228B22">🟢 Forest Green</option>
+                    <option value="#6B8E23">🟢 Olive Drab</option>
+                    <option value="#9ACD32">🟢 Yellow Green</option>
+                    <option value="#8FBC8F">🟢 Dark Sea Green</option>
+                    <option value="#20B2AA">🔵 Light Sea Green</option>
+                    <option value="#5F9EA0">🔵 Cadet Blue</option>
+                    <option value="#708090">🔘 Slate Gray</option>
+                    <option value="#2F4F4F">🔘 Dark Slate Gray</option>
+                    <option value="#696969">🔘 Dim Gray</option>
+                    <option value="#778899">🔘 Light Slate Gray</option>
+                    <option value="#F5F5DC">🟡 Beige</option>
+                    <option value="#FFFAF0">🟡 Floral White</option>
+                    <option value="#FDF5E6">🟡 Old Lace</option>
+                    <option value="#FAEBD7">🟡 Antique White</option>
+                  </select>
+                </div>
+                <p className="mt-1 text-xs text-gray-400">
+                  {settings.floorTexture === 'solid' ? 'Main floor color' : 'Base color that influences the texture pattern'}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Floor Size
+                  <span className="ml-2 text-xs text-gray-400">{settings.floorSize} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="400"
+                  step="10"
+                  value={settings.floorSize}
+                  onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Floor Opacity
+                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorOpacity * 100)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.floorOpacity}
+                  onChange={(e) => onSettingsChange({
+                    floorOpacity: parseFloat(e.target.value)
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Lighting Settings */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
@@ -1203,7 +1036,6 @@ const EnhancedSceneSettings: React.FC<{
         </h4>
         
         <div className="space-y-4">
-          {/* Enable/Disable Particles */}
           <div className="flex items-center">
             <input
               type="checkbox"
@@ -1223,7 +1055,6 @@ const EnhancedSceneSettings: React.FC<{
 
           {settings.particles?.enabled && (
             <div className="space-y-4">
-              {/* Particle Theme Selector */}
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
                   Particle Theme
@@ -1246,7 +1077,6 @@ const EnhancedSceneSettings: React.FC<{
                 </select>
               </div>
 
-              {/* Particle Intensity */}
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
                   Particle Intensity
@@ -1270,7 +1100,6 @@ const EnhancedSceneSettings: React.FC<{
                 />
               </div>
 
-              {/* Theme Preview */}
               <div className="p-3 bg-gray-800 rounded-lg">
                 <div className="text-xs text-gray-400 mb-2">Preview Colors:</div>
                 <div className="flex space-x-2">
