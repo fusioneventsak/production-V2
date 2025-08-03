@@ -245,41 +245,6 @@ const EnhancedSceneSettings: React.FC<{
                 🖼️ Includes professional track lighting and infinite height walls
               </p>
             </div>
-          )}
-
-          {settings.sceneEnvironment === 'studio' && (
-            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
-              <h5 className="text-xs font-medium text-gray-300">Studio Settings</h5>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Backdrop Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.wallColor || '#E8E8E8'}
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Studio Presets</option>
-                    <option value="#FFFFFF">⚪ White Cyc</option>
-                    <option value="#E8E8E8">⚪ Light Gray</option>
-                    <option value="#D3D3D3">⚪ Silver Cyc</option>
-                    <option value="#000000">⚫ Black Cyc</option>
-                    <option value="#2F4F4F">⚫ Dark Slate</option>
-                    <option value="#008000">🟢 Green Screen</option>
-                    <option value="#0000FF">🔵 Blue Screen</option>
-                  </select>
-                </div>
-              </div>
-              
-              <p className="text-xs text-gray-400">
-                📸 Features curved backdrop and 6-point professional lighting rig
-              </p>
-            </div>
           )}-300 mb-2">
                   Room Depth
                   <span className="ml-2 text-xs text-gray-400">{settings.roomDepth || settings.floorSize || 200} units</span>
