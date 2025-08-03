@@ -618,19 +618,24 @@ const EnhancedCameraControls: React.FC<{ settings: SceneSettings }> = ({ setting
   );
 };
 
-// Enhanced Animation Controller
+// Enhanced Animation Controller with Collision Prevention
 const EnhancedAnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
   const slotManagerRef = useRef(new EnhancedSlotManager(settings.photoCount || 100));
+  const collisionManagerRef = useRef(CollisionManager.getInstance());
   const lastPhotoCount = useRef(settings.photoCount || 100);
   
   const updatePositions = useCallback((time: number = 0) => {
     try {
       const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
       const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
+      
+      // Set collision margin based on photo size
+      const baseSize = settings.photoSize || 4.0;
+      collisionManagerRef.current.setCollisionMargin(baseSize * 0.2); // 20% of photo size
       
       let patternState;
       try {
@@ -655,22 +660,41 @@ const EnhancedAnimationController: React.FC<{
       
       const photosWithPositions: PhotoWithPosition[] = [];
       
+      // Process photos with collision detection
       for (const photo of safePhotos) {
         const slotIndex = slotAssignments.get(photo.id);
         if (slotIndex !== undefined && slotIndex < (settings.photoCount || 100)) {
           const aspectRatio = slotManagerRef.current.getAspectRatio(photo.id);
           const baseSize = settings.photoSize || 4.0;
           
-          // Only set computedSize if we have aspect ratio data, otherwise let component detect it
+          // Calculate dimensions
           const computedSize = aspectRatio ? (
             aspectRatio > 1 
               ? [baseSize * aspectRatio, baseSize]
               : [baseSize, baseSize / aspectRatio]
           ) : undefined;
           
+          // Get target position from pattern
+          const targetPosition = patternState.positions[slotIndex] || [0, 0, 0];
+          
+          // Check for collisions and find safe position
+          const dimensions = computedSize || [baseSize * (9/16), baseSize];
+          const safePosition = collisionManagerRef.current.findSafePosition(
+            photo.id,
+            targetPosition,
+            [dimensions[0], dimensions[1]]
+          );
+          
+          // Update collision manager with final position
+          collisionManagerRef.current.updatePhoto(
+            photo.id,
+            safePosition,
+            [dimensions[0], dimensions[1]]
+          );
+          
           photosWithPositions.push({
             ...photo,
-            targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
+            targetPosition: safePosition,
             targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
             displayIndex: slotIndex,
             slotIndex,
@@ -679,19 +703,36 @@ const EnhancedAnimationController: React.FC<{
         }
       }
       
-      // Add empty slots with 9:16 aspect ratio
+      // Add empty slots with collision avoidance
       for (let i = 0; i < (settings.photoCount || 100); i++) {
         const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
         if (!hasPhoto) {
           const baseSize = settings.photoSize || 4.0;
+          const targetPosition = patternState.positions[i] || [0, 0, 0];
+          const dimensions = [baseSize * (9/16), baseSize];
+          
+          // Find safe position for empty slot
+          const safePosition = collisionManagerRef.current.findSafePosition(
+            `placeholder-${i}`,
+            targetPosition,
+            dimensions
+          );
+          
+          // Update collision manager
+          collisionManagerRef.current.updatePhoto(
+            `placeholder-${i}`,
+            safePosition,
+            dimensions
+          );
+          
           photosWithPositions.push({
             id: `placeholder-${i}`,
             url: '',
-            targetPosition: patternState.positions[i] || [0, 0, 0],
+            targetPosition: safePosition,
             targetRotation: patternState.rotations?.[i] || [0, 0, 0],
             displayIndex: i,
             slotIndex: i,
-            computedSize: [baseSize * (9/16), baseSize] // 9:16 empty slots (portrait)
+            computedSize: dimensions
           });
         }
       }
@@ -707,10 +748,22 @@ const EnhancedAnimationController: React.FC<{
   useEffect(() => {
     if ((settings.photoCount || 100) !== lastPhotoCount.current) {
       slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
+      collisionManagerRef.current.clear(); // Clear collisions when photo count changes
       lastPhotoCount.current = settings.photoCount || 100;
       updatePositions(0);
     }
   }, [settings.photoCount, updatePositions]);
+
+  // Clear collision data when photos change significantly
+  useEffect(() => {
+    const currentPhotoIds = (photos || []).map(p => p.id).sort().join(',');
+    
+    return () => {
+      // Cleanup removed photos from collision system
+      const currentIds = new Set((photos || []).map(p => p.id));
+      // This would need to be implemented to track previous IDs
+    };
+  }, [photos]);
 
   useFrame((state) => {
     const time = settings.animationEnabled ? 
@@ -785,7 +838,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
   // Cleanup resources on unmount
   useEffect(() => {
     return () => {
-      ResourceManager.getInstance().dispose();
+      CollisionManager.getInstance().clear();
     };
   }, []);
 
