@@ -1289,6 +1289,12 @@ const EnhancedAnimationController: React.FC<{
         );
         patternState = pattern.generatePositions(time);
         
+        // DEBUG: Check if pattern generated enough positions
+        const expectedSlots = settings.photoCount || 100;
+        if (patternState.positions.length < expectedSlots) {
+          console.warn(`Pattern only generated ${patternState.positions.length} positions but expected ${expectedSlots}`);
+        }
+        
         // FIXED: Adjust pattern heights to be just above floor level
         // Floor is at Y=-12, so we want patterns to start around Y=-8 to Y=0
         const floorLevel = -8; // Just above the floor at Y=-12
@@ -1326,10 +1332,37 @@ const EnhancedAnimationController: React.FC<{
       }
       
       const photosWithPositions: PhotoWithPosition[] = [];
+      const totalSlots = settings.photoCount || 100;
+      
+      // FIXED: Ensure we generate positions for ALL slots, not just what pattern provided
+      // First, extend pattern positions if needed
+      while (patternState.positions.length < totalSlots) {
+        // Duplicate and offset the last few positions if pattern is short
+        const lastIndex = patternState.positions.length - 1;
+        const lastPos = patternState.positions[lastIndex] || [0, -6, 0];
+        const [x, y, z] = lastPos;
+        
+        // Add slight offset to avoid exact overlap
+        const offset = patternState.positions.length - lastIndex;
+        patternState.positions.push([x + offset * 2, y, z + offset * 2]);
+        
+        if (patternState.rotations) {
+          const lastRot = patternState.rotations[lastIndex] || [0, 0, 0];
+          patternState.rotations.push(lastRot);
+        }
+      }
+      
+      // Now ensure rotations array matches positions length
+      if (!patternState.rotations) {
+        patternState.rotations = [];
+      }
+      while (patternState.rotations.length < patternState.positions.length) {
+        patternState.rotations.push([0, 0, 0]);
+      }
       
       for (const photo of safePhotos) {
         const slotIndex = slotAssignments.get(photo.id);
-        if (slotIndex !== undefined && slotIndex < (settings.photoCount || 100)) {
+        if (slotIndex !== undefined && slotIndex < totalSlots) {
           const aspectRatio = slotManagerRef.current.getAspectRatio(photo.id);
           const baseSize = settings.photoSize || 4.0;
           
@@ -1339,56 +1372,33 @@ const EnhancedAnimationController: React.FC<{
               : [baseSize, baseSize / aspectRatio]
           ) : undefined;
           
-          // FIXED: Ensure we always use pattern-generated position
-          const position = patternState.positions[slotIndex];
-          const rotation = patternState.rotations?.[slotIndex];
-          
-          if (position) {
-            photosWithPositions.push({
-              ...photo,
-              targetPosition: position,
-              targetRotation: rotation || [0, 0, 0],
-              displayIndex: slotIndex,
-              slotIndex,
-              computedSize
-            });
-          }
+          // Now we're guaranteed to have a position for this slot
+          photosWithPositions.push({
+            ...photo,
+            targetPosition: patternState.positions[slotIndex],
+            targetRotation: patternState.rotations[slotIndex],
+            displayIndex: slotIndex,
+            slotIndex,
+            computedSize
+          });
         }
       }
       
-      // FIXED: Generate empty slots using the same pattern positions
-      for (let i = 0; i < (settings.photoCount || 100); i++) {
+      // Generate empty slots - now guaranteed to have positions for all
+      for (let i = 0; i < totalSlots; i++) {
         const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
         if (!hasPhoto) {
           const baseSize = settings.photoSize || 4.0;
           
-          // FIXED: Use pattern-generated position for empty slots too
-          const position = patternState.positions[i];
-          const rotation = patternState.rotations?.[i];
-          
-          if (position) {
-            photosWithPositions.push({
-              id: `placeholder-${i}`,
-              url: '',
-              targetPosition: position,
-              targetRotation: rotation || [0, 0, 0],
-              displayIndex: i,
-              slotIndex: i,
-              computedSize: [baseSize * (9/16), baseSize]
-            });
-          } else {
-            // Only fallback if pattern didn't generate position for this slot
-            console.warn(`No pattern position generated for slot ${i}, using fallback`);
-            photosWithPositions.push({
-              id: `placeholder-${i}`,
-              url: '',
-              targetPosition: [0, -6, 0],
-              targetRotation: [0, 0, 0],
-              displayIndex: i,
-              slotIndex: i,
-              computedSize: [baseSize * (9/16), baseSize]
-            });
-          }
+          photosWithPositions.push({
+            id: `placeholder-${i}`,
+            url: '',
+            targetPosition: patternState.positions[i], // Guaranteed to exist now
+            targetRotation: patternState.rotations[i], // Guaranteed to exist now
+            displayIndex: i,
+            slotIndex: i,
+            computedSize: [baseSize * (9/16), baseSize]
+          });
         }
       }
       
