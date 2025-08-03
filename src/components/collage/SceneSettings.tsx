@@ -1,16 +1,179 @@
-// src/components/collage/SceneSettings.tsx - COMPLETE: Improved photo spacing control
+// src/components/collage/SceneSettings.tsx - Enhanced with Environment Controls
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers } from 'lucide-react';
 import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
 
-const SceneSettings: React.FC<{
-  settings: SceneSettings;
-  onSettingsChange: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
+// Extended settings interface for new features
+interface ExtendedSceneSettings extends SceneSettings {
+  sceneEnvironment?: 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
+  floorTexture?: 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+  customFloorTextureUrl?: string;
+  environmentIntensity?: number;
+  cubeTextureUrl?: string;
+  sphereTextureUrl?: string;
+  wallHeight?: number;
+  wallThickness?: number;
+  ceilingEnabled?: boolean;
+  ceilingHeight?: number;
+  roomDepth?: number;
+}
+
+const EnhancedSceneSettings: React.FC<{
+  settings: ExtendedSceneSettings;
+  onSettingsChange: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
   onReset: () => void;
 }> = ({ settings, onSettingsChange, onReset }) => {
   return (
     <div className="space-y-6">
+      {/* NEW: Scene Environment Section */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Building className="h-4 w-4 mr-2" />
+          Scene Environment
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Environment Type</label>
+            <select
+              value={settings.sceneEnvironment || 'default'}
+              onChange={(e) => onSettingsChange({ 
+                sceneEnvironment: e.target.value as ExtendedSceneSettings['sceneEnvironment']
+              })}
+              className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+            >
+              <option value="default">🌌 Open Space (Default)</option>
+              <option value="cube">🏠 Cube Room</option>
+              <option value="sphere">🌍 Sphere Interior</option>
+              <option value="gallery">🖼️ Art Gallery</option>
+              <option value="studio">📸 Photo Studio</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              {settings.sceneEnvironment === 'cube' && "Enclosed room with walls and optional ceiling"}
+              {settings.sceneEnvironment === 'sphere' && "Immersive 360° spherical environment"}
+              {settings.sceneEnvironment === 'gallery' && "Professional gallery with track lighting"}
+              {settings.sceneEnvironment === 'studio' && "Photography studio with curved backdrop"}
+              {(!settings.sceneEnvironment || settings.sceneEnvironment === 'default') && "Open space with floor and optional grid"}
+            </p>
+          </div>
+
+          {/* Environment-specific settings */}
+          {settings.sceneEnvironment === 'cube' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Cube Room Settings</h5>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Wall Height
+                  <span className="ml-2 text-xs text-gray-400">{settings.wallHeight || 40} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="20"
+                  max="80"
+                  step="5"
+                  value={settings.wallHeight || 40}
+                  onChange={(e) => onSettingsChange({ wallHeight: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Wall Thickness
+                  <span className="ml-2 text-xs text-gray-400">{settings.wallThickness || 2} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value={settings.wallThickness || 2}
+                  onChange={(e) => onSettingsChange({ wallThickness: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={settings.ceilingEnabled || false}
+                  onChange={(e) => onSettingsChange({ ceilingEnabled: e.target.checked })}
+                  className="mr-2 bg-gray-800 border-gray-700"
+                />
+                <label className="text-sm text-gray-300">Add Ceiling</label>
+              </div>
+
+              {settings.ceilingEnabled && (
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Ceiling Height
+                    <span className="ml-2 text-xs text-gray-400">{settings.ceilingHeight || settings.wallHeight || 40} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="20"
+                    max="100"
+                    step="5"
+                    value={settings.ceilingHeight || settings.wallHeight || 40}
+                    onChange={(e) => onSettingsChange({ ceilingHeight: parseFloat(e.target.value) }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {settings.sceneEnvironment === 'sphere' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Sphere Settings</h5>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Custom Sphere Texture URL</label>
+                <input
+                  type="url"
+                  value={settings.sphereTextureUrl || ''}
+                  onChange={(e) => onSettingsChange({ sphereTextureUrl: e.target.value }, true)}
+                  placeholder="https://example.com/sphere-texture.jpg"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-400">Optional: URL to a panoramic image for sphere interior</p>
+              </div>
+            </div>
+          )}
+
+          {settings.sceneEnvironment === 'gallery' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Gallery Settings</h5>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Room Depth
+                  <span className="ml-2 text-xs text-gray-400">{settings.roomDepth || settings.floorSize || 200} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="100"
+                  max="400"
+                  step="20"
+                  value={settings.roomDepth || settings.floorSize || 200}
+                  onChange={(e) => onSettingsChange({ roomDepth: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
+
+          {settings.sceneEnvironment === 'studio' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg">
+              <h5 className="text-xs font-medium text-gray-300">Studio Settings</h5>
+              <p className="text-xs text-gray-400 mt-1">Studio environment includes automatic curved backdrop and 6-point lighting rig.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Animation Controls */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
@@ -118,7 +281,7 @@ const SceneSettings: React.FC<{
                 const value = parseInt(e.target.value);
                 
                 // Update both the global photoCount and the pattern-specific photoCount
-                const updates: Partial<SceneSettings> = {
+                const updates: Partial<ExtendedSceneSettings> = {
                   photoCount: value
                 };
                 
@@ -216,483 +379,242 @@ const SceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* Grid Wall Settings - Only show when grid pattern is selected */}
-      {settings.animationPattern === 'grid' && (
-        <div>
-          <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-            <Grid className="h-4 w-4 mr-2" />
-            {settings.animationPattern === 'grid' ? 'Grid Wall Settings' : 'Pattern Settings'}
-          </h4>
-          
-          <div className="space-y-4">
-            {settings.animationPattern === 'grid' && (
+      {/* NEW: Floor Texture Section */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Layers className="h-4 w-4 mr-2" />
+          Floor Texture
+        </h4>
+        
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.floorEnabled}
+              onChange={(e) => onSettingsChange({ 
+                floorEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Show Floor
+            </label>
+          </div>
+
+          {settings.floorEnabled && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Texture Type</label>
+                <select
+                  value={settings.floorTexture || 'solid'}
+                  onChange={(e) => onSettingsChange({ 
+                    floorTexture: e.target.value as ExtendedSceneSettings['floorTexture']
+                  })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+                >
+                  <option value="solid">🎨 Solid Color</option>
+                  <option value="marble">⚪ Marble</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="concrete">🏗️ Concrete</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="glass">💎 Glass</option>
+                  <option value="checkerboard">♟️ Checkerboard</option>
+                  <option value="custom">🖼️ Custom Image</option>
+                </select>
+              </div>
+
+              {settings.floorTexture === 'custom' && (
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">Custom Texture URL</label>
+                  <input
+                    type="url"
+                    value={settings.customFloorTextureUrl || ''}
+                    onChange={(e) => onSettingsChange({ customFloorTextureUrl: e.target.value }, true)}
+                    placeholder="https://example.com/floor-texture.jpg"
+                    className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">URL to your custom floor texture image</p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
+                <input
+                  type="color"
+                  value={settings.floorColor}
+                  onChange={(e) => onSettingsChange({ 
+                    floorColor: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  {settings.floorTexture === 'solid' ? 'Main floor color' : 'Tints the texture with this color'}
+                </p>
+              </div>
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
-                  Wall Height
-                  <span className="ml-2 text-xs text-gray-400">{settings.patterns.grid.wallHeight.toFixed(1)} units</span>
+                  Floor Size
+                  <span className="ml-2 text-xs text-gray-400">{settings.floorSize} units</span>
                 </label>
                 <input
                   type="range"
-                  min="0"
-                  max="30"
-                  step="0.5"
-                  value={settings.patterns.grid.wallHeight}
-                  onChange={(e) => onSettingsChange({ 
-                    patterns: {
-                      grid: {
-                        wallHeight: parseFloat(e.target.value)
-                      }
-                    }
-                  }, true)}
+                  min="50"
+                  max="400"
+                  step="10"
+                  value={settings.floorSize}
+                  onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
                   className="w-full bg-gray-800"
                 />
-                <p className="mt-1 text-xs text-gray-400">
-                  Adjust the vertical position of the photo wall
-                </p>
               </div>
-            )}
 
-            {settings.animationPattern === 'grid' && (
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
-                  Photo Spacing
-                  <span className="ml-2 text-xs text-gray-400">
-                    {settings.patterns.grid.spacing === 0 ? 'Solid Wall' : `${(settings.patterns.grid.spacing * 200).toFixed(0)}% gaps`}
-                  </span>
+                  Floor Opacity
+                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorOpacity * 100)}%</span>
                 </label>
                 <input
                   type="range"
                   min="0"
                   max="1"
-                  step="0.01"
-                  value={settings.patterns.grid.spacing}
-                  onChange={(e) => onSettingsChange({ 
-                    patterns: {
-                      grid: {
-                        spacing: parseFloat(e.target.value)
-                      }
-                    }
+                  step="0.1"
+                  value={settings.floorOpacity}
+                  onChange={(e) => onSettingsChange({
+                    floorOpacity: parseFloat(e.target.value)
                   }, true)}
                   className="w-full bg-gray-800"
                 />
-                <p className="mt-1 text-xs text-gray-400">
-                  {settings.patterns.grid.spacing === 0 
-                    ? '🧱 Edge-to-edge solid wall (no gaps)'
-                    : settings.patterns.grid.spacing < 0.5
-                    ? '📐 Small gaps between photos'
-                    : '🎯 Large gaps between photos'
-                  }
-                </p>
-              </div>
-            )}
-
-            {settings.animationPattern === 'float' && (
-              <>
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Float Height
-                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.float.height.toFixed(1)} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    step="5"
-                    value={settings.patterns.float.height}
-                    onChange={(e) => onSettingsChange({ 
-                      patterns: {
-                        float: {
-                          height: parseFloat(e.target.value)
-                        }
-                      }
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Maximum height photos will float to before recycling
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Spread Distance
-                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.float.spread.toFixed(1)} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="50"
-                    step="1"
-                    value={settings.patterns.float.spread}
-                    onChange={(e) => onSettingsChange({ 
-                      patterns: {
-                        float: {
-                          spread: parseFloat(e.target.value)
-                        }
-                      }
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    How far apart photos are spread horizontally
-                  </p>
-                </div>
-              </>
-            )}
-
-            {settings.animationPattern === 'wave' && (
-              <>
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Wave Amplitude
-                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.wave.amplitude.toFixed(1)} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="0.5"
-                    value={settings.patterns.wave.amplitude}
-                    onChange={(e) => onSettingsChange({ 
-                      patterns: {
-                        wave: {
-                          amplitude: parseFloat(e.target.value)
-                        }
-                      }
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Height of the wave peaks
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Wave Frequency
-                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.wave.frequency.toFixed(2)}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="2"
-                    step="0.05"
-                    value={settings.patterns.wave.frequency}
-                    onChange={(e) => onSettingsChange({ 
-                      patterns: {
-                        wave: {
-                          frequency: parseFloat(e.target.value)
-                        }
-                      }
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    How close together the wave peaks are
-                  </p>
-                </div>
-              </>
-            )}
-
-            {settings.animationPattern === 'spiral' && (
-              <>
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Spiral Radius
-                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.spiral.radius.toFixed(1)} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="30"
-                    step="1"
-                    value={settings.patterns.spiral.radius}
-                    onChange={(e) => onSettingsChange({ 
-                      patterns: {
-                        spiral: {
-                          radius: parseFloat(e.target.value)
-                        }
-                      }
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Width of the spiral
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Height Step
-                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.spiral.heightStep.toFixed(2)} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="2"
-                    step="0.1"
-                    value={settings.patterns.spiral.heightStep}
-                    onChange={(e) => onSettingsChange({ 
-                      patterns: {
-                        spiral: {
-                          heightStep: parseFloat(e.target.value)
-                        }
-                      }
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Vertical spacing between spiral layers
-                  </p>
-                </div>
-              </>
-            )}
-
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">
-                Grid Aspect Ratio Preset
-              </label>
-              <select
-                value={settings.gridAspectRatioPreset}
-                onChange={(e) => {
-                  const preset = e.target.value as SceneSettings['gridAspectRatioPreset'];
-                  let ratio = settings.gridAspectRatio;
-                  
-                  switch (preset) {
-                    case '1:1': ratio = 1; break;
-                    case '4:3': ratio = 1.333333; break;
-                    case '16:9': ratio = 1.777778; break;
-                    case '21:9': ratio = 2.333333; break;
-                    case 'custom': break;
-                  }
-                  
-                  if (settings.animationPattern === 'grid') {
-                    onSettingsChange({
-                      gridAspectRatioPreset: preset,
-                      gridAspectRatio: ratio,
-                      patterns: {
-                        grid: {
-                          aspectRatio: ratio
-                        }
-                      }
-                    });
-                  } else {
-                    onSettingsChange({
-                      gridAspectRatioPreset: preset,
-                      gridAspectRatio: ratio
-                    });
-                  }
-                }}
-                className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-              >
-                <option value="1:1">Square (1:1)</option>
-                <option value="4:3">Standard (4:3)</option>
-                <option value="16:9">Widescreen (16:9)</option>
-                <option value="21:9">Ultrawide (21:9)</option>
-                <option value="custom">Custom</option>
-              </select>
-            </div>
-
-            {settings.gridAspectRatioPreset === 'custom' && (
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Custom Aspect Ratio
-                  <span className="ml-2 text-xs text-gray-400">{settings.gridAspectRatio.toFixed(2)}</span>
-                </label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="3"
-                  step="0.1"
-                  value={settings.gridAspectRatio}
-                  onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    if (settings.animationPattern === 'grid') {
-                      onSettingsChange({ 
-                        gridAspectRatio: value,
-                        patterns: {
-                          grid: {
-                            aspectRatio: value
-                          }
-                        }
-                      });
-                    } else {
-                      onSettingsChange({ 
-                        gridAspectRatio: value
-                      });
-                    }
-                  }}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Camera Animation Controls */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Camera className="h-4 w-4 mr-2" />
-          Camera Animation
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.cameraAnimation.enabled}
-              onChange={(e) => onSettingsChange({ 
-                cameraAnimation: { ...settings.cameraAnimation, enabled: e.target.checked }
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">Enable Camera Animation</label>
-          </div>
-
-          {settings.cameraAnimation.enabled && (
-            <>
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Animation Type</label>
-                <select
-                  value={settings.cameraAnimation.type}
-                  onChange={(e) => onSettingsChange({ 
-                    cameraAnimation: { ...settings.cameraAnimation, type: e.target.value as any }
-                  })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-                >
-                  <option value="none">None</option>
-                  <option value="figure8">Figure-8 (Recommended for Float)</option>
-                  <option value="centerRotate">Center Focus</option>
-                  <option value="orbit">Orbit</option>
-                  <option value="wave">Wave</option>
-                  <option value="spiral">Spiral</option>
-                </select>
               </div>
 
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
-                  Speed: {settings.cameraAnimation.speed.toFixed(1)}x
-                </label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="2.0"
-                  step="0.1"
-                  value={settings.cameraAnimation.speed}
-                  onChange={(e) => onSettingsChange({ 
-                    cameraAnimation: { ...settings.cameraAnimation, speed: parseFloat(e.target.value) }
-                  })}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Radius: {settings.cameraAnimation.radius.toFixed(0)} units
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="60"
-                  step="1"
-                  value={settings.cameraAnimation.radius}
-                  onChange={(e) => onSettingsChange({ 
-                    cameraAnimation: { ...settings.cameraAnimation, radius: parseFloat(e.target.value) }
-                  })}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Height: {settings.cameraAnimation.height.toFixed(0)} units
+                  Metalness
+                  <span className="ml-2 text-xs text-gray-400">{Math.round((settings.floorMetalness || 0.5) * 100)}%</span>
                 </label>
                 <input
                   type="range"
                   min="0"
-                  max="30"
-                  step="1"
-                  value={settings.cameraAnimation.height}
-                  onChange={(e) => onSettingsChange({ 
-                    cameraAnimation: { ...settings.cameraAnimation, height: parseFloat(e.target.value) }
-                  })}
+                  max="1"
+                  step="0.1"
+                  value={settings.floorMetalness || 0.5}
+                  onChange={(e) => onSettingsChange({
+                    floorMetalness: parseFloat(e.target.value)
+                  }, true)}
                   className="w-full bg-gray-800"
                 />
               </div>
 
-              {(settings.cameraAnimation.type === 'wave' || 
-                settings.cameraAnimation.type === 'figure8' || 
-                settings.cameraAnimation.type === 'spiral') && (
-                <>
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Amplitude: {settings.cameraAnimation.amplitude.toFixed(0)} units
-                    </label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="20"
-                      step="1"
-                      value={settings.cameraAnimation.amplitude}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, amplitude: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Frequency: {settings.cameraAnimation.frequency.toFixed(1)}
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="1.0"
-                      step="0.1"
-                      value={settings.cameraAnimation.frequency}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, frequency: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-                </>
-              )}
-            </>
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Roughness
+                  <span className="ml-2 text-xs text-gray-400">{Math.round((settings.floorRoughness || 0.5) * 100)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.floorRoughness || 0.5}
+                  onChange={(e) => onSettingsChange({
+                    floorRoughness: parseFloat(e.target.value)
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Photo Rotation */}
+      {/* Grid Settings */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <RotateCw className="h-4 w-4 mr-2" />
-          Photo Behavior
+          <Grid className="h-4 w-4 mr-2" />
+          Grid Lines
         </h4>
         
         <div className="space-y-4">
           <div className="flex items-center">
             <input
               type="checkbox"
-              checked={settings.photoRotation}
+              checked={settings.gridEnabled}
               onChange={(e) => onSettingsChange({ 
-                photoRotation: e.target.checked 
+                gridEnabled: e.target.checked 
               })}
               className="mr-2 bg-gray-800 border-gray-700"
             />
             <label className="text-sm text-gray-300">
-              Enable Photo Rotation
+              Show Grid Lines
             </label>
           </div>
-          
-          <p className="text-xs text-gray-400">
-            {settings.animationPattern === 'grid' 
-              ? "Grid Wall: Turn OFF for traditional flat wall, turn ON for billboard effect" 
-              : "When enabled, photos rotate to always face the camera for better visibility"
-            }
-          </p>
+
+          {settings.gridEnabled && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Grid Color</label>
+                <input
+                  type="color"
+                  value={settings.gridColor}
+                  onChange={(e) => onSettingsChange({ 
+                    gridColor: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Size
+                  <span className="ml-2 text-xs text-gray-400">{settings.gridSize} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="400"
+                  step="10"
+                  value={settings.gridSize}
+                  onChange={(e) => onSettingsChange({ gridSize: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Divisions
+                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridDivisions)} lines</span>
+                </label>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={settings.gridDivisions}
+                  onChange={(e) => onSettingsChange({
+                    gridDivisions: parseFloat(e.target.value)
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Opacity
+                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridOpacity * 100)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.gridOpacity}
+                  onChange={(e) => onSettingsChange({
+                    gridOpacity: parseFloat(e.target.value)
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -855,7 +777,7 @@ const SceneSettings: React.FC<{
                 <input
                   type="range"
                   min="1"
-                  max="4"
+                  max="6"
                   step="1"
                   value={settings.spotlightCount}
                   onChange={(e) => onSettingsChange({ 
@@ -869,49 +791,13 @@ const SceneSettings: React.FC<{
 
           <div>
             <label className="block text-sm text-gray-300 mb-2">
-              Spotlight Height
-              <span className="ml-2 text-xs text-gray-400">{settings.spotlightHeight} units</span>
-            </label>
-            <input
-              type="range"
-              min="5"
-              max="50"
-              step="1"
-              value={settings.spotlightHeight}
-              onChange={(e) => onSettingsChange({ 
-                spotlightHeight: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Spotlight Distance
-              <span className="ml-2 text-xs text-gray-400">{settings.spotlightDistance} units</span>
-            </label>
-            <input
-              type="range"
-              min="10"
-              max="100"
-              step="5"
-              value={settings.spotlightDistance}
-              onChange={(e) => onSettingsChange({ 
-                spotlightDistance: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
               Spotlight Intensity
               <span className="ml-2 text-xs text-gray-400">{settings.spotlightIntensity.toFixed(0)}%</span>
             </label>
             <input
               type="range"
               min="1"
-              max="200"
+              max="300"
               step="1"
               value={settings.spotlightIntensity}
               onChange={(e) => onSettingsChange({ 
@@ -920,183 +806,6 @@ const SceneSettings: React.FC<{
               className="w-full bg-gray-800"
             />
           </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Spotlight Angle
-              <span className="ml-2 text-xs text-gray-400">{settings.spotlightAngle.toFixed(2)}</span>
-            </label>
-            <input
-              type="range"
-              min="0.1"
-              max="1.5"
-              step="0.05"
-              value={settings.spotlightAngle}
-              onChange={(e) => onSettingsChange({ 
-                spotlightAngle: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Controls the beam spread angle (0.1 = narrow beam, 1.5 = wide beam)
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Floor Settings */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Square className="h-4 w-4 mr-2" />
-          Floor & Grid
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.floorEnabled}
-              onChange={(e) => onSettingsChange({ 
-                floorEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Show Floor
-            </label>
-          </div>
-
-          {settings.floorEnabled && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
-                <input
-                  type="color"
-                  value={settings.floorColor}
-                  onChange={(e) => onSettingsChange({ 
-                    floorColor: e.target.value 
-                  }, true)}
-                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Floor Size
-                  <span className="ml-2 text-xs text-gray-400">{settings.floorSize} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="50"
-                  max="300"
-                  step="10"
-                  value={settings.floorSize}
-                  onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Floor Opacity
-                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorOpacity * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.floorOpacity}
-                  onChange={(e) => onSettingsChange({
-                    floorOpacity: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.gridEnabled}
-              onChange={(e) => onSettingsChange({ 
-                gridEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Show Grid Lines
-            </label>
-          </div>
-
-          {settings.gridEnabled && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Grid Color</label>
-                <input
-                  type="color"
-                  value={settings.gridColor}
-                  onChange={(e) => onSettingsChange({ 
-                    gridColor: e.target.value 
-                  }, true)}
-                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Size
-                  <span className="ml-2 text-xs text-gray-400">{settings.gridSize} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="50"
-                  max="300"
-                  step="10"
-                  value={settings.gridSize}
-                  onChange={(e) => onSettingsChange({ gridSize: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Divisions
-                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridDivisions)} lines</span>
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="5"
-                  value={settings.gridDivisions}
-                  onChange={(e) => onSettingsChange({
-                    gridDivisions: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Opacity
-                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridOpacity * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.gridOpacity}
-                  onChange={(e) => onSettingsChange({
-                    gridOpacity: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1306,4 +1015,4 @@ const SceneSettings: React.FC<{
   );
 };
 
-export default SceneSettings;
+export default EnhancedSceneSettings;
