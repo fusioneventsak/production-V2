@@ -1,63 +1,103 @@
-import React, { useRef } from 'react';
+// src/components/three/CameraAnimationController.tsx - FIXED VERSION
+import React, { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
+interface CameraAnimationConfig {
+  enabled?: boolean;
+  type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
+  speed: number;
+  radius: number;
+  height: number;
+  amplitude: number;
+  frequency: number;
+}
+
 interface CameraAnimationControllerProps {
-  config?: {
-    enabled?: boolean;
-    type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
-    speed: number;
-    radius: number;
-    height: number;
-    amplitude: number;
-    frequency: number;
-  };
+  config?: CameraAnimationConfig;
 }
 
 export const CameraAnimationController: React.FC<CameraAnimationControllerProps> = ({ config }) => {
-  // Return null if config is undefined or null
-  if (!config) return null;
-  
-  const { camera } = useThree();
+  const { camera, controls } = useThree();
   const timeRef = useRef(0);
+  const initialPositionRef = useRef(camera.position.clone());
   const userInteractingRef = useRef(false);
   const lastInteractionRef = useRef(0);
+  const isActiveRef = useRef(false);
 
-  // PERFECT SEAMLESS LOOP FUNCTIONS - These guarantee no stuttering
-  const getAnimationPosition = (time: number): THREE.Vector3 => {
-    const t = time * (config.speed || 0);
+  // Store initial camera setup
+  useEffect(() => {
+    initialPositionRef.current = camera.position.clone();
+  }, [camera]);
+
+  // Detect user interaction with controls
+  useEffect(() => {
+    if (!controls) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      userInteractingRef.current = false;
+      lastInteractionRef.current = Date.now();
+    };
+
+    // Add event listeners for different control types
+    if ('addEventListener' in controls) {
+      controls.addEventListener('start', handleStart);
+      controls.addEventListener('end', handleEnd);
+      
+      return () => {
+        controls.removeEventListener('start', handleStart);
+        controls.removeEventListener('end', handleEnd);
+      };
+    }
+  }, [controls]);
+
+  // Animation calculation functions
+  const getAnimationPosition = (time: number, config: CameraAnimationConfig): THREE.Vector3 => {
+    const t = time * (config.speed || 1);
     
     switch (config.type) {
-      case 'figure8':
-        // PERFECT Figure-8: Uses parametric equations for seamless loop
+      case 'orbit':
         return new THREE.Vector3(
-          Math.sin(t) * (config.radius || 30),                    // X oscillates once per cycle
-          (config.height || 15) + Math.sin(t * 3) * 2,           // Gentle Y variation
-          Math.sin(t * 2) * (config.amplitude || 8)             // Z oscillates twice per cycle = figure-8
+          Math.cos(t) * (config.radius || 30),
+          config.height || 15,
+          Math.sin(t) * (config.radius || 30)
+        );
+
+      case 'figure8':
+        // Perfect figure-8 pattern
+        return new THREE.Vector3(
+          Math.sin(t) * (config.radius || 30),
+          (config.height || 15) + Math.sin(t * 2) * 3,
+          Math.sin(t * 2) * (config.amplitude || 10)
         );
 
       case 'centerRotate':
-        // PERFECT Center Focus: 20-second cycle with 3 phases
+        // Multi-phase center-focused rotation
         const cycleTime = 20;
-        const phase = (t % cycleTime) / cycleTime;        // 0 to 1, seamless wrap
-        const angle = t * 2;                              // Continuous rotation
+        const phase = (t % cycleTime) / cycleTime;
+        const angle = t * 2;
         
         let currentRadius: number;
         let currentHeight: number;
         
         if (phase < 0.3) {
-          // Phase 1: Spiral inward (0-30% of cycle)
-          const phaseT = phase / 0.3;                     // 0 to 1 within phase
-          currentRadius = (config.radius || 30) * (1 - phaseT * 0.8);
+          // Spiral inward
+          const phaseT = phase / 0.3;
+          currentRadius = (config.radius || 30) * (1 - phaseT * 0.7);
           currentHeight = (config.height || 15) + Math.sin(phaseT * Math.PI) * 5;
         } else if (phase < 0.7) {
-          // Phase 2: Center rotation (30-70% of cycle)
-          currentRadius = (config.radius || 30) * 0.2;
-          currentHeight = (config.height || 15) * 0.6;
+          // Center rotation
+          currentRadius = (config.radius || 30) * 0.3;
+          currentHeight = (config.height || 15) * 0.8;
         } else {
-          // Phase 3: Spiral outward (70-100% of cycle)
-          const phaseT = (phase - 0.7) / 0.3;            // 0 to 1 within phase
-          currentRadius = (config.radius || 30) * (0.2 + phaseT * 0.8);
+          // Spiral outward
+          const phaseT = (phase - 0.7) / 0.3;
+          currentRadius = (config.radius || 30) * (0.3 + phaseT * 0.7);
           currentHeight = (config.height || 15) + Math.sin(phaseT * Math.PI) * 5;
         }
         
@@ -67,16 +107,8 @@ export const CameraAnimationController: React.FC<CameraAnimationControllerProps>
           Math.sin(angle) * currentRadius
         );
 
-      case 'orbit':
-        // PERFECT Orbit: Simple circular motion
-        return new THREE.Vector3(
-          Math.cos(t) * (config.radius || 30),
-          config.height || 15,
-          Math.sin(t) * (config.radius || 30)
-        );
-
       case 'wave':
-        // PERFECT Wave: Radius oscillates while orbiting
+        // Wave pattern with radius oscillation
         const waveRadius = (config.radius || 30) + Math.sin(t * (config.frequency || 0.5)) * (config.amplitude || 8);
         return new THREE.Vector3(
           Math.cos(t) * waveRadius,
@@ -85,8 +117,8 @@ export const CameraAnimationController: React.FC<CameraAnimationControllerProps>
         );
 
       case 'spiral':
-        // PERFECT Spiral: Expanding/contracting with height variation
-        const spiralMod = 1 + Math.sin(t * (config.frequency || 0.5)) * 0.3;
+        // Expanding/contracting spiral with height variation
+        const spiralMod = 1 + Math.sin(t * (config.frequency || 0.5)) * 0.4;
         return new THREE.Vector3(
           Math.cos(t * 2) * (config.radius || 30) * spiralMod,
           (config.height || 15) + Math.sin(t * (config.frequency || 0.5) * 0.5) * (config.amplitude || 8),
@@ -98,58 +130,62 @@ export const CameraAnimationController: React.FC<CameraAnimationControllerProps>
     }
   };
 
-  // User interaction detection
-  React.useEffect(() => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return;
-
-    const handleInteractionStart = () => {
-      userInteractingRef.current = true;
-      lastInteractionRef.current = Date.now();
-    };
-
-    const handleInteractionEnd = () => {
-      lastInteractionRef.current = Date.now();
-      setTimeout(() => userInteractingRef.current = false, 1000);
-    };
-
-    canvas.addEventListener('mousedown', handleInteractionStart);
-    canvas.addEventListener('touchstart', handleInteractionStart);
-    canvas.addEventListener('wheel', handleInteractionStart);
-    canvas.addEventListener('mouseup', handleInteractionEnd);
-    canvas.addEventListener('touchend', handleInteractionEnd);
-
-    return () => {
-      canvas.removeEventListener('mousedown', handleInteractionStart);
-      canvas.removeEventListener('touchstart', handleInteractionStart);
-      canvas.removeEventListener('wheel', handleInteractionStart);
-      canvas.removeEventListener('mouseup', handleInteractionEnd);
-      canvas.removeEventListener('touchend', handleInteractionEnd);
-    };
-  }, []);
-
+  // Main animation frame update
   useFrame((state, delta) => {
-    if (!config || config.enabled === false || config.type === 'none') return;
-    
-    timeRef.current += delta;
-    
+    // Early return if no config or animation disabled
+    if (!config || !config.enabled || config.type === 'none') {
+      isActiveRef.current = false;
+      return;
+    }
+
+    // Check if user recently interacted (pause animation for 3 seconds after interaction)
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const shouldAnimate = !userInteractingRef.current && timeSinceInteraction > 1000 && config.enabled !== false;
+    const pauseAfterInteraction = 3000; // 3 seconds
+
+    if (userInteractingRef.current || timeSinceInteraction < pauseAfterInteraction) {
+      isActiveRef.current = false;
+      return;
+    }
+
+    // Resume animation
+    if (!isActiveRef.current) {
+      isActiveRef.current = true;
+      // Smooth transition back to animation
+      timeRef.current = Date.now() * 0.001;
+    }
+
+    // Update time
+    timeRef.current += delta;
+
+    // Calculate new position
+    const targetPosition = getAnimationPosition(timeRef.current, config);
     
-    if (shouldAnimate) {
-      const targetPosition = getAnimationPosition(timeRef.current);
-      
-      // Smooth transition with proper blending
-      if (timeSinceInteraction < 3000) {
-        const blendFactor = Math.min((timeSinceInteraction - 1000) / 2000, 1);
-        camera.position.lerp(targetPosition, blendFactor * 0.02);
-      } else {
-        camera.position.lerp(targetPosition, 0.01);
-      }
-      
-      camera.lookAt(0, 0, 0);
+    // Smooth camera movement with lerp
+    camera.position.lerp(targetPosition, 0.02);
+    
+    // Always look at center (0, 0, 0)
+    camera.lookAt(0, 0, 0);
+    
+    // Update controls target if available
+    if (controls && 'target' in controls) {
+      (controls as any).target.set(0, 0, 0);
+      (controls as any).update();
     }
   });
 
-  return null;
+  // Debug logging
+  useEffect(() => {
+    if (config?.enabled && config.type !== 'none') {
+      console.log('🎬 Camera Animation Started:', {
+        type: config.type,
+        speed: config.speed,
+        radius: config.radius,
+        height: config.height
+      });
+    }
+  }, [config?.enabled, config?.type]);
+
+  return null; // This component doesn't render anything visual
 };
+
+export default CameraAnimationController;
