@@ -1339,30 +1339,56 @@ const EnhancedAnimationController: React.FC<{
               : [baseSize, baseSize / aspectRatio]
           ) : undefined;
           
-          photosWithPositions.push({
-            ...photo,
-            targetPosition: patternState.positions[slotIndex] || [0, -6, 0],
-            targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
-            displayIndex: slotIndex,
-            slotIndex,
-            computedSize
-          });
+          // FIXED: Ensure we always use pattern-generated position
+          const position = patternState.positions[slotIndex];
+          const rotation = patternState.rotations?.[slotIndex];
+          
+          if (position) {
+            photosWithPositions.push({
+              ...photo,
+              targetPosition: position,
+              targetRotation: rotation || [0, 0, 0],
+              displayIndex: slotIndex,
+              slotIndex,
+              computedSize
+            });
+          }
         }
       }
       
+      // FIXED: Generate empty slots using the same pattern positions
       for (let i = 0; i < (settings.photoCount || 100); i++) {
         const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
         if (!hasPhoto) {
           const baseSize = settings.photoSize || 4.0;
-          photosWithPositions.push({
-            id: `placeholder-${i}`,
-            url: '',
-            targetPosition: patternState.positions[i] || [0, -6, 0],
-            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-            displayIndex: i,
-            slotIndex: i,
-            computedSize: [baseSize * (9/16), baseSize]
-          });
+          
+          // FIXED: Use pattern-generated position for empty slots too
+          const position = patternState.positions[i];
+          const rotation = patternState.rotations?.[i];
+          
+          if (position) {
+            photosWithPositions.push({
+              id: `placeholder-${i}`,
+              url: '',
+              targetPosition: position,
+              targetRotation: rotation || [0, 0, 0],
+              displayIndex: i,
+              slotIndex: i,
+              computedSize: [baseSize * (9/16), baseSize]
+            });
+          } else {
+            // Only fallback if pattern didn't generate position for this slot
+            console.warn(`No pattern position generated for slot ${i}, using fallback`);
+            photosWithPositions.push({
+              id: `placeholder-${i}`,
+              url: '',
+              targetPosition: [0, -6, 0],
+              targetRotation: [0, 0, 0],
+              displayIndex: i,
+              slotIndex: i,
+              computedSize: [baseSize * (9/16), baseSize]
+            });
+          }
         }
       }
       
