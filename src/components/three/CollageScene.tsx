@@ -1,4 +1,4 @@
-// Enhanced CollageScene with Advanced Performance, Quality, and Visual Features
+// Enhanced CollageScene with Fixed Camera Animations and Wall Color Support
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -6,7 +6,6 @@ import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
-import { CameraAnimationController } from './CameraAnimationController';
 import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
 
 type Photo = {
@@ -14,14 +13,14 @@ type Photo = {
   url: string;
   collage_id?: string;
   created_at?: string;
-  aspect_ratio?: number; // New: Track original aspect ratio
+  aspect_ratio?: number;
   width?: number;
   height?: number;
 };
 
 type CollageSceneProps = {
   photos: Photo[];
-  settings: ExtendedSceneSettings; // Use extended settings
+  settings: ExtendedSceneSettings;
   width?: number;
   height?: number;
   onSettingsChange?: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
@@ -32,64 +31,13 @@ type PhotoWithPosition = Photo & {
   targetRotation: [number, number, number];
   displayIndex?: number;
   slotIndex: number;
-  computedSize: [number, number]; // New: Computed dimensions based on aspect ratio
+  computedSize: [number, number];
 };
 
 // Enhanced animation constants
 const POSITION_SMOOTHING = 0.08;
 const ROTATION_SMOOTHING = 0.08;
 const TELEPORT_THRESHOLD = 35;
-
-// Advanced Resource Manager for Memory Optimization
-class ResourceManager {
-  private static instance: ResourceManager;
-  private texturePool = new Map<string, THREE.Texture>();
-  private materialPool = new Map<string, THREE.Material>();
-  private geometryPool = new Map<string, THREE.BufferGeometry>();
-  private maxCacheSize = 200; // Prevent memory leaks
-
-  static getInstance(): ResourceManager {
-    if (!ResourceManager.instance) {
-      ResourceManager.instance = new ResourceManager();
-    }
-    return ResourceManager.instance;
-  }
-
-  getTexture(url: string, loader: () => Promise<THREE.Texture>): Promise<THREE.Texture> {
-    if (this.texturePool.has(url)) {
-      return Promise.resolve(this.texturePool.get(url)!.clone());
-    }
-
-    return loader().then(texture => {
-      // Manage cache size
-      if (this.texturePool.size >= this.maxCacheSize) {
-        const firstKey = this.texturePool.keys().next().value;
-        const oldTexture = this.texturePool.get(firstKey);
-        oldTexture?.dispose();
-        this.texturePool.delete(firstKey);
-      }
-
-      this.texturePool.set(url, texture);
-      return texture.clone();
-    });
-  }
-
-  getGeometry(key: string, creator: () => THREE.BufferGeometry): THREE.BufferGeometry {
-    if (!this.geometryPool.has(key)) {
-      this.geometryPool.set(key, creator());
-    }
-    return this.geometryPool.get(key)!;
-  }
-
-  dispose(): void {
-    this.texturePool.forEach(texture => texture.dispose());
-    this.materialPool.forEach(material => material.dispose());
-    this.geometryPool.forEach(geometry => geometry.dispose());
-    this.texturePool.clear();
-    this.materialPool.clear();
-    this.geometryPool.clear();
-  }
-}
 
 // Scene Environment Types
 type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
@@ -105,170 +53,199 @@ interface ExtendedSceneSettings extends SceneSettings {
   sphereTextureUrl?: string;
   wallHeight?: number;
   wallThickness?: number;
+  wallColor?: string;
   ceilingEnabled?: boolean;
   ceilingHeight?: number;
   roomDepth?: number;
 }
 
-// Floor Texture Creator
-class FloorTextureFactory {
-  static createTexture(type: FloorTexture, size: number = 512, customUrl?: string): THREE.Texture {
-    if (type === 'custom' && customUrl) {
-      const loader = new THREE.TextureLoader();
-      const texture = loader.load(customUrl);
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(8, 8);
-      return texture;
+// FIXED Camera Animation Controller
+const CameraAnimationController: React.FC<{
+  config?: {
+    enabled?: boolean;
+    type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
+    speed: number;
+    radius: number;
+    height: number;
+    amplitude: number;
+    frequency: number;
+  };
+}> = ({ config }) => {
+  const { camera, controls } = useThree();
+  const timeRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const lastInteractionRef = useRef(0);
+  const isActiveRef = useRef(false);
+
+  // Detect user interaction with controls
+  useEffect(() => {
+    if (!controls) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      userInteractingRef.current = false;
+      lastInteractionRef.current = Date.now();
+    };
+
+    if ('addEventListener' in controls) {
+      controls.addEventListener('start', handleStart);
+      controls.addEventListener('end', handleEnd);
+      
+      return () => {
+        controls.removeEventListener('start', handleStart);
+        controls.removeEventListener('end', handleEnd);
+      };
+    }
+  }, [controls]);
+
+  // Animation calculation functions
+  const getAnimationPosition = (time: number, config: any): THREE.Vector3 => {
+    const t = time * (config.speed || 1);
+    
+    switch (config.type) {
+      case 'orbit':
+        return new THREE.Vector3(
+          Math.cos(t) * (config.radius || 30),
+          config.height || 15,
+          Math.sin(t) * (config.radius || 30)
+        );
+
+      case 'figure8':
+        // Perfect figure-8 pattern
+        return new THREE.Vector3(
+          Math.sin(t) * (config.radius || 30),
+          (config.height || 15) + Math.sin(t * 2) * 3,
+          Math.sin(t * 2) * (config.amplitude || 10)
+        );
+
+      case 'centerRotate':
+        // Multi-phase center-focused rotation
+        const cycleTime = 20;
+        const phase = (t % cycleTime) / cycleTime;
+        const angle = t * 2;
+        
+        let currentRadius: number;
+        let currentHeight: number;
+        
+        if (phase < 0.3) {
+          const phaseT = phase / 0.3;
+          currentRadius = (config.radius || 30) * (1 - phaseT * 0.7);
+          currentHeight = (config.height || 15) + Math.sin(phaseT * Math.PI) * 5;
+        } else if (phase < 0.7) {
+          currentRadius = (config.radius || 30) * 0.3;
+          currentHeight = (config.height || 15) * 0.8;
+        } else {
+          const phaseT = (phase - 0.7) / 0.3;
+          currentRadius = (config.radius || 30) * (0.3 + phaseT * 0.7);
+          currentHeight = (config.height || 15) + Math.sin(phaseT * Math.PI) * 5;
+        }
+        
+        return new THREE.Vector3(
+          Math.cos(angle) * currentRadius,
+          currentHeight,
+          Math.sin(angle) * currentRadius
+        );
+
+      case 'wave':
+        // Wave pattern with radius oscillation
+        const waveRadius = (config.radius || 30) + Math.sin(t * (config.frequency || 0.5)) * (config.amplitude || 8);
+        return new THREE.Vector3(
+          Math.cos(t) * waveRadius,
+          (config.height || 15) + Math.sin(t * (config.frequency || 0.5) * 2) * 3,
+          Math.sin(t) * waveRadius
+        );
+
+      case 'spiral':
+        // Expanding/contracting spiral with height variation
+        const spiralMod = 1 + Math.sin(t * (config.frequency || 0.5)) * 0.4;
+        return new THREE.Vector3(
+          Math.cos(t * 2) * (config.radius || 30) * spiralMod,
+          (config.height || 15) + Math.sin(t * (config.frequency || 0.5) * 0.5) * (config.amplitude || 8),
+          Math.sin(t * 2) * (config.radius || 30) * spiralMod
+        );
+
+      default:
+        return camera.position.clone();
+    }
+  };
+
+  // Main animation frame update
+  useFrame((state, delta) => {
+    if (!config || !config.enabled || config.type === 'none') {
+      isActiveRef.current = false;
+      return;
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
-    
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    // Check if user recently interacted (pause animation for 3 seconds after interaction)
+    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
+    const pauseAfterInteraction = 3000;
 
-    switch (type) {
-      case 'marble':
-        // Create marble texture
-        const gradient = ctx.createLinearGradient(0, 0, size, size);
-        gradient.addColorStop(0, '#f8f8ff');
-        gradient.addColorStop(0.3, '#e6e6fa');
-        gradient.addColorStop(0.6, '#dda0dd');
-        gradient.addColorStop(1, '#d8bfd8');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, size, size);
-        
-        // Add marble veins
-        ctx.strokeStyle = '#c0c0c0';
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 20; i++) {
-          ctx.beginPath();
-          ctx.moveTo(Math.random() * size, Math.random() * size);
-          ctx.bezierCurveTo(
-            Math.random() * size, Math.random() * size,
-            Math.random() * size, Math.random() * size,
-            Math.random() * size, Math.random() * size
-          );
-          ctx.stroke();
-        }
-        break;
-
-      case 'wood':
-        // Create wood texture
-        const woodGradient = ctx.createLinearGradient(0, 0, 0, size);
-        woodGradient.addColorStop(0, '#8B4513');
-        woodGradient.addColorStop(0.3, '#A0522D');
-        woodGradient.addColorStop(0.7, '#CD853F');
-        woodGradient.addColorStop(1, '#DEB887');
-        ctx.fillStyle = woodGradient;
-        ctx.fillRect(0, 0, size, size);
-        
-        // Add wood grain
-        ctx.strokeStyle = '#654321';
-        ctx.lineWidth = 1;
-        for (let y = 0; y < size; y += 8) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(size, y + Math.sin(y * 0.1) * 4);
-          ctx.stroke();
-        }
-        break;
-
-      case 'concrete':
-        // Create concrete texture
-        ctx.fillStyle = '#696969';
-        ctx.fillRect(0, 0, size, size);
-        
-        // Add concrete speckles
-        for (let i = 0; i < 1000; i++) {
-          ctx.fillStyle = Math.random() > 0.5 ? '#808080' : '#556B2F';
-          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
-        }
-        break;
-
-      case 'metal':
-        // Create brushed metal texture
-        const metalGradient = ctx.createLinearGradient(0, 0, size, 0);
-        metalGradient.addColorStop(0, '#C0C0C0');
-        metalGradient.addColorStop(0.5, '#A9A9A9');
-        metalGradient.addColorStop(1, '#808080');
-        ctx.fillStyle = metalGradient;
-        ctx.fillRect(0, 0, size, size);
-        
-        // Add brushed lines
-        ctx.strokeStyle = '#B8B8B8';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < size; x += 4) {
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, size);
-          ctx.stroke();
-        }
-        break;
-
-      case 'glass':
-        // Create glass texture
-        ctx.fillStyle = '#E0F6FF';
-        ctx.fillRect(0, 0, size, size);
-        
-        // Add glass reflection lines
-        ctx.strokeStyle = '#FFFFFF80';
-        ctx.lineWidth = 3;
-        for (let i = 0; i < 10; i++) {
-          const x = (i * size) / 10;
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x + 50, size);
-          ctx.stroke();
-        }
-        break;
-
-      case 'checkerboard':
-        // Create checkerboard pattern
-        const tileSize = size / 16;
-        for (let x = 0; x < 16; x++) {
-          for (let y = 0; y < 16; y++) {
-            ctx.fillStyle = (x + y) % 2 === 0 ? '#FFFFFF' : '#000000';
-            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-          }
-        }
-        break;
-
-      default: // 'solid'
-        ctx.fillStyle = '#2C2C2C';
-        ctx.fillRect(0, 0, size, size);
-        break;
+    if (userInteractingRef.current || timeSinceInteraction < pauseAfterInteraction) {
+      isActiveRef.current = false;
+      return;
     }
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(4, 4);
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = 16;
-    
-    return texture;
-  }
-}
+    // Resume animation
+    if (!isActiveRef.current) {
+      isActiveRef.current = true;
+      timeRef.current = Date.now() * 0.001;
+    }
 
-// Environment Scene Components
+    // Update time
+    timeRef.current += delta;
+
+    // Calculate new position
+    const targetPosition = getAnimationPosition(timeRef.current, config);
+    
+    // Smooth camera movement
+    camera.position.lerp(targetPosition, 0.02);
+    
+    // Always look at center
+    camera.lookAt(0, 0, 0);
+    
+    // Update controls target if available
+    if (controls && 'target' in controls) {
+      (controls as any).target.set(0, 0, 0);
+      (controls as any).update();
+    }
+  });
+
+  // Debug logging
+  useEffect(() => {
+    if (config?.enabled && config.type !== 'none') {
+      console.log('🎬 Camera Animation Started:', {
+        type: config.type,
+        speed: config.speed,
+        radius: config.radius,
+        height: config.height
+      });
+    }
+  }, [config?.enabled, config?.type]);
+
+  return null;
+};
+
+// FIXED Environment Components with Wall Color Support
 const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const wallSize = (settings.floorSize || 200) * 0.8;
   const wallHeight = settings.wallHeight || 40;
   const wallThickness = settings.wallThickness || 2;
+  const wallColor = settings.wallColor || settings.floorColor || '#3A3A3A';
 
   const wallMaterial = useMemo(() => {
     return new THREE.MeshStandardMaterial({
-      color: settings.floorColor || '#3A3A3A',
+      color: wallColor,
       metalness: 0.1,
       roughness: 0.8,
       side: THREE.DoubleSide,
     });
-  }, [settings.floorColor]);
+  }, [wallColor]);
+
+  console.log('🏢 CUBE: Rendering cube environment with wall color:', wallColor);
 
   return (
     <group>
@@ -294,7 +271,7 @@ const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settin
       {settings.ceilingEnabled && (
         <mesh position={[0, settings.ceilingHeight || wallHeight, 0]} receiveShadow>
           <planeGeometry args={[wallSize, wallSize]} />
-          <meshStandardMaterial color={settings.floorColor || '#2A2A2A'} side={THREE.DoubleSide} />
+          <meshStandardMaterial color={wallColor} side={THREE.DoubleSide} />
         </mesh>
       )}
     </group>
@@ -303,25 +280,28 @@ const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settin
 
 const SphereEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const sphereRadius = (settings.floorSize || 200) * 0.6;
+  const wallColor = settings.wallColor || settings.floorColor || '#1A1A2E';
 
   const sphereMaterial = useMemo(() => {
     if (settings.sphereTextureUrl) {
       const texture = new THREE.TextureLoader().load(settings.sphereTextureUrl);
       return new THREE.MeshStandardMaterial({
         map: texture,
-        side: THREE.BackSide, // View from inside
+        side: THREE.BackSide,
         metalness: 0,
         roughness: 0.8,
       });
     }
     
     return new THREE.MeshStandardMaterial({
-      color: settings.floorColor || '#1A1A2E',
+      color: wallColor,
       side: THREE.BackSide,
       metalness: 0.1,
       roughness: 0.9,
     });
-  }, [settings.floorColor, settings.sphereTextureUrl]);
+  }, [wallColor, settings.sphereTextureUrl]);
+
+  console.log('🌍 SPHERE: Rendering sphere environment with color:', wallColor);
 
   return (
     <mesh position={[0, 0, 0]}>
@@ -335,29 +315,32 @@ const GalleryEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ set
   const roomWidth = settings.floorSize || 200;
   const roomHeight = settings.wallHeight || 50;
   const roomDepth = settings.roomDepth || roomWidth;
+  const wallColor = settings.wallColor || '#F5F5F5';
+
+  console.log('🖼️ GALLERY: Rendering gallery environment with wall color:', wallColor);
 
   return (
     <group>
       {/* Gallery Walls */}
       <mesh position={[0, roomHeight / 2, -roomDepth / 2]} receiveShadow>
         <planeGeometry args={[roomWidth, roomHeight]} />
-        <meshStandardMaterial color="#F5F5F5" />
+        <meshStandardMaterial color={wallColor} />
       </mesh>
       
       <mesh position={[-roomWidth / 2, roomHeight / 2, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[roomDepth, roomHeight]} />
-        <meshStandardMaterial color="#F0F0F0" />
+        <meshStandardMaterial color={wallColor} />
       </mesh>
       
       <mesh position={[roomWidth / 2, roomHeight / 2, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[roomDepth, roomHeight]} />
-        <meshStandardMaterial color="#F0F0F0" />
+        <meshStandardMaterial color={wallColor} />
       </mesh>
 
       {/* Gallery Ceiling */}
       <mesh position={[0, roomHeight, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[roomWidth, roomDepth]} />
-        <meshStandardMaterial color="#FFFFFF" />
+        <meshStandardMaterial color={wallColor} />
       </mesh>
 
       {/* Gallery Track Lighting */}
@@ -378,13 +361,16 @@ const GalleryEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ set
 
 const StudioEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const studioSize = settings.floorSize || 200;
+  const backdropColor = settings.wallColor || '#E8E8E8';
+
+  console.log('📸 STUDIO: Rendering studio environment with backdrop color:', backdropColor);
 
   return (
     <group>
       {/* Curved Backdrop (Cyc Wall) */}
       <mesh position={[0, studioSize / 4, -studioSize / 3]}>
         <cylinderGeometry args={[studioSize / 2, studioSize / 2, studioSize / 2, 32, 1, false, 0, Math.PI]} />
-        <meshStandardMaterial color="#E8E8E8" side={THREE.DoubleSide} />
+        <meshStandardMaterial color={backdropColor} side={THREE.DoubleSide} />
       </mesh>
 
       {/* Studio Lighting Rig */}
@@ -414,6 +400,12 @@ const StudioEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ sett
 const SceneEnvironmentManager: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const environment = settings.sceneEnvironment || 'default';
 
+  console.log('🌟 ENVIRONMENT: Rendering environment type:', environment, 'with settings:', {
+    wallColor: settings.wallColor,
+    floorColor: settings.floorColor,
+    wallThickness: settings.wallThickness
+  });
+
   switch (environment) {
     case 'cube':
       return <CubeEnvironment settings={settings} />;
@@ -425,9 +417,194 @@ const SceneEnvironmentManager: React.FC<{ settings: ExtendedSceneSettings }> = (
       return <StudioEnvironment settings={settings} />;
     case 'default':
     default:
-      return null; // Default open space
+      return null;
   }
 };
+
+// Advanced Resource Manager for Memory Optimization
+class ResourceManager {
+  private static instance: ResourceManager;
+  private texturePool = new Map<string, THREE.Texture>();
+  private materialPool = new Map<string, THREE.Material>();
+  private geometryPool = new Map<string, THREE.BufferGeometry>();
+  private maxCacheSize = 200;
+
+  static getInstance(): ResourceManager {
+    if (!ResourceManager.instance) {
+      ResourceManager.instance = new ResourceManager();
+    }
+    return ResourceManager.instance;
+  }
+
+  getTexture(url: string, loader: () => Promise<THREE.Texture>): Promise<THREE.Texture> {
+    if (this.texturePool.has(url)) {
+      return Promise.resolve(this.texturePool.get(url)!.clone());
+    }
+
+    return loader().then(texture => {
+      if (this.texturePool.size >= this.maxCacheSize) {
+        const firstKey = this.texturePool.keys().next().value;
+        const oldTexture = this.texturePool.get(firstKey);
+        oldTexture?.dispose();
+        this.texturePool.delete(firstKey);
+      }
+
+      this.texturePool.set(url, texture);
+      return texture.clone();
+    });
+  }
+
+  getGeometry(key: string, creator: () => THREE.BufferGeometry): THREE.BufferGeometry {
+    if (!this.geometryPool.has(key)) {
+      this.geometryPool.set(key, creator());
+    }
+    return this.geometryPool.get(key)!;
+  }
+
+  dispose(): void {
+    this.texturePool.forEach(texture => texture.dispose());
+    this.materialPool.forEach(material => material.dispose());
+    this.geometryPool.forEach(geometry => geometry.dispose());
+    this.texturePool.clear();
+    this.materialPool.clear();
+    this.geometryPool.clear();
+  }
+}
+
+// Floor Texture Creator
+class FloorTextureFactory {
+  static createTexture(type: FloorTexture, size: number = 512, customUrl?: string): THREE.Texture {
+    if (type === 'custom' && customUrl) {
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load(customUrl);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(8, 8);
+      return texture;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    switch (type) {
+      case 'marble':
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#f8f8ff');
+        gradient.addColorStop(0.3, '#e6e6fa');
+        gradient.addColorStop(0.6, '#dda0dd');
+        gradient.addColorStop(1, '#d8bfd8');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#c0c0c0';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 20; i++) {
+          ctx.beginPath();
+          ctx.moveTo(Math.random() * size, Math.random() * size);
+          ctx.bezierCurveTo(
+            Math.random() * size, Math.random() * size,
+            Math.random() * size, Math.random() * size,
+            Math.random() * size, Math.random() * size
+          );
+          ctx.stroke();
+        }
+        break;
+
+      case 'wood':
+        const woodGradient = ctx.createLinearGradient(0, 0, 0, size);
+        woodGradient.addColorStop(0, '#8B4513');
+        woodGradient.addColorStop(0.3, '#A0522D');
+        woodGradient.addColorStop(0.7, '#CD853F');
+        woodGradient.addColorStop(1, '#DEB887');
+        ctx.fillStyle = woodGradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 1;
+        for (let y = 0; y < size; y += 8) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size, y + Math.sin(y * 0.1) * 4);
+          ctx.stroke();
+        }
+        break;
+
+      case 'concrete':
+        ctx.fillStyle = '#696969';
+        ctx.fillRect(0, 0, size, size);
+        
+        for (let i = 0; i < 1000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#808080' : '#556B2F';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+        }
+        break;
+
+      case 'metal':
+        const metalGradient = ctx.createLinearGradient(0, 0, size, 0);
+        metalGradient.addColorStop(0, '#C0C0C0');
+        metalGradient.addColorStop(0.5, '#A9A9A9');
+        metalGradient.addColorStop(1, '#808080');
+        ctx.fillStyle = metalGradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#B8B8B8';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < size; x += 4) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, size);
+          ctx.stroke();
+        }
+        break;
+
+      case 'glass':
+        ctx.fillStyle = '#E0F6FF';
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#FFFFFF80';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 10; i++) {
+          const x = (i * size) / 10;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + 50, size);
+          ctx.stroke();
+        }
+        break;
+
+      case 'checkerboard':
+        const tileSize = size / 16;
+        for (let x = 0; x < 16; x++) {
+          for (let y = 0; y < 16; y++) {
+            ctx.fillStyle = (x + y) % 2 === 0 ? '#FFFFFF' : '#000000';
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
+        break;
+
+      default:
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(0, 0, size, size);
+        break;
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = 16;
+    
+    return texture;
+  }
+}
+
 class EnhancedSlotManager {
   private slotAssignments = new Map<string, number>();
   private occupiedSlots = new Set<number>();
@@ -464,17 +641,14 @@ class EnhancedSlotManager {
     this.availableSlots.sort((a, b) => a - b);
   }
 
-  // Enhanced slot assignment with aspect ratio tracking
   assignSlots(photos: Photo[]): Map<string, number> {
     const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
     
-    // Update aspect ratios - only for photos that don't already have stored ratios
     safePhotos.forEach(photo => {
       if (!this.photoAspectRatios.has(photo.id)) {
         if (photo.width && photo.height) {
           this.photoAspectRatios.set(photo.id, photo.width / photo.height);
         }
-        // Don't set a default - let the component detect it from the actual image
       }
     });
     
@@ -508,7 +682,7 @@ class EnhancedSlotManager {
   }
 
   getAspectRatio(photoId: string): number | null {
-    return this.photoAspectRatios.get(photoId) || null; // Return null if not detected
+    return this.photoAspectRatios.get(photoId) || null;
   }
 }
 
@@ -519,11 +693,9 @@ const BackgroundRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ set
   useEffect(() => {
     try {
       if (settings.backgroundGradient) {
-        // For gradient backgrounds, make WebGL transparent so CSS gradient shows through
         scene.background = null;
-        gl.setClearColor('#000000', 0); // Transparent
+        gl.setClearColor('#000000', 0);
       } else {
-        // For solid backgrounds, use Three.js background color
         scene.background = new THREE.Color(settings.backgroundColor || '#000000');
         gl.setClearColor(settings.backgroundColor || '#000000', 1);
       }
@@ -561,13 +733,11 @@ const OptimizedPhotoMesh: React.FC<{
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
 
-  // Initialize position immediately to prevent jarring movements
   useEffect(() => {
     currentPosition.current.set(...photo.targetPosition);
     currentRotation.current.set(...photo.targetRotation);
   }, [photo.targetPosition, photo.targetRotation]);
 
-  // Simple, fast texture loading
   useEffect(() => {
     if (!photo.url) {
       setIsLoading(false);
@@ -578,7 +748,6 @@ const OptimizedPhotoMesh: React.FC<{
     setIsLoading(true);
     setHasError(false);
     
-    // Create image for aspect ratio detection
     const img = new Image();
     img.crossOrigin = 'anonymous';
     
@@ -591,13 +760,11 @@ const OptimizedPhotoMesh: React.FC<{
         : `${photo.url}?t=${Date.now()}`;
 
       loader.load(imageUrl, (loadedTexture) => {
-        // High quality settings but simple and fast
         loadedTexture.generateMipmaps = true;
         loadedTexture.minFilter = THREE.LinearMipmapLinearFilter;
         loadedTexture.magFilter = THREE.LinearFilter;
         loadedTexture.format = THREE.RGBAFormat;
         
-        // Apply anisotropic filtering for distance quality
         if (gl && gl.capabilities.getMaxAnisotropy) {
           loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
         }
@@ -628,7 +795,6 @@ const OptimizedPhotoMesh: React.FC<{
     };
   }, [photo.url, gl]);
 
-  // Calculate dimensions based on detected aspect ratio
   const computedDimensions = useMemo(() => {
     const baseSize = settings.photoSize || 4.0;
     
@@ -646,7 +812,6 @@ const OptimizedPhotoMesh: React.FC<{
     }
   }, [settings.photoSize, photo.computedSize, detectedAspectRatio]);
 
-  // Camera facing logic (from original)
   useFrame(() => {
     if (!meshRef.current || !shouldFaceCamera) return;
 
@@ -664,7 +829,6 @@ const OptimizedPhotoMesh: React.FC<{
     }
   });
 
-  // Smooth animation (from original)
   useFrame(() => {
     if (!meshRef.current) return;
 
@@ -690,7 +854,6 @@ const OptimizedPhotoMesh: React.FC<{
     }
   });
 
-  // Simple, fast material
   const material = useMemo(() => {
     if (texture) {
       const hasTransparency = photo.url.toLowerCase().includes('.png') || 
@@ -708,9 +871,8 @@ const OptimizedPhotoMesh: React.FC<{
         premultipliedAlpha: false,
       });
     } else {
-      // Simple empty slot
       const canvas = document.createElement('canvas');
-      canvas.width = 256; // Very small for performance
+      canvas.width = 256;
       canvas.height = 256;
       const ctx = canvas.getContext('2d')!;
       
@@ -754,7 +916,6 @@ const OptimizedPhotoMesh: React.FC<{
   );
 });
 
-// Simple Photo Renderer for Performance
 const SimplePhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
   settings: ExtendedSceneSettings;
@@ -775,7 +936,6 @@ const SimplePhotoRenderer: React.FC<{
   );
 };
 
-// Enhanced Lighting (Simplified for Performance)
 const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
   const targetRefs = useRef<THREE.Object3D[]>([]);
@@ -784,7 +944,6 @@ const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({
     const lights = [];
     const count = Math.min(settings.spotlightCount || 4, 4);
     
-    // Ensure we have enough target refs
     while (targetRefs.current.length < count) {
       targetRefs.current.push(new THREE.Object3D());
     }
@@ -852,14 +1011,12 @@ const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({
   );
 };
 
-// Enhanced Camera Controls with Touch Support
 const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
   const userInteractingRef = useRef(false);
   const lastInteractionTimeRef = useRef(0);
   
-  // Initialize camera position
   useEffect(() => {
     if (camera && controlsRef.current) {
       const initialDistance = settings.cameraDistance || 25;
@@ -877,7 +1034,6 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
     }
   }, [camera, settings.cameraDistance, settings.cameraHeight]);
 
-  // Handle user interaction detection
   useEffect(() => {
     if (!controlsRef.current) return;
 
@@ -903,11 +1059,9 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
     };
   }, []);
 
-  // Auto rotation when enabled
   useFrame((state, delta) => {
     if (!controlsRef.current) return;
 
-    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
     if (settings.cameraRotationEnabled && !userInteractingRef.current) {
       const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
       const spherical = new THREE.Spherical().setFromVector3(offset);
@@ -936,7 +1090,6 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
       zoomSpeed={1.5}
       rotateSpeed={1.2}
       panSpeed={1.2}
-      // Enhanced touch controls
       touches={{
         ONE: THREE.TOUCH.ROTATE,
         TWO: THREE.TOUCH.DOLLY_PAN
@@ -950,7 +1103,6 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
   );
 };
 
-// Enhanced Animation Controller (Simplified - No Collision System)
 const EnhancedAnimationController: React.FC<{
   settings: ExtendedSceneSettings;
   photos: Photo[];
@@ -976,7 +1128,6 @@ const EnhancedAnimationController: React.FC<{
         console.error('Pattern generation error:', error);
         const positions = [];
         const rotations = [];
-        // Add more spacing to prevent overlaps
         const spacing = Math.max(6, (settings.photoSize || 4.0) * 1.5);
         for (let i = 0; i < (settings.photoCount || 100); i++) {
           const x = (i % 10) * spacing - (spacing * 5);
@@ -995,7 +1146,6 @@ const EnhancedAnimationController: React.FC<{
           const aspectRatio = slotManagerRef.current.getAspectRatio(photo.id);
           const baseSize = settings.photoSize || 4.0;
           
-          // Only set computedSize if we have aspect ratio data, otherwise let component detect it
           const computedSize = aspectRatio ? (
             aspectRatio > 1 
               ? [baseSize * aspectRatio, baseSize]
@@ -1013,7 +1163,6 @@ const EnhancedAnimationController: React.FC<{
         }
       }
       
-      // Add empty slots with 9:16 aspect ratio
       for (let i = 0; i < (settings.photoCount || 100); i++) {
         const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
         if (!hasPhoto) {
@@ -1025,7 +1174,7 @@ const EnhancedAnimationController: React.FC<{
             targetRotation: patternState.rotations?.[i] || [0, 0, 0],
             displayIndex: i,
             slotIndex: i,
-            computedSize: [baseSize * (9/16), baseSize] // 9:16 empty slots (portrait)
+            computedSize: [baseSize * (9/16), baseSize]
           });
         }
       }
@@ -1055,7 +1204,6 @@ const EnhancedAnimationController: React.FC<{
   return null;
 };
 
-// Enhanced Floor with Multiple Textures
 const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
@@ -1079,7 +1227,6 @@ const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings
       envMapIntensity: 0.5,
     });
 
-    // Adjust material properties based on floor texture type
     switch (settings.floorTexture) {
       case 'marble':
         material.metalness = 0.1;
@@ -1131,7 +1278,6 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
   const safePhotos = Array.isArray(photos) ? photos : [];
   const safeSettings = { ...settings };
 
-  // Background style with enhanced gradients
   const backgroundStyle = useMemo(() => {
     if (safeSettings.backgroundGradient) {
       return {
@@ -1149,7 +1295,6 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
     safeSettings.backgroundGradientAngle
   ]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       // Cleanup function
@@ -1167,7 +1312,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           position: [0, 5, 25], 
           fov: 75,
           near: 0.1,
-          far: 2000 // Increased far plane for distant quality
+          far: 2000
         }}
         gl={{ 
           antialias: true,
@@ -1175,69 +1320,70 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           powerPreference: "high-performance",
           preserveDrawingBuffer: true,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.2, // Enhanced exposure
+          toneMappingExposure: 1.2,
           outputColorSpace: THREE.SRGBColorSpace,
         }}
         onCreated={(state) => {
-          // Enhanced WebGL settings for quality
           state.gl.shadowMap.enabled = true;
           state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
           state.gl.shadowMap.autoUpdate = true;
           
-          // High pixel ratio for sharp rendering
           const pixelRatio = Math.min(window.devicePixelRatio, 2);
           state.gl.setPixelRatio(pixelRatio);
           
-          // Set initial background based on gradient setting  
           if (safeSettings.backgroundGradient) {
-            state.gl.setClearColor('#000000', 0); // Transparent for gradients
+            state.gl.setClearColor('#000000', 0);
           } else {
             state.gl.setClearColor(safeSettings.backgroundColor || '#000000', 1);
           }
         }}
-        performance={{ min: 0.8 }} // Back to original performance settings
+        performance={{ min: 0.8 }}
         linear={true}
       >
         {/* Background Management */}
         <BackgroundRenderer settings={safeSettings} />
         
-        {/* Enhanced Controls */}
+        {/* FIXED Camera Controls with Animation Support */}
         <EnhancedCameraControls settings={safeSettings} />
         <CameraAnimationController config={safeSettings.cameraAnimation} />
         
-        {/* Particle System with Floor Scaling */}
+        {/* Particle System */}
         {safeSettings.particles?.enabled && (
           <MilkyWayParticleSystem
             colorTheme={getCurrentParticleTheme(safeSettings)}
             intensity={safeSettings.particles?.intensity ?? 0.7}
             enabled={safeSettings.particles?.enabled ?? true}
             photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
-            floorSize={safeSettings.floorSize || 200} // Pass floor size for scaling
-            gridSize={safeSettings.gridSize || 200} // Pass grid size for reference
+            floorSize={safeSettings.floorSize || 200}
+            gridSize={safeSettings.gridSize || 200}
           />
         )}
         
-        {/* Scene Environment (Cube, Sphere, Gallery, Studio) */}
+        {/* FIXED Scene Environment Manager with Wall Color Support */}
         <SceneEnvironmentManager settings={safeSettings} />
         
         {/* Enhanced Lighting */}
         <EnhancedLightingSystem settings={safeSettings} />
         
-        {/* Textured Floor and Grid */}
-        <TexturedFloor settings={safeSettings} />
-        
-        {safeSettings.gridEnabled && (
-          <gridHelper
-            args={[
-              safeSettings.gridSize || 200,
-              safeSettings.gridDivisions || 30,
-              safeSettings.gridColor || '#444444',
-              safeSettings.gridColor || '#444444'
-            ]}
-            position={[0, -11.99, 0]}
-            material-opacity={safeSettings.gridOpacity || 1.0}
-            material-transparent={true}
-          />
+        {/* Textured Floor and Grid - Only show for default environment */}
+        {(!safeSettings.sceneEnvironment || safeSettings.sceneEnvironment === 'default') && (
+          <>
+            <TexturedFloor settings={safeSettings} />
+            
+            {safeSettings.gridEnabled && (
+              <gridHelper
+                args={[
+                  safeSettings.gridSize || 200,
+                  safeSettings.gridDivisions || 30,
+                  safeSettings.gridColor || '#444444',
+                  safeSettings.gridColor || '#444444'
+                ]}
+                position={[0, -11.99, 0]}
+                material-opacity={safeSettings.gridOpacity || 1.0}
+                material-transparent={true}
+              />
+            )}
+          </>
         )}
         
         {/* Enhanced Animation Controller */}
