@@ -57,6 +57,20 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingEnabled?: boolean;
   ceilingHeight?: number;
   roomDepth?: number;
+  
+  // Enhanced Auto-Rotate Camera Settings
+  cameraAutoRotateSpeed?: number;
+  cameraAutoRotateRadius?: number;
+  cameraAutoRotateHeight?: number;
+  cameraAutoRotateElevationMin?: number;
+  cameraAutoRotateElevationMax?: number;
+  cameraAutoRotateElevationSpeed?: number;
+  cameraAutoRotateDistanceVariation?: number;
+  cameraAutoRotateDistanceSpeed?: number;
+  cameraAutoRotateVerticalDrift?: number;
+  cameraAutoRotateVerticalDriftSpeed?: number;
+  cameraAutoRotateFocusOffset?: [number, number, number];
+  cameraAutoRotatePauseOnInteraction?: number;
 }
 
 // FIXED Camera Animation Controller
@@ -229,10 +243,11 @@ const CameraAnimationController: React.FC<{
   return null;
 };
 
-// FIXED Environment Components with Wall Color Support
+// Enhanced Cube Environment with Full Background Scale
 const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const wallSize = (settings.floorSize || 200) * 0.8;
-  const wallHeight = settings.wallHeight || 40;
+  // Much larger walls to fill entire background
+  const wallSize = Math.max((settings.floorSize || 200) * 3, 600);
+  const wallHeight = Math.max(settings.wallHeight || 40, 300);
   const wallThickness = settings.wallThickness || 2;
   const wallColor = settings.wallColor || settings.floorColor || '#3A3A3A';
 
@@ -245,31 +260,37 @@ const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settin
     });
   }, [wallColor]);
 
-  console.log('🏢 CUBE: Rendering cube environment with wall color:', wallColor);
+  console.log('🏢 CUBE: Rendering large cube environment with size:', wallSize, 'height:', wallHeight, 'color:', wallColor);
 
   return (
     <group>
-      {/* Back Wall */}
-      <mesh position={[0, wallHeight / 2, -wallSize / 2]} receiveShadow>
+      {/* Back Wall - Much larger and taller */}
+      <mesh position={[0, wallHeight / 2 - 50, -wallSize / 2]} receiveShadow>
         <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
         <primitive object={wallMaterial} attach="material" />
       </mesh>
       
       {/* Left Wall */}
-      <mesh position={[-wallSize / 2, wallHeight / 2, 0]} receiveShadow>
+      <mesh position={[-wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
         <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
         <primitive object={wallMaterial} attach="material" />
       </mesh>
       
       {/* Right Wall */}
-      <mesh position={[wallSize / 2, wallHeight / 2, 0]} receiveShadow>
+      <mesh position={[wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
         <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
         <primitive object={wallMaterial} attach="material" />
       </mesh>
 
-      {/* Ceiling (optional) */}
+      {/* Front Wall (optional - can be removed for open front) */}
+      <mesh position={[0, wallHeight / 2 - 50, wallSize / 2]} receiveShadow>
+        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+
+      {/* Ceiling (if enabled) */}
       {settings.ceilingEnabled && (
-        <mesh position={[0, settings.ceilingHeight || wallHeight, 0]} receiveShadow>
+        <mesh position={[0, (settings.ceilingHeight || wallHeight) - 50, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[wallSize, wallSize]} />
           <meshStandardMaterial color={wallColor} side={THREE.DoubleSide} />
         </mesh>
@@ -311,86 +332,169 @@ const SphereEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ sett
   );
 };
 
+// Enhanced Gallery Environment with Full Background Scale and Fixed Colors
 const GalleryEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const roomWidth = settings.floorSize || 200;
-  const roomHeight = settings.wallHeight || 50;
+  const roomWidth = Math.max(settings.floorSize || 200, 400) * 2;
+  const roomHeight = Math.max(settings.wallHeight || 50, 200);
   const roomDepth = settings.roomDepth || roomWidth;
   const wallColor = settings.wallColor || '#F5F5F5';
 
-  console.log('🖼️ GALLERY: Rendering gallery environment with wall color:', wallColor);
+  const wallMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: wallColor,
+      metalness: 0.0,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+  }, [wallColor]);
+
+  console.log('🖼️ GALLERY: Rendering large gallery with dimensions:', { roomWidth, roomHeight, roomDepth }, 'color:', wallColor);
 
   return (
     <group>
-      {/* Gallery Walls */}
-      <mesh position={[0, roomHeight / 2, -roomDepth / 2]} receiveShadow>
+      {/* Back Wall - Much larger */}
+      <mesh position={[0, roomHeight / 2 - 50, -roomDepth / 2]} receiveShadow>
         <planeGeometry args={[roomWidth, roomHeight]} />
-        <meshStandardMaterial color={wallColor} />
+        <primitive object={wallMaterial} attach="material" />
       </mesh>
       
-      <mesh position={[-roomWidth / 2, roomHeight / 2, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+      {/* Left Wall */}
+      <mesh position={[-roomWidth / 2, roomHeight / 2 - 50, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[roomDepth, roomHeight]} />
-        <meshStandardMaterial color={wallColor} />
+        <primitive object={wallMaterial} attach="material" />
       </mesh>
       
-      <mesh position={[roomWidth / 2, roomHeight / 2, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
+      {/* Right Wall */}
+      <mesh position={[roomWidth / 2, roomHeight / 2 - 50, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[roomDepth, roomHeight]} />
-        <meshStandardMaterial color={wallColor} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+
+      {/* Front Wall */}
+      <mesh position={[0, roomHeight / 2 - 50, roomDepth / 2]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
       </mesh>
 
       {/* Gallery Ceiling */}
-      <mesh position={[0, roomHeight, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh position={[0, roomHeight - 50, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[roomWidth, roomDepth]} />
-        <meshStandardMaterial color={wallColor} />
+        <primitive object={wallMaterial} attach="material" />
       </mesh>
 
-      {/* Gallery Track Lighting */}
-      {Array.from({ length: 4 }, (_, i) => (
-        <spotLight
-          key={i}
-          position={[(i - 1.5) * (roomWidth / 4), roomHeight - 5, 0]}
-          angle={Math.PI / 6}
-          penumbra={0.3}
-          intensity={2}
-          color="#FFFFFF"
-          castShadow
-        />
+      {/* Enhanced Gallery Track Lighting */}
+      {Array.from({ length: 8 }, (_, i) => (
+        <group key={i}>
+          {/* Track Light Fixture */}
+          <mesh position={[(i - 3.5) * (roomWidth / 8), roomHeight - 55, 0]}>
+            <cylinderGeometry args={[1, 1.5, 3, 8]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} roughness={0.2} />
+          </mesh>
+          
+          {/* Spot Light */}
+          <spotLight
+            position={[(i - 3.5) * (roomWidth / 8), roomHeight - 55, 0]}
+            target-position={[(i - 3.5) * (roomWidth / 8), -10, 0]}
+            angle={Math.PI / 6}
+            penumbra={0.3}
+            intensity={2}
+            color="#FFFFFF"
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+          />
+        </group>
       ))}
     </group>
   );
 };
 
+// Enhanced Studio Environment with Full Background Scale and Fixed Colors
 const StudioEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const studioSize = settings.floorSize || 200;
+  const studioSize = Math.max(settings.floorSize || 200, 300) * 2;
   const backdropColor = settings.wallColor || '#E8E8E8';
 
-  console.log('📸 STUDIO: Rendering studio environment with backdrop color:', backdropColor);
+  const backdropMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: backdropColor,
+      metalness: 0.0,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+  }, [backdropColor]);
+
+  // Create curved backdrop geometry - much larger
+  const backdropGeometry = useMemo(() => {
+    const geometry = new THREE.CylinderGeometry(
+      studioSize, // radius top
+      studioSize, // radius bottom  
+      studioSize * 1.2, // height - taller
+      32, // radial segments
+      1, // height segments
+      true, // open ended
+      0, // theta start
+      Math.PI // theta length (half circle)
+    );
+    return geometry;
+  }, [studioSize]);
+
+  // Studio lighting positions (6-point lighting) - adjusted for larger space
+  const lightPositions = useMemo(() => [
+    // Key light
+    [studioSize * 0.3, studioSize * 0.4, studioSize * 0.5],
+    // Fill light
+    [-studioSize * 0.3, studioSize * 0.4, studioSize * 0.5],
+    // Back light
+    [0, studioSize * 0.6, -studioSize * 0.3],
+    // Hair lights
+    [studioSize * 0.2, studioSize * 0.8, 0],
+    [-studioSize * 0.2, studioSize * 0.8, 0],
+    // Background light
+    [0, studioSize * 0.2, -studioSize * 0.8]
+  ], [studioSize]);
+
+  console.log('📸 STUDIO: Rendering large studio with size:', studioSize, 'backdrop color:', backdropColor);
 
   return (
     <group>
-      {/* Curved Backdrop (Cyc Wall) */}
-      <mesh position={[0, studioSize / 4, -studioSize / 3]}>
-        <cylinderGeometry args={[studioSize / 2, studioSize / 2, studioSize / 2, 32, 1, false, 0, Math.PI]} />
-        <meshStandardMaterial color={backdropColor} side={THREE.DoubleSide} />
+      {/* Curved Backdrop (Cyc Wall) - Much larger */}
+      <mesh 
+        geometry={backdropGeometry} 
+        material={backdropMaterial}
+        position={[0, studioSize * 0.2 - 50, -studioSize * 0.6]}
+        rotation={[0, 0, 0]}
+      />
+
+      {/* Studio Floor Extension - Large seamless backdrop */}
+      <mesh position={[0, -50, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[studioSize * 2, studioSize * 2]} />
+        <primitive object={backdropMaterial} attach="material" />
       </mesh>
 
       {/* Studio Lighting Rig */}
       <group position={[0, studioSize / 2, 0]}>
-        {Array.from({ length: 6 }, (_, i) => {
-          const angle = (i / 6) * Math.PI * 2;
-          const radius = studioSize / 3;
-          return (
+        {lightPositions.map((pos, i) => (
+          <group key={i}>
+            {/* Light Stand/Fixture */}
+            <mesh position={pos as [number, number, number]}>
+              <cylinderGeometry args={[1, 2, 4, 8]} />
+              <meshStandardMaterial color="#222222" metalness={0.9} roughness={0.1} />
+            </mesh>
+            
+            {/* Studio Light */}
             <spotLight
-              key={i}
-              position={[Math.cos(angle) * radius, 0, Math.sin(angle) * radius]}
-              target-position={[0, -studioSize / 4, 0]}
-              angle={Math.PI / 4}
-              penumbra={0.4}
-              intensity={1.5}
+              position={pos as [number, number, number]}
+              target-position={[0, -25, 0]}
+              angle={i < 2 ? Math.PI / 4 : Math.PI / 6} // Wider angle for key/fill
+              penumbra={0.5}
+              intensity={i === 0 ? 3 : i === 1 ? 2 : 1.5} // Key light brightest
               color="#FFFFFF"
-              castShadow
+              castShadow={i < 3} // Only first 3 lights cast shadows for performance
+              shadow-mapSize-width={2048}
+              shadow-mapSize-height={2048}
             />
-          );
-        })}
+          </group>
+        ))}
       </group>
     </group>
   );
@@ -1011,12 +1115,18 @@ const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({
   );
 };
 
+// Enhanced Camera Controls with Fine-Tuning Auto-Rotate
 const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
   const userInteractingRef = useRef(false);
   const lastInteractionTimeRef = useRef(0);
+  const autoRotateTimeRef = useRef(0);
+  const heightOscillationRef = useRef(0);
+  const distanceOscillationRef = useRef(0);
+  const verticalDriftRef = useRef(0);
   
+  // Initialize camera position
   useEffect(() => {
     if (camera && controlsRef.current) {
       const initialDistance = settings.cameraDistance || 25;
@@ -1034,6 +1144,7 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
     }
   }, [camera, settings.cameraDistance, settings.cameraHeight]);
 
+  // Handle user interaction detection
   useEffect(() => {
     if (!controlsRef.current) return;
 
@@ -1046,7 +1157,7 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
       lastInteractionTimeRef.current = Date.now();
       setTimeout(() => {
         userInteractingRef.current = false;
-      }, 500);
+      }, settings.cameraAutoRotatePauseOnInteraction || 500);
     };
 
     const controls = controlsRef.current;
@@ -1057,20 +1168,73 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
       controls.removeEventListener('start', handleStart);
       controls.removeEventListener('end', handleEnd);
     };
-  }, []);
+  }, [settings.cameraAutoRotatePauseOnInteraction]);
 
+  // Enhanced auto rotation with fine controls
   useFrame((state, delta) => {
     if (!controlsRef.current) return;
 
+    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
     if (settings.cameraRotationEnabled && !userInteractingRef.current) {
-      const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
-      const spherical = new THREE.Spherical().setFromVector3(offset);
+      // Update time references
+      autoRotateTimeRef.current += delta * (settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5);
+      heightOscillationRef.current += delta * (settings.cameraAutoRotateElevationSpeed || 0.3);
+      distanceOscillationRef.current += delta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
+      verticalDriftRef.current += delta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
+
+      // Calculate base position from current camera position
+      const currentOffset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
+      const currentSpherical = new THREE.Spherical().setFromVector3(currentOffset);
+
+      // Apply horizontal rotation
+      currentSpherical.theta = autoRotateTimeRef.current;
+
+      // Calculate dynamic radius with variation
+      const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
+      const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
+      const dynamicRadius = baseRadius + Math.sin(distanceOscillationRef.current) * radiusVariation;
+      currentSpherical.radius = dynamicRadius;
+
+      // Calculate dynamic elevation (phi angle)
+      const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 5;
+      const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6); // 30 degrees
+      const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3); // 60 degrees
+      const elevationRange = elevationMax - elevationMin;
+      const elevationOscillation = (Math.sin(heightOscillationRef.current) + 1) / 2; // 0 to 1
+      currentSpherical.phi = elevationMin + (elevationOscillation * elevationRange);
+
+      // Calculate new camera position
+      const newPosition = new THREE.Vector3().setFromSpherical(currentSpherical);
+
+      // Apply vertical drift to the focus point
+      const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
+      const driftOffset = Math.sin(verticalDriftRef.current) * verticalDrift;
       
-      spherical.theta += (settings.cameraRotationSpeed || 0.5) * delta;
+      // Calculate focus point with offset
+      const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
+      const focusPoint = new THREE.Vector3(
+        focusOffset[0],
+        focusOffset[1] + driftOffset,
+        focusOffset[2]
+      );
+
+      // Add focus point to camera position
+      newPosition.add(focusPoint);
       
-      const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
+      // Update camera and controls
       camera.position.copy(newPosition);
+      controlsRef.current.target.copy(focusPoint);
       controlsRef.current.update();
+
+      // Debug logging (can be removed)
+      if (Math.floor(autoRotateTimeRef.current * 10) % 50 === 0) {
+        console.log('🎬 Auto-Rotate:', {
+          radius: dynamicRadius.toFixed(1),
+          elevation: (currentSpherical.phi * 180 / Math.PI).toFixed(1) + '°',
+          rotation: (currentSpherical.theta * 180 / Math.PI).toFixed(1) + '°',
+          drift: driftOffset.toFixed(2)
+        });
+      }
     }
   });
 
