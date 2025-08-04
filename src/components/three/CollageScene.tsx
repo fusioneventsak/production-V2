@@ -1,5 +1,116 @@
 // Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
-import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
+import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef }
+
+// ENHANCED GRID PATTERN - Always creates symmetrical layouts with aspect ratio support
+class EnhancedGridPattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
+      ? this.settings.patterns.grid.photoCount 
+      : this.settings.photoCount;
+    
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    const photoSize = this.settings.photoSize || 4;
+    
+    // Grid aspect ratio settings
+    const aspectRatio = this.settings.patterns?.grid?.aspectRatio || this.settings.gridAspectRatio || (16/9);
+    const spacing = this.settings.patterns?.grid?.spacing || 0.1;
+    const wallHeight = this.settings.patterns?.grid?.wallHeight || 0;
+    
+    // OPTIMIZED: Calculate optimal grid dimensions for symmetrical layout
+    const { columns, rows } = this.calculateOptimalGrid(totalPhotos, aspectRatio);
+    
+    // Calculate spacing based on photo size and spacing multiplier
+    const baseSpacing = photoSize * (1 + spacing);
+    const totalWidth = columns * baseSpacing;
+    const totalHeight = rows * baseSpacing;
+    
+    // FIXED: Position grid just above the floor with proper height offset
+    const floorHeight = -12;
+    const gridBaseHeight = floorHeight + photoSize * 0.6 + wallHeight; // Just above floor
+    
+    // Calculate starting positions to center the grid
+    const startX = -totalWidth / 2 + baseSpacing / 2;
+    const startZ = -totalHeight / 2 + baseSpacing / 2;
+    
+    // Generate positions in perfect grid layout
+    for (let i = 0; i < totalPhotos; i++) {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      
+      const x = startX + col * baseSpacing;
+      const z = startZ + row * baseSpacing;
+      
+      // FIXED: Photos arranged in wall formation just above floor
+      let y = gridBaseHeight;
+      
+      // Add slight height variation for visual interest if enabled
+      if (this.settings.animationEnabled && wallHeight === 0) {
+        const heightVariation = Math.sin(time * 0.5 + i * 0.3) * (photoSize * 0.1);
+        y += heightVariation;
+      }
+      
+      positions.push([x, y, z]);
+      
+      // Grid photos face forward (toward camera) by default
+      if (this.settings.photoRotation && this.settings.animationEnabled) {
+        // Subtle rotation animation for grid
+        const rotationY = Math.sin(time * 0.2 + i * 0.1) * 0.05;
+        const rotationX = Math.cos(time * 0.3 + i * 0.2) * 0.02;
+        rotations.push([rotationX, rotationY, 0]);
+      } else {
+        rotations.push([0, 0, 0]);
+      }
+    }
+    
+    console.log(`📐 Grid: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)}`);
+    
+    return { positions, rotations };
+  }
+  
+  // OPTIMIZED: Calculate the most symmetrical grid layout
+  private calculateOptimalGrid(photoCount: number, targetAspectRatio: number): { columns: number, rows: number } {
+    if (photoCount <= 0) return { columns: 1, rows: 1 };
+    
+    let bestColumns = 1;
+    let bestRows = photoCount;
+    let bestScore = Number.MAX_VALUE;
+    
+    // Try different column counts to find the most balanced grid
+    for (let cols = 1; cols <= Math.ceil(Math.sqrt(photoCount * 2)); cols++) {
+      const rows = Math.ceil(photoCount / cols);
+      const actualPhotos = cols * rows;
+      
+      // Calculate how close this layout is to our target aspect ratio
+      const layoutAspectRatio = cols / rows;
+      const aspectRatioScore = Math.abs(layoutAspectRatio - targetAspectRatio);
+      
+      // Penalize layouts that waste too many slots
+      const wastedSlots = actualPhotos - photoCount;
+      const wasteScore = wastedSlots / actualPhotos;
+      
+      // Prefer more square-ish layouts for better symmetry
+      const symmetryScore = Math.abs(cols - rows) / Math.max(cols, rows);
+      
+      // Combined score (lower is better)
+      const totalScore = aspectRatioScore * 2 + wasteScore * 3 + symmetryScore * 1;
+      
+      if (totalScore < bestScore) {
+        bestScore = totalScore;
+        bestColumns = cols;
+        bestRows = rows;
+      }
+    }
+    
+    return { columns: bestColumns, rows: bestRows };
+  }
+}
+
+// FIXED SPIRAL PATTERN - TALLER cyclone with better distribution and some randomness from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
@@ -81,6 +192,37 @@ interface ExtendedSceneSettings extends SceneSettings {
     heightVariation?: number;   // How much height varies during animation
     distanceVariation?: number; // How much distance varies during animation
   };
+  
+  // ENHANCED: Pattern-specific settings
+  patterns?: {
+    grid?: {
+      photoCount?: number;
+      aspectRatio?: number;     // Grid aspect ratio (width/height)
+      spacing?: number;         // Space between photos (multiplier)
+      wallHeight?: number;      // Height offset from floor
+    };
+    wave?: {
+      photoCount?: number;
+      amplitude?: number;
+      frequency?: number;
+      spacing?: number;
+    };
+    spiral?: {
+      photoCount?: number;
+      radius?: number;
+      heightStep?: number;
+      spacing?: number;
+    };
+    float?: {
+      photoCount?: number;
+      height?: number;
+      spread?: number;
+      spacing?: number;
+    };
+  };
+  
+  // Legacy grid settings for backward compatibility
+  gridAspectRatio?: number;
   
   // Auto-Rotate Camera Settings
   cameraAutoRotateSpeed?: number;
@@ -932,7 +1074,114 @@ class FixedWavePattern {
   }
 }
 
-// FIXED SPIRAL PATTERN - TALLER cyclone with better distribution and some randomness
+// ENHANCED GRID PATTERN - Always creates symmetrical layouts with aspect ratio support
+class EnhancedGridPattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
+      ? this.settings.patterns.grid.photoCount 
+      : this.settings.photoCount;
+    
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    const photoSize = this.settings.photoSize || 4;
+    
+    // Grid aspect ratio settings
+    const aspectRatio = this.settings.patterns?.grid?.aspectRatio || this.settings.gridAspectRatio || (16/9);
+    const spacing = this.settings.patterns?.grid?.spacing || 0.1;
+    const wallHeight = this.settings.patterns?.grid?.wallHeight || 0;
+    
+    // OPTIMIZED: Calculate optimal grid dimensions for symmetrical layout
+    const { columns, rows } = this.calculateOptimalGrid(totalPhotos, aspectRatio);
+    
+    // Calculate spacing based on photo size and spacing multiplier
+    const baseSpacing = photoSize * (1 + spacing);
+    const totalWidth = columns * baseSpacing;
+    const totalHeight = rows * baseSpacing;
+    
+    // FIXED: Position grid just above the floor with proper height offset
+    const floorHeight = -12;
+    const gridBaseHeight = floorHeight + photoSize * 0.6 + wallHeight; // Just above floor
+    
+    // Calculate starting positions to center the grid
+    const startX = -totalWidth / 2 + baseSpacing / 2;
+    const startZ = -totalHeight / 2 + baseSpacing / 2;
+    
+    // Generate positions in perfect grid layout
+    for (let i = 0; i < totalPhotos; i++) {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      
+      const x = startX + col * baseSpacing;
+      const z = startZ + row * baseSpacing;
+      
+      // FIXED: Photos arranged in wall formation just above floor
+      let y = gridBaseHeight;
+      
+      // Add slight height variation for visual interest if enabled
+      if (this.settings.animationEnabled && wallHeight === 0) {
+        const heightVariation = Math.sin(time * 0.5 + i * 0.3) * (photoSize * 0.1);
+        y += heightVariation;
+      }
+      
+      positions.push([x, y, z]);
+      
+      // Grid photos face forward (toward camera) by default
+      if (this.settings.photoRotation && this.settings.animationEnabled) {
+        // Subtle rotation animation for grid
+        const rotationY = Math.sin(time * 0.2 + i * 0.1) * 0.05;
+        const rotationX = Math.cos(time * 0.3 + i * 0.2) * 0.02;
+        rotations.push([rotationX, rotationY, 0]);
+      } else {
+        rotations.push([0, 0, 0]);
+      }
+    }
+    
+    console.log(`📐 Grid: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)}`);
+    
+    return { positions, rotations };
+  }
+  
+  // OPTIMIZED: Calculate the most symmetrical grid layout
+  private calculateOptimalGrid(photoCount: number, targetAspectRatio: number): { columns: number, rows: number } {
+    if (photoCount <= 0) return { columns: 1, rows: 1 };
+    
+    let bestColumns = 1;
+    let bestRows = photoCount;
+    let bestScore = Number.MAX_VALUE;
+    
+    // Try different column counts to find the most balanced grid
+    for (let cols = 1; cols <= Math.ceil(Math.sqrt(photoCount * 2)); cols++) {
+      const rows = Math.ceil(photoCount / cols);
+      const actualPhotos = cols * rows;
+      
+      // Calculate how close this layout is to our target aspect ratio
+      const layoutAspectRatio = cols / rows;
+      const aspectRatioScore = Math.abs(layoutAspectRatio - targetAspectRatio);
+      
+      // Penalize layouts that waste too many slots
+      const wastedSlots = actualPhotos - photoCount;
+      const wasteScore = wastedSlots / actualPhotos;
+      
+      // Prefer more square-ish layouts for better symmetry
+      const symmetryScore = Math.abs(cols - rows) / Math.max(cols, rows);
+      
+      // Combined score (lower is better)
+      const totalScore = aspectRatioScore * 2 + wasteScore * 3 + symmetryScore * 1;
+      
+      if (totalScore < bestScore) {
+        bestScore = totalScore;
+        bestColumns = cols;
+        bestRows = rows;
+      }
+    }
+    
+    return { columns: bestColumns, rows: bestRows };
+  }
+}
 class FixedSpiralPattern {
   constructor(private settings: any) {}
 
@@ -1921,8 +2170,11 @@ const EnhancedAnimationController: React.FC<{
       
       let patternState;
       try {
-        // FIXED: Use our fixed patterns for wave and spiral
-        if (settings.animationPattern === 'wave') {
+        // FIXED: Use enhanced grid pattern for perfect symmetrical layouts
+        if (settings.animationPattern === 'grid') {
+          const enhancedGridPattern = new EnhancedGridPattern(settings);
+          patternState = enhancedGridPattern.generatePositions(time);
+        } else if (settings.animationPattern === 'wave') {
           const fixedWavePattern = new FixedWavePattern(settings);
           patternState = fixedWavePattern.generatePositions(time);
         } else if (settings.animationPattern === 'spiral') {
