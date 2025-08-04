@@ -1,13 +1,52 @@
-// src/components/collage/SceneSettings.tsx - Enhanced with Environment Controls and Advanced Camera Settings
-import React from 'react';
+// Enhanced CollageScene with Fixed Camera Animations and Wall Color Support
+import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers } from 'lucide-react';
-import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
+import { PatternFactory } from './patterns/PatternFactory';
+import { addCacheBustToUrl } from '../../lib/supabase';
+import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
 
-// Extended settings interface for new features
+type Photo = {
+  id: string;
+  url: string;
+  collage_id?: string;
+  created_at?: string;
+  aspect_ratio?: number;
+  width?: number;
+  height?: number;
+};
+
+type CollageSceneProps = {
+  photos: Photo[];
+  settings: ExtendedSceneSettings;
+  width?: number;
+  height?: number;
+  onSettingsChange?: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
+};
+
+type PhotoWithPosition = Photo & {
+  targetPosition: [number, number, number];
+  targetRotation: [number, number, number];
+  displayIndex?: number;
+  slotIndex: number;
+  computedSize: [number, number];
+};
+
+// Enhanced animation constants
+const POSITION_SMOOTHING = 0.08;
+const ROTATION_SMOOTHING = 0.08;
+const TELEPORT_THRESHOLD = 35;
+
+// Scene Environment Types
+type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
+type FloorTexture = 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+
+// Extended settings for scene environments
 interface ExtendedSceneSettings extends SceneSettings {
-  sceneEnvironment?: 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
-  floorTexture?: 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+  sceneEnvironment?: SceneEnvironment;
+  floorTexture?: FloorTexture;
   customFloorTextureUrl?: string;
   environmentIntensity?: number;
   cubeTextureUrl?: string;
@@ -34,1321 +73,1564 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotatePauseOnInteraction?: number;
 }
 
-const EnhancedSceneSettings: React.FC<{
-  settings: ExtendedSceneSettings;
-  onSettingsChange: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
-  onReset: () => void;
-}> = ({ settings, onSettingsChange, onReset }) => {
+// FIXED Camera Animation Controller
+const CameraAnimationController: React.FC<{
+  config?: {
+    enabled?: boolean;
+    type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
+    speed: number;
+    radius: number;
+    height: number;
+    amplitude: number;
+    frequency: number;
+  };
+}> = ({ config }) => {
+  const { camera, controls } = useThree();
+  const timeRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const lastInteractionRef = useRef(0);
+  const isActiveRef = useRef(false);
+
+  // Detect user interaction with controls
+  useEffect(() => {
+    if (!controls) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      userInteractingRef.current = false;
+      lastInteractionRef.current = Date.now();
+    };
+
+    if ('addEventListener' in controls) {
+      controls.addEventListener('start', handleStart);
+      controls.addEventListener('end', handleEnd);
+      
+      return () => {
+        controls.removeEventListener('start', handleStart);
+        controls.removeEventListener('end', handleEnd);
+      };
+    }
+  }, [controls]);
+
+  // Animation calculation functions
+  const getAnimationPosition = (time: number, config: any): THREE.Vector3 => {
+    const t = time * (config.speed || 1);
+    
+    switch (config.type) {
+      case 'orbit':
+        return new THREE.Vector3(
+          Math.cos(t) * (config.radius || 30),
+          config.height || 15,
+          Math.sin(t) * (config.radius || 30)
+        );
+
+      case 'figure8':
+        // Perfect figure-8 pattern
+        return new THREE.Vector3(
+          Math.sin(t) * (config.radius || 30),
+          (config.height || 15) + Math.sin(t * 2) * 3,
+          Math.sin(t * 2) * (config.amplitude || 10)
+        );
+
+      case 'centerRotate':
+        // Multi-phase center-focused rotation
+        const cycleTime = 20;
+        const phase = (t % cycleTime) / cycleTime;
+        const angle = t * 2;
+        
+        let currentRadius: number;
+        let currentHeight: number;
+        
+        if (phase < 0.3) {
+          const phaseT = phase / 0.3;
+          currentRadius = (config.radius || 30) * (1 - phaseT * 0.7);
+          currentHeight = (config.height || 15) + Math.sin(phaseT * Math.PI) * 5;
+        } else if (phase < 0.7) {
+          currentRadius = (config.radius || 30) * 0.3;
+          currentHeight = (config.height || 15) * 0.8;
+        } else {
+          const phaseT = (phase - 0.7) / 0.3;
+          currentRadius = (config.radius || 30) * (0.3 + phaseT * 0.7);
+          currentHeight = (config.height || 15) + Math.sin(phaseT * Math.PI) * 5;
+        }
+        
+        return new THREE.Vector3(
+          Math.cos(angle) * currentRadius,
+          currentHeight,
+          Math.sin(angle) * currentRadius
+        );
+
+      case 'wave':
+        // Wave pattern with radius oscillation
+        const waveRadius = (config.radius || 30) + Math.sin(t * (config.frequency || 0.5)) * (config.amplitude || 8);
+        return new THREE.Vector3(
+          Math.cos(t) * waveRadius,
+          (config.height || 15) + Math.sin(t * (config.frequency || 0.5) * 2) * 3,
+          Math.sin(t) * waveRadius
+        );
+
+      case 'spiral':
+        // Expanding/contracting spiral with height variation
+        const spiralMod = 1 + Math.sin(t * (config.frequency || 0.5)) * 0.4;
+        return new THREE.Vector3(
+          Math.cos(t * 2) * (config.radius || 30) * spiralMod,
+          (config.height || 15) + Math.sin(t * (config.frequency || 0.5) * 0.5) * (config.amplitude || 8),
+          Math.sin(t * 2) * (config.radius || 30) * spiralMod
+        );
+
+      default:
+        return camera.position.clone();
+    }
+  };
+
+  // Main animation frame update
+  useFrame((state, delta) => {
+    if (!config || !config.enabled || config.type === 'none') {
+      isActiveRef.current = false;
+      return;
+    }
+
+    // Check if user recently interacted (pause animation for 3 seconds after interaction)
+    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
+    const pauseAfterInteraction = 3000;
+
+    if (userInteractingRef.current || timeSinceInteraction < pauseAfterInteraction) {
+      isActiveRef.current = false;
+      return;
+    }
+
+    // Resume animation
+    if (!isActiveRef.current) {
+      isActiveRef.current = true;
+      timeRef.current = Date.now() * 0.001;
+    }
+
+    // Update time
+    timeRef.current += delta;
+
+    // Calculate new position
+    const targetPosition = getAnimationPosition(timeRef.current, config);
+    
+    // Smooth camera movement
+    camera.position.lerp(targetPosition, 0.02);
+    
+    // Always look at center
+    camera.lookAt(0, 0, 0);
+    
+    // Update controls target if available
+    if (controls && 'target' in controls) {
+      (controls as any).target.set(0, 0, 0);
+      (controls as any).update();
+    }
+  });
+
+  // Debug logging
+  useEffect(() => {
+    if (config?.enabled && config.type !== 'none') {
+      console.log('🎬 Camera Animation Started:', {
+        type: config.type,
+        speed: config.speed,
+        radius: config.radius,
+        height: config.height
+      });
+    }
+  }, [config?.enabled, config?.type]);
+
+  return null;
+};
+
+// Enhanced Cube Environment with Full Background Scale
+const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  // Much larger walls to fill entire background
+  const wallSize = Math.max((settings.floorSize || 200) * 3, 600);
+  const wallHeight = Math.max(settings.wallHeight || 40, 300);
+  const wallThickness = settings.wallThickness || 2;
+  const wallColor = settings.wallColor || settings.floorColor || '#3A3A3A';
+
+  const wallMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: wallColor,
+      metalness: 0.1,
+      roughness: 0.8,
+      side: THREE.DoubleSide,
+    });
+  }, [wallColor]);
+
+  console.log('🏢 CUBE: Rendering large cube environment with size:', wallSize, 'height:', wallHeight, 'color:', wallColor);
+
   return (
-    <div className="space-y-6">
-      {/* Scene Environment Section */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Building className="h-4 w-4 mr-2" />
-          Scene Environment
-        </h4>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">Environment Type</label>
-            <select
-              value={settings.sceneEnvironment || 'default'}
-              onChange={(e) => onSettingsChange({ 
-                sceneEnvironment: e.target.value as ExtendedSceneSettings['sceneEnvironment']
-              })}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-            >
-              <option value="default">🌌 Open Space (Default)</option>
-              <option value="cube">🏠 Cube Room</option>
-              <option value="sphere">🌍 Sphere Interior</option>
-              <option value="gallery">🖼️ Art Gallery</option>
-              <option value="studio">📸 Photo Studio</option>
-            </select>
-            <p className="mt-1 text-xs text-gray-400">
-              {settings.sceneEnvironment === 'cube' && "Enclosed room with walls and optional ceiling"}
-              {settings.sceneEnvironment === 'sphere' && "Immersive 360° spherical environment"}
-              {settings.sceneEnvironment === 'gallery' && "Professional gallery with track lighting"}
-              {settings.sceneEnvironment === 'studio' && "Photography studio with curved backdrop"}
-              {(!settings.sceneEnvironment || settings.sceneEnvironment === 'default') && "Open space with floor and optional grid"}
-            </p>
-          </div>
+    <group>
+      {/* Back Wall - Much larger and taller */}
+      <mesh position={[0, wallHeight / 2 - 50, -wallSize / 2]} receiveShadow>
+        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      
+      {/* Left Wall */}
+      <mesh position={[-wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
+        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      
+      {/* Right Wall */}
+      <mesh position={[wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
+        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
 
-          {/* Cube Environment Settings */}
-          {settings.sceneEnvironment === 'cube' && (
-            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
-              <h5 className="text-xs font-medium text-gray-300">Cube Room Settings</h5>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Wall Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.wallColor || settings.floorColor || '#3A3A3A'}
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Presets</option>
-                    <option value="#8B4513">🟤 Saddle Brown</option>
-                    <option value="#A0522D">🟤 Sienna</option>
-                    <option value="#CD853F">🟤 Peru</option>
-                    <option value="#D2691E">🟠 Chocolate</option>
-                    <option value="#BC8F8F">🟤 Rosy Brown</option>
-                    <option value="#F4A460">🟤 Sandy Brown</option>
-                    <option value="#DEB887">🟤 Burlywood</option>
-                    <option value="#D2B48C">🟤 Tan</option>
-                    <option value="#8FBC8F">🟢 Dark Sea Green</option>
-                    <option value="#9ACD32">🟢 Yellow Green</option>
-                    <option value="#6B8E23">🟢 Olive Drab</option>
-                    <option value="#228B22">🟢 Forest Green</option>
-                    <option value="#2F4F4F">🔘 Dark Slate Gray</option>
-                    <option value="#696969">🔘 Dim Gray</option>
-                    <option value="#708090">🔘 Slate Gray</option>
-                    <option value="#F5F5DC">🟡 Beige</option>
-                    <option value="#FFFAF0">🟡 Floral White</option>
-                  </select>
-                </div>
-              </div>
+      {/* Front Wall (optional - can be removed for open front) */}
+      <mesh position={[0, wallHeight / 2 - 50, wallSize / 2]} receiveShadow>
+        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
 
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Wall Thickness
-                  <span className="ml-2 text-xs text-gray-400">{settings.wallThickness || 2} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.5"
-                  value={settings.wallThickness || 2}
-                  onChange={(e) => onSettingsChange({ wallThickness: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={settings.ceilingEnabled || false}
-                  onChange={(e) => onSettingsChange({ ceilingEnabled: e.target.checked })}
-                  className="mr-2 bg-gray-800 border-gray-700"
-                />
-                <label className="text-sm text-gray-300">Add Ceiling</label>
-              </div>
-
-              {settings.ceilingEnabled && (
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Ceiling Height
-                    <span className="ml-2 text-xs text-gray-400">{settings.ceilingHeight || 100} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="30"
-                    max="150"
-                    step="5"
-                    value={settings.ceilingHeight || 100}
-                    onChange={(e) => onSettingsChange({ ceilingHeight: parseFloat(e.target.value) }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                </div>
-              )}
-              
-              <p className="text-xs text-gray-400">
-                💡 Walls automatically extend to floor edges with infinite height
-              </p>
-            </div>
-          )}
-
-          {/* Sphere Environment Settings */}
-          {settings.sceneEnvironment === 'sphere' && (
-            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
-              <h5 className="text-xs font-medium text-gray-300">Sphere Settings</h5>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Sphere Interior Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.wallColor || settings.floorColor || '#1A1A2E'}
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Space Presets</option>
-                    <option value="#000080">🌌 Navy Space</option>
-                    <option value="#191970">🌌 Midnight Blue</option>
-                    <option value="#4B0082">🌌 Indigo</option>
-                    <option value="#2E0854">🌌 Dark Purple</option>
-                    <option value="#1a1a2e">🌌 Deep Space</option>
-                    <option value="#16213e">🌌 Dark Blue</option>
-                    <option value="#0f3460">🌌 Ocean Deep</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Custom Sphere Texture URL</label>
-                <input
-                  type="url"
-                  value={settings.sphereTextureUrl || ''}
-                  onChange={(e) => onSettingsChange({ sphereTextureUrl: e.target.value }, true)}
-                  placeholder="https://example.com/360-panorama.jpg"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-400">Optional: 360° panoramic image for immersive interior</p>
-              </div>
-              
-              <p className="text-xs text-gray-400">
-                🌍 Photos are automatically contained within the sphere boundary
-              </p>
-            </div>
-          )}
-
-          {/* Gallery Environment Settings */}
-          {settings.sceneEnvironment === 'gallery' && (
-            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
-              <h5 className="text-xs font-medium text-gray-300">Gallery Settings</h5>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Gallery Wall Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.wallColor || '#F5F5F5'}
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Gallery Presets</option>
-                    <option value="#FFFFFF">⚪ Pure White</option>
-                    <option value="#F8F8FF">⚪ Ghost White</option>
-                    <option value="#F5F5F5">⚪ White Smoke</option>
-                    <option value="#DCDCDC">⚪ Gainsboro</option>
-                    <option value="#D3D3D3">⚪ Light Gray</option>
-                    <option value="#C0C0C0">⚪ Silver</option>
-                    <option value="#FFF8DC">🟡 Cornsilk</option>
-                    <option value="#FFFAF0">🟡 Floral White</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Room Depth
-                  <span className="ml-2 text-xs text-gray-400">{settings.roomDepth || settings.floorSize || 200} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="100"
-                  max="400"
-                  step="20"
-                  value={settings.roomDepth || settings.floorSize || 200}
-                  onChange={(e) => onSettingsChange({ roomDepth: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-              
-              <p className="text-xs text-gray-400">
-                🖼️ Includes professional track lighting and infinite height walls
-              </p>
-            </div>
-          )}
-
-          {/* Studio Environment Settings */}
-          {settings.sceneEnvironment === 'studio' && (
-            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
-              <h5 className="text-xs font-medium text-gray-300">Studio Settings</h5>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Backdrop Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.wallColor || '#E8E8E8'}
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Studio Presets</option>
-                    <option value="#FFFFFF">⚪ White Cyc</option>
-                    <option value="#E8E8E8">⚪ Light Gray</option>
-                    <option value="#D3D3D3">⚪ Silver Cyc</option>
-                    <option value="#000000">⚫ Black Cyc</option>
-                    <option value="#2F4F4F">⚫ Dark Slate</option>
-                    <option value="#008000">🟢 Green Screen</option>
-                    <option value="#0000FF">🔵 Blue Screen</option>
-                  </select>
-                </div>
-              </div>
-              
-              <p className="text-xs text-gray-400">
-                📸 Features curved backdrop and 6-point professional lighting rig
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Animation Controls */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Move className="h-4 w-4 mr-2" />
-          Animation
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.animationEnabled}
-              onChange={(e) => onSettingsChange({ 
-                animationEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Enable Animations
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Animation Pattern
-            </label>
-            <select
-              value={settings.animationPattern}
-              onChange={(e) => onSettingsChange({ 
-                animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid' 
-              })}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-            >
-              <option value="grid">Grid Wall</option>
-              <option value="float">Float</option>
-              <option value="wave">Wave</option>
-              <option value="spiral">Spiral</option>
-            </select>
-          </div>
-          
-          {settings.animationEnabled && (
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">
-                Animation Speed
-                <span className="ml-2 text-xs text-gray-400">
-                  {settings.animationSpeed}%
-                </span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value={settings.animationSpeed}
-                onChange={(e) => onSettingsChange({ 
-                  animationSpeed: parseFloat(e.target.value) 
-                }, true)}
-                className="w-full bg-gray-800"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Enhanced Camera Controls */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <CameraIcon className="h-4 w-4 mr-2" />
-          Camera Controls
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.cameraEnabled}
-              onChange={(e) => onSettingsChange({ 
-                cameraEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Enable Camera Movement
-            </label>
-          </div>
-
-          {settings.cameraEnabled && (
-            <div className="space-y-4">
-              {/* Camera Movement Type Selector */}
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Camera Movement Type</label>
-                <select
-                  value={settings.cameraRotationEnabled ? 'auto-rotate' : (settings.cameraAnimation?.enabled ? 'cinematic' : 'manual')}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === 'manual') {
-                      onSettingsChange({ 
-                        cameraRotationEnabled: false,
-                        cameraAnimation: { ...settings.cameraAnimation, enabled: false }
-                      });
-                    } else if (value === 'auto-rotate') {
-                      onSettingsChange({ 
-                        cameraRotationEnabled: true,
-                        cameraAnimation: { ...settings.cameraAnimation, enabled: false }
-                      });
-                    } else if (value === 'cinematic') {
-                      onSettingsChange({ 
-                        cameraRotationEnabled: false,
-                        cameraAnimation: { ...settings.cameraAnimation, enabled: true }
-                      });
-                    }
-                  }}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-                >
-                  <option value="manual">📱 Manual Control Only</option>
-                  <option value="auto-rotate">🔄 Auto Rotate (Enhanced)</option>
-                  <option value="cinematic">🎬 Cinematic Animations</option>
-                </select>
-                <p className="mt-1 text-xs text-gray-400">
-                  {settings.cameraRotationEnabled ? 'Enhanced auto-rotation with fine controls' : 
-                   settings.cameraAnimation?.enabled ? 'Advanced cinematic camera movements' : 
-                   'Full manual control with mouse/touch only'}
-                </p>
-              </div>
-
-              {/* Enhanced Auto Rotate Settings */}
-              {settings.cameraRotationEnabled && (
-                <div className="bg-blue-900/20 p-4 rounded-lg space-y-4">
-                  <h5 className="text-sm font-medium text-blue-300">🔄 Enhanced Auto Rotate Settings</h5>
-                  
-                  {/* Basic Controls */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">
-                        Rotation Speed
-                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5).toFixed(1)}x</span>
-                      </label>
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="3.0"
-                        step="0.1"
-                        value={settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5}
-                        onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotateSpeed: parseFloat(e.target.value),
-                          cameraRotationSpeed: parseFloat(e.target.value) // Keep compatibility
-                        }, true)}
-                        className="w-full bg-gray-800"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">
-                        Distance
-                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateRadius || settings.cameraDistance || 25).toFixed(0)} units</span>
-                      </label>
-                      <input
-                        type="range"
-                        min="10"
-                        max="100"
-                        step="1"
-                        value={settings.cameraAutoRotateRadius || settings.cameraDistance || 25}
-                        onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotateRadius: parseFloat(e.target.value),
-                          cameraDistance: parseFloat(e.target.value) // Keep compatibility
-                        }, true)}
-                        className="w-full bg-gray-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Height
-                      <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateHeight || settings.cameraHeight || 5).toFixed(0)} units</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="150"
-                      step="2"
-                      value={settings.cameraAutoRotateHeight || settings.cameraHeight || 5}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAutoRotateHeight: parseFloat(e.target.value),
-                        cameraHeight: parseFloat(e.target.value) // Keep compatibility
-                      }, true)}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  {/* Advanced Controls */}
-                  <div className="border-t border-gray-700 pt-4">
-                    <h6 className="text-xs font-medium text-gray-300 mb-3">⚙️ Advanced Movement Controls</h6>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Elevation Range Min
-                          <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAutoRotateElevationMin || Math.PI/6) * 180 / Math.PI)}°</span>
-                        </label>
-                        <input
-                          type="range"
-                          min={Math.PI/12}
-                          max={Math.PI/2}
-                          step={Math.PI/180}
-                          value={settings.cameraAutoRotateElevationMin || Math.PI/6}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAutoRotateElevationMin: parseFloat(e.target.value)
-                          }, true)}
-                          className="w-full bg-gray-800"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Elevation Range Max
-                          <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAutoRotateElevationMax || Math.PI/3) * 180 / Math.PI)}°</span>
-                        </label>
-                        <input
-                          type="range"
-                          min={Math.PI/6}
-                          max={Math.PI/1.5}
-                          step={Math.PI/180}
-                          value={settings.cameraAutoRotateElevationMax || Math.PI/3}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAutoRotateElevationMax: parseFloat(e.target.value)
-                          }, true)}
-                          className="w-full bg-gray-800"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">
-                        Elevation Speed
-                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateElevationSpeed || 0.3).toFixed(1)}x</span>
-                      </label>
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="2.0"
-                        step="0.1"
-                        value={settings.cameraAutoRotateElevationSpeed || 0.3}
-                        onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotateElevationSpeed: parseFloat(e.target.value)
-                        }, true)}
-                        className="w-full bg-gray-800"
-                      />
-                      <p className="mt-1 text-xs text-gray-400">How fast the camera moves up and down</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Distance Variation
-                          <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateDistanceVariation || 0).toFixed(0)} units</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="20"
-                          step="1"
-                          value={settings.cameraAutoRotateDistanceVariation || 0}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAutoRotateDistanceVariation: parseFloat(e.target.value)
-                          }, true)}
-                          className="w-full bg-gray-800"
-                        />
-                        <p className="mt-1 text-xs text-gray-400">Breathing in/out effect</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Distance Speed
-                          <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateDistanceSpeed || 0.2).toFixed(1)}x</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="1.0"
-                          step="0.1"
-                          value={settings.cameraAutoRotateDistanceSpeed || 0.2}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAutoRotateDistanceSpeed: parseFloat(e.target.value)
-                          }, true)}
-                          className="w-full bg-gray-800"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">
-                        Vertical Drift
-                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateVerticalDrift || 0).toFixed(1)} units</span>
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.5"
-                        value={settings.cameraAutoRotateVerticalDrift || 0}
-                        onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotateVerticalDrift: parseFloat(e.target.value)
-                        }, true)}
-                        className="w-full bg-gray-800"
-                      />
-                      <p className="mt-1 text-xs text-gray-400">Vertical floating of focus point</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">
-                        Pause After Interaction
-                        <span className="ml-2 text-xs text-gray-400">{((settings.cameraAutoRotatePauseOnInteraction || 500) / 1000).toFixed(1)}s</span>
-                      </label>
-                      <input
-                        type="range"
-                        min="100"
-                        max="5000"
-                        step="100"
-                        value={settings.cameraAutoRotatePauseOnInteraction || 500}
-                        onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotatePauseOnInteraction: parseInt(e.target.value)
-                        }, true)}
-                        className="w-full bg-gray-800"
-                      />
-                      <p className="mt-1 text-xs text-gray-400">How long to pause after manual camera control</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-800/50 p-3 rounded text-xs text-gray-400">
-                    💡 <strong>Enhanced Auto-Rotate Features:</strong>
-                    <br />• Dynamic elevation changes (up/down movement)
-                    <br />• Distance breathing effect (in/out movement)
-                    <br />• Vertical focus drift for natural motion
-                    <br />• Configurable pause after user interaction
-                  </div>
-                </div>
-              )}
-
-              {/* Cinematic Camera Animation Settings */}
-              {settings.cameraAnimation?.enabled && (
-                <div className="bg-purple-900/20 p-3 rounded-lg space-y-3">
-                  <h5 className="text-xs font-medium text-purple-300">🎬 Cinematic Animation Settings</h5>
-                  
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">Animation Style</label>
-                    <select
-                      value={settings.cameraAnimation?.type || 'orbit'}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, type: e.target.value as any }
-                      })}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-                    >
-                      <option value="orbit">🌍 Orbit (Classic circular movement)</option>
-                      <option value="figure8">♾️ Figure-8 (Smooth infinity pattern)</option>
-                      <option value="centerRotate">🎯 Center Focus (Stay focused on center)</option>
-                      <option value="wave">🌊 Wave (Undulating motion)</option>
-                      <option value="spiral">🌀 Spiral (Ascending/descending spiral)</option>
-                    </select>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {settings.cameraAnimation?.type === 'figure8' && '♾️ Perfect for Float pattern - smooth infinity loops'}
-                      {settings.cameraAnimation?.type === 'orbit' && '🌍 Classic circular orbit around photos'}
-                      {settings.cameraAnimation?.type === 'centerRotate' && '🎯 Always keeps center in focus while rotating'}
-                      {settings.cameraAnimation?.type === 'wave' && '🌊 Gentle wave-like camera movement'}
-                      {settings.cameraAnimation?.type === 'spiral' && '🌀 Dynamic spiral ascending and descending'}
-                      {(!settings.cameraAnimation?.type || settings.cameraAnimation?.type === 'none') && '📱 Manual control only'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Animation Speed
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.speed?.toFixed(1) || '1.0'}x</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="3.0"
-                      step="0.1"
-                      value={settings.cameraAnimation?.speed || 1.0}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, speed: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Camera Distance
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.radius?.toFixed(0) || '30'} units</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="15"
-                      max="80"
-                      step="1"
-                      value={settings.cameraAnimation?.radius || 30}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, radius: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Camera Height
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.height?.toFixed(0) || '10'} units</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      step="2"
-                      value={settings.cameraAnimation?.height || 10}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, height: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  {(settings.cameraAnimation?.type === 'wave' || 
-                    settings.cameraAnimation?.type === 'figure8' || 
-                    settings.cameraAnimation?.type === 'spiral') && (
-                    <>
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Movement Intensity
-                          <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.amplitude?.toFixed(0) || '5'} units</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="1"
-                          max="25"
-                          step="1"
-                          value={settings.cameraAnimation?.amplitude || 5}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAnimation: { ...settings.cameraAnimation, amplitude: parseFloat(e.target.value) }
-                          })}
-                          className="w-full bg-gray-800"
-                        />
-                        <p className="mt-1 text-xs text-gray-400">
-                          Controls how dramatic the camera movement is
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Movement Frequency
-                          <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.frequency?.toFixed(1) || '0.5'}</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="2.0"
-                          step="0.1"
-                          value={settings.cameraAnimation?.frequency || 0.5}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAnimation: { ...settings.cameraAnimation, frequency: parseFloat(e.target.value) }
-                          })}
-                          className="w-full bg-gray-800"
-                        />
-                        <p className="mt-1 text-xs text-gray-400">
-                          How often the camera changes direction
-                        </p>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="bg-gray-800/50 p-2 rounded text-xs text-gray-400">
-                    💡 <strong>Tip:</strong> Combine different animation patterns with camera movements:
-                    <br />• Float + Figure-8 = Dreamy floating effect
-                    <br />• Grid + Orbit = Classic gallery walkthrough  
-                    <br />• Spiral + Spiral Camera = Dynamic spiral experience
-                  </div>
-                </div>
-              )}
-
-              {/* Manual Camera Settings (always available) */}
-              <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
-                <h5 className="text-xs font-medium text-gray-300">📱 Manual Control Settings</h5>
-                <p className="text-xs text-gray-400 mb-2">These settings apply to manual control and as base values for animations</p>
-                
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Default Camera Distance
-                    <span className="ml-2 text-xs text-gray-400">{settings.cameraDistance} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    step="1"
-                    value={settings.cameraDistance}
-                    onChange={(e) => onSettingsChange({ 
-                      cameraDistance: parseFloat(e.target.value) 
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Default Camera Height
-                    <span className="ml-2 text-xs text-gray-400">{settings.cameraHeight} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="150"
-                    step="2"
-                    value={settings.cameraHeight}
-                    onChange={(e) => onSettingsChange({ 
-                      cameraHeight: parseFloat(e.target.value) 
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Photo Count and Size */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <ImageIcon className="h-4 w-4 mr-2" />
-          Photo Display
-        </h4>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Photo Count
-              <span className="ml-2 text-xs text-gray-400">{settings.photoCount} photos</span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="500"
-              step="1"
-              value={settings.photoCount}
-              onChange={(e) => onSettingsChange({ photoCount: parseInt(e.target.value) })}
-              className="w-full bg-gray-800"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Number of photos to display simultaneously
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Photo Size
-              <span className="ml-2 text-xs text-gray-400">{settings.photoSize.toFixed(1)} units</span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="20"
-              step="0.5"
-              value={settings.photoSize}
-              onChange={(e) => onSettingsChange({ 
-                photoSize: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Photo size multiplier (1 = small, 20 = huge)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Photo Brightness
-              <span className="ml-2 text-xs text-gray-400">{(settings.photoBrightness * 100).toFixed(0)}%</span>
-            </label>
-            <input
-              type="range"
-              min="0.1"
-              max="3"
-              step="0.1"
-              value={settings.photoBrightness}
-              onChange={(e) => onSettingsChange({ 
-                photoBrightness: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Adjust photo brightness independently (10% = very dark, 300% = very bright)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Empty Slot Color
-            </label>
-            <input
-              type="color"
-              value={settings.emptySlotColor}
-              onChange={(e) => onSettingsChange({ 
-                emptySlotColor: e.target.value 
-              }, true)}
-              className="w-full h-8 rounded cursor-pointer bg-gray-800"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Floor Texture Section */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Layers className="h-4 w-4 mr-2" />
-          Floor Texture
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.floorEnabled}
-              onChange={(e) => onSettingsChange({ 
-                floorEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Show Floor
-            </label>
-          </div>
-
-          {settings.floorEnabled && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Texture Type</label>
-                <select
-                  value={settings.floorTexture || 'solid'}
-                  onChange={(e) => onSettingsChange({ 
-                    floorTexture: e.target.value as ExtendedSceneSettings['floorTexture']
-                  })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-                >
-                  <option value="solid">🎨 Solid Color</option>
-                  <option value="marble">⚪ Marble</option>
-                  <option value="wood">🪵 Wood</option>
-                  <option value="concrete">🏗️ Concrete</option>
-                  <option value="metal">⚙️ Metal</option>
-                  <option value="glass">💎 Glass</option>
-                  <option value="checkerboard">♟️ Checkerboard</option>
-                  <option value="custom">🖼️ Custom Image</option>
-                </select>
-              </div>
-
-              {settings.floorTexture === 'custom' && (
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">Custom Texture URL</label>
-                  <input
-                    type="url"
-                    value={settings.customFloorTextureUrl || ''}
-                    onChange={(e) => onSettingsChange({ customFloorTextureUrl: e.target.value }, true)}
-                    placeholder="https://example.com/floor-texture.jpg"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">URL to your custom floor texture image</p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.floorColor}
-                    onChange={(e) => onSettingsChange({ 
-                      floorColor: e.target.value 
-                    }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ floorColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Earth Tone Presets</option>
-                    <option value="#8B4513">🟤 Saddle Brown</option>
-                    <option value="#A0522D">🟤 Sienna</option>
-                    <option value="#CD853F">🟤 Peru</option>
-                    <option value="#D2691E">🟠 Chocolate</option>
-                    <option value="#BC8F8F">🟤 Rosy Brown</option>
-                    <option value="#F4A460">🟤 Sandy Brown</option>
-                    <option value="#DEB887">🟤 Burlywood</option>
-                    <option value="#D2B48C">🟤 Tan</option>
-                    <option value="#DAA520">🟡 Goldenrod</option>
-                    <option value="#B8860B">🟡 Dark Goldenrod</option>
-                    <option value="#228B22">🟢 Forest Green</option>
-                    <option value="#6B8E23">🟢 Olive Drab</option>
-                    <option value="#9ACD32">🟢 Yellow Green</option>
-                    <option value="#8FBC8F">🟢 Dark Sea Green</option>
-                    <option value="#20B2AA">🔵 Light Sea Green</option>
-                    <option value="#5F9EA0">🔵 Cadet Blue</option>
-                    <option value="#708090">🔘 Slate Gray</option>
-                    <option value="#2F4F4F">🔘 Dark Slate Gray</option>
-                    <option value="#696969">🔘 Dim Gray</option>
-                    <option value="#778899">🔘 Light Slate Gray</option>
-                    <option value="#F5F5DC">🟡 Beige</option>
-                    <option value="#FFFAF0">🟡 Floral White</option>
-                    <option value="#FDF5E6">🟡 Old Lace</option>
-                    <option value="#FAEBD7">🟡 Antique White</option>
-                  </select>
-                </div>
-                <p className="mt-1 text-xs text-gray-400">
-                  {settings.floorTexture === 'solid' ? 'Main floor color' : 'Base color that influences the texture pattern'}
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Floor Size
-                  <span className="ml-2 text-xs text-gray-400">{settings.floorSize} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="50"
-                  max="400"
-                  step="10"
-                  value={settings.floorSize}
-                  onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Floor Opacity
-                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorOpacity * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.floorOpacity}
-                  onChange={(e) => onSettingsChange({
-                    floorOpacity: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Lighting Settings */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Lightbulb className="h-4 w-4 mr-2" />
-          Lighting
-        </h4>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Ambient Light
-              <span className="ml-2 text-xs text-gray-400">{(settings.ambientLightIntensity * 100).toFixed(0)}%</span>
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              step="0.2"
-              value={settings.ambientLightIntensity}
-              onChange={(e) => onSettingsChange({ 
-                ambientLightIntensity: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Global scene brightness (0% = pitch black, 1000% = very bright)
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Spotlight Settings */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Sun className="h-4 w-4 mr-2" />
-          Spotlights
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="bg-gray-800 p-3 rounded">
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Spotlight Color</label>
-                <input
-                  type="color"
-                  value={settings.spotlightColor}
-                  onChange={(e) => onSettingsChange({ 
-                    spotlightColor: e.target.value 
-                  }, true)}
-                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Number of Spotlights
-                  <span className="ml-2 text-xs text-gray-400">{settings.spotlightCount}</span>
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="6"
-                  step="1"
-                  value={settings.spotlightCount}
-                  onChange={(e) => onSettingsChange({ 
-                    spotlightCount: parseInt(e.target.value) 
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Spotlight Intensity
-              <span className="ml-2 text-xs text-gray-400">{settings.spotlightIntensity.toFixed(0)}%</span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="300"
-              step="1"
-              value={settings.spotlightIntensity}
-              onChange={(e) => onSettingsChange({ 
-                spotlightIntensity: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Background Settings */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Palette className="h-4 w-4 mr-2" />
-          Background
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.backgroundGradient}
-              onChange={(e) => onSettingsChange({ 
-                backgroundGradient: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Use Gradient Background
-            </label>
-          </div>
-
-          {!settings.backgroundGradient ? (
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">Background Color</label>
-              <input
-                type="color"
-                value={settings.backgroundColor}
-                onChange={(e) => onSettingsChange({ 
-                  backgroundColor: e.target.value 
-                }, true)}
-                className="w-full h-8 rounded cursor-pointer bg-gray-800"
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Gradient Start</label>
-                <input
-                  type="color"
-                  value={settings.backgroundGradientStart}
-                  onChange={(e) => onSettingsChange({ 
-                    backgroundGradientStart: e.target.value 
-                  }, true)}
-                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Gradient End</label>
-                <input
-                  type="color"
-                  value={settings.backgroundGradientEnd}
-                  onChange={(e) => onSettingsChange({ 
-                    backgroundGradientEnd: e.target.value 
-                  }, true)}
-                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Gradient Angle
-                  <span className="ml-2 text-xs text-gray-400">{settings.backgroundGradientAngle}°</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="360"
-                  step="15"
-                  value={settings.backgroundGradientAngle}
-                  onChange={(e) => onSettingsChange({ 
-                    backgroundGradientAngle: parseInt(e.target.value) 
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Particle System Settings */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Sparkles className="h-4 w-4 mr-2" />
-          Particle Effects
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.particles?.enabled ?? true}
-              onChange={(e) => onSettingsChange({
-                particles: {
-                  ...settings.particles,
-                  enabled: e.target.checked
-                }
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Enable Particle Effects
-            </label>
-          </div>
-
-          {settings.particles?.enabled && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Particle Theme
-                </label>
-                <select
-                  value={settings.particles?.theme ?? 'Purple Magic'}
-                  onChange={(e) => onSettingsChange({
-                    particles: {
-                      ...settings.particles,
-                      theme: e.target.value
-                    }
-                  })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-                >
-                  {PARTICLE_THEMES.map((theme) => (
-                    <option key={theme.name} value={theme.name}>
-                      {theme.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Particle Intensity
-                  <span className="ml-2 text-xs text-gray-400">
-                    {Math.round((settings.particles?.intensity ?? 0.7) * 100)}%
-                  </span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.particles?.intensity ?? 0.7}
-                  onChange={(e) => onSettingsChange({
-                    particles: {
-                      ...settings.particles,
-                      intensity: parseFloat(e.target.value)
-                    }
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div className="p-3 bg-gray-800 rounded-lg">
-                <div className="text-xs text-gray-400 mb-2">Preview Colors:</div>
-                <div className="flex space-x-2">
-                  {PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic')) && (
-                    <>
-                      <div 
-                        className="w-4 h-4 rounded-full border border-gray-600"
-                        style={{ 
-                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.primary 
-                        }}
-                        title="Primary"
-                      />
-                      <div 
-                        className="w-4 h-4 rounded-full border border-gray-600"
-                        style={{ 
-                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.secondary 
-                        }}
-                        title="Secondary"
-                      />
-                      <div 
-                        className="w-4 h-4 rounded-full border border-gray-600"
-                        style={{ 
-                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.accent 
-                        }}
-                        title="Accent"
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Reset Button */}
-      <div className="pt-4 border-t border-gray-700">
-        <button
-          onClick={onReset}
-          className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors text-sm"
-        >
-          Reset All Settings
-        </button>
-      </div>
-    </div>
+      {/* Ceiling (if enabled) */}
+      {settings.ceilingEnabled && (
+        <mesh position={[0, (settings.ceilingHeight || wallHeight) - 50, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[wallSize, wallSize]} />
+          <meshStandardMaterial color={wallColor} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
   );
 };
 
-export default EnhancedSceneSettings;
+const SphereEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const sphereRadius = (settings.floorSize || 200) * 0.6;
+  const wallColor = settings.wallColor || settings.floorColor || '#1A1A2E';
+
+  const sphereMaterial = useMemo(() => {
+    if (settings.sphereTextureUrl) {
+      const texture = new THREE.TextureLoader().load(settings.sphereTextureUrl);
+      return new THREE.MeshStandardMaterial({
+        map: texture,
+        side: THREE.BackSide,
+        metalness: 0,
+        roughness: 0.8,
+      });
+    }
+    
+    return new THREE.MeshStandardMaterial({
+      color: wallColor,
+      side: THREE.BackSide,
+      metalness: 0.1,
+      roughness: 0.9,
+    });
+  }, [wallColor, settings.sphereTextureUrl]);
+
+  console.log('🌍 SPHERE: Rendering sphere environment with color:', wallColor);
+
+  return (
+    <mesh position={[0, 0, 0]}>
+      <sphereGeometry args={[sphereRadius, 64, 32]} />
+      <primitive object={sphereMaterial} attach="material" />
+    </mesh>
+  );
+};
+
+// Enhanced Gallery Environment with Full Background Scale and Fixed Colors
+const GalleryEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const roomWidth = Math.max(settings.floorSize || 200, 400) * 2;
+  const roomHeight = Math.max(settings.wallHeight || 50, 200);
+  const roomDepth = settings.roomDepth || roomWidth;
+  const wallColor = settings.wallColor || '#F5F5F5';
+
+  const wallMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: wallColor,
+      metalness: 0.0,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+  }, [wallColor]);
+
+  console.log('🖼️ GALLERY: Rendering large gallery with dimensions:', { roomWidth, roomHeight, roomDepth }, 'color:', wallColor);
+
+  return (
+    <group>
+      {/* Back Wall - Much larger */}
+      <mesh position={[0, roomHeight / 2 - 50, -roomDepth / 2]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      
+      {/* Left Wall */}
+      <mesh position={[-roomWidth / 2, roomHeight / 2 - 50, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[roomDepth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      
+      {/* Right Wall */}
+      <mesh position={[roomWidth / 2, roomHeight / 2 - 50, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[roomDepth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+
+      {/* Front Wall */}
+      <mesh position={[0, roomHeight / 2 - 50, roomDepth / 2]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+
+      {/* Gallery Ceiling */}
+      <mesh position={[0, roomHeight - 50, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomDepth]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+
+      {/* Enhanced Gallery Track Lighting */}
+      {Array.from({ length: 8 }, (_, i) => (
+        <group key={i}>
+          {/* Track Light Fixture */}
+          <mesh position={[(i - 3.5) * (roomWidth / 8), roomHeight - 55, 0]}>
+            <cylinderGeometry args={[1, 1.5, 3, 8]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} roughness={0.2} />
+          </mesh>
+          
+          {/* Spot Light */}
+          <spotLight
+            position={[(i - 3.5) * (roomWidth / 8), roomHeight - 55, 0]}
+            target-position={[(i - 3.5) * (roomWidth / 8), -10, 0]}
+            angle={Math.PI / 6}
+            penumbra={0.3}
+            intensity={2}
+            color="#FFFFFF"
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+          />
+        </group>
+      ))}
+    </group>
+  );
+};
+
+// Enhanced Studio Environment with Full Background Scale and Fixed Colors
+const StudioEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const studioSize = Math.max(settings.floorSize || 200, 300) * 2;
+  const backdropColor = settings.wallColor || '#E8E8E8';
+
+  const backdropMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: backdropColor,
+      metalness: 0.0,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+  }, [backdropColor]);
+
+  // Create curved backdrop geometry - much larger
+  const backdropGeometry = useMemo(() => {
+    const geometry = new THREE.CylinderGeometry(
+      studioSize, // radius top
+      studioSize, // radius bottom  
+      studioSize * 1.2, // height - taller
+      32, // radial segments
+      1, // height segments
+      true, // open ended
+      0, // theta start
+      Math.PI // theta length (half circle)
+    );
+    return geometry;
+  }, [studioSize]);
+
+  // Studio lighting positions (6-point lighting) - adjusted for larger space
+  const lightPositions = useMemo(() => [
+    // Key light
+    [studioSize * 0.3, studioSize * 0.4, studioSize * 0.5],
+    // Fill light
+    [-studioSize * 0.3, studioSize * 0.4, studioSize * 0.5],
+    // Back light
+    [0, studioSize * 0.6, -studioSize * 0.3],
+    // Hair lights
+    [studioSize * 0.2, studioSize * 0.8, 0],
+    [-studioSize * 0.2, studioSize * 0.8, 0],
+    // Background light
+    [0, studioSize * 0.2, -studioSize * 0.8]
+  ], [studioSize]);
+
+  console.log('📸 STUDIO: Rendering large studio with size:', studioSize, 'backdrop color:', backdropColor);
+
+  return (
+    <group>
+      {/* Curved Backdrop (Cyc Wall) - Much larger */}
+      <mesh 
+        geometry={backdropGeometry} 
+        material={backdropMaterial}
+        position={[0, studioSize * 0.2 - 50, -studioSize * 0.6]}
+        rotation={[0, 0, 0]}
+      />
+
+      {/* Studio Floor Extension - Large seamless backdrop */}
+      <mesh position={[0, -50, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[studioSize * 2, studioSize * 2]} />
+        <primitive object={backdropMaterial} attach="material" />
+      </mesh>
+
+      {/* Studio Lighting Rig */}
+      <group position={[0, studioSize / 2, 0]}>
+        {lightPositions.map((pos, i) => (
+          <group key={i}>
+            {/* Light Stand/Fixture */}
+            <mesh position={pos as [number, number, number]}>
+              <cylinderGeometry args={[1, 2, 4, 8]} />
+              <meshStandardMaterial color="#222222" metalness={0.9} roughness={0.1} />
+            </mesh>
+            
+            {/* Studio Light */}
+            <spotLight
+              position={pos as [number, number, number]}
+              target-position={[0, -25, 0]}
+              angle={i < 2 ? Math.PI / 4 : Math.PI / 6} // Wider angle for key/fill
+              penumbra={0.5}
+              intensity={i === 0 ? 3 : i === 1 ? 2 : 1.5} // Key light brightest
+              color="#FFFFFF"
+              castShadow={i < 3} // Only first 3 lights cast shadows for performance
+              shadow-mapSize-width={2048}
+              shadow-mapSize-height={2048}
+            />
+          </group>
+        ))}
+      </group>
+    </group>
+  );
+};
+
+// Scene Environment Manager
+const SceneEnvironmentManager: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const environment = settings.sceneEnvironment || 'default';
+
+  console.log('🌟 ENVIRONMENT: Rendering environment type:', environment, 'with settings:', {
+    wallColor: settings.wallColor,
+    floorColor: settings.floorColor,
+    wallThickness: settings.wallThickness
+  });
+
+  switch (environment) {
+    case 'cube':
+      return <CubeEnvironment settings={settings} />;
+    case 'sphere':
+      return <SphereEnvironment settings={settings} />;
+    case 'gallery':
+      return <GalleryEnvironment settings={settings} />;
+    case 'studio':
+      return <StudioEnvironment settings={settings} />;
+    case 'default':
+    default:
+      return null;
+  }
+};
+
+// Advanced Resource Manager for Memory Optimization
+class ResourceManager {
+  private static instance: ResourceManager;
+  private texturePool = new Map<string, THREE.Texture>();
+  private materialPool = new Map<string, THREE.Material>();
+  private geometryPool = new Map<string, THREE.BufferGeometry>();
+  private maxCacheSize = 200;
+
+  static getInstance(): ResourceManager {
+    if (!ResourceManager.instance) {
+      ResourceManager.instance = new ResourceManager();
+    }
+    return ResourceManager.instance;
+  }
+
+  getTexture(url: string, loader: () => Promise<THREE.Texture>): Promise<THREE.Texture> {
+    if (this.texturePool.has(url)) {
+      return Promise.resolve(this.texturePool.get(url)!.clone());
+    }
+
+    return loader().then(texture => {
+      if (this.texturePool.size >= this.maxCacheSize) {
+        const firstKey = this.texturePool.keys().next().value;
+        const oldTexture = this.texturePool.get(firstKey);
+        oldTexture?.dispose();
+        this.texturePool.delete(firstKey);
+      }
+
+      this.texturePool.set(url, texture);
+      return texture.clone();
+    });
+  }
+
+  getGeometry(key: string, creator: () => THREE.BufferGeometry): THREE.BufferGeometry {
+    if (!this.geometryPool.has(key)) {
+      this.geometryPool.set(key, creator());
+    }
+    return this.geometryPool.get(key)!;
+  }
+
+  dispose(): void {
+    this.texturePool.forEach(texture => texture.dispose());
+    this.materialPool.forEach(material => material.dispose());
+    this.geometryPool.forEach(geometry => geometry.dispose());
+    this.texturePool.clear();
+    this.materialPool.clear();
+    this.geometryPool.clear();
+  }
+}
+
+// Floor Texture Creator
+class FloorTextureFactory {
+  static createTexture(type: FloorTexture, size: number = 512, customUrl?: string): THREE.Texture {
+    if (type === 'custom' && customUrl) {
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load(customUrl);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(8, 8);
+      return texture;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    switch (type) {
+      case 'marble':
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#f8f8ff');
+        gradient.addColorStop(0.3, '#e6e6fa');
+        gradient.addColorStop(0.6, '#dda0dd');
+        gradient.addColorStop(1, '#d8bfd8');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#c0c0c0';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 20; i++) {
+          ctx.beginPath();
+          ctx.moveTo(Math.random() * size, Math.random() * size);
+          ctx.bezierCurveTo(
+            Math.random() * size, Math.random() * size,
+            Math.random() * size, Math.random() * size,
+            Math.random() * size, Math.random() * size
+          );
+          ctx.stroke();
+        }
+        break;
+
+      case 'wood':
+        const woodGradient = ctx.createLinearGradient(0, 0, 0, size);
+        woodGradient.addColorStop(0, '#8B4513');
+        woodGradient.addColorStop(0.3, '#A0522D');
+        woodGradient.addColorStop(0.7, '#CD853F');
+        woodGradient.addColorStop(1, '#DEB887');
+        ctx.fillStyle = woodGradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 1;
+        for (let y = 0; y < size; y += 8) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size, y + Math.sin(y * 0.1) * 4);
+          ctx.stroke();
+        }
+        break;
+
+      case 'concrete':
+        ctx.fillStyle = '#696969';
+        ctx.fillRect(0, 0, size, size);
+        
+        for (let i = 0; i < 1000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#808080' : '#556B2F';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+        }
+        break;
+
+      case 'metal':
+        const metalGradient = ctx.createLinearGradient(0, 0, size, 0);
+        metalGradient.addColorStop(0, '#C0C0C0');
+        metalGradient.addColorStop(0.5, '#A9A9A9');
+        metalGradient.addColorStop(1, '#808080');
+        ctx.fillStyle = metalGradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#B8B8B8';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < size; x += 4) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, size);
+          ctx.stroke();
+        }
+        break;
+
+      case 'glass':
+        ctx.fillStyle = '#E0F6FF';
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#FFFFFF80';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 10; i++) {
+          const x = (i * size) / 10;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + 50, size);
+          ctx.stroke();
+        }
+        break;
+
+      case 'checkerboard':
+        const tileSize = size / 16;
+        for (let x = 0; x < 16; x++) {
+          for (let y = 0; y < 16; y++) {
+            ctx.fillStyle = (x + y) % 2 === 0 ? '#FFFFFF' : '#000000';
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
+        break;
+
+      default:
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(0, 0, size, size);
+        break;
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = 16;
+    
+    return texture;
+  }
+}
+
+class EnhancedSlotManager {
+  private slotAssignments = new Map<string, number>();
+  private occupiedSlots = new Set<number>();
+  private availableSlots: number[] = [];
+  private totalSlots = 0;
+  private photoAspectRatios = new Map<string, number>();
+
+  constructor(totalSlots: number) {
+    this.updateSlotCount(totalSlots);
+  }
+
+  updateSlotCount(newTotal: number) {
+    if (newTotal === this.totalSlots) return;
+    this.totalSlots = newTotal;
+    
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (slotIndex >= newTotal) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+        this.photoAspectRatios.delete(photoId);
+      }
+    }
+    
+    this.rebuildAvailableSlots();
+  }
+
+  private rebuildAvailableSlots() {
+    this.availableSlots = [];
+    for (let i = 0; i < this.totalSlots; i++) {
+      if (!this.occupiedSlots.has(i)) {
+        this.availableSlots.push(i);
+      }
+    }
+    this.availableSlots.sort((a, b) => a - b);
+  }
+
+  assignSlots(photos: Photo[]): Map<string, number> {
+    const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+    
+    safePhotos.forEach(photo => {
+      if (!this.photoAspectRatios.has(photo.id)) {
+        if (photo.width && photo.height) {
+          this.photoAspectRatios.set(photo.id, photo.width / photo.height);
+        }
+      }
+    });
+    
+    const currentPhotoIds = new Set(safePhotos.map(p => p.id));
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (!currentPhotoIds.has(photoId)) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+        this.photoAspectRatios.delete(photoId);
+      }
+    }
+
+    this.rebuildAvailableSlots();
+
+    const sortedPhotos = [...safePhotos].sort((a, b) => {
+      if (a.created_at && b.created_at) {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    for (const photo of sortedPhotos) {
+      if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
+        const newSlot = this.availableSlots.shift()!;
+        this.slotAssignments.set(photo.id, newSlot);
+        this.occupiedSlots.add(newSlot);
+      }
+    }
+
+    return new Map(this.slotAssignments);
+  }
+
+  getAspectRatio(photoId: string): number | null {
+    return this.photoAspectRatios.get(photoId) || null;
+  }
+}
+
+// Background renderer with gradient support
+const BackgroundRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const { scene, gl } = useThree();
+  
+  useEffect(() => {
+    try {
+      if (settings.backgroundGradient) {
+        scene.background = null;
+        gl.setClearColor('#000000', 0);
+      } else {
+        scene.background = new THREE.Color(settings.backgroundColor || '#000000');
+        gl.setClearColor(settings.backgroundColor || '#000000', 1);
+      }
+    } catch (error) {
+      console.error('Background render error:', error);
+    }
+  }, [
+    scene, 
+    gl, 
+    settings.backgroundColor, 
+    settings.backgroundGradient,
+    settings.backgroundGradientStart,
+    settings.backgroundGradientEnd,
+    settings.backgroundGradientAngle
+  ]);
+
+  return null;
+};
+
+// Optimized Photo Component
+const OptimizedPhotoMesh: React.FC<{
+  photo: PhotoWithPosition;
+  settings: ExtendedSceneSettings;
+  shouldFaceCamera: boolean;
+}> = React.memo(({ photo, settings, shouldFaceCamera }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { camera, gl } = useThree();
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [detectedAspectRatio, setDetectedAspectRatio] = useState<number | null>(null);
+  
+  const isInitializedRef = useRef(false);
+  const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
+  const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
+  const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
+
+  useEffect(() => {
+    currentPosition.current.set(...photo.targetPosition);
+    currentRotation.current.set(...photo.targetRotation);
+  }, [photo.targetPosition, photo.targetRotation]);
+
+  useEffect(() => {
+    if (!photo.url) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loader = new THREE.TextureLoader();
+    setIsLoading(true);
+    setHasError(false);
+    
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const actualAspectRatio = img.naturalWidth / img.naturalHeight;
+      setDetectedAspectRatio(actualAspectRatio);
+      
+      const imageUrl = photo.url.includes('?') 
+        ? `${photo.url}&t=${Date.now()}`
+        : `${photo.url}?t=${Date.now()}`;
+
+      loader.load(imageUrl, (loadedTexture) => {
+        loadedTexture.generateMipmaps = true;
+        loadedTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        loadedTexture.magFilter = THREE.LinearFilter;
+        loadedTexture.format = THREE.RGBAFormat;
+        
+        if (gl && gl.capabilities.getMaxAnisotropy) {
+          loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
+        }
+
+        loadedTexture.colorSpace = THREE.SRGBColorSpace;
+        loadedTexture.flipY = true;
+        loadedTexture.premultipliedAlpha = false;
+
+        setTexture(loadedTexture);
+        setIsLoading(false);
+      }, undefined, () => {
+        setHasError(true);
+        setIsLoading(false);
+      });
+    };
+    
+    img.onerror = () => {
+      setHasError(true);
+      setIsLoading(false);
+    };
+    
+    img.src = photo.url;
+
+    return () => {
+      if (texture) {
+        texture.dispose();
+      }
+    };
+  }, [photo.url, gl]);
+
+  const computedDimensions = useMemo(() => {
+    const baseSize = settings.photoSize || 4.0;
+    
+    let aspectRatio = 1;
+    if (detectedAspectRatio) {
+      aspectRatio = detectedAspectRatio;
+    } else if (photo.computedSize && photo.computedSize[0] && photo.computedSize[1]) {
+      aspectRatio = photo.computedSize[0] / photo.computedSize[1];
+    }
+    
+    if (aspectRatio > 1) {
+      return [baseSize * aspectRatio, baseSize];
+    } else {
+      return [baseSize, baseSize / aspectRatio];
+    }
+  }, [settings.photoSize, photo.computedSize, detectedAspectRatio]);
+
+  useFrame(() => {
+    if (!meshRef.current || !shouldFaceCamera) return;
+
+    const mesh = meshRef.current;
+    const currentPositionArray = mesh.position.toArray() as [number, number, number];
+    
+    const positionChanged = currentPositionArray.some((coord, index) => 
+      Math.abs(coord - lastPositionRef.current[index]) > 0.01
+    );
+
+    if (positionChanged || !isInitializedRef.current) {
+      mesh.lookAt(camera.position);
+      lastPositionRef.current = currentPositionArray;
+      isInitializedRef.current = true;
+    }
+  });
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+
+    const targetPosition = new THREE.Vector3(...photo.targetPosition);
+    const targetRotation = new THREE.Euler(...photo.targetRotation);
+
+    const distance = currentPosition.current.distanceTo(targetPosition);
+    const isTeleport = distance > TELEPORT_THRESHOLD;
+
+    if (isTeleport) {
+      currentPosition.current.copy(targetPosition);
+      currentRotation.current.copy(targetRotation);
+    } else {
+      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING);
+      currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
+      currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
+      currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
+    }
+
+    meshRef.current.position.copy(currentPosition.current);
+    if (!shouldFaceCamera) {
+      meshRef.current.rotation.copy(currentRotation.current);
+    }
+  });
+
+  const material = useMemo(() => {
+    if (texture) {
+      const hasTransparency = photo.url.toLowerCase().includes('.png') || 
+                             photo.url.toLowerCase().includes('.webp');
+      
+      return new THREE.MeshStandardMaterial({
+        map: texture,
+        transparent: hasTransparency,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+        color: new THREE.Color().setScalar(settings.photoBrightness || 1.0),
+        metalness: 0,
+        roughness: 0.2,
+        alphaTest: hasTransparency ? 0.01 : 0,
+        premultipliedAlpha: false,
+      });
+    } else {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d')!;
+      
+      ctx.fillStyle = settings.emptySlotColor || '#1A1A1A';
+      ctx.fillRect(0, 0, 256, 256);
+      
+      if (settings.animationPattern === 'grid') {
+        ctx.strokeStyle = '#ffffff20';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 256; i += 32) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, 256);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(256, i);
+          ctx.stroke();
+        }
+      }
+      
+      const emptyTexture = new THREE.CanvasTexture(canvas);
+      return new THREE.MeshStandardMaterial({
+        map: emptyTexture,
+        transparent: false,
+        side: THREE.DoubleSide,
+        color: 0xffffff,
+      });
+    }
+  }, [texture, settings.emptySlotColor, settings.animationPattern, settings.photoBrightness, photo.url]);
+
+  return (
+    <mesh
+      ref={meshRef}
+      material={material}
+      castShadow
+      receiveShadow
+    >
+      <planeGeometry args={[computedDimensions[0], computedDimensions[1]]} />
+    </mesh>
+  );
+});
+
+const SimplePhotoRenderer: React.FC<{ 
+  photosWithPositions: PhotoWithPosition[]; 
+  settings: ExtendedSceneSettings;
+}> = ({ photosWithPositions, settings }) => {
+  const shouldFaceCamera = settings.animationPattern === 'float';
+  
+  return (
+    <group>
+      {photosWithPositions.map((photo) => (
+        <OptimizedPhotoMesh
+          key={`${photo.id}-${photo.slotIndex}`}
+          photo={photo}
+          settings={settings}
+          shouldFaceCamera={shouldFaceCamera}
+        />
+      ))}
+    </group>
+  );
+};
+
+const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const targetRefs = useRef<THREE.Object3D[]>([]);
+
+  const spotlights = useMemo(() => {
+    const lights = [];
+    const count = Math.min(settings.spotlightCount || 4, 4);
+    
+    while (targetRefs.current.length < count) {
+      targetRefs.current.push(new THREE.Object3D());
+    }
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const distance = Math.max(20, settings.spotlightDistance || 30);
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      const y = Math.max(15, settings.spotlightHeight || 25);
+      
+      targetRefs.current[i].position.set(0, (settings.wallHeight || 0) / 2, 0);
+      
+      lights.push({
+        key: `spotlight-${i}`,
+        position: [x, y, z] as [number, number, number],
+        target: targetRefs.current[i],
+      });
+    }
+    return lights;
+  }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
+
+  return (
+    <group ref={groupRef}>
+      <ambientLight 
+        intensity={(settings.ambientLightIntensity || 0.4) * 0.5} 
+        color="#ffffff" 
+      />
+      
+      <directionalLight
+        position={[20, 30, 20]}
+        intensity={0.1}
+        color="#ffffff"
+        castShadow={settings.shadowsEnabled}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-far={200}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
+        shadow-bias={-0.0001}
+      />
+      
+      {spotlights.map((light, index) => (
+        <group key={light.key}>
+          <spotLight
+            position={light.position}
+            target={light.target}
+            angle={Math.max(0.2, Math.min(Math.PI / 3, settings.spotlightAngle || 0.8))}
+            penumbra={settings.spotlightPenumbra || 0.4}
+            intensity={((settings.spotlightIntensity || 150) / 100) * 8}
+            color={settings.spotlightColor || '#ffffff'}
+            distance={settings.spotlightDistance * 3 || 120}
+            decay={1}
+            castShadow={settings.shadowsEnabled}
+            shadow-mapSize={[1024, 1024]}
+            shadow-camera-near={0.5}
+            shadow-camera-far={settings.spotlightDistance * 2 || 100}
+            shadow-bias={-0.0001}
+          />
+          <primitive object={light.target} />
+        </group>
+      ))}
+    </group>
+  );
+};
+
+// Enhanced Camera Controls with Fine-Tuning Auto-Rotate
+const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>();
+  const userInteractingRef = useRef(false);
+  const lastInteractionTimeRef = useRef(0);
+  const autoRotateTimeRef = useRef(0);
+  const heightOscillationRef = useRef(0);
+  const distanceOscillationRef = useRef(0);
+  const verticalDriftRef = useRef(0);
+  
+  // Initialize camera position
+  useEffect(() => {
+    if (camera && controlsRef.current) {
+      const initialDistance = settings.cameraDistance || 25;
+      const initialHeight = settings.cameraHeight || 5;
+      const initialPosition = new THREE.Vector3(
+        initialDistance,
+        initialHeight,
+        initialDistance
+      );
+      camera.position.copy(initialPosition);
+      
+      const target = new THREE.Vector3(0, initialHeight * 0.3, 0);
+      controlsRef.current.target.copy(target);
+      controlsRef.current.update();
+    }
+  }, [camera, settings.cameraDistance, settings.cameraHeight]);
+
+  // Handle user interaction detection
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      lastInteractionTimeRef.current = Date.now();
+      setTimeout(() => {
+        userInteractingRef.current = false;
+      }, settings.cameraAutoRotatePauseOnInteraction || 500);
+    };
+
+    const controls = controlsRef.current;
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+
+    return () => {
+      controls.removeEventListener('start', handleStart);
+      controls.removeEventListener('end', handleEnd);
+    };
+  }, [settings.cameraAutoRotatePauseOnInteraction]);
+
+  // Enhanced auto rotation with fine controls
+  useFrame((state, delta) => {
+    if (!controlsRef.current) return;
+
+    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
+    if (settings.cameraRotationEnabled && !userInteractingRef.current) {
+      // Update time references
+      autoRotateTimeRef.current += delta * (settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5);
+      heightOscillationRef.current += delta * (settings.cameraAutoRotateElevationSpeed || 0.3);
+      distanceOscillationRef.current += delta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
+      verticalDriftRef.current += delta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
+
+      // Calculate base position from current camera position
+      const currentOffset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
+      const currentSpherical = new THREE.Spherical().setFromVector3(currentOffset);
+
+      // Apply horizontal rotation
+      currentSpherical.theta = autoRotateTimeRef.current;
+
+      // Calculate dynamic radius with variation
+      const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
+      const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
+      const dynamicRadius = baseRadius + Math.sin(distanceOscillationRef.current) * radiusVariation;
+      currentSpherical.radius = dynamicRadius;
+
+      // Calculate dynamic elevation (phi angle)
+      const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 5;
+      const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6); // 30 degrees
+      const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3); // 60 degrees
+      const elevationRange = elevationMax - elevationMin;
+      const elevationOscillation = (Math.sin(heightOscillationRef.current) + 1) / 2; // 0 to 1
+      currentSpherical.phi = elevationMin + (elevationOscillation * elevationRange);
+
+      // Calculate new camera position
+      const newPosition = new THREE.Vector3().setFromSpherical(currentSpherical);
+
+      // Apply vertical drift to the focus point
+      const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
+      const driftOffset = Math.sin(verticalDriftRef.current) * verticalDrift;
+      
+      // Calculate focus point with offset
+      const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
+      const focusPoint = new THREE.Vector3(
+        focusOffset[0],
+        focusOffset[1] + driftOffset,
+        focusOffset[2]
+      );
+
+      // Add focus point to camera position
+      newPosition.add(focusPoint);
+      
+      // Update camera and controls
+      camera.position.copy(newPosition);
+      controlsRef.current.target.copy(focusPoint);
+      controlsRef.current.update();
+
+      // Debug logging (can be removed)
+      if (Math.floor(autoRotateTimeRef.current * 10) % 50 === 0) {
+        console.log('🎬 Auto-Rotate:', {
+          radius: dynamicRadius.toFixed(1),
+          elevation: (currentSpherical.phi * 180 / Math.PI).toFixed(1) + '°',
+          rotation: (currentSpherical.theta * 180 / Math.PI).toFixed(1) + '°',
+          drift: driftOffset.toFixed(2)
+        });
+      }
+    }
+  });
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enabled={settings.cameraEnabled !== false}
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      minDistance={8}
+      maxDistance={300}
+      minPolarAngle={Math.PI / 6}
+      maxPolarAngle={Math.PI - Math.PI / 6}
+      enableDamping={true}
+      dampingFactor={0.03}
+      zoomSpeed={1.5}
+      rotateSpeed={1.2}
+      panSpeed={1.2}
+      touches={{
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      }}
+      mouseButtons={{
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
+      }}
+    />
+  );
+};
+
+const EnhancedAnimationController: React.FC<{
+  settings: ExtendedSceneSettings;
+  photos: Photo[];
+  onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
+}> = ({ settings, photos, onPositionsUpdate }) => {
+  const slotManagerRef = useRef(new EnhancedSlotManager(settings.photoCount || 100));
+  const lastPhotoCount = useRef(settings.photoCount || 100);
+  
+  const updatePositions = useCallback((time: number = 0) => {
+    try {
+      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+      const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
+      
+      let patternState;
+      try {
+        // FIXED: Pass the actual photoCount to pattern generation
+        const pattern = PatternFactory.createPattern(
+          settings.animationPattern || 'grid',
+          {
+            ...settings,
+            photoCount: settings.photoCount || 100 // Ensure pattern knows how many positions to generate
+          },
+          safePhotos
+        );
+        patternState = pattern.generatePositions(time);
+        
+        // DEBUG: Check if pattern generated the right number of positions
+        const expectedSlots = settings.photoCount || 100;
+        console.log(`Pattern generated ${patternState.positions.length} positions for ${expectedSlots} expected slots`);
+        
+        // FIXED: Adjust pattern heights to be just above floor level
+        // Floor is at Y=-12, so we want patterns to start around Y=-8 to Y=0
+        const floorLevel = -8; // Just above the floor at Y=-12
+        const photoSize = settings.photoSize || 4.0;
+        
+        if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
+          // Lower the spiral and wave patterns significantly
+          patternState.positions = patternState.positions.map((pos, index) => {
+            const [x, y, z] = pos;
+            let adjustedY = y;
+            
+            if (settings.animationPattern === 'spiral') {
+              // FIXED: For spiral - keep it grounded regardless of photo size
+              // Scale the height based on photo size to prevent collisions
+              const heightScale = Math.max(0.3, Math.min(1.0, photoSize / 8.0)); // Scale between 0.3-1.0
+              const baseHeight = floorLevel + (photoSize * 0.5); // Start higher for larger photos
+              
+              adjustedY = baseHeight + (y * heightScale); // Reduced height scaling
+              
+              // Ensure minimum separation for larger photos
+              if (photoSize > 6) {
+                adjustedY = baseHeight + (y * 0.4) + (index * photoSize * 0.1); // Extra spacing for large photos
+              }
+              
+            } else if (settings.animationPattern === 'wave') {
+              // FIXED: For wave - keep oscillation grounded with photo size consideration
+              const waveHeight = Math.max(2, photoSize * 0.3); // Wave height scales with photo size
+              adjustedY = floorLevel + waveHeight + (y * 0.2); // Minimal oscillation, stays low
+            }
+            
+            return [x, adjustedY, z];
+          });
+        }
+        
+      } catch (error) {
+        console.error('Pattern generation error:', error);
+        // Create fallback pattern that generates the correct number of positions
+        const positions = [];
+        const rotations = [];
+        const spacing = Math.max(6, (settings.photoSize || 4.0) * 1.5);
+        const totalSlots = settings.photoCount || 100;
+        
+        for (let i = 0; i < totalSlots; i++) {
+          const x = (i % 10) * spacing - (spacing * 5);
+          const z = Math.floor(i / 10) * spacing - (spacing * 5);
+          positions.push([x, -6, z]); // Position just above floor
+          rotations.push([0, 0, 0]);
+        }
+        patternState = { positions, rotations };
+      }
+      
+      const photosWithPositions: PhotoWithPosition[] = [];
+      const totalSlots = settings.photoCount || 100;
+      
+      // FIXED: Only use positions that actually exist in the pattern
+      // Don't extend or create artificial positions
+      const availablePositions = Math.min(patternState.positions.length, totalSlots);
+      
+      for (const photo of safePhotos) {
+        const slotIndex = slotAssignments.get(photo.id);
+        if (slotIndex !== undefined && slotIndex < availablePositions) {
+          const aspectRatio = slotManagerRef.current.getAspectRatio(photo.id);
+          const baseSize = settings.photoSize || 4.0;
+          
+          const computedSize = aspectRatio ? (
+            aspectRatio > 1 
+              ? [baseSize * aspectRatio, baseSize]
+              : [baseSize, baseSize / aspectRatio]
+          ) : undefined;
+          
+          photosWithPositions.push({
+            ...photo,
+            targetPosition: patternState.positions[slotIndex],
+            targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
+            displayIndex: slotIndex,
+            slotIndex,
+            computedSize
+          });
+        }
+      }
+      
+      // FIXED: Generate empty slots only for positions that exist in pattern
+      for (let i = 0; i < availablePositions; i++) {
+        const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
+        if (!hasPhoto) {
+          const baseSize = settings.photoSize || 4.0;
+          
+          photosWithPositions.push({
+            id: `placeholder-${i}`,
+            url: '',
+            targetPosition: patternState.positions[i],
+            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+            displayIndex: i,
+            slotIndex: i,
+            computedSize: [baseSize * (9/16), baseSize]
+          });
+        }
+      }
+      
+      // FIXED: If we have fewer pattern positions than requested slots, 
+      // only show the slots that fit the pattern properly
+      if (availablePositions < totalSlots) {
+        console.log(`Pattern only supports ${availablePositions} positions, limiting display to match pattern`);
+      }
+      
+      photosWithPositions.sort((a, b) => a.slotIndex - b.slotIndex);
+      onPositionsUpdate(photosWithPositions);
+      
+    } catch (error) {
+      console.error('Error in updatePositions:', error);
+    }
+  }, [photos, settings, onPositionsUpdate]);
+
+  useEffect(() => {
+    if ((settings.photoCount || 100) !== lastPhotoCount.current) {
+      slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
+      lastPhotoCount.current = settings.photoCount || 100;
+      updatePositions(0);
+    }
+  }, [settings.photoCount, updatePositions]);
+
+  useFrame((state) => {
+    const time = settings.animationEnabled ? 
+      state.clock.elapsedTime * ((settings.animationSpeed || 50) / 50) : 0;
+    updatePositions(time);
+  });
+
+  return null;
+};
+
+const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  if (!settings.floorEnabled) return null;
+
+  const floorTexture = useMemo(() => {
+    return FloorTextureFactory.createTexture(
+      settings.floorTexture || 'solid',
+      1024,
+      settings.customFloorTextureUrl
+    );
+  }, [settings.floorTexture, settings.customFloorTextureUrl]);
+
+  const floorMaterial = useMemo(() => {
+    const material = new THREE.MeshStandardMaterial({
+      map: floorTexture,
+      color: settings.floorColor || '#FFFFFF',
+      transparent: (settings.floorOpacity || 1) < 1,
+      opacity: settings.floorOpacity || 1,
+      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
+      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
+      side: THREE.DoubleSide,
+      envMapIntensity: 0.5,
+    });
+
+    switch (settings.floorTexture) {
+      case 'marble':
+        material.metalness = 0.1;
+        material.roughness = 0.2;
+        break;
+      case 'metal':
+        material.metalness = 0.9;
+        material.roughness = 0.1;
+        break;
+      case 'glass':
+        material.metalness = 0;
+        material.roughness = 0.05;
+        material.transparent = true;
+        material.opacity = 0.8;
+        break;
+      case 'wood':
+        material.metalness = 0;
+        material.roughness = 0.8;
+        break;
+    }
+
+    return material;
+  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness, settings.floorTexture, floorTexture]);
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -12, 0]}
+      receiveShadow
+    >
+      <planeGeometry args={[settings.floorSize || 300, settings.floorSize || 300, 64, 64]} />
+      <primitive object={floorMaterial} attach="material" />
+    </mesh>
+  );
+};
+
+// Main Enhanced CollageScene Component
+const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ 
+  photos, 
+  settings, 
+  width = 2560, 
+  height = 1440,
+  onSettingsChange 
+}, ref) => {
+  const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = (ref || internalCanvasRef) as React.RefObject<HTMLCanvasElement>;
+
+  const safePhotos = Array.isArray(photos) ? photos : [];
+  const safeSettings = { ...settings };
+
+  const backgroundStyle = useMemo(() => {
+    if (safeSettings.backgroundGradient) {
+      return {
+        background: `linear-gradient(${safeSettings.backgroundGradientAngle || 45}deg, ${safeSettings.backgroundGradientStart || '#000000'}, ${safeSettings.backgroundGradientEnd || '#000000'})`
+      };
+    }
+    return {
+      background: safeSettings.backgroundColor || '#000000'
+    };
+  }, [
+    safeSettings.backgroundGradient,
+    safeSettings.backgroundColor,
+    safeSettings.backgroundGradientStart,
+    safeSettings.backgroundGradientEnd,
+    safeSettings.backgroundGradientAngle
+  ]);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup function
+    };
+  }, []);
+
+  return (
+    <div style={backgroundStyle} className="w-full h-full">
+      <Canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        shadows={safeSettings.shadowsEnabled}
+        camera={{ 
+          position: [0, 5, 25], 
+          fov: 75,
+          near: 0.1,
+          far: 2000
+        }}
+        gl={{ 
+          antialias: true,
+          alpha: safeSettings.backgroundGradient || false,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: true,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.2,
+          outputColorSpace: THREE.SRGBColorSpace,
+        }}
+        onCreated={(state) => {
+          state.gl.shadowMap.enabled = true;
+          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          state.gl.shadowMap.autoUpdate = true;
+          
+          const pixelRatio = Math.min(window.devicePixelRatio, 2);
+          state.gl.setPixelRatio(pixelRatio);
+          
+          if (safeSettings.backgroundGradient) {
+            state.gl.setClearColor('#000000', 0);
+          } else {
+            state.gl.setClearColor(safeSettings.backgroundColor || '#000000', 1);
+          }
+        }}
+        performance={{ min: 0.8 }}
+        linear={true}
+      >
+        {/* Background Management */}
+        <BackgroundRenderer settings={safeSettings} />
+        
+        {/* FIXED Camera Controls with Animation Support */}
+        <EnhancedCameraControls settings={safeSettings} />
+        <CameraAnimationController config={safeSettings.cameraAnimation} />
+        
+        {/* Particle System */}
+        {safeSettings.particles?.enabled && (
+          <MilkyWayParticleSystem
+            colorTheme={getCurrentParticleTheme(safeSettings)}
+            intensity={safeSettings.particles?.intensity ?? 0.7}
+            enabled={safeSettings.particles?.enabled ?? true}
+            photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
+            floorSize={safeSettings.floorSize || 200}
+            gridSize={safeSettings.gridSize || 200}
+          />
+        )}
+        
+        {/* FIXED Scene Environment Manager with Wall Color Support */}
+        <SceneEnvironmentManager settings={safeSettings} />
+        
+        {/* Enhanced Lighting */}
+        <EnhancedLightingSystem settings={safeSettings} />
+        
+        {/* Textured Floor - Always show unless sphere environment */}
+        {safeSettings.sceneEnvironment !== 'sphere' && (
+          <TexturedFloor settings={safeSettings} />
+        )}
+        
+        {/* Grid - Only show for default environment */}
+        {(!safeSettings.sceneEnvironment || safeSettings.sceneEnvironment === 'default') && 
+         safeSettings.gridEnabled && (
+          <gridHelper
+            args={[
+              safeSettings.gridSize || 200,
+              safeSettings.gridDivisions || 30,
+              safeSettings.gridColor || '#444444',
+              safeSettings.gridColor || '#444444'
+            ]}
+            position={[0, -11.99, 0]}
+            material-opacity={safeSettings.gridOpacity || 1.0}
+            material-transparent={true}
+          />
+        )}
+        
+        {/* Enhanced Animation Controller */}
+        <EnhancedAnimationController
+          settings={safeSettings}
+          photos={safePhotos}
+          onPositionsUpdate={setPhotosWithPositions}
+        />
+        
+        {/* Simple High-Performance Photo Renderer */}
+        <SimplePhotoRenderer 
+          photosWithPositions={photosWithPositions}
+          settings={safeSettings}
+        />
+      </Canvas>
+    </div>
+  );
+});
+
+// Helper function to get current particle theme
+const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
+  const themeName = settings.particles?.theme ?? 'Purple Magic';
+  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
+};
+
+EnhancedCollageScene.displayName = 'EnhancedCollageScene';
+export default EnhancedCollageScene;
