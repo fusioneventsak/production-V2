@@ -177,34 +177,37 @@ const CinematicCamera: React.FC<{
     switch (config.type) {
       case 'showcase':
       case 'gallery_walk':
-        // Create smooth path visiting each photo
+        // Create smooth path visiting each photo with MANY interpolated points
         validPhotos.forEach((photo, index) => {
-          // Camera position - smooth curve around photos
-          const angle = (index / validPhotos.length) * Math.PI * 2;
-          const offsetX = Math.cos(angle) * distance * 0.3;
-          const offsetZ = Math.sin(angle) * distance * 0.3;
-          
-          cameraPoints.push(new THREE.Vector3(
-            photo.position[0] + offsetX,
-            photoHeight + Math.sin(index * 0.2) * 2,
-            photo.position[2] + distance + offsetZ
-          ));
-          
-          // Look at the actual photo
-          lookAtPoints.push(new THREE.Vector3(...photo.position));
+          // Generate multiple points around each photo for ultra-smooth movement
+          for (let i = 0; i < 8; i++) { // 8 points per photo for smoothness
+            const subProgress = i / 8;
+            const angle = (index / validPhotos.length) * Math.PI * 2 + subProgress * 0.5;
+            const offsetX = Math.cos(angle) * distance * 0.3;
+            const offsetZ = Math.sin(angle) * distance * 0.3;
+            
+            cameraPoints.push(new THREE.Vector3(
+              photo.position[0] + offsetX,
+              photoHeight + Math.sin((index + subProgress) * 0.2) * 2,
+              photo.position[2] + distance + offsetZ
+            ));
+            
+            // Look at the actual photo
+            lookAtPoints.push(new THREE.Vector3(...photo.position));
+          }
         });
         break;
 
       case 'spiral_tour':
-        // Create smooth spiral around all photos
+        // Create smooth spiral around all photos with MANY points
         const bounds = getPhotoBounds(validPhotos);
         const centerX = (bounds.minX + bounds.maxX) / 2;
         const centerZ = (bounds.minZ + bounds.maxZ) / 2;
         const maxRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + 20;
         
-        // Generate many points for ultra-smooth spiral
-        for (let i = 0; i < 120; i++) {
-          const t = i / 120;
+        // Generate MANY points for ultra-smooth spiral (300 instead of 120)
+        for (let i = 0; i < 300; i++) {
+          const t = i / 300;
           const angle = t * Math.PI * 6; // 3 full rotations
           const radius = maxRadius * (0.3 + t * 0.7);
           const height = photoHeight + Math.sin(t * Math.PI * 2) * 4;
@@ -221,29 +224,33 @@ const CinematicCamera: React.FC<{
         break;
 
       case 'wave_follow':
-        // Smooth wave through photos
+        // Smooth wave through photos with interpolated points
         const sortedPhotos = [...validPhotos].sort((a, b) => a.position[0] - b.position[0]);
         
         sortedPhotos.forEach((photo, index) => {
-          const waveOffset = Math.sin(index * 0.3) * 8;
-          const heightWave = Math.sin(index * 0.2) * 3;
-          
-          cameraPoints.push(new THREE.Vector3(
-            photo.position[0],
-            photoHeight + heightWave,
-            photo.position[2] + distance + waveOffset
-          ));
-          
-          lookAtPoints.push(new THREE.Vector3(...photo.position));
+          // Multiple points per photo for smooth wave
+          for (let i = 0; i < 6; i++) {
+            const subProgress = i / 6;
+            const waveOffset = Math.sin((index + subProgress) * 0.3) * 8;
+            const heightWave = Math.sin((index + subProgress) * 0.2) * 3;
+            
+            cameraPoints.push(new THREE.Vector3(
+              photo.position[0] + subProgress * 2,
+              photoHeight + heightWave,
+              photo.position[2] + distance + waveOffset
+            ));
+            
+            lookAtPoints.push(new THREE.Vector3(...photo.position));
+          }
         });
         break;
 
       case 'photo_focus':
-        // Close orbits around each photo
+        // Close orbits around each photo with more points
         validPhotos.forEach(photo => {
-          // Create 4 points around each photo for smooth orbit
-          for (let i = 0; i < 4; i++) {
-            const angle = (i / 4) * Math.PI * 2;
+          // Create 12 points around each photo for ultra-smooth orbit
+          for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
             const orbitRadius = 8;
             
             cameraPoints.push(new THREE.Vector3(
@@ -258,14 +265,18 @@ const CinematicCamera: React.FC<{
         break;
 
       default:
-        // Default smooth tour
+        // Default smooth tour with interpolated points
         validPhotos.forEach((photo, index) => {
-          cameraPoints.push(new THREE.Vector3(
-            photo.position[0] + Math.cos(index) * distance,
-            photoHeight,
-            photo.position[2] + Math.sin(index) * distance
-          ));
-          lookAtPoints.push(new THREE.Vector3(...photo.position));
+          // Multiple points per photo
+          for (let i = 0; i < 5; i++) {
+            const subProgress = i / 5;
+            cameraPoints.push(new THREE.Vector3(
+              photo.position[0] + Math.cos(index + subProgress) * distance,
+              photoHeight,
+              photo.position[2] + Math.sin(index + subProgress) * distance
+            ));
+            lookAtPoints.push(new THREE.Vector3(...photo.position));
+          }
         });
     }
 
@@ -358,50 +369,29 @@ const CameraControls: React.FC<{
     }
   }, [camera, isCinematicActive]);
 
-  // CRITICAL: Properly disable OrbitControls during cinematic mode
-  useEffect(() => {
-    if (controlsRef.current) {
-      if (isCinematicActive) {
-        // Completely disable OrbitControls during cinematic mode
-        controlsRef.current.enabled = false;
-        controlsRef.current.enableRotate = false;
-        controlsRef.current.enablePan = false;
-        controlsRef.current.enableZoom = false;
-        controlsRef.current.enableDamping = false;
-        console.log('🎬 OrbitControls COMPLETELY DISABLED for cinematic mode');
-      } else {
-        // Re-enable OrbitControls for manual control
-        controlsRef.current.enabled = settings.cameraEnabled !== false;
-        controlsRef.current.enableRotate = true;
-        controlsRef.current.enablePan = true;
-        controlsRef.current.enableZoom = true;
-        controlsRef.current.enableDamping = true;
-        console.log('📷 OrbitControls RE-ENABLED for manual control');
-      }
-    }
-  }, [isCinematicActive, settings.cameraEnabled]);
-
   return (
     <>
-      {/* Orbit Controls - COMPLETELY disabled during cinematic mode */}
-      <OrbitControls
-        ref={controlsRef}
-        enabled={!isCinematicActive && settings.cameraEnabled !== false}
-        enablePan={!isCinematicActive}
-        enableZoom={!isCinematicActive}
-        enableRotate={!isCinematicActive}
-        enableDamping={!isCinematicActive}
-        minDistance={10}
-        maxDistance={200}
-        dampingFactor={0.05}
-      />
+      {/* ONLY render OrbitControls when cinematic is OFF - complete removal prevents conflicts */}
+      {!isCinematicActive && (
+        <OrbitControls
+          ref={controlsRef}
+          enabled={settings.cameraEnabled !== false}
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          minDistance={10}
+          maxDistance={200}
+          enableDamping={true}
+          dampingFactor={0.05}
+        />
+      )}
       
       {/* Auto-Rotate (when manual control and cinematic both off) */}
       {!isCinematicActive && (
         <AutoRotateCamera settings={settings} />
       )}
       
-      {/* Cinematic Camera (when enabled) - NO OrbitControls interference */}
+      {/* Cinematic Camera (when enabled) - NO OrbitControls in scene at all */}
       {isCinematicActive && (
         <CinematicCamera 
           config={settings.cameraAnimation}
