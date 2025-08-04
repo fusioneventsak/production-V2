@@ -1,116 +1,5 @@
 // Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
-import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef }
-
-// ENHANCED GRID PATTERN - Always creates symmetrical layouts with aspect ratio support
-class EnhancedGridPattern {
-  constructor(private settings: any) {}
-
-  generatePositions(time: number) {
-    const positions: any[] = [];
-    const rotations: [number, number, number][] = [];
-
-    const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
-      ? this.settings.patterns.grid.photoCount 
-      : this.settings.photoCount;
-    
-    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
-    const photoSize = this.settings.photoSize || 4;
-    
-    // Grid aspect ratio settings
-    const aspectRatio = this.settings.patterns?.grid?.aspectRatio || this.settings.gridAspectRatio || (16/9);
-    const spacing = this.settings.patterns?.grid?.spacing || 0.1;
-    const wallHeight = this.settings.patterns?.grid?.wallHeight || 0;
-    
-    // OPTIMIZED: Calculate optimal grid dimensions for symmetrical layout
-    const { columns, rows } = this.calculateOptimalGrid(totalPhotos, aspectRatio);
-    
-    // Calculate spacing based on photo size and spacing multiplier
-    const baseSpacing = photoSize * (1 + spacing);
-    const totalWidth = columns * baseSpacing;
-    const totalHeight = rows * baseSpacing;
-    
-    // FIXED: Position grid just above the floor with proper height offset
-    const floorHeight = -12;
-    const gridBaseHeight = floorHeight + photoSize * 0.6 + wallHeight; // Just above floor
-    
-    // Calculate starting positions to center the grid
-    const startX = -totalWidth / 2 + baseSpacing / 2;
-    const startZ = -totalHeight / 2 + baseSpacing / 2;
-    
-    // Generate positions in perfect grid layout
-    for (let i = 0; i < totalPhotos; i++) {
-      const col = i % columns;
-      const row = Math.floor(i / columns);
-      
-      const x = startX + col * baseSpacing;
-      const z = startZ + row * baseSpacing;
-      
-      // FIXED: Photos arranged in wall formation just above floor
-      let y = gridBaseHeight;
-      
-      // Add slight height variation for visual interest if enabled
-      if (this.settings.animationEnabled && wallHeight === 0) {
-        const heightVariation = Math.sin(time * 0.5 + i * 0.3) * (photoSize * 0.1);
-        y += heightVariation;
-      }
-      
-      positions.push([x, y, z]);
-      
-      // Grid photos face forward (toward camera) by default
-      if (this.settings.photoRotation && this.settings.animationEnabled) {
-        // Subtle rotation animation for grid
-        const rotationY = Math.sin(time * 0.2 + i * 0.1) * 0.05;
-        const rotationX = Math.cos(time * 0.3 + i * 0.2) * 0.02;
-        rotations.push([rotationX, rotationY, 0]);
-      } else {
-        rotations.push([0, 0, 0]);
-      }
-    }
-    
-    console.log(`📐 Grid: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)}`);
-    
-    return { positions, rotations };
-  }
-  
-  // OPTIMIZED: Calculate the most symmetrical grid layout
-  private calculateOptimalGrid(photoCount: number, targetAspectRatio: number): { columns: number, rows: number } {
-    if (photoCount <= 0) return { columns: 1, rows: 1 };
-    
-    let bestColumns = 1;
-    let bestRows = photoCount;
-    let bestScore = Number.MAX_VALUE;
-    
-    // Try different column counts to find the most balanced grid
-    for (let cols = 1; cols <= Math.ceil(Math.sqrt(photoCount * 2)); cols++) {
-      const rows = Math.ceil(photoCount / cols);
-      const actualPhotos = cols * rows;
-      
-      // Calculate how close this layout is to our target aspect ratio
-      const layoutAspectRatio = cols / rows;
-      const aspectRatioScore = Math.abs(layoutAspectRatio - targetAspectRatio);
-      
-      // Penalize layouts that waste too many slots
-      const wastedSlots = actualPhotos - photoCount;
-      const wasteScore = wastedSlots / actualPhotos;
-      
-      // Prefer more square-ish layouts for better symmetry
-      const symmetryScore = Math.abs(cols - rows) / Math.max(cols, rows);
-      
-      // Combined score (lower is better)
-      const totalScore = aspectRatioScore * 2 + wasteScore * 3 + symmetryScore * 1;
-      
-      if (totalScore < bestScore) {
-        bestScore = totalScore;
-        bestColumns = cols;
-        bestRows = rows;
-      }
-    }
-    
-    return { columns: bestColumns, rows: bestRows };
-  }
-}
-
-// FIXED SPIRAL PATTERN - TALLER cyclone with better distribution and some randomness from 'react';
+import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
@@ -237,6 +126,358 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateVerticalDriftSpeed?: number;
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
+}
+
+// ENHANCED GRID PATTERN - Always creates symmetrical layouts with aspect ratio support
+class EnhancedGridPattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
+      ? this.settings.patterns.grid.photoCount 
+      : this.settings.photoCount;
+    
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    const photoSize = this.settings.photoSize || 4;
+    
+    // Grid aspect ratio settings
+    const aspectRatio = this.settings.patterns?.grid?.aspectRatio || this.settings.gridAspectRatio || (16/9);
+    const spacing = this.settings.patterns?.grid?.spacing || 0.1;
+    const wallHeight = this.settings.patterns?.grid?.wallHeight || 0;
+    
+    // OPTIMIZED: Calculate optimal grid dimensions for symmetrical layout
+    const { columns, rows } = this.calculateOptimalGrid(totalPhotos, aspectRatio);
+    
+    // Calculate spacing based on photo size and spacing multiplier
+    const baseSpacing = photoSize * (1 + spacing);
+    const totalWidth = columns * baseSpacing;
+    const totalHeight = rows * baseSpacing;
+    
+    // FIXED: Position grid just above the floor with proper height offset
+    const floorHeight = -12;
+    const gridBaseHeight = floorHeight + photoSize * 0.6 + wallHeight; // Just above floor
+    
+    // Calculate starting positions to center the grid
+    const startX = -totalWidth / 2 + baseSpacing / 2;
+    const startZ = -totalHeight / 2 + baseSpacing / 2;
+    
+    // Generate positions in perfect grid layout
+    for (let i = 0; i < totalPhotos; i++) {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      
+      const x = startX + col * baseSpacing;
+      const z = startZ + row * baseSpacing;
+      
+      // FIXED: Photos arranged in wall formation just above floor
+      let y = gridBaseHeight;
+      
+      // Add slight height variation for visual interest if enabled
+      if (this.settings.animationEnabled && wallHeight === 0) {
+        const heightVariation = Math.sin(time * 0.5 + i * 0.3) * (photoSize * 0.1);
+        y += heightVariation;
+      }
+      
+      positions.push([x, y, z]);
+      
+      // Grid photos face forward (toward camera) by default
+      if (this.settings.photoRotation && this.settings.animationEnabled) {
+        // Subtle rotation animation for grid
+        const rotationY = Math.sin(time * 0.2 + i * 0.1) * 0.05;
+        const rotationX = Math.cos(time * 0.3 + i * 0.2) * 0.02;
+        rotations.push([rotationX, rotationY, 0]);
+      } else {
+        rotations.push([0, 0, 0]);
+      }
+    }
+    
+    console.log(`📐 Grid: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)}`);
+    
+    return { positions, rotations };
+  }
+  
+  // OPTIMIZED: Calculate the most symmetrical grid layout
+  private calculateOptimalGrid(photoCount: number, targetAspectRatio: number): { columns: number, rows: number } {
+    if (photoCount <= 0) return { columns: 1, rows: 1 };
+    
+    let bestColumns = 1;
+    let bestRows = photoCount;
+    let bestScore = Number.MAX_VALUE;
+    
+    // Try different column counts to find the most balanced grid
+    for (let cols = 1; cols <= Math.ceil(Math.sqrt(photoCount * 2)); cols++) {
+      const rows = Math.ceil(photoCount / cols);
+      const actualPhotos = cols * rows;
+      
+      // Calculate how close this layout is to our target aspect ratio
+      const layoutAspectRatio = cols / rows;
+      const aspectRatioScore = Math.abs(layoutAspectRatio - targetAspectRatio);
+      
+      // Penalize layouts that waste too many slots
+      const wastedSlots = actualPhotos - photoCount;
+      const wasteScore = wastedSlots / actualPhotos;
+      
+      // Prefer more square-ish layouts for better symmetry
+      const symmetryScore = Math.abs(cols - rows) / Math.max(cols, rows);
+      
+      // Combined score (lower is better)
+      const totalScore = aspectRatioScore * 2 + wasteScore * 3 + symmetryScore * 1;
+      
+      if (totalScore < bestScore) {
+        bestScore = totalScore;
+        bestColumns = cols;
+        bestRows = rows;
+      }
+    }
+    
+    return { columns: bestColumns, rows: bestRows };
+  }
+}
+
+// COMPLETELY REDESIGNED WAVE PATTERN - Ultra-smooth organic undulation with multiple harmonics
+class FixedWavePattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.wave?.photoCount !== undefined 
+      ? this.settings.patterns.wave.photoCount 
+      : this.settings.photoCount;
+    
+    // Much better spacing that spreads photos out more naturally
+    const photoSize = this.settings.photoSize || 4;
+    const baseSpacing = Math.max(15, photoSize * 3.0); // Even wider spacing
+    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.2);
+    const finalSpacing = baseSpacing * spacingMultiplier;
+    
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    
+    // Calculate grid dimensions for spread out arrangement
+    const columns = Math.ceil(Math.sqrt(totalPhotos * 1.4)); // Wider grid
+    const rows = Math.ceil(totalPhotos / columns);
+    
+    const speed = this.settings.animationSpeed / 50;
+    const wavePhase = time * speed * 0.6; // Slower, more organic
+    
+    // MUCH HIGHER floating range - never touch the floor
+    const floorHeight = -12;
+    const minFloatHeight = 12; // MUCH higher minimum - well above floor
+    const maxFloatHeight = 25; // Higher ceiling for dramatic undulation
+    const midHeight = (minFloatHeight + maxFloatHeight) / 2;
+    
+    for (let i = 0; i < totalPhotos; i++) {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      
+      // Base positions with organic offset
+      let x = (col - columns / 2) * finalSpacing;
+      let z = (row - rows / 2) * finalSpacing;
+      
+      // Add subtle randomness to avoid perfect grid
+      x += (Math.sin(i * 0.7) * 0.5 + Math.cos(i * 1.3) * 0.3) * finalSpacing * 0.2;
+      z += (Math.cos(i * 0.8) * 0.5 + Math.sin(i * 1.1) * 0.3) * finalSpacing * 0.2;
+      
+      // Base amplitude that can be controlled
+      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 6, photoSize * 2.0);
+      const frequency = this.settings.patterns?.wave?.frequency || 0.08; // Much lower for broader waves
+      
+      let y = midHeight; // Start from middle of floating range
+      
+      if (this.settings.animationEnabled) {
+        // MULTIPLE OVERLAPPING SINE WAVES for ultra-smooth organic motion
+        
+        // Primary X-direction wave - main rolling motion
+        const primaryWave = Math.sin(x * frequency - wavePhase) * amplitude;
+        
+        // Secondary Z-direction wave - perpendicular undulation
+        const secondaryWave = Math.sin(z * frequency * 0.8 + wavePhase * 0.7) * amplitude * 0.6;
+        
+        // Diagonal wave - creates natural cross-patterns
+        const diagonalWave = Math.sin((x + z) * frequency * 0.5 - wavePhase * 1.2) * amplitude * 0.4;
+        
+        // Radial wave from center - gentle ripples emanating outward
+        const distanceFromCenter = Math.sqrt(x * x + z * z);
+        const radialWave = Math.sin(distanceFromCenter * frequency * 0.3 - wavePhase * 0.8) * amplitude * 0.5;
+        
+        // Circular wave - rotational component
+        const angle = Math.atan2(z, x);
+        const circularWave = Math.sin(angle * 3 + wavePhase * 0.4) * amplitude * 0.3;
+        
+        // High-frequency detail wave - adds surface texture
+        const detailWave = Math.sin(x * frequency * 3 - wavePhase * 2.5) * Math.cos(z * frequency * 2.5 + wavePhase * 1.8) * amplitude * 0.2;
+        
+        // Temporal breathing wave - overall rise and fall
+        const breathingWave = Math.sin(wavePhase * 0.3) * amplitude * 0.7;
+        
+        // Individual photo variation - each photo has slightly different motion
+        const photoSeed = (Math.sin(i * 0.618) + 1) / 2; // Golden ratio for natural distribution
+        const personalWave = Math.sin(wavePhase * 0.9 + photoSeed * Math.PI * 2) * amplitude * 0.3;
+        
+        // Combine all waves with different weights for natural motion
+        const totalWaveHeight = 
+          primaryWave * 1.0 +      // Main wave
+          secondaryWave * 0.8 +    // Cross wave
+          diagonalWave * 0.6 +     // Diagonal component
+          radialWave * 0.7 +       // Radial ripples
+          circularWave * 0.4 +     // Rotational component
+          detailWave * 0.3 +       // Surface detail
+          breathingWave * 0.5 +    // Overall breathing
+          personalWave * 0.4;      // Individual variation
+        
+        y += totalWaveHeight;
+        
+        // CRITICAL: Ensure photos NEVER go below minimum height - always floating
+        y = Math.max(y, minFloatHeight);
+        
+        // Also cap at maximum height to keep in view
+        y = Math.min(y, maxFloatHeight);
+      }
+      
+      positions.push([x, y, z]);
+
+      if (this.settings.photoRotation) {
+        // Organic rotation that follows the wave motion
+        const waveInfluence = (y - midHeight) / amplitude; // How much the wave affects rotation
+        
+        // Gentle tilting that follows wave slopes
+        const rotationX = Math.sin(wavePhase * 0.4 + x * frequency * 0.4) * 0.08 * waveInfluence;
+        const rotationZ = Math.cos(wavePhase * 0.4 + z * frequency * 0.4) * 0.08 * waveInfluence;
+        
+        // Base rotation toward camera with wave variation
+        const baseAngle = Math.atan2(x, z);
+        const rotationY = baseAngle + Math.sin(wavePhase * 0.3 + i * 0.1) * 0.2;
+        
+        rotations.push([rotationX, rotationY, rotationZ]);
+      } else {
+        rotations.push([0, 0, 0]);
+      }
+    }
+
+    return { positions, rotations };
+  }
+}
+
+// FIXED SPIRAL PATTERN - TALLER cyclone with better distribution and some randomness
+class FixedSpiralPattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.spiral?.photoCount !== undefined 
+      ? this.settings.patterns.spiral.photoCount 
+      : this.settings.photoCount;
+    
+    // FIXED: Support up to 500 photos efficiently
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    const speed = this.settings.animationSpeed / 50;
+    const animationTime = time * speed * 2;
+    
+    // FIXED: MUCH TALLER spiral parameters for better visibility
+    const photoSize = this.settings.photoSize || 4;
+    const baseRadius = Math.max(8, photoSize * 1.5); // Reasonable minimum radius
+    const maxRadius = Math.max(50, photoSize * 10); // Even wider spread
+    const maxHeight = Math.max(60, photoSize * 12); // MUCH TALLER - doubled the height
+    const rotationSpeed = 0.6;
+    const orbitalChance = 0.25; // Slightly more orbital photos for area filling
+    
+    // FIXED: Proper hover height - well above floor
+    const floorHeight = -12;
+    const hoverHeight = 5; // Slightly higher hover
+    const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
+    
+    // FIXED: BETTER vertical distribution - less bottom-heavy, more spread out
+    const verticalBias = 0.4; // MUCH less bias toward bottom (was 0.7)
+    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.8; // Taller steps between layers
+    
+    for (let i = 0; i < totalPhotos; i++) {
+      // Generate random but consistent values for each photo
+      const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
+      const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
+      const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
+      const randomSeed4 = Math.sin(i * 3.17) * 0.5 + 0.5; // Additional randomness
+      
+      // Determine if this photo is on the main funnel or an outer orbit
+      const isOrbital = randomSeed1 < orbitalChance;
+      
+      // FIXED: Better height distribution - more spread throughout the height
+      let normalizedHeight = Math.pow(randomSeed2, verticalBias);
+      
+      // ADD RANDOMNESS: Some photos get random height boosts for better filling
+      if (randomSeed4 > 0.7) {
+        normalizedHeight = Math.min(1.0, normalizedHeight + (randomSeed4 - 0.7) * 1.5); // Random height boost
+      }
+      
+      // Apply height step to create taller spiral layers
+      const y = baseHeight + normalizedHeight * maxHeight * heightStep;
+      
+      // Calculate radius at this height (funnel shape)
+      const funnelRadius = baseRadius + (maxRadius - baseRadius) * normalizedHeight;
+      
+      let radius: number;
+      let angleOffset: number;
+      let verticalWobble: number = 0;
+      
+      if (isOrbital) {
+        // Orbital photos - farther out with more randomness for area filling
+        const orbitalVariation = 1.3 + randomSeed3 * 1.0; // More variation (was 0.8)
+        radius = funnelRadius * orbitalVariation;
+        angleOffset = randomSeed3 * Math.PI * 2; // Random starting angle
+        
+        // ADD RANDOMNESS: Some orbital photos get random radius boosts
+        if (randomSeed4 > 0.6) {
+          radius *= (1.0 + (randomSeed4 - 0.6) * 1.5); // Random radius boost
+        }
+        
+        // Add vertical oscillation for orbital photos
+        if (this.settings.animationEnabled) {
+          verticalWobble = Math.sin(animationTime * 2 + i) * 4; // Slightly more wobble
+        }
+      } else {
+        // Main funnel photos with some randomness
+        const radiusVariation = 0.7 + randomSeed3 * 0.6; // More variation (was 0.8 to 1.2)
+        radius = funnelRadius * radiusVariation;
+        angleOffset = randomSeed4 * 0.5; // Small random angle offset
+        
+        // ADD RANDOMNESS: Some main photos get scattered for filling
+        if (randomSeed4 > 0.8) {
+          radius *= (1.0 + (randomSeed4 - 0.8) * 2.0); // Scatter some photos further
+        }
+      }
+      
+      // Calculate angle with height-based rotation speed
+      // Photos at the bottom rotate slower, creating a realistic vortex effect
+      const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
+      const angle = this.settings.animationEnabled ?
+        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.05)) :
+        (angleOffset + (i * 0.1));
+      
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const finalY = y + verticalWobble;
+      
+      positions.push([x, finalY, z]);
+      
+      // FIXED: Photos should face camera in spiral pattern for better visibility
+      if (this.settings.photoRotation) {
+        // Add subtle animation while letting camera-facing handle main orientation
+        const rotX = Math.sin(animationTime * 0.4 + i * 0.1) * 0.02;
+        const rotY = 0; // Let camera-facing handle Y rotation
+        const rotZ = Math.cos(animationTime * 0.4 + i * 0.1) * 0.02;
+        rotations.push([rotX, rotY, rotZ]);
+      } else {
+        rotations.push([0, 0, 0]); // No rotation - pure camera facing
+      }
+    }
+
+    return { positions, rotations };
+  }
 }
 
 // SIMPLE AUTO-ROTATE CAMERA - Actually works with all settings
@@ -946,356 +1187,6 @@ class EnhancedSlotManager {
 
   getAspectRatio(photoId: string): number | null {
     return this.photoAspectRatios.get(photoId) || null;
-  }
-}
-
-// COMPLETELY REDESIGNED WAVE PATTERN - Ultra-smooth organic undulation with multiple harmonics
-class FixedWavePattern {
-  constructor(private settings: any) {}
-
-  generatePositions(time: number) {
-    const positions: any[] = [];
-    const rotations: [number, number, number][] = [];
-
-    const photoCount = this.settings.patterns?.wave?.photoCount !== undefined 
-      ? this.settings.patterns.wave.photoCount 
-      : this.settings.photoCount;
-    
-    // Much better spacing that spreads photos out more naturally
-    const photoSize = this.settings.photoSize || 4;
-    const baseSpacing = Math.max(15, photoSize * 3.0); // Even wider spacing
-    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.2);
-    const finalSpacing = baseSpacing * spacingMultiplier;
-    
-    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
-    
-    // Calculate grid dimensions for spread out arrangement
-    const columns = Math.ceil(Math.sqrt(totalPhotos * 1.4)); // Wider grid
-    const rows = Math.ceil(totalPhotos / columns);
-    
-    const speed = this.settings.animationSpeed / 50;
-    const wavePhase = time * speed * 0.6; // Slower, more organic
-    
-    // MUCH HIGHER floating range - never touch the floor
-    const floorHeight = -12;
-    const minFloatHeight = 12; // MUCH higher minimum - well above floor
-    const maxFloatHeight = 25; // Higher ceiling for dramatic undulation
-    const midHeight = (minFloatHeight + maxFloatHeight) / 2;
-    
-    for (let i = 0; i < totalPhotos; i++) {
-      const col = i % columns;
-      const row = Math.floor(i / columns);
-      
-      // Base positions with organic offset
-      let x = (col - columns / 2) * finalSpacing;
-      let z = (row - rows / 2) * finalSpacing;
-      
-      // Add subtle randomness to avoid perfect grid
-      x += (Math.sin(i * 0.7) * 0.5 + Math.cos(i * 1.3) * 0.3) * finalSpacing * 0.2;
-      z += (Math.cos(i * 0.8) * 0.5 + Math.sin(i * 1.1) * 0.3) * finalSpacing * 0.2;
-      
-      // Base amplitude that can be controlled
-      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 6, photoSize * 2.0);
-      const frequency = this.settings.patterns?.wave?.frequency || 0.08; // Much lower for broader waves
-      
-      let y = midHeight; // Start from middle of floating range
-      
-      if (this.settings.animationEnabled) {
-        // MULTIPLE OVERLAPPING SINE WAVES for ultra-smooth organic motion
-        
-        // Primary X-direction wave - main rolling motion
-        const primaryWave = Math.sin(x * frequency - wavePhase) * amplitude;
-        
-        // Secondary Z-direction wave - perpendicular undulation
-        const secondaryWave = Math.sin(z * frequency * 0.8 + wavePhase * 0.7) * amplitude * 0.6;
-        
-        // Diagonal wave - creates natural cross-patterns
-        const diagonalWave = Math.sin((x + z) * frequency * 0.5 - wavePhase * 1.2) * amplitude * 0.4;
-        
-        // Radial wave from center - gentle ripples emanating outward
-        const distanceFromCenter = Math.sqrt(x * x + z * z);
-        const radialWave = Math.sin(distanceFromCenter * frequency * 0.3 - wavePhase * 0.8) * amplitude * 0.5;
-        
-        // Circular wave - rotational component
-        const angle = Math.atan2(z, x);
-        const circularWave = Math.sin(angle * 3 + wavePhase * 0.4) * amplitude * 0.3;
-        
-        // High-frequency detail wave - adds surface texture
-        const detailWave = Math.sin(x * frequency * 3 - wavePhase * 2.5) * Math.cos(z * frequency * 2.5 + wavePhase * 1.8) * amplitude * 0.2;
-        
-        // Temporal breathing wave - overall rise and fall
-        const breathingWave = Math.sin(wavePhase * 0.3) * amplitude * 0.7;
-        
-        // Individual photo variation - each photo has slightly different motion
-        const photoSeed = (Math.sin(i * 0.618) + 1) / 2; // Golden ratio for natural distribution
-        const personalWave = Math.sin(wavePhase * 0.9 + photoSeed * Math.PI * 2) * amplitude * 0.3;
-        
-        // Combine all waves with different weights for natural motion
-        const totalWaveHeight = 
-          primaryWave * 1.0 +      // Main wave
-          secondaryWave * 0.8 +    // Cross wave
-          diagonalWave * 0.6 +     // Diagonal component
-          radialWave * 0.7 +       // Radial ripples
-          circularWave * 0.4 +     // Rotational component
-          detailWave * 0.3 +       // Surface detail
-          breathingWave * 0.5 +    // Overall breathing
-          personalWave * 0.4;      // Individual variation
-        
-        y += totalWaveHeight;
-        
-        // CRITICAL: Ensure photos NEVER go below minimum height - always floating
-        y = Math.max(y, minFloatHeight);
-        
-        // Also cap at maximum height to keep in view
-        y = Math.min(y, maxFloatHeight);
-      }
-      
-      positions.push([x, y, z]);
-
-      if (this.settings.photoRotation) {
-        // Organic rotation that follows the wave motion
-        const waveInfluence = (y - midHeight) / amplitude; // How much the wave affects rotation
-        
-        // Gentle tilting that follows wave slopes
-        const rotationX = Math.sin(wavePhase * 0.4 + x * frequency * 0.4) * 0.08 * waveInfluence;
-        const rotationZ = Math.cos(wavePhase * 0.4 + z * frequency * 0.4) * 0.08 * waveInfluence;
-        
-        // Base rotation toward camera with wave variation
-        const baseAngle = Math.atan2(x, z);
-        const rotationY = baseAngle + Math.sin(wavePhase * 0.3 + i * 0.1) * 0.2;
-        
-        rotations.push([rotationX, rotationY, rotationZ]);
-      } else {
-        rotations.push([0, 0, 0]);
-      }
-    }
-
-    return { positions, rotations };
-  }
-}
-
-// ENHANCED GRID PATTERN - Always creates symmetrical layouts with aspect ratio support
-class EnhancedGridPattern {
-  constructor(private settings: any) {}
-
-  generatePositions(time: number) {
-    const positions: any[] = [];
-    const rotations: [number, number, number][] = [];
-
-    const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
-      ? this.settings.patterns.grid.photoCount 
-      : this.settings.photoCount;
-    
-    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
-    const photoSize = this.settings.photoSize || 4;
-    
-    // Grid aspect ratio settings
-    const aspectRatio = this.settings.patterns?.grid?.aspectRatio || this.settings.gridAspectRatio || (16/9);
-    const spacing = this.settings.patterns?.grid?.spacing || 0.1;
-    const wallHeight = this.settings.patterns?.grid?.wallHeight || 0;
-    
-    // OPTIMIZED: Calculate optimal grid dimensions for symmetrical layout
-    const { columns, rows } = this.calculateOptimalGrid(totalPhotos, aspectRatio);
-    
-    // Calculate spacing based on photo size and spacing multiplier
-    const baseSpacing = photoSize * (1 + spacing);
-    const totalWidth = columns * baseSpacing;
-    const totalHeight = rows * baseSpacing;
-    
-    // FIXED: Position grid just above the floor with proper height offset
-    const floorHeight = -12;
-    const gridBaseHeight = floorHeight + photoSize * 0.6 + wallHeight; // Just above floor
-    
-    // Calculate starting positions to center the grid
-    const startX = -totalWidth / 2 + baseSpacing / 2;
-    const startZ = -totalHeight / 2 + baseSpacing / 2;
-    
-    // Generate positions in perfect grid layout
-    for (let i = 0; i < totalPhotos; i++) {
-      const col = i % columns;
-      const row = Math.floor(i / columns);
-      
-      const x = startX + col * baseSpacing;
-      const z = startZ + row * baseSpacing;
-      
-      // FIXED: Photos arranged in wall formation just above floor
-      let y = gridBaseHeight;
-      
-      // Add slight height variation for visual interest if enabled
-      if (this.settings.animationEnabled && wallHeight === 0) {
-        const heightVariation = Math.sin(time * 0.5 + i * 0.3) * (photoSize * 0.1);
-        y += heightVariation;
-      }
-      
-      positions.push([x, y, z]);
-      
-      // Grid photos face forward (toward camera) by default
-      if (this.settings.photoRotation && this.settings.animationEnabled) {
-        // Subtle rotation animation for grid
-        const rotationY = Math.sin(time * 0.2 + i * 0.1) * 0.05;
-        const rotationX = Math.cos(time * 0.3 + i * 0.2) * 0.02;
-        rotations.push([rotationX, rotationY, 0]);
-      } else {
-        rotations.push([0, 0, 0]);
-      }
-    }
-    
-    console.log(`📐 Grid: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)}`);
-    
-    return { positions, rotations };
-  }
-  
-  // OPTIMIZED: Calculate the most symmetrical grid layout
-  private calculateOptimalGrid(photoCount: number, targetAspectRatio: number): { columns: number, rows: number } {
-    if (photoCount <= 0) return { columns: 1, rows: 1 };
-    
-    let bestColumns = 1;
-    let bestRows = photoCount;
-    let bestScore = Number.MAX_VALUE;
-    
-    // Try different column counts to find the most balanced grid
-    for (let cols = 1; cols <= Math.ceil(Math.sqrt(photoCount * 2)); cols++) {
-      const rows = Math.ceil(photoCount / cols);
-      const actualPhotos = cols * rows;
-      
-      // Calculate how close this layout is to our target aspect ratio
-      const layoutAspectRatio = cols / rows;
-      const aspectRatioScore = Math.abs(layoutAspectRatio - targetAspectRatio);
-      
-      // Penalize layouts that waste too many slots
-      const wastedSlots = actualPhotos - photoCount;
-      const wasteScore = wastedSlots / actualPhotos;
-      
-      // Prefer more square-ish layouts for better symmetry
-      const symmetryScore = Math.abs(cols - rows) / Math.max(cols, rows);
-      
-      // Combined score (lower is better)
-      const totalScore = aspectRatioScore * 2 + wasteScore * 3 + symmetryScore * 1;
-      
-      if (totalScore < bestScore) {
-        bestScore = totalScore;
-        bestColumns = cols;
-        bestRows = rows;
-      }
-    }
-    
-    return { columns: bestColumns, rows: bestRows };
-  }
-}
-class FixedSpiralPattern {
-  constructor(private settings: any) {}
-
-  generatePositions(time: number) {
-    const positions: any[] = [];
-    const rotations: [number, number, number][] = [];
-
-    const photoCount = this.settings.patterns?.spiral?.photoCount !== undefined 
-      ? this.settings.patterns.spiral.photoCount 
-      : this.settings.photoCount;
-    
-    // FIXED: Support up to 500 photos efficiently
-    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
-    const speed = this.settings.animationSpeed / 50;
-    const animationTime = time * speed * 2;
-    
-    // FIXED: MUCH TALLER spiral parameters for better visibility
-    const photoSize = this.settings.photoSize || 4;
-    const baseRadius = Math.max(8, photoSize * 1.5); // Reasonable minimum radius
-    const maxRadius = Math.max(50, photoSize * 10); // Even wider spread
-    const maxHeight = Math.max(60, photoSize * 12); // MUCH TALLER - doubled the height
-    const rotationSpeed = 0.6;
-    const orbitalChance = 0.25; // Slightly more orbital photos for area filling
-    
-    // FIXED: Proper hover height - well above floor
-    const floorHeight = -12;
-    const hoverHeight = 5; // Slightly higher hover
-    const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
-    
-    // FIXED: BETTER vertical distribution - less bottom-heavy, more spread out
-    const verticalBias = 0.4; // MUCH less bias toward bottom (was 0.7)
-    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.8; // Taller steps between layers
-    
-    for (let i = 0; i < totalPhotos; i++) {
-      // Generate random but consistent values for each photo
-      const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
-      const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
-      const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
-      const randomSeed4 = Math.sin(i * 3.17) * 0.5 + 0.5; // Additional randomness
-      
-      // Determine if this photo is on the main funnel or an outer orbit
-      const isOrbital = randomSeed1 < orbitalChance;
-      
-      // FIXED: Better height distribution - more spread throughout the height
-      let normalizedHeight = Math.pow(randomSeed2, verticalBias);
-      
-      // ADD RANDOMNESS: Some photos get random height boosts for better filling
-      if (randomSeed4 > 0.7) {
-        normalizedHeight = Math.min(1.0, normalizedHeight + (randomSeed4 - 0.7) * 1.5); // Random height boost
-      }
-      
-      // Apply height step to create taller spiral layers
-      const y = baseHeight + normalizedHeight * maxHeight * heightStep;
-      
-      // Calculate radius at this height (funnel shape)
-      const funnelRadius = baseRadius + (maxRadius - baseRadius) * normalizedHeight;
-      
-      let radius: number;
-      let angleOffset: number;
-      let verticalWobble: number = 0;
-      
-      if (isOrbital) {
-        // Orbital photos - farther out with more randomness for area filling
-        const orbitalVariation = 1.3 + randomSeed3 * 1.0; // More variation (was 0.8)
-        radius = funnelRadius * orbitalVariation;
-        angleOffset = randomSeed3 * Math.PI * 2; // Random starting angle
-        
-        // ADD RANDOMNESS: Some orbital photos get random radius boosts
-        if (randomSeed4 > 0.6) {
-          radius *= (1.0 + (randomSeed4 - 0.6) * 1.5); // Random radius boost
-        }
-        
-        // Add vertical oscillation for orbital photos
-        if (this.settings.animationEnabled) {
-          verticalWobble = Math.sin(animationTime * 2 + i) * 4; // Slightly more wobble
-        }
-      } else {
-        // Main funnel photos with some randomness
-        const radiusVariation = 0.7 + randomSeed3 * 0.6; // More variation (was 0.8 to 1.2)
-        radius = funnelRadius * radiusVariation;
-        angleOffset = randomSeed4 * 0.5; // Small random angle offset
-        
-        // ADD RANDOMNESS: Some main photos get scattered for filling
-        if (randomSeed4 > 0.8) {
-          radius *= (1.0 + (randomSeed4 - 0.8) * 2.0); // Scatter some photos further
-        }
-      }
-      
-      // Calculate angle with height-based rotation speed
-      // Photos at the bottom rotate slower, creating a realistic vortex effect
-      const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
-      const angle = this.settings.animationEnabled ?
-        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.05)) :
-        (angleOffset + (i * 0.1));
-      
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      const finalY = y + verticalWobble;
-      
-      positions.push([x, finalY, z]);
-      
-      // FIXED: Photos should face camera in spiral pattern for better visibility
-      if (this.settings.photoRotation) {
-        // Add subtle animation while letting camera-facing handle main orientation
-        const rotX = Math.sin(animationTime * 0.4 + i * 0.1) * 0.02;
-        const rotY = 0; // Let camera-facing handle Y rotation
-        const rotZ = Math.cos(animationTime * 0.4 + i * 0.1) * 0.02;
-        rotations.push([rotX, rotY, rotZ]);
-      } else {
-        rotations.push([0, 0, 0]); // No rotation - pure camera facing
-      }
-    }
-
-    return { positions, rotations };
   }
 }
 
