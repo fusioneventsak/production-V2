@@ -167,7 +167,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// SIMPLE CINEMATIC CAMERA - Basic smooth movement that works
+// ULTRA-SIMPLE CINEMATIC CAMERA - Direct position updates, no interpolation
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -183,121 +183,88 @@ const CinematicCamera: React.FC<{
 }> = ({ config, photoPositions }) => {
   const { camera } = useThree();
   const timeRef = useRef(0);
-  const currentIndexRef = useRef(0);
-  const positionsRef = useRef<THREE.Vector3[]>([]);
-  const targetsRef = useRef<THREE.Vector3[]>([]);
 
-  // Generate simple waypoints
-  useEffect(() => {
-    if (!config?.enabled || !photoPositions.length || config.type === 'none') {
-      positionsRef.current = [];
-      targetsRef.current = [];
+  useFrame((state, delta) => {
+    if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
       return;
     }
 
     const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
     if (!validPhotos.length) return;
 
-    console.log(`🎬 Generating ${config.type} path for ${validPhotos.length} photos`);
+    // Simple time-based movement
+    const speed = (config.speed || 1.0) * 0.5;
+    timeRef.current += delta * speed;
 
-    const positions: THREE.Vector3[] = [];
-    const targets: THREE.Vector3[] = [];
     const height = -4;
     const distance = 15;
+
+    let x, y, z, lookX, lookY, lookZ;
 
     switch (config.type) {
       case 'showcase':
       case 'gallery_walk':
-        validPhotos.forEach(photo => {
-          positions.push(new THREE.Vector3(
-            photo.position[0],
-            height,
-            photo.position[2] + distance
-          ));
-          targets.push(new THREE.Vector3(...photo.position));
-        });
-        break;
-
-      case 'spiral_tour':
+        // Simple circular path around all photos
         const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
         const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
         
-        for (let i = 0; i < 60; i++) {
-          const angle = (i / 60) * Math.PI * 4;
-          const radius = 20 + Math.sin(i * 0.1) * 5;
-          positions.push(new THREE.Vector3(
-            centerX + Math.cos(angle) * radius,
-            height + Math.sin(i * 0.05) * 3,
-            centerZ + Math.sin(angle) * radius
-          ));
-          targets.push(new THREE.Vector3(centerX, height, centerZ));
-        }
+        x = centerX + Math.cos(timeRef.current) * distance;
+        y = height;
+        z = centerZ + Math.sin(timeRef.current) * distance;
+        
+        lookX = centerX;
+        lookY = height;
+        lookZ = centerZ;
+        break;
+
+      case 'spiral_tour':
+        // Simple expanding spiral
+        const spiralRadius = 10 + Math.sin(timeRef.current * 0.1) * 15;
+        x = Math.cos(timeRef.current) * spiralRadius;
+        y = height + Math.sin(timeRef.current * 0.2) * 3;
+        z = Math.sin(timeRef.current) * spiralRadius;
+        
+        lookX = 0;
+        lookY = height;
+        lookZ = 0;
         break;
 
       case 'photo_focus':
-        validPhotos.forEach(photo => {
-          for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            positions.push(new THREE.Vector3(
-              photo.position[0] + Math.cos(angle) * 8,
-              photo.position[1] + 2,
-              photo.position[2] + Math.sin(angle) * 8
-            ));
-            targets.push(new THREE.Vector3(...photo.position));
-          }
-        });
+        // Focus on one photo at a time
+        const photoIndex = Math.floor(timeRef.current * 0.1) % validPhotos.length;
+        const currentPhoto = validPhotos[photoIndex];
+        const orbitAngle = timeRef.current * 2;
+        
+        x = currentPhoto.position[0] + Math.cos(orbitAngle) * 8;
+        y = currentPhoto.position[1] + 2;
+        z = currentPhoto.position[2] + Math.sin(orbitAngle) * 8;
+        
+        lookX = currentPhoto.position[0];
+        lookY = currentPhoto.position[1];
+        lookZ = currentPhoto.position[2];
         break;
 
       default:
-        validPhotos.forEach(photo => {
-          positions.push(new THREE.Vector3(
-            photo.position[0] + 10,
-            height,
-            photo.position[2] + 10
-          ));
-          targets.push(new THREE.Vector3(...photo.position));
-        });
+        // Simple orbit
+        x = Math.cos(timeRef.current) * 20;
+        y = height;
+        z = Math.sin(timeRef.current) * 20;
+        
+        lookX = 0;
+        lookY = height;
+        lookZ = 0;
     }
 
-    positionsRef.current = positions;
-    targetsRef.current = targets;
-    timeRef.current = 0;
-    currentIndexRef.current = 0;
+    // Direct camera updates - NO LERPING OR INTERPOLATION
+    camera.position.x = x;
+    camera.position.y = y;
+    camera.position.z = z;
     
-    console.log(`🎬 Created ${positions.length} waypoints`);
-  }, [config?.enabled, config?.type, photoPositions]);
+    camera.lookAt(lookX, lookY, lookZ);
 
-  useFrame((state, delta) => {
-    if (!config?.enabled || config.type === 'none' || !positionsRef.current.length) {
-      return;
-    }
-
-    const speed = (config.speed || 1.0) * 0.2;
-    timeRef.current += delta * speed;
-
-    // Simple waypoint traversal
-    const totalPoints = positionsRef.current.length;
-    const progress = (timeRef.current * 0.1) % 1;
-    const currentIndex = Math.floor(progress * totalPoints);
-    const nextIndex = (currentIndex + 1) % totalPoints;
-    const t = (progress * totalPoints) % 1;
-
-    // Simple interpolation
-    const currentPos = positionsRef.current[currentIndex];
-    const nextPos = positionsRef.current[nextIndex];
-    const currentTarget = targetsRef.current[currentIndex];
-    
-    if (currentPos && nextPos && currentTarget) {
-      const interpolatedPos = currentPos.clone().lerp(nextPos, t);
-      
-      camera.position.copy(interpolatedPos);
-      camera.lookAt(currentTarget);
-      
-      // Debug
-      if (currentIndex !== currentIndexRef.current) {
-        currentIndexRef.current = currentIndex;
-        console.log(`🎬 Waypoint ${currentIndex}/${totalPoints}`);
-      }
+    // Debug every 2 seconds
+    if (Math.floor(timeRef.current) % 2 === 0 && Math.floor(timeRef.current * 10) % 10 === 0) {
+      console.log(`🎬 ${config.type}: pos(${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}) time:${timeRef.current.toFixed(1)}`);
     }
   });
 
@@ -327,7 +294,7 @@ const CameraControls: React.FC<{
   
   // Initialize camera
   useEffect(() => {
-    if (camera && controlsRef.current && !isCinematicActive) {
+    if (camera && !isCinematicActive && controlsRef.current) {
       const photoSize = settings.photoSize || 4;
       const distance = Math.max(settings.cameraDistance || 25, photoSize * 3);
       const height = Math.max(settings.cameraHeight || 5, photoSize + 2);
@@ -336,36 +303,33 @@ const CameraControls: React.FC<{
       controlsRef.current.target.set(0, 0, 0);
       controlsRef.current.update();
       
-      console.log('📷 Camera initialized:', { 
-        position: camera.position.toArray(),
-        cinematic: isCinematicActive 
-      });
+      console.log('📷 Camera initialized for manual control');
     }
   }, [camera, isCinematicActive]);
 
   return (
     <>
-      {/* ONLY render OrbitControls when cinematic is OFF - complete removal prevents conflicts */}
+      {/* ONLY render OrbitControls when cinematic is completely OFF */}
       {!isCinematicActive && (
-        <OrbitControls
-          ref={controlsRef}
-          enabled={settings.cameraEnabled !== false}
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          minDistance={10}
-          maxDistance={200}
-          enableDamping={true}
-          dampingFactor={0.05}
-        />
+        <>
+          <OrbitControls
+            ref={controlsRef}
+            enabled={settings.cameraEnabled !== false}
+            enablePan={true}
+            enableZoom={true}
+            enableRotate={true}
+            minDistance={10}
+            maxDistance={200}
+            enableDamping={true}
+            dampingFactor={0.05}
+          />
+          
+          {/* Auto-Rotate only when manual controls are available */}
+          <AutoRotateCamera settings={settings} />
+        </>
       )}
       
-      {/* Auto-Rotate (when manual control and cinematic both off) */}
-      {!isCinematicActive && (
-        <AutoRotateCamera settings={settings} />
-      )}
-      
-      {/* Cinematic Camera (when enabled) - NO OrbitControls in scene at all */}
+      {/* Cinematic Camera - NO other components in scene */}
       {isCinematicActive && (
         <CinematicCamera 
           config={settings.cameraAnimation}
