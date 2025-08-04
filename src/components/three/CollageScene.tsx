@@ -134,7 +134,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotatePauseOnInteraction?: number;
 }
 
-// ENHANCED GRID PATTERN - True FLAT WALL on single plane with configurable spacing and aspect ratio
+// ENHANCED GRID PATTERN - Perfect solid wall with no overlaps and smooth spacing control
 class EnhancedGridPattern {
   constructor(private settings: any) {}
 
@@ -142,12 +142,12 @@ class EnhancedGridPattern {
     const positions: any[] = [];
     const rotations: [number, number, number][] = [];
 
-    // Use pattern-specific photoCount if available
+    // Use pattern-specific photoCount if available, max 500
     const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
       ? this.settings.patterns.grid.photoCount 
       : this.settings.photoCount;
     
-    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500); // Allow up to 500 photos
     const photoSize = this.settings.photoSize || 4.0;
     
     // Grid aspect ratio and spacing settings from pattern-specific config
@@ -161,85 +161,86 @@ class EnhancedGridPattern {
     const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
     const rows = Math.ceil(totalPhotos / columns);
     
-    // SOLID WALL SPACING: True edge-to-edge when spacing is 0, equal spacing when spacing > 0
+    // PERFECT SPACING: No overlaps, true solid wall when spacing = 0
+    const photoWidth = photoSize * (9/16); // 16:9 aspect ratio width
+    const photoHeight = photoSize; // Full height
+    
     let horizontalSpacing, verticalSpacing;
     
     if (spacingPercentage === 0) { 
-      // SOLID WALL: Photos touch edge-to-edge with NO gaps or overlaps
-      horizontalSpacing = photoSize * 0.562; // 56.2% = exact edge-to-edge for 16:9 photos
-      verticalSpacing = photoSize;           // Full photo height = no vertical overlap
+      // SOLID WALL: Photos touch perfectly edge-to-edge with NO gaps or overlaps
+      horizontalSpacing = photoWidth;   // Exact photo width = perfect edge-to-edge
+      verticalSpacing = photoHeight;    // Exact photo height = perfect edge-to-edge
     } else {
-      // SPACED WALL: Equal gaps between photos horizontally and vertically
-      const gapSize = spacingPercentage * photoSize * 2; // Wide range: 0 to 200% of photo size
+      // SPACED WALL: Add gaps proportional to spacing slider
+      const horizontalGap = spacingPercentage * photoWidth;  // Gap proportional to photo width
+      const verticalGap = spacingPercentage * photoHeight;   // Gap proportional to photo height
       
-      // Apply IDENTICAL spacing calculation for both directions
-      horizontalSpacing = photoSize + gapSize;  // photoSize + equal gap
-      verticalSpacing = photoSize + gapSize;    // photoSize + equal gap (same calculation)
+      horizontalSpacing = photoWidth + horizontalGap;   // Photo + gap
+      verticalSpacing = photoHeight + verticalGap;      // Photo + gap
     }
     
     // Calculate total wall dimensions
     const totalWallWidth = (columns - 1) * horizontalSpacing;
     const totalWallHeight = (rows - 1) * verticalSpacing;
     
-    // CRITICAL FIX: Wall positioning - ALL PHOTOS ON SAME Z PLANE
+    // FLAT WALL positioning - ALL PHOTOS ON SAME Z PLANE
     const floorHeight = -12;
     const gridBaseHeight = floorHeight + photoSize * 0.6 + wallHeight;
-    const wallZ = 0; // ALL photos on the SAME Z plane - this creates a flat wall
+    const wallZ = 0; // ALL photos on the SAME Z plane - flat wall
     
     // Center the wall
     const startX = -totalWallWidth / 2;
-    const startY = gridBaseHeight - totalWallHeight / 2; // Center vertically too
+    const startY = gridBaseHeight - totalWallHeight / 2; // Center vertically
     
     // Animation settings
     const speed = this.settings.animationSpeed / 100;
     const animationTime = this.settings.animationEnabled ? time * speed : 0;
     
-    // Generate positions in grid layout - ALL ON SAME PLANE
+    // Generate positions in perfect grid layout - ALL ON SAME PLANE
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
       const row = Math.floor(i / columns);
       
-      // FIXED: Position all photos on the same Z plane
+      // PERFECT positioning with no overlaps
       const x = startX + col * horizontalSpacing;
-      const y = startY + row * verticalSpacing; // Y goes UP for rows, not Z going back
+      const y = startY + row * verticalSpacing;
       const z = wallZ; // ALL photos on the same Z plane = FLAT WALL
       
-      // Add subtle animation if enabled (but keep on same plane)
+      // Add very subtle animation only for spaced walls
       let animatedX = x;
       let animatedY = y;
       let animatedZ = z;
       
       if (this.settings.animationEnabled && spacingPercentage > 0) {
-        // Only animate spaced walls to avoid breaking solid wall alignment
-        // Very subtle movement that doesn't break the wall plane
-        const waveIntensity = spacingPercentage * photoSize * 0.05; // Much smaller for subtle effect
+        // Only animate when there's spacing to avoid breaking solid wall
+        const waveIntensity = spacingPercentage * photoSize * 0.02; // Very subtle
         
-        animatedX += Math.sin(animationTime * 0.3 + col * 0.2) * waveIntensity;
-        animatedY += Math.cos(animationTime * 0.3 + row * 0.2) * waveIntensity;
+        animatedX += Math.sin(animationTime * 0.2 + col * 0.1) * waveIntensity;
+        animatedY += Math.cos(animationTime * 0.2 + row * 0.1) * waveIntensity;
         // Keep Z the same for flat wall effect
       }
       
       positions.push([animatedX, animatedY, animatedZ]);
       
-      // Rotation settings - minimal for wall effect
+      // Minimal rotation for wall effect
       if (this.settings.photoRotation && this.settings.animationEnabled && spacingPercentage > 0) {
-        // Only animate spaced walls to maintain solid wall appearance
-        // Very subtle rotations to maintain wall-like appearance
-        const rotationY = Math.sin(animationTime * 0.1 + i * 0.05) * 0.02; // Minimal rotation
-        const rotationX = Math.cos(animationTime * 0.1 + i * 0.05) * 0.01; // Minimal tilt
+        // Very subtle rotations only for spaced walls
+        const rotationY = Math.sin(animationTime * 0.1 + i * 0.03) * 0.01;
+        const rotationX = Math.cos(animationTime * 0.1 + i * 0.03) * 0.005;
         rotations.push([rotationX, rotationY, 0]);
       } else {
-        rotations.push([0, 0, 0]); // No rotation for solid wall
+        rotations.push([0, 0, 0]); // Perfect alignment for solid wall
       }
     }
     
-    console.log(`🧱 FLAT Grid Wall: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)} - ${spacingPercentage === 0 ? 'SOLID WALL' : `${(spacingPercentage * 200).toFixed(0)}% gaps`} - ALL ON Z=${wallZ}`);
+    console.log(`🧱 PERFECT Grid Wall: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)} - ${spacingPercentage === 0 ? 'SOLID WALL (no gaps)' : `${(spacingPercentage * 100).toFixed(0)}% spacing`} - Flat Z=${wallZ}`);
     
     return { positions, rotations };
   }
 }
 
-// COMPLETELY REDESIGNED WAVE PATTERN - Ultra-smooth organic undulation with multiple harmonics
+// FIXED WAVE PATTERN - Supports up to 500 photos with proper floating heights
 class FixedWavePattern {
   constructor(private settings: any) {}
 
@@ -251,16 +252,17 @@ class FixedWavePattern {
       ? this.settings.patterns.wave.photoCount 
       : this.settings.photoCount;
     
-    // Much better spacing that spreads photos out more naturally
-    const photoSize = this.settings.photoSize || 4;
-    const baseSpacing = Math.max(15, photoSize * 3.0); // Even wider spacing
-    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.2);
-    const finalSpacing = baseSpacing * spacingMultiplier;
-    
+    // Support up to 500 photos for wave pattern
     const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
     
-    // Calculate grid dimensions for spread out arrangement
-    const columns = Math.ceil(Math.sqrt(totalPhotos * 1.4)); // Wider grid
+    // Better spacing that spreads photos out more naturally
+    const photoSize = this.settings.photoSize || 4;
+    const baseSpacing = Math.max(12, photoSize * 2.5); // Good spacing for up to 500 photos
+    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.15);
+    const finalSpacing = baseSpacing * spacingMultiplier;
+    
+    // Calculate grid dimensions for spread out arrangement - optimized for 500 photos
+    const columns = Math.ceil(Math.sqrt(totalPhotos * 1.2)); // Slightly wider grid
     const rows = Math.ceil(totalPhotos / columns);
     
     const speed = this.settings.animationSpeed / 50;
@@ -268,8 +270,8 @@ class FixedWavePattern {
     
     // MUCH HIGHER floating range - never touch the floor
     const floorHeight = -12;
-    const minFloatHeight = 12; // MUCH higher minimum - well above floor
-    const maxFloatHeight = 25; // Higher ceiling for dramatic undulation
+    const minFloatHeight = 10; // High minimum - well above floor
+    const maxFloatHeight = 30; // Higher ceiling for dramatic undulation
     const midHeight = (minFloatHeight + maxFloatHeight) / 2;
     
     for (let i = 0; i < totalPhotos; i++) {
@@ -281,12 +283,12 @@ class FixedWavePattern {
       let z = (row - rows / 2) * finalSpacing;
       
       // Add subtle randomness to avoid perfect grid
-      x += (Math.sin(i * 0.7) * 0.5 + Math.cos(i * 1.3) * 0.3) * finalSpacing * 0.2;
-      z += (Math.cos(i * 0.8) * 0.5 + Math.sin(i * 1.1) * 0.3) * finalSpacing * 0.2;
+      x += (Math.sin(i * 0.7) * 0.5 + Math.cos(i * 1.3) * 0.3) * finalSpacing * 0.15;
+      z += (Math.cos(i * 0.8) * 0.5 + Math.sin(i * 1.1) * 0.3) * finalSpacing * 0.15;
       
       // Base amplitude that can be controlled
-      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 6, photoSize * 2.0);
-      const frequency = this.settings.patterns?.wave?.frequency || 0.08; // Much lower for broader waves
+      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 8, photoSize * 2.5);
+      const frequency = this.settings.patterns?.wave?.frequency || 0.06; // Lower for broader waves
       
       let y = midHeight; // Start from middle of floating range
       
@@ -360,11 +362,13 @@ class FixedWavePattern {
       }
     }
 
+    console.log(`🌊 Wave Pattern: ${columns}x${rows} (${totalPhotos} photos) - Supports up to 500 photos floating between Y=${minFloatHeight}-${maxFloatHeight}`);
+
     return { positions, rotations };
   }
 }
 
-// FIXED SPIRAL PATTERN - TALLER cyclone with better distribution and some randomness
+// FIXED SPIRAL PATTERN - Supports up to 500 photos with better distribution
 class FixedSpiralPattern {
   constructor(private settings: any) {}
 
@@ -381,42 +385,42 @@ class FixedSpiralPattern {
     const speed = this.settings.animationSpeed / 50;
     const animationTime = time * speed * 2;
     
-    // FIXED: MUCH TALLER spiral parameters for better visibility
+    // OPTIMIZED: Spiral parameters that work well with up to 500 photos
     const photoSize = this.settings.photoSize || 4;
-    const baseRadius = Math.max(8, photoSize * 1.5); // Reasonable minimum radius
-    const maxRadius = Math.max(50, photoSize * 10); // Even wider spread
-    const maxHeight = Math.max(60, photoSize * 12); // MUCH TALLER - doubled the height
+    const baseRadius = Math.max(6, photoSize * 1.2); // Reasonable minimum radius
+    const maxRadius = Math.max(45, photoSize * 9); // Wide spread for 500 photos
+    const maxHeight = Math.max(55, photoSize * 11); // Tall enough for 500 photos
     const rotationSpeed = 0.6;
-    const orbitalChance = 0.25; // Slightly more orbital photos for area filling
+    const orbitalChance = 0.3; // More orbital photos for better area filling with 500 photos
     
-    // FIXED: Proper hover height - well above floor
+    // Proper hover height - well above floor
     const floorHeight = -12;
-    const hoverHeight = 5; // Slightly higher hover
-    const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
+    const hoverHeight = 4;
+    const baseHeight = floorHeight + photoSize + hoverHeight;
     
-    // FIXED: BETTER vertical distribution - less bottom-heavy, more spread out
-    const verticalBias = 0.4; // MUCH less bias toward bottom (was 0.7)
-    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.8; // Taller steps between layers
+    // Better vertical distribution for 500 photos
+    const verticalBias = 0.35; // Less bias toward bottom for better spread
+    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.85;
     
     for (let i = 0; i < totalPhotos; i++) {
       // Generate random but consistent values for each photo
       const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
       const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
       const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
-      const randomSeed4 = Math.sin(i * 3.17) * 0.5 + 0.5; // Additional randomness
+      const randomSeed4 = Math.sin(i * 3.17) * 0.5 + 0.5;
       
       // Determine if this photo is on the main funnel or an outer orbit
       const isOrbital = randomSeed1 < orbitalChance;
       
-      // FIXED: Better height distribution - more spread throughout the height
+      // Better height distribution for 500 photos
       let normalizedHeight = Math.pow(randomSeed2, verticalBias);
       
-      // ADD RANDOMNESS: Some photos get random height boosts for better filling
-      if (randomSeed4 > 0.7) {
-        normalizedHeight = Math.min(1.0, normalizedHeight + (randomSeed4 - 0.7) * 1.5); // Random height boost
+      // Random height boosts for better filling with 500 photos
+      if (randomSeed4 > 0.65) {
+        normalizedHeight = Math.min(1.0, normalizedHeight + (randomSeed4 - 0.65) * 1.2);
       }
       
-      // Apply height step to create taller spiral layers
+      // Apply height step to create spiral layers
       const y = baseHeight + normalizedHeight * maxHeight * heightStep;
       
       // Calculate radius at this height (funnel shape)
@@ -427,38 +431,37 @@ class FixedSpiralPattern {
       let verticalWobble: number = 0;
       
       if (isOrbital) {
-        // Orbital photos - farther out with more randomness for area filling
-        const orbitalVariation = 1.3 + randomSeed3 * 1.0; // More variation (was 0.8)
+        // Orbital photos - spread out more for 500 photos
+        const orbitalVariation = 1.2 + randomSeed3 * 1.1;
         radius = funnelRadius * orbitalVariation;
-        angleOffset = randomSeed3 * Math.PI * 2; // Random starting angle
+        angleOffset = randomSeed3 * Math.PI * 2;
         
-        // ADD RANDOMNESS: Some orbital photos get random radius boosts
-        if (randomSeed4 > 0.6) {
-          radius *= (1.0 + (randomSeed4 - 0.6) * 1.5); // Random radius boost
+        // Random radius boosts for better area coverage with 500 photos
+        if (randomSeed4 > 0.55) {
+          radius *= (1.0 + (randomSeed4 - 0.55) * 1.3);
         }
         
         // Add vertical oscillation for orbital photos
         if (this.settings.animationEnabled) {
-          verticalWobble = Math.sin(animationTime * 2 + i) * 4; // Slightly more wobble
+          verticalWobble = Math.sin(animationTime * 2 + i) * 3.5;
         }
       } else {
-        // Main funnel photos with some randomness
-        const radiusVariation = 0.7 + randomSeed3 * 0.6; // More variation (was 0.8 to 1.2)
+        // Main funnel photos with variation for 500 photos
+        const radiusVariation = 0.65 + randomSeed3 * 0.7;
         radius = funnelRadius * radiusVariation;
-        angleOffset = randomSeed4 * 0.5; // Small random angle offset
+        angleOffset = randomSeed4 * 0.4;
         
-        // ADD RANDOMNESS: Some main photos get scattered for filling
-        if (randomSeed4 > 0.8) {
-          radius *= (1.0 + (randomSeed4 - 0.8) * 2.0); // Scatter some photos further
+        // Scatter some main photos for better filling with 500 photos
+        if (randomSeed4 > 0.75) {
+          radius *= (1.0 + (randomSeed4 - 0.75) * 1.8);
         }
       }
       
       // Calculate angle with height-based rotation speed
-      // Photos at the bottom rotate slower, creating a realistic vortex effect
-      const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
+      const heightSpeedFactor = 0.25 + normalizedHeight * 0.75;
       const angle = this.settings.animationEnabled ?
-        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.05)) :
-        (angleOffset + (i * 0.1));
+        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.04)) :
+        (angleOffset + (i * 0.08));
       
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
@@ -466,17 +469,18 @@ class FixedSpiralPattern {
       
       positions.push([x, finalY, z]);
       
-      // FIXED: Photos should face camera in spiral pattern for better visibility
+      // Photos face camera in spiral pattern for better visibility
       if (this.settings.photoRotation) {
-        // Add subtle animation while letting camera-facing handle main orientation
-        const rotX = Math.sin(animationTime * 0.4 + i * 0.1) * 0.02;
+        const rotX = Math.sin(animationTime * 0.4 + i * 0.08) * 0.015;
         const rotY = 0; // Let camera-facing handle Y rotation
-        const rotZ = Math.cos(animationTime * 0.4 + i * 0.1) * 0.02;
+        const rotZ = Math.cos(animationTime * 0.4 + i * 0.08) * 0.015;
         rotations.push([rotX, rotY, rotZ]);
       } else {
-        rotations.push([0, 0, 0]); // No rotation - pure camera facing
+        rotations.push([0, 0, 0]);
       }
     }
+
+    console.log(`🌀 Spiral Pattern: (${totalPhotos} photos) - Supports up to 500 photos - Height: ${baseHeight.toFixed(1)}-${(baseHeight + maxHeight * heightStep).toFixed(1)}`);
 
     return { positions, rotations };
   }
@@ -1118,7 +1122,7 @@ class EnhancedSlotManager {
     
     if (clampedTotal === this.totalSlots) return;
     
-    console.log(`📊 Updating slot count from ${this.totalSlots} to ${clampedTotal}`);
+    console.log(`📊 Updating slot count from ${this.totalSlots} to ${clampedTotal} (max 500 supported)`);
     this.totalSlots = clampedTotal;
     
     // Clean up slots that are now out of range
