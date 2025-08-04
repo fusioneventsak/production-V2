@@ -442,28 +442,15 @@ const CameraAnimationController: React.FC<{
     }
   });
 
-  // Initialize animation state and log detailed info
+  // Initialize animation state properly
   useEffect(() => {
     if (config?.enabled && config.type !== 'none') {
-      const photoCount = photosWithPositions.filter(p => p.url).length;
-      console.log('🎬 Enhanced Cinematic Camera Animation Started:', {
-        type: config.type,
-        speed: config.speed,
-        radius: config.radius,
-        height: config.height,
-        photoCount,
-        photoBounds,
-        estimatedCycleTime: config.type === 'centerRotate' ? '45 seconds' : 
-                           config.type === 'spiral' ? '30+ seconds' :
-                           config.type === 'wave' ? '25+ seconds' : '20+ seconds'
-      });
-      
       // Start animation in a ready state
       setTimeout(() => {
         isActiveRef.current = true;
       }, 100);
     }
-  }, [config?.enabled, config?.type, photosWithPositions]);
+  }, [config?.enabled, config?.type]);
 
   return null;
 };
