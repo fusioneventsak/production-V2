@@ -2305,13 +2305,21 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           <Grid settings={safeSettings} />
         )}
         
-        {/* Particle System */}
+        {/* Particle System - FIXED: Adjust particle positions for wave pattern */}
         {safeSettings.particles?.enabled && (
           <MilkyWayParticleSystem
             colorTheme={getCurrentParticleTheme(safeSettings)}
             intensity={safeSettings.particles?.intensity ?? 0.7}
             enabled={safeSettings.particles?.enabled ?? true}
-            photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
+            photoPositions={photosWithPositions.map(p => {
+              // FIXED: For wave pattern, lower particle positions to floor level for better visibility
+              if (safeSettings.animationPattern === 'wave') {
+                return { 
+                  position: [p.targetPosition[0], Math.max(p.targetPosition[1] - 20, -10), p.targetPosition[2]] as [number, number, number]
+                };
+              }
+              return { position: p.targetPosition };
+            })}
             floorSize={safeSettings.floorSize || 200}
             gridSize={safeSettings.gridSize || 200}
           />
