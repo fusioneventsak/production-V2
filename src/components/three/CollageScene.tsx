@@ -987,7 +987,7 @@ class EnhancedSlotManager {
   }
 }
 
-// FIXED WAVE PATTERN - Consistent spacing regardless of photo size
+// FIXED WAVE PATTERN - Better spacing and height
 class FixedWavePattern {
   constructor(private settings: any) {}
 
@@ -999,8 +999,9 @@ class FixedWavePattern {
       ? this.settings.patterns.wave.photoCount 
       : this.settings.photoCount;
     
-    // FIXED: Consistent base spacing that doesn't change with photo size
-    const baseSpacing = 8; // Fixed base spacing in world units
+    // FIXED: Much better spacing - wider spread, proper photo size consideration
+    const photoSize = this.settings.photoSize || 4;
+    const baseSpacing = Math.max(12, photoSize * 2.5); // Much wider base spacing
     const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.15);
     const finalSpacing = baseSpacing * spacingMultiplier;
     
@@ -1013,24 +1014,28 @@ class FixedWavePattern {
     const speed = this.settings.animationSpeed / 50;
     const wavePhase = time * speed * 2;
     
+    // FIXED: Much lower base height - closer to floor
+    const floorHeight = -12;
+    const baseHeight = floorHeight + photoSize + 2; // Just above floor level
+    
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
       const row = Math.floor(i / columns);
       
-      // FIXED: Base positions with consistent spacing
+      // FIXED: Base positions with much better spacing
       let x = (col - columns / 2) * finalSpacing;
       let z = (row - rows / 2) * finalSpacing;
       
-      // Wave effect
+      // Wave effect - much more reasonable amplitude
       const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const amplitude = this.settings.patterns?.wave?.amplitude || 15;
+      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 8, photoSize * 2); // Reasonable amplitude
       const frequency = this.settings.patterns?.wave?.frequency || 0.3;
       
-      let y = this.settings.wallHeight || -8;
+      let y = baseHeight; // Start from reasonable height
       
       if (this.settings.animationEnabled) {
         y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
-        y += Math.sin(wavePhase * 0.5) * (distanceFromCenter * 0.05);
+        y += Math.sin(wavePhase * 0.5) * (distanceFromCenter * 0.02); // Reduced secondary wave
       }
       
       positions.push([x, y, z]);
@@ -1050,7 +1055,7 @@ class FixedWavePattern {
   }
 }
 
-// FIXED SPIRAL PATTERN - Consistent spacing and no collisions
+// FIXED SPIRAL PATTERN - Much better spacing and reasonable height
 class FixedSpiralPattern {
   constructor(private settings: any) {}
 
@@ -1066,16 +1071,21 @@ class FixedSpiralPattern {
     const speed = this.settings.animationSpeed / 50;
     const animationTime = time * speed * 2;
     
-    // FIXED: Consistent spiral parameters that work with any photo size
-    const baseRadius = 6; // Minimum radius
-    const maxRadius = Math.max(30, this.settings.patterns?.spiral?.radius || 30);
-    const maxHeight = 50; // Height of the spiral
-    const rotationSpeed = 0.6;
-    const orbitalChance = 0.15; // Reduced for better spacing
+    // FIXED: Much better spiral parameters
+    const photoSize = this.settings.photoSize || 4;
+    const baseRadius = Math.max(8, photoSize * 1.5); // Reasonable minimum radius
+    const maxRadius = Math.max(40, photoSize * 8); // Much wider spread
+    const maxHeight = Math.max(30, photoSize * 6); // Reasonable max height
+    const rotationSpeed = 0.4; // Slower rotation
+    const orbitalChance = 0.1; // Fewer orbital photos for cleaner look
+    
+    // FIXED: Much lower base height - closer to floor
+    const floorHeight = -12;
+    const baseHeight = floorHeight + photoSize + 1; // Just above floor
     
     // FIXED: Better vertical distribution
-    const verticalBias = 0.6;
-    const minVerticalSpacing = Math.max(3, this.settings.photoSize || 4); // Minimum space between layers
+    const verticalBias = 0.5; // Less bias toward bottom
+    const minVerticalSpacing = Math.max(photoSize * 1.2, 6); // Reasonable layer spacing
     
     for (let i = 0; i < totalPhotos; i++) {
       // Consistent random values for each photo
@@ -1085,14 +1095,14 @@ class FixedSpiralPattern {
       
       const isOrbital = randomSeed1 < orbitalChance;
       
-      // FIXED: Better height distribution with minimum spacing
+      // FIXED: Better height distribution starting from reasonable base
       let normalizedHeight = Math.pow(randomSeed2, verticalBias);
-      const layerIndex = Math.floor(normalizedHeight * 10); // Create distinct layers
-      const y = (this.settings.wallHeight || -8) + (layerIndex * minVerticalSpacing) + 
-                (randomSeed3 * minVerticalSpacing * 0.5); // Small random offset within layer
+      const layerIndex = Math.floor(normalizedHeight * 8); // Fewer layers for better spacing
+      const y = baseHeight + (layerIndex * minVerticalSpacing) + 
+                (randomSeed3 * minVerticalSpacing * 0.3); // Small random offset
       
-      // FIXED: Better radius calculation to prevent collisions
-      const heightFactor = Math.min(normalizedHeight * 2, 1); // Cap the height factor
+      // FIXED: Better radius calculation with wider spread
+      const heightFactor = normalizedHeight;
       const funnelRadius = baseRadius + (maxRadius - baseRadius) * heightFactor;
       
       let radius: number;
@@ -1100,25 +1110,25 @@ class FixedSpiralPattern {
       let verticalWobble: number = 0;
       
       if (isOrbital) {
-        // FIXED: Better orbital spacing
-        radius = funnelRadius * (1.3 + randomSeed3 * 0.5); // Less extreme variation
+        // FIXED: Orbital photos with better spacing
+        radius = funnelRadius * (1.4 + randomSeed3 * 0.3); // Reasonable orbital distance
         angleOffset = randomSeed3 * Math.PI * 2;
         
         if (this.settings.animationEnabled) {
-          verticalWobble = Math.sin(animationTime * 1.5 + i) * 2; // Reduced wobble
+          verticalWobble = Math.sin(animationTime * 1.2 + i) * 1.5; // Gentle wobble
         }
       } else {
-        // FIXED: Main funnel with better spacing
-        const radiusVariation = 0.9 + randomSeed3 * 0.2; // Tighter variation
+        // FIXED: Main spiral with good spacing
+        const radiusVariation = 0.95 + randomSeed3 * 0.1; // Very tight variation for consistency
         radius = funnelRadius * radiusVariation;
-        angleOffset = (i * 0.1) % (Math.PI * 2); // Distribute evenly
+        angleOffset = (i * 0.15) % (Math.PI * 2); // Better angular distribution
       }
       
       // FIXED: Smoother angle calculation
-      const heightSpeedFactor = 0.4 + normalizedHeight * 0.6;
+      const heightSpeedFactor = 0.3 + normalizedHeight * 0.4; // Gentler speed variation
       const angle = this.settings.animationEnabled ?
-        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.05)) :
-        (angleOffset + (i * 0.1));
+        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.08)) :
+        (angleOffset + (i * 0.12));
       
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
@@ -1128,8 +1138,8 @@ class FixedSpiralPattern {
       
       if (this.settings.photoRotation) {
         const rotY = angle + Math.PI / 2; // Face outward from spiral
-        const rotX = Math.sin(animationTime * 0.5 + i * 0.1) * 0.05;
-        const rotZ = Math.cos(animationTime * 0.5 + i * 0.1) * 0.05;
+        const rotX = Math.sin(animationTime * 0.4 + i * 0.1) * 0.03; // Gentle tilt
+        const rotZ = Math.cos(animationTime * 0.4 + i * 0.1) * 0.03;
         rotations.push([rotX, rotY, rotZ]);
       } else {
         rotations.push([0, 0, 0]);
@@ -1501,16 +1511,17 @@ const EnhancedAnimationController: React.FC<{
         
         const expectedSlots = settings.photoCount || 100;
         
-        // Apply floor level adjustments for spiral and wave
+        // Apply floor level adjustments for spiral and wave - FIXED: Much lower heights
         if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
-          const floorLevel = -8;
+          const floorLevel = -12;
           const photoSize = settings.photoSize || 4.0;
+          const minPhotoHeight = floorLevel + photoSize; // Just above floor
           
           patternState.positions = patternState.positions.map((pos, index) => {
             const [x, y, z] = pos;
             
-            // Ensure photos stay above floor level
-            let adjustedY = Math.max(y, floorLevel + photoSize);
+            // FIXED: Keep photos much closer to floor - only ensure they don't clip through
+            let adjustedY = Math.max(y, minPhotoHeight);
             
             return [x, adjustedY, z];
           });
