@@ -486,41 +486,37 @@ class FixedSpiralPattern {
   }
 }
 
-// ENHANCED: Shared interaction tracker for both auto-rotate and cinematic cameras
-class InteractionTracker {
-  private static instance: InteractionTracker;
+// SIMPLIFIED: Basic interaction tracker - just pause on interaction, resume after 2 seconds
+class SimpleInteractionTracker {
+  private static instance: SimpleInteractionTracker;
   private userInteracting = false;
   private lastInteractionTime = 0;
-  private listeners: Set<(interacting: boolean, lastTime: number) => void> = new Set();
+  private listeners: Set<(interacting: boolean) => void> = new Set();
   private interactionTimeout: NodeJS.Timeout | null = null;
-  private pauseDelay = 1000; // Default 1 second
+  private readonly RESUME_DELAY = 2000; // Fixed 2 seconds
 
-  static getInstance(): InteractionTracker {
-    if (!InteractionTracker.instance) {
-      InteractionTracker.instance = new InteractionTracker();
+  static getInstance(): SimpleInteractionTracker {
+    if (!SimpleInteractionTracker.instance) {
+      SimpleInteractionTracker.instance = new SimpleInteractionTracker();
     }
-    return InteractionTracker.instance;
+    return SimpleInteractionTracker.instance;
   }
 
   private constructor() {
     this.setupEventListeners();
   }
 
-  setPauseDelay(delay: number) {
-    this.pauseDelay = Math.max(delay, 500); // Minimum 500ms
-  }
-
   private setupEventListeners() {
-    // FIXED: Comprehensive touch and mouse interaction detection
+    // Simple interaction detection - any canvas interaction pauses cameras
     const handleInteractionStart = (e: Event) => {
-      // Only track trusted user events on canvas
       if (!e.isTrusted) return;
       
       const canvas = document.querySelector('canvas');
       if (!canvas || !(e.target === canvas || canvas.contains(e.target as Node))) return;
 
+      // Mark as interacting and update time
       if (!this.userInteracting) {
-        console.log('🎯 User interaction START detected:', e.type);
+        console.log('📷 Camera pause: User interaction detected');
         this.userInteracting = true;
         this.notifyListeners();
       }
@@ -538,37 +534,21 @@ class InteractionTracker {
       this.lastInteractionTime = Date.now();
       this.clearInteractionTimeout();
       
-      // Start countdown to resume
+      // Always wait 2 seconds before resuming
       this.interactionTimeout = setTimeout(() => {
-        console.log('🎯 User interaction END - resuming camera animations');
+        console.log('📷 Camera resume: 2 seconds of no interaction');
         this.userInteracting = false;
         this.notifyListeners();
-      }, this.pauseDelay);
+      }, this.RESUME_DELAY);
     };
 
-    // Mouse events
+    // Basic events - mouse and touch
     document.addEventListener('mousedown', handleInteractionStart, { passive: true });
     document.addEventListener('mouseup', handleInteractionEnd, { passive: true });
     document.addEventListener('wheel', handleInteractionStart, { passive: true });
-    
-    // FIXED: Comprehensive touch events for mobile devices
     document.addEventListener('touchstart', handleInteractionStart, { passive: true });
     document.addEventListener('touchend', handleInteractionEnd, { passive: true });
     document.addEventListener('touchmove', handleInteractionStart, { passive: true });
-    document.addEventListener('touchcancel', handleInteractionEnd, { passive: true });
-    
-    // Keyboard events
-    document.addEventListener('keydown', handleInteractionStart, { passive: true });
-    
-    // FIXED: Handle pointer events for better touch support
-    document.addEventListener('pointerdown', handleInteractionStart, { passive: true });
-    document.addEventListener('pointerup', handleInteractionEnd, { passive: true });
-    document.addEventListener('pointermove', (e) => {
-      // Only track pointer move if pointer is down (dragging)
-      if ((e as PointerEvent).buttons > 0) {
-        handleInteractionStart(e);
-      }
-    }, { passive: true });
   }
 
   private clearInteractionTimeout() {
@@ -580,14 +560,14 @@ class InteractionTracker {
 
   private notifyListeners() {
     this.listeners.forEach(listener => {
-      listener(this.userInteracting, this.lastInteractionTime);
+      listener(this.userInteracting);
     });
   }
 
-  subscribe(callback: (interacting: boolean, lastTime: number) => void) {
+  subscribe(callback: (interacting: boolean) => void) {
     this.listeners.add(callback);
     // Immediately notify with current state
-    callback(this.userInteracting, this.lastInteractionTime);
+    callback(this.userInteracting);
     
     return () => {
       this.listeners.delete(callback);
@@ -597,13 +577,9 @@ class InteractionTracker {
   isUserInteracting(): boolean {
     return this.userInteracting;
   }
-
-  getLastInteractionTime(): number {
-    return this.lastInteractionTime;
-  }
 }
 
-// FIXED: Auto-rotate camera with proper touch interaction support
+// SIMPLIFIED: Auto-rotate camera - just pause on interaction, resume after 2 seconds
 const AutoRotateCamera: React.FC<{
   settings: ExtendedSceneSettings;
 }> = ({ settings }) => {
@@ -613,23 +589,15 @@ const AutoRotateCamera: React.FC<{
   const distanceTimeRef = useRef(0);
   const verticalDriftTimeRef = useRef(0);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
-  const [lastInteractionTime, setLastInteractionTime] = useState(0);
 
-  // FIXED: Subscribe to shared interaction tracker
+  // Subscribe to simple interaction tracker
   useEffect(() => {
-    const tracker = InteractionTracker.getInstance();
-    
-    // Set pause delay based on settings
-    const pauseTime = Math.max((settings.cameraAutoRotatePauseOnInteraction || 1) * 1000, 500);
-    tracker.setPauseDelay(pauseTime);
-    
-    const unsubscribe = tracker.subscribe((interacting, lastTime) => {
+    const tracker = SimpleInteractionTracker.getInstance();
+    const unsubscribe = tracker.subscribe((interacting) => {
       setIsUserInteracting(interacting);
-      setLastInteractionTime(lastTime);
     });
-
     return unsubscribe;
-  }, [settings.cameraAutoRotatePauseOnInteraction]);
+  }, []);
 
   useFrame((state, delta) => {
     // Only run if auto-rotate is enabled AND cinematic is disabled AND user is not interacting
@@ -686,7 +654,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// FIXED: Enhanced Cinematic Camera with proper touch interaction support
+// SIMPLIFIED: Cinematic camera - just pause on interaction, resume after 2 seconds
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -709,83 +677,23 @@ const CinematicCamera: React.FC<{
   const { camera } = useThree();
   const timeRef = useRef(0);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
-  const [lastInteractionTime, setLastInteractionTime] = useState(0);
   const wasActiveRef = useRef(false);
-  
-  // FIXED: Add state for smooth resumption
-  const pausedPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
-  const pausedLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3());
-  const timeOffsetRef = useRef(0);
-  const isResumingRef = useRef(false);
-  const resumeStartTimeRef = useRef(0);
-  
-  // FIXED: Add state for automatic pattern transitions
-  const lastPatternRef = useRef<string>('');
-  const lastAnimationPatternRef = useRef<string>('');
-  const isPatternTransitioningRef = useRef(false);
-  const patternTransitionStartRef = useRef(0);
-  const patternStartPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
-  const patternStartLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3());
 
-  // FIXED: Subscribe to shared interaction tracker
+  // Subscribe to simple interaction tracker
   useEffect(() => {
-    const tracker = InteractionTracker.getInstance();
-    
-    // Set pause delay based on settings
-    const pauseTime = Math.max((config?.pauseTime || 1) * 1000, 500);
-    tracker.setPauseDelay(pauseTime);
-    
-    const unsubscribe = tracker.subscribe((interacting, lastTime) => {
-      // Capture camera state when interaction starts
-      if (interacting && !isUserInteracting) {
-        pausedPositionRef.current.copy(camera.position);
-        pausedLookAtRef.current.set(0, 0, 0);
-        
-        // Calculate where camera is looking
-        const direction = new THREE.Vector3();
-        camera.getWorldDirection(direction);
-        pausedLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
-        
-        console.log('🎬 Cinematic: User interaction START - capturing position:', {
-          x: pausedPositionRef.current.x.toFixed(2),
-          y: pausedPositionRef.current.y.toFixed(2), 
-          z: pausedPositionRef.current.z.toFixed(2)
-        });
-      }
-      
-      // Start resumption process when interaction ends
-      if (!interacting && isUserInteracting) {
-        isResumingRef.current = true;
-        resumeStartTimeRef.current = Date.now();
-        
-        // Update paused position to current camera position
-        pausedPositionRef.current.copy(camera.position);
-        const direction = new THREE.Vector3();
-        camera.getWorldDirection(direction);
-        pausedLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
-        
-        console.log('🎬 Cinematic: Starting SMOOTH resumption from position:', {
-          x: pausedPositionRef.current.x.toFixed(2),
-          y: pausedPositionRef.current.y.toFixed(2),
-          z: pausedPositionRef.current.z.toFixed(2)
-        });
-      }
-      
+    const tracker = SimpleInteractionTracker.getInstance();
+    const unsubscribe = tracker.subscribe((interacting) => {
       setIsUserInteracting(interacting);
-      setLastInteractionTime(lastTime);
     });
-
     return unsubscribe;
-  }, [config?.pauseTime, camera, isUserInteracting]);
+  }, []);
 
-  // FIXED: Initialize animation immediately when enabled
+  // Initialize animation when enabled
   useEffect(() => {
     if (config?.enabled && config.type !== 'none') {
       timeRef.current = 0;
       wasActiveRef.current = false;
-      isResumingRef.current = false;
-      isPatternTransitioningRef.current = false;
-      console.log('🎬 Cinematic camera enabled - starting immediately');
+      console.log('🎬 Cinematic camera enabled');
     }
   }, [config?.enabled, config?.type]);
 
@@ -798,27 +706,7 @@ const CinematicCamera: React.FC<{
       return;
     }
 
-    // FIXED: Detect pattern changes and start smooth transitions
-    const currentPattern = config.type;
-    const currentAnimationPattern = settings.animationPattern || 'grid';
-    const patternKey = `${currentPattern}-${currentAnimationPattern}`;
-    
-    if (lastPatternRef.current !== '' && lastPatternRef.current !== patternKey) {
-      console.log(`🎬 PATTERN CHANGE detected: ${lastPatternRef.current} → ${patternKey}`);
-      
-      isPatternTransitioningRef.current = true;
-      patternTransitionStartRef.current = Date.now();
-      
-      // Capture current camera state as starting point for transition
-      patternStartPositionRef.current.copy(camera.position);
-      const direction = new THREE.Vector3();
-      camera.getWorldDirection(direction);
-      patternStartLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
-    }
-    
-    lastPatternRef.current = patternKey;
-
-    // FIXED: Pause during user interaction
+    // Simple pause during user interaction
     if (isUserInteracting) {
       if (wasActiveRef.current) {
         console.log('🎬 Cinematic camera paused for user interaction');
@@ -828,22 +716,22 @@ const CinematicCamera: React.FC<{
     }
 
     if (!wasActiveRef.current) {
-      console.log('🎬 Cinematic camera resumed with smooth transition');
+      console.log('🎬 Cinematic camera resumed');
       wasActiveRef.current = true;
     }
 
     const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
     if (!validPhotos.length) return;
 
-    // FIXED: Pattern-specific speed adjustments to reduce conflicts
+    // Pattern-specific speed adjustments
     const getPatternSpeed = () => {
       switch (settings.animationPattern) {
         case 'spiral':
-          return 0.15; // MUCH slower for spiral to avoid conflicts
+          return 0.15;
         case 'wave':
-          return 0.2; // Slower for wave
+          return 0.2;
         case 'float':
-          return 0.3; // Normal speed for float (works great)
+          return 0.3;
         default:
           return 0.25;
       }
@@ -852,28 +740,26 @@ const CinematicCamera: React.FC<{
     const speed = (config.speed || 1.0) * getPatternSpeed();
     timeRef.current += delta * speed;
 
-    // Use fine-tuning controls with MUCH better pattern-aware defaults
+    // Pattern-aware defaults
     const photoSize = settings.photoSize || 4;
     const floorHeight = -12;
     const photoDisplayHeight = floorHeight + photoSize;
     
-    // FIXED: Much better pattern-aware defaults, especially for wave
     const getPatternAwareDefaults = () => {
       switch (settings.animationPattern) {
         case 'spiral':
           return {
-            height: Math.max(35, photoDisplayHeight + photoSize * 8), // MUCH higher for spiral
-            distance: Math.max(60, photoSize * 15), // MUCH further from spiral center
-            heightVar: photoSize * 0.5, // Minimal height variation
-            distanceVar: 5, // Minimal distance variation to reduce jitter
+            height: Math.max(35, photoDisplayHeight + photoSize * 8),
+            distance: Math.max(60, photoSize * 15),
+            heightVar: photoSize * 0.5,
+            distanceVar: 5,
           };
         case 'wave':
           return {
-            // FIXED: Much lower height for wave - human perspective, not bird's eye
-            height: Math.max(8, photoDisplayHeight + photoSize * 1.5), // Much lower - at photo level
-            distance: Math.max(20, photoSize * 5), // Closer to photos for better viewing
-            heightVar: photoSize * 0.8, // Moderate height variation
-            distanceVar: 8, // Moderate distance variation
+            height: Math.max(8, photoDisplayHeight + photoSize * 1.5),
+            distance: Math.max(20, photoSize * 5),
+            heightVar: photoSize * 0.8,
+            distanceVar: 8,
           };
         case 'float':
           return {
@@ -912,8 +798,7 @@ const CinematicCamera: React.FC<{
 
     let x, y, z, lookX, lookY, lookZ;
 
-    // FIXED: Calculate the "ideal" animation position based on current time
-    // This is where the camera would be if there was no interruption
+    // Calculate animation position based on current time
     switch (config.type) {
       case 'showcase':
         const fig8Time = timeRef.current * 0.4;
@@ -932,7 +817,6 @@ const CinematicCamera: React.FC<{
         const walkTime = (timeRef.current * 0.25) % 4;
         const walkRadius = baseDistance * 0.8;
         
-        // Smooth rounded rectangle path
         const angle = (walkTime / 4) * Math.PI * 2;
         x = centerX + walkRadius * Math.cos(angle);
         z = centerZ + walkRadius * Math.sin(angle) * 0.7;
@@ -944,37 +828,30 @@ const CinematicCamera: React.FC<{
         break;
 
       case 'spiral_tour':
-        // FIXED: Completely reworked for spiral pattern - high orbit camera
-        const spiralTime = timeRef.current * 0.2; // Very slow
+        const spiralTime = timeRef.current * 0.2;
         
-        // High orbital view that doesn't interfere with spiral photos
-        const orbitRadius = baseDistance; // Keep consistent distance
-        const orbitHeight = baseHeight; // Stay high above spiral
+        const orbitRadius = baseDistance;
+        const orbitHeight = baseHeight;
         
-        // Simple circular orbit high above the spiral
         x = centerX + Math.cos(spiralTime) * orbitRadius;
-        y = orbitHeight + Math.sin(spiralTime * 0.1) * (heightVariation * 0.2); // Minimal height change
+        y = orbitHeight + Math.sin(spiralTime * 0.1) * (heightVariation * 0.2);
         z = centerZ + Math.sin(spiralTime) * orbitRadius * 0.9;
         
-        // Always look down at spiral center
         lookX = centerX;
-        lookY = photoDisplayHeight + photoSize * 2; // Look down into spiral
+        lookY = photoDisplayHeight + photoSize * 2;
         lookZ = centerZ;
         break;
 
       case 'wave_follow':
-        // FIXED: Much better wave camera - human perspective at photo level
         const waveTime = timeRef.current * 0.3;
         const waveRadius = baseDistance * (0.9 + Math.sin(waveTime * 0.2) * 0.1);
         
-        // Camera follows wave motion at human eye level
         x = centerX + Math.sin(waveTime) * waveRadius;
-        y = baseHeight + Math.sin(waveTime * 1.1) * heightVariation * 0.4; // Gentle bobbing motion
+        y = baseHeight + Math.sin(waveTime * 1.1) * heightVariation * 0.4;
         z = centerZ + Math.cos(waveTime * 0.7) * waveRadius * 0.6;
         
-        // FIXED: Look at photos at their level, not down from above
-        lookX = centerX + Math.sin(waveTime + 0.3) * waveRadius * 0.2; // Look slightly ahead
-        lookY = photoDisplayHeight + photoSize * 0.3; // Look at photo level, not down
+        lookX = centerX + Math.sin(waveTime + 0.3) * waveRadius * 0.2;
+        lookY = photoDisplayHeight + photoSize * 0.3;
         lookZ = centerZ + Math.cos(waveTime * 0.7 + 0.3) * waveRadius * 0.1;
         break;
 
@@ -1030,85 +907,9 @@ const CinematicCamera: React.FC<{
     y = Math.max(y, photoDisplayHeight + 2);
     lookY = Math.max(lookY, photoDisplayHeight);
 
-    // FIXED: SMOOTH RESUMPTION and AUTOMATIC PATTERN TRANSITIONS
-    const targetPos = new THREE.Vector3(x, y, z);
-    const targetLook = new THREE.Vector3(lookX, lookY, lookZ);
-    
-    // PRIORITY 1: Handle pattern transitions (takes precedence over user resumption)
-    const patternTransitionTime = 2500; // 2.5 seconds for pattern transitions
-    const timeSincePatternChange = Date.now() - patternTransitionStartRef.current;
-    
-    if (isPatternTransitioningRef.current && timeSincePatternChange < patternTransitionTime) {
-      // SMOOTH PATTERN TRANSITION: Blend from old pattern position to new pattern position
-      const blendFactor = Math.min(timeSincePatternChange / patternTransitionTime, 1);
-      
-      // Use easeInOutCubic for smooth acceleration/deceleration
-      const easeInOutCubic = (t: number) => {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      };
-      const smoothBlend = easeInOutCubic(blendFactor);
-      
-      // Interpolate from pattern start position to current target
-      const blendedPos = new THREE.Vector3().lerpVectors(patternStartPositionRef.current, targetPos, smoothBlend);
-      const blendedLook = new THREE.Vector3().lerpVectors(patternStartLookAtRef.current, targetLook, smoothBlend);
-      
-      // Apply the blended position
-      camera.position.copy(blendedPos);
-      camera.lookAt(blendedLook);
-      
-      // End pattern transition when complete
-      if (blendFactor >= 1) {
-        isPatternTransitioningRef.current = false;
-        console.log('🎬 Pattern transition completed - now following new pattern');
-      }
-      
-      return; // Skip other transition logic during pattern transition
-    }
-    
-    // PRIORITY 2: Handle user interaction resumption
-    const resumeTransitionTime = 3000; // 3 seconds to smoothly transition back
-    const timeSinceResumeStart = Date.now() - resumeStartTimeRef.current;
-    
-    if (isResumingRef.current && timeSinceResumeStart < resumeTransitionTime) {
-      // SMOOTH USER RESUMPTION: Blend from paused position to target position
-      const blendFactor = Math.min(timeSinceResumeStart / resumeTransitionTime, 1);
-      
-      // Use easeInOutCubic for smooth acceleration/deceleration
-      const easeInOutCubic = (t: number) => {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      };
-      const smoothBlend = easeInOutCubic(blendFactor);
-      
-      // Interpolate position
-      const blendedPos = new THREE.Vector3().lerpVectors(pausedPositionRef.current, targetPos, smoothBlend);
-      const blendedLook = new THREE.Vector3().lerpVectors(pausedLookAtRef.current, targetLook, smoothBlend);
-      
-      // Apply the blended position
-      camera.position.copy(blendedPos);
-      camera.lookAt(blendedLook);
-      
-      // End resumption phase when transition is complete
-      if (blendFactor >= 1) {
-        isResumingRef.current = false;
-        console.log('🎬 Smooth user resumption completed - back to normal cinematic mode');
-      }
-    } else {
-      // NORMAL CINEMATIC MODE: Use regular smooth movement
-      const resumeBlend = Math.min((Date.now() - lastInteractionTime) / 1000, 1); // 1 second blend-in
-      const smoothFactor = 0.035 * Math.max(resumeBlend, 0.3); // Always have some smoothing
-      
-      // Apply smooth movement
-      camera.position.lerp(targetPos, smoothFactor);
-      camera.lookAt(targetLook);
-      
-      // End resumption flags if they're still set
-      if (isResumingRef.current) {
-        isResumingRef.current = false;
-      }
-      if (isPatternTransitioningRef.current) {
-        isPatternTransitioningRef.current = false;
-      }
-    }
+    // Apply camera position directly - no complex blending
+    camera.position.set(x, y, z);
+    camera.lookAt(lookX, lookY, lookZ);
   });
 
   return null;
