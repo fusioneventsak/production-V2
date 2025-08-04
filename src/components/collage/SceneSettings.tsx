@@ -33,7 +33,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
   
-  // ENHANCED: Cinematic Camera Settings with Fine-Tuning Controls + FIXED INTERACTION DETECTION
+  // ENHANCED: Cinematic Camera Settings with Fine-Tuning Controls + FIXED INTERACTION DETECTION + SMOOTH RESUME
   cameraAnimation?: {
     enabled?: boolean;
     type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
@@ -48,6 +48,12 @@ interface ExtendedSceneSettings extends SceneSettings {
     ignoreMouseMovement?: boolean; // NEW: Ignore pure mouse movement without clicks
     mouseMoveThreshold?: number; // Pixels of movement before considering interaction
     resumeDelay?: number; // How long to wait after interaction before resuming
+    // NEW: Smooth resume behavior
+    enableManualControl?: boolean; // Allow full manual control during pause
+    resumeFromCurrentPosition?: boolean; // Resume animation from where user left the camera
+    blendDuration?: number; // How long to smoothly transition back to animation
+    preserveUserDistance?: boolean; // Keep user's zoom level when resuming
+    preserveUserHeight?: boolean; // Keep user's height when resuming
     // NEW: Fine-tuning controls
     baseHeight?: number;        // Base camera height for all animations
     baseDistance?: number;      // Base distance from center for all animations
@@ -924,14 +930,116 @@ const EnhancedSceneSettings: React.FC<{
                     </p>
                   </div>
 
-                  {/* FIXED: Interaction Detection Controls */}
+                  {/* ENHANCED: Interaction Detection & Manual Control */}
                   <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-4 space-y-3">
                     <div className="flex items-center text-sm font-medium text-red-200 mb-2">
                       <Settings className="h-4 w-4 mr-2" />
-                      🐭 Mouse Interaction Settings (FIXED!)
+                      🎮 Manual Control & Interaction Settings (ENHANCED!)
                     </div>
                     
                     <div className="space-y-3">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={settings.cameraAnimation?.enableManualControl !== false}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              enableManualControl: e.target.checked 
+                            }
+                          })}
+                          className="mr-2 bg-gray-800 border-gray-700"
+                        />
+                        <label className="text-sm text-red-200">
+                          🎯 Enable Full Manual Control During Pause
+                        </label>
+                      </div>
+                      <p className="text-xs text-red-300/80 ml-6">
+                        When enabled, you can rotate, zoom, and move the camera freely when animation pauses
+                      </p>
+
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={settings.cameraAnimation?.resumeFromCurrentPosition !== false}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              resumeFromCurrentPosition: e.target.checked 
+                            }
+                          })}
+                          className="mr-2 bg-gray-800 border-gray-700"
+                        />
+                        <label className="text-sm text-red-200">
+                          📍 Resume Animation From Current Position (Recommended ✅)
+                        </label>
+                      </div>
+                      <p className="text-xs text-red-300/80 ml-6">
+                        Animation smoothly continues from where you moved the camera, instead of jumping back to original path
+                      </p>
+
+                      <div>
+                        <label className="block text-sm text-red-300 mb-2">
+                          Smooth Transition Duration: {settings.cameraAnimation?.blendDuration?.toFixed(1) || '2.0'}s
+                        </label>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="5.0"
+                          step="0.5"
+                          value={settings.cameraAnimation?.blendDuration || 2.0}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              blendDuration: parseFloat(e.target.value) 
+                            }
+                          })}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-red-300/80 mt-1">
+                          How long it takes to smoothly blend from your position back to the animation path
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={settings.cameraAnimation?.preserveUserDistance !== false}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { 
+                                ...settings.cameraAnimation, 
+                                preserveUserDistance: e.target.checked 
+                              }
+                            })}
+                            className="mr-2 bg-gray-800 border-gray-700"
+                          />
+                          <label className="text-xs text-red-200">
+                            🔍 Keep Zoom Level
+                          </label>
+                        </div>
+
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={settings.cameraAnimation?.preserveUserHeight !== false}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { 
+                                ...settings.cameraAnimation, 
+                                preserveUserHeight: e.target.checked 
+                              }
+                            })}
+                            className="mr-2 bg-gray-800 border-gray-700"
+                          />
+                          <label className="text-xs text-red-200">
+                            📏 Keep Height Level
+                          </label>
+                        </div>
+                      </div>
+                      <p className="text-xs text-red-300/70">
+                        These options preserve your manual adjustments when animation resumes
+                      </p>
+
                       <div className="flex items-center">
                         <input
                           type="checkbox"
@@ -949,7 +1057,7 @@ const EnhancedSceneSettings: React.FC<{
                         </label>
                       </div>
                       <p className="text-xs text-red-300/80 ml-6">
-                        When enabled, only clicks/drags pause the camera - mouse movement over the scene won't interrupt the animation
+                        Only clicks/drags pause the camera - mouse movement over the scene won't interrupt
                       </p>
 
                       <div>
@@ -995,7 +1103,7 @@ const EnhancedSceneSettings: React.FC<{
                           className="w-full bg-gray-800"
                         />
                         <p className="text-xs text-red-300/80 mt-1">
-                          How long to wait after user interaction before resuming cinematic camera
+                          How long to wait after interaction ends before resuming cinematic camera
                         </p>
                       </div>
 
@@ -1025,11 +1133,13 @@ const EnhancedSceneSettings: React.FC<{
                       )}
                     </div>
 
-                    <div className="bg-red-800/20 p-3 rounded border border-red-600/30">
-                      <p className="text-xs text-red-300 font-medium mb-1">🔧 FIX APPLIED:</p>
-                      <p className="text-xs text-red-400/90">
-                        The mouse movement issue has been fixed! Enable "Ignore Mouse Movement" above to prevent 
-                        accidental pausing when hovering over the scene. Only intentional clicks and drags will pause the cinematic camera.
+                    <div className="bg-green-800/20 p-3 rounded border border-green-600/30">
+                      <p className="text-xs text-green-300 font-medium mb-1">🎯 PERFECT MANUAL CONTROL:</p>
+                      <p className="text-xs text-green-400/90">
+                        With these settings, you can <strong>interact freely</strong> with the scene during cinematic mode. 
+                        The camera will pause, let you explore, then <strong>smoothly resume</strong> from your new position!
+                        <br />
+                        <strong>✨ Best Experience:</strong> Enable all recommended settings above for seamless control.
                       </p>
                     </div>
                   </div>
