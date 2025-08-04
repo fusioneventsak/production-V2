@@ -987,7 +987,7 @@ class EnhancedSlotManager {
   }
 }
 
-// FIXED WAVE PATTERN - UNIFIED wave like one solid body of water
+// FIXED WAVE PATTERN - Gentle flowing like water hovering over floor
 class FixedWavePattern {
   constructor(private settings: any) {}
 
@@ -1012,12 +1012,13 @@ class FixedWavePattern {
     const rows = Math.ceil(totalPhotos / columns);
     
     const speed = this.settings.animationSpeed / 50;
-    const wavePhase = time * speed * 1.2; // Smooth wave speed
+    const wavePhase = time * speed * 1.0; // Even slower for gentle flow
     
-    // FIXED: Proper hover height - well above floor
+    // FIXED: Higher hover height for gentle floating effect
     const floorHeight = -12;
-    const hoverHeight = 3; // Hover distance above floor
-    const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
+    const minHoverHeight = 8; // Much higher minimum hover
+    const maxHoverHeight = 16; // Higher ceiling for wave motion
+    const baseHeight = floorHeight + photoSize + minHoverHeight; // Higher base
     
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
@@ -1027,39 +1028,44 @@ class FixedWavePattern {
       let x = (col - columns / 2) * finalSpacing;
       let z = (row - rows / 2) * finalSpacing;
       
-      // UNIFIED WAVE: Create one cohesive wave pattern like water
-      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 6, photoSize * 1.5);
-      const frequency = this.settings.patterns?.wave?.frequency || 0.15; // Lower for broader waves
+      // GENTLE FLOATING WAVE: Much smoother amplitude that never gets too low
+      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 4, photoSize * 1.0); // Smaller, gentler waves
+      const frequency = this.settings.patterns?.wave?.frequency || 0.1; // Even lower frequency for broader, gentler waves
       
-      let y = baseHeight; // Start from proper hover height
+      let y = baseHeight; // Start from higher base
       
       if (this.settings.animationEnabled) {
-        // MAIN UNIFIED WAVE: Single coherent wave traveling across the surface
-        // Creates rolling hills of photos like ocean swells
+        // MAIN GENTLE WAVE: Soft rolling motion like floating on water
         const mainWave = Math.sin(x * frequency - wavePhase) * amplitude;
         
-        // PERPENDICULAR WAVE: Creates crossing wave pattern like real water
-        const crossWave = Math.sin(z * frequency * 0.8 + wavePhase * 0.7) * amplitude * 0.6;
+        // PERPENDICULAR GENTLE WAVE: Soft crossing patterns
+        const crossWave = Math.sin(z * frequency * 0.7 + wavePhase * 0.6) * amplitude * 0.5;
         
-        // RADIAL COMPONENT: Gentle ripples from center for added realism
+        // FLOATING RIPPLES: Very gentle radial ripples
         const distanceFromCenter = Math.sqrt(x * x + z * z);
-        const radialWave = Math.sin(distanceFromCenter * frequency * 0.3 - wavePhase * 0.5) * amplitude * 0.3;
+        const radialWave = Math.sin(distanceFromCenter * frequency * 0.2 - wavePhase * 0.4) * amplitude * 0.3;
         
-        // BREATHING: Overall gentle rise and fall like tides
-        const breathingWave = Math.sin(wavePhase * 0.3) * amplitude * 0.2;
+        // GENTLE BREATHING: Soft overall rise and fall
+        const breathingWave = Math.sin(wavePhase * 0.25) * amplitude * 0.4;
         
-        // Combine into one unified water-like motion
-        y += mainWave + crossWave + radialWave + breathingWave;
+        // Combine into very gentle water-like floating motion
+        const totalWaveHeight = mainWave + crossWave + radialWave + breathingWave;
+        
+        // ENSURE ALWAYS FLOATING: Never let photos get too close to floor
+        y += Math.max(totalWaveHeight, -amplitude * 0.5); // Clamp the minimum
+        
+        // Additional safety: ensure minimum hover height is maintained
+        y = Math.max(y, baseHeight - amplitude * 0.3);
       }
       
       positions.push([x, y, z]);
 
       if (this.settings.photoRotation) {
         const angle = Math.atan2(x, z);
-        // Very gentle rotation that follows the wave motion
-        const rotationX = Math.sin(wavePhase * 0.4 + x * frequency * 0.5) * 0.03;
-        const rotationY = angle + Math.sin(wavePhase * 0.3) * 0.02;
-        const rotationZ = Math.cos(wavePhase * 0.4 + z * frequency * 0.5) * 0.03;
+        // Very gentle rotation that follows the gentle wave motion
+        const rotationX = Math.sin(wavePhase * 0.3 + x * frequency * 0.3) * 0.02;
+        const rotationY = angle + Math.sin(wavePhase * 0.2) * 0.015;
+        const rotationZ = Math.cos(wavePhase * 0.3 + z * frequency * 0.3) * 0.02;
         rotations.push([rotationX, rotationY, rotationZ]);
       } else {
         rotations.push([0, 0, 0]);
@@ -1070,7 +1076,7 @@ class FixedWavePattern {
   }
 }
 
-// RESTORED SPIRAL PATTERN - Photos face camera for best visibility
+// FIXED SPIRAL PATTERN - TALLER cyclone with better distribution and some randomness
 class FixedSpiralPattern {
   constructor(private settings: any) {}
 
@@ -1086,35 +1092,42 @@ class FixedSpiralPattern {
     const speed = this.settings.animationSpeed / 50;
     const animationTime = time * speed * 2;
     
-    // RESTORED: Original spiral parameters with better spacing
+    // FIXED: MUCH TALLER spiral parameters for better visibility
     const photoSize = this.settings.photoSize || 4;
     const baseRadius = Math.max(8, photoSize * 1.5); // Reasonable minimum radius
-    const maxRadius = Math.max(40, photoSize * 8); // Much wider spread
-    const maxHeight = Math.max(30, photoSize * 6); // Reasonable max height
+    const maxRadius = Math.max(50, photoSize * 10); // Even wider spread
+    const maxHeight = Math.max(60, photoSize * 12); // MUCH TALLER - doubled the height
     const rotationSpeed = 0.6;
-    const orbitalChance = 0.2; // 20% chance for orbital photos
+    const orbitalChance = 0.25; // Slightly more orbital photos for area filling
     
     // FIXED: Proper hover height - well above floor
     const floorHeight = -12;
-    const hoverHeight = 3; // Hover distance above floor
+    const hoverHeight = 5; // Slightly higher hover
     const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
     
-    // RESTORED: Original vertical distribution
-    const verticalBias = 0.7; // Bias towards bottom
-    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.5; // Vertical spacing between spiral layers
+    // FIXED: BETTER vertical distribution - less bottom-heavy, more spread out
+    const verticalBias = 0.4; // MUCH less bias toward bottom (was 0.7)
+    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.8; // Taller steps between layers
     
     for (let i = 0; i < totalPhotos; i++) {
       // Generate random but consistent values for each photo
       const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
       const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
       const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
+      const randomSeed4 = Math.sin(i * 3.17) * 0.5 + 0.5; // Additional randomness
       
       // Determine if this photo is on the main funnel or an outer orbit
       const isOrbital = randomSeed1 < orbitalChance;
       
-      // Height distribution - biased towards bottom for density
+      // FIXED: Better height distribution - more spread throughout the height
       let normalizedHeight = Math.pow(randomSeed2, verticalBias);
-      // Apply height step to create more defined spiral layers
+      
+      // ADD RANDOMNESS: Some photos get random height boosts for better filling
+      if (randomSeed4 > 0.7) {
+        normalizedHeight = Math.min(1.0, normalizedHeight + (randomSeed4 - 0.7) * 1.5); // Random height boost
+      }
+      
+      // Apply height step to create taller spiral layers
       const y = baseHeight + normalizedHeight * maxHeight * heightStep;
       
       // Calculate radius at this height (funnel shape)
@@ -1125,20 +1138,30 @@ class FixedSpiralPattern {
       let verticalWobble: number = 0;
       
       if (isOrbital) {
-        // Orbital photos - farther out with elliptical paths
-        radius = funnelRadius * (1.5 + randomSeed3 * 0.8); // 1.5x to 2.3x funnel radius
+        // Orbital photos - farther out with more randomness for area filling
+        const orbitalVariation = 1.3 + randomSeed3 * 1.0; // More variation (was 0.8)
+        radius = funnelRadius * orbitalVariation;
         angleOffset = randomSeed3 * Math.PI * 2; // Random starting angle
+        
+        // ADD RANDOMNESS: Some orbital photos get random radius boosts
+        if (randomSeed4 > 0.6) {
+          radius *= (1.0 + (randomSeed4 - 0.6) * 1.5); // Random radius boost
+        }
         
         // Add vertical oscillation for orbital photos
         if (this.settings.animationEnabled) {
-          verticalWobble = Math.sin(animationTime * 2 + i) * 3;
+          verticalWobble = Math.sin(animationTime * 2 + i) * 4; // Slightly more wobble
         }
       } else {
-        // Main funnel photos
-        // Add some variation within the funnel
-        const radiusVariation = 0.8 + randomSeed3 * 0.4; // 0.8 to 1.2
+        // Main funnel photos with some randomness
+        const radiusVariation = 0.7 + randomSeed3 * 0.6; // More variation (was 0.8 to 1.2)
         radius = funnelRadius * radiusVariation;
-        angleOffset = 0;
+        angleOffset = randomSeed4 * 0.5; // Small random angle offset
+        
+        // ADD RANDOMNESS: Some main photos get scattered for filling
+        if (randomSeed4 > 0.8) {
+          radius *= (1.0 + (randomSeed4 - 0.8) * 2.0); // Scatter some photos further
+        }
       }
       
       // Calculate angle with height-based rotation speed
@@ -1532,17 +1555,19 @@ const EnhancedAnimationController: React.FC<{
         
         const expectedSlots = settings.photoCount || 100;
         
-        // Apply floor level adjustments - FIXED: Proper hover height above floor
+        // Apply floor level adjustments - FIXED: Higher hover height for gentle floating
         if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
           const floorLevel = -12;
           const photoSize = settings.photoSize || 4.0;
-          const hoverHeight = 3; // Consistent hover distance
-          const minPhotoHeight = floorLevel + photoSize + hoverHeight; // Hover above floor, never touch
+          
+          // Different hover heights for different patterns
+          const hoverHeight = settings.animationPattern === 'wave' ? 8 : 5; // Wave floats higher
+          const minPhotoHeight = floorLevel + photoSize + hoverHeight;
           
           patternState.positions = patternState.positions.map((pos, index) => {
             const [x, y, z] = pos;
             
-            // FIXED: Ensure photos hover above floor, never touch
+            // FIXED: Ensure photos float gently, never touch floor
             let adjustedY = Math.max(y, minPhotoHeight);
             
             return [x, adjustedY, z];
