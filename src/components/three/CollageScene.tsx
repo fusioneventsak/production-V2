@@ -662,7 +662,7 @@ class EnhancedSlotManager {
   }
 }
 
-// FIXED WAVE PATTERN - Gentle flowing like water hovering over floor
+// COMPLETELY REDESIGNED WAVE PATTERN - Ultra-smooth organic undulation with multiple harmonics
 class FixedWavePattern {
   constructor(private settings: any) {}
 
@@ -674,74 +674,109 @@ class FixedWavePattern {
       ? this.settings.patterns.wave.photoCount 
       : this.settings.photoCount;
     
-    // FIXED: Much better spacing - wider spread, proper photo size consideration
+    // Much better spacing that spreads photos out more naturally
     const photoSize = this.settings.photoSize || 4;
-    const baseSpacing = Math.max(12, photoSize * 2.5); // Much wider base spacing
-    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.15);
+    const baseSpacing = Math.max(15, photoSize * 3.0); // Even wider spacing
+    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.2);
     const finalSpacing = baseSpacing * spacingMultiplier;
     
-    // FIXED: Support up to 500 photos efficiently
     const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
     
-    // Calculate grid dimensions
-    const columns = Math.ceil(Math.sqrt(totalPhotos));
+    // Calculate grid dimensions for spread out arrangement
+    const columns = Math.ceil(Math.sqrt(totalPhotos * 1.4)); // Wider grid
     const rows = Math.ceil(totalPhotos / columns);
     
     const speed = this.settings.animationSpeed / 50;
-    const wavePhase = time * speed * 1.0; // Even slower for gentle flow
+    const wavePhase = time * speed * 0.6; // Slower, more organic
     
-    // FIXED: Higher hover height for gentle floating effect
+    // MUCH HIGHER floating range - never touch the floor
     const floorHeight = -12;
-    const minHoverHeight = 8; // Much higher minimum hover
-    const maxHoverHeight = 16; // Higher ceiling for wave motion
-    const baseHeight = floorHeight + photoSize + minHoverHeight; // Higher base
+    const minFloatHeight = 12; // MUCH higher minimum - well above floor
+    const maxFloatHeight = 25; // Higher ceiling for dramatic undulation
+    const midHeight = (minFloatHeight + maxFloatHeight) / 2;
     
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
       const row = Math.floor(i / columns);
       
-      // FIXED: Base positions with much better spacing
+      // Base positions with organic offset
       let x = (col - columns / 2) * finalSpacing;
       let z = (row - rows / 2) * finalSpacing;
       
-      // GENTLE FLOATING WAVE: Much smoother amplitude that never gets too low
-      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 4, photoSize * 1.0); // Smaller, gentler waves
-      const frequency = this.settings.patterns?.wave?.frequency || 0.1; // Even lower frequency for broader, gentler waves
+      // Add subtle randomness to avoid perfect grid
+      x += (Math.sin(i * 0.7) * 0.5 + Math.cos(i * 1.3) * 0.3) * finalSpacing * 0.2;
+      z += (Math.cos(i * 0.8) * 0.5 + Math.sin(i * 1.1) * 0.3) * finalSpacing * 0.2;
       
-      let y = baseHeight; // Start from higher base
+      // Base amplitude that can be controlled
+      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 6, photoSize * 2.0);
+      const frequency = this.settings.patterns?.wave?.frequency || 0.08; // Much lower for broader waves
+      
+      let y = midHeight; // Start from middle of floating range
       
       if (this.settings.animationEnabled) {
-        // MAIN GENTLE WAVE: Soft rolling motion like floating on water
-        const mainWave = Math.sin(x * frequency - wavePhase) * amplitude;
+        // MULTIPLE OVERLAPPING SINE WAVES for ultra-smooth organic motion
         
-        // PERPENDICULAR GENTLE WAVE: Soft crossing patterns
-        const crossWave = Math.sin(z * frequency * 0.7 + wavePhase * 0.6) * amplitude * 0.5;
+        // Primary X-direction wave - main rolling motion
+        const primaryWave = Math.sin(x * frequency - wavePhase) * amplitude;
         
-        // FLOATING RIPPLES: Very gentle radial ripples
+        // Secondary Z-direction wave - perpendicular undulation
+        const secondaryWave = Math.sin(z * frequency * 0.8 + wavePhase * 0.7) * amplitude * 0.6;
+        
+        // Diagonal wave - creates natural cross-patterns
+        const diagonalWave = Math.sin((x + z) * frequency * 0.5 - wavePhase * 1.2) * amplitude * 0.4;
+        
+        // Radial wave from center - gentle ripples emanating outward
         const distanceFromCenter = Math.sqrt(x * x + z * z);
-        const radialWave = Math.sin(distanceFromCenter * frequency * 0.2 - wavePhase * 0.4) * amplitude * 0.3;
+        const radialWave = Math.sin(distanceFromCenter * frequency * 0.3 - wavePhase * 0.8) * amplitude * 0.5;
         
-        // GENTLE BREATHING: Soft overall rise and fall
-        const breathingWave = Math.sin(wavePhase * 0.25) * amplitude * 0.4;
+        // Circular wave - rotational component
+        const angle = Math.atan2(z, x);
+        const circularWave = Math.sin(angle * 3 + wavePhase * 0.4) * amplitude * 0.3;
         
-        // Combine into very gentle water-like floating motion
-        const totalWaveHeight = mainWave + crossWave + radialWave + breathingWave;
+        // High-frequency detail wave - adds surface texture
+        const detailWave = Math.sin(x * frequency * 3 - wavePhase * 2.5) * Math.cos(z * frequency * 2.5 + wavePhase * 1.8) * amplitude * 0.2;
         
-        // ENSURE ALWAYS FLOATING: Never let photos get too close to floor
-        y += Math.max(totalWaveHeight, -amplitude * 0.5); // Clamp the minimum
+        // Temporal breathing wave - overall rise and fall
+        const breathingWave = Math.sin(wavePhase * 0.3) * amplitude * 0.7;
         
-        // Additional safety: ensure minimum hover height is maintained
-        y = Math.max(y, baseHeight - amplitude * 0.3);
+        // Individual photo variation - each photo has slightly different motion
+        const photoSeed = (Math.sin(i * 0.618) + 1) / 2; // Golden ratio for natural distribution
+        const personalWave = Math.sin(wavePhase * 0.9 + photoSeed * Math.PI * 2) * amplitude * 0.3;
+        
+        // Combine all waves with different weights for natural motion
+        const totalWaveHeight = 
+          primaryWave * 1.0 +      // Main wave
+          secondaryWave * 0.8 +    // Cross wave
+          diagonalWave * 0.6 +     // Diagonal component
+          radialWave * 0.7 +       // Radial ripples
+          circularWave * 0.4 +     // Rotational component
+          detailWave * 0.3 +       // Surface detail
+          breathingWave * 0.5 +    // Overall breathing
+          personalWave * 0.4;      // Individual variation
+        
+        y += totalWaveHeight;
+        
+        // CRITICAL: Ensure photos NEVER go below minimum height - always floating
+        y = Math.max(y, minFloatHeight);
+        
+        // Also cap at maximum height to keep in view
+        y = Math.min(y, maxFloatHeight);
       }
       
       positions.push([x, y, z]);
 
       if (this.settings.photoRotation) {
-        const angle = Math.atan2(x, z);
-        // Very gentle rotation that follows the gentle wave motion
-        const rotationX = Math.sin(wavePhase * 0.3 + x * frequency * 0.3) * 0.02;
-        const rotationY = angle + Math.sin(wavePhase * 0.2) * 0.015;
-        const rotationZ = Math.cos(wavePhase * 0.3 + z * frequency * 0.3) * 0.02;
+        // Organic rotation that follows the wave motion
+        const waveInfluence = (y - midHeight) / amplitude; // How much the wave affects rotation
+        
+        // Gentle tilting that follows wave slopes
+        const rotationX = Math.sin(wavePhase * 0.4 + x * frequency * 0.4) * 0.08 * waveInfluence;
+        const rotationZ = Math.cos(wavePhase * 0.4 + z * frequency * 0.4) * 0.08 * waveInfluence;
+        
+        // Base rotation toward camera with wave variation
+        const baseAngle = Math.atan2(x, z);
+        const rotationY = baseAngle + Math.sin(wavePhase * 0.3 + i * 0.1) * 0.2;
+        
         rotations.push([rotationX, rotationY, rotationZ]);
       } else {
         rotations.push([0, 0, 0]);
@@ -896,6 +931,118 @@ const BackgroundRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ set
   ]);
 
   return null;
+};
+
+//FIXED: Environment renderer for different scene environments
+const EnvironmentRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const { scene } = useThree();
+  
+  useEffect(() => {
+    // Simple environment setup based on settings
+    if (!settings.sceneEnvironment || settings.sceneEnvironment === 'default') {
+      return;
+    }
+    
+    console.log('🌍 ENVIRONMENT: Setting up', settings.sceneEnvironment);
+    
+    // Basic environment implementations
+    switch (settings.sceneEnvironment) {
+      case 'gallery':
+        // Add ambient lighting for gallery feel
+        scene.fog = new THREE.Fog(0x000000, 50, 200);
+        break;
+      case 'studio':
+        // Clear fog for clean studio look
+        scene.fog = null;
+        break;
+      case 'cube':
+        // Could add cube environment map here
+        console.log('🌍 Cube environment selected');
+        break;
+      case 'sphere':
+        // Could add sphere environment map here  
+        console.log('🌍 Sphere environment selected');
+        break;
+    }
+    
+    return () => {
+      // Cleanup fog when component unmounts or environment changes
+      if (scene.fog) {
+        scene.fog = null;
+      }
+    };
+  }, [scene, settings.sceneEnvironment]);
+
+  return null;
+};
+
+// FIXED: Floor component that actually renders in the scene
+const Floor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  if (!settings.floorEnabled) return null;
+
+  const floorMaterial = useMemo(() => {
+    console.log('🏢 FLOOR: Creating floor with settings:', {
+      floorEnabled: settings.floorEnabled,
+      floorSize: settings.floorSize,
+      floorColor: settings.floorColor,
+      floorOpacity: settings.floorOpacity
+    });
+
+    return new THREE.MeshStandardMaterial({
+      color: settings.floorColor || '#1A1A1A',
+      transparent: (settings.floorOpacity || 1) < 1,
+      opacity: settings.floorOpacity || 1,
+      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
+      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
+      side: THREE.DoubleSide,
+      envMapIntensity: 0.5,
+    });
+  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness]);
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -12, 0]} // Match the floor height used in patterns
+      receiveShadow
+    >
+      <planeGeometry args={[settings.floorSize || 200, settings.floorSize || 200, 32, 32]} />
+      <primitive object={floorMaterial} attach="material" />
+    </mesh>
+  );
+};
+
+// FIXED: Grid component that actually renders in the scene
+const Grid: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  if (!settings.gridEnabled) return null;
+
+  const gridHelper = useMemo(() => {
+    console.log('🔧 GRID: Creating grid with settings:', {
+      gridEnabled: settings.gridEnabled,
+      gridSize: settings.gridSize,
+      gridDivisions: settings.gridDivisions,
+      gridColor: settings.gridColor,
+      gridOpacity: settings.gridOpacity
+    });
+
+    const helper = new THREE.GridHelper(
+      settings.gridSize || 200,
+      settings.gridDivisions || 30,
+      settings.gridColor || '#444444',
+      settings.gridColor || '#444444'
+    );
+    
+    const material = helper.material as THREE.LineBasicMaterial;
+    material.transparent = true;
+    material.opacity = Math.min(settings.gridOpacity || 1.0, 1.0);
+    material.color = new THREE.Color(settings.gridColor || '#444444');
+    
+    helper.position.y = -11.99; // Just above the floor to prevent z-fighting
+    
+    console.log('🔧 GRID: Grid created and positioned at y =', helper.position.y);
+    return helper;
+  }, [settings.gridEnabled, settings.gridSize, settings.gridDivisions, settings.gridColor, settings.gridOpacity]);
+
+  return <primitive object={gridHelper} />;
 };
 
 const OptimizedPhotoMesh: React.FC<{
@@ -1429,8 +1576,15 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* Background Management */}
         <BackgroundRenderer settings={safeSettings} />
         
+        {/* FIXED: Environment renderer for different scene types */}
+        <EnvironmentRenderer settings={safeSettings} />
+        
         {/* FIXED Camera Controls - Actually Working */}
         <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
+        
+        {/* FIXED: Add Floor and Grid components that were missing */}
+        <Floor settings={safeSettings} />
+        <Grid settings={safeSettings} />
         
         {/* Particle System */}
         {safeSettings.particles?.enabled && (
