@@ -1,4 +1,674 @@
-// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing
+} else {
+        scene.background = new THREE.Color(settings.backgroundColor || '#000000');
+        gl.setClearColor(settings.backgroundColor || '#000000', 1);
+      }
+    } catch (error) {
+      console.error('Background render error:', error);
+    }
+  }, [
+    scene, 
+    gl, 
+    settings.backgroundColor, 
+    settings.backgroundGradient,
+    settings.backgroundGradientStart,
+    settings.backgroundGradientEnd,
+    settings.backgroundGradientAngle
+  ]);
+
+  return null;
+};
+
+const OptimizedPhotoMesh: React.FC<{
+  photo: PhotoWithPosition;
+  settings: ExtendedSceneSettings;
+  shouldFaceCamera: boolean;
+}> = React.memo(({ photo, settings, shouldFaceCamera }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { camera, gl } = useThree();
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [detectedAspectRatio, setDetectedAspectRatio] = useState<number | null>(null);
+  
+  const isInitializedRef = useRef(false);
+  const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
+  const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
+  const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
+
+  useEffect(() => {
+    currentPosition.current.set(...photo.targetPosition);
+    currentRotation.current.set(...photo.targetRotation);
+  }, [photo.targetPosition, photo.targetRotation]);
+
+  useEffect(() => {
+    if (!photo.url) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loader = new THREE.TextureLoader();
+    setIsLoading(true);
+    setHasError(false);
+    
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const actualAspectRatio = img.naturalWidth / img.naturalHeight;
+      setDetectedAspectRatio(actualAspectRatio);
+      
+      const imageUrl = photo.url.includes('?') 
+        ? `${photo.url}&t=${Date.now()}`
+        : `${photo.url}?t=${Date.now()}`;
+
+      loader.load(imageUrl, (loadedTexture) => {
+        loadedTexture.generateMipmaps = true;
+        loadedTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        loadedTexture.magFilter = THREE.LinearFilter;
+        loadedTexture.format = THREE.RGBAFormat;
+        
+        if (gl && gl.capabilities.getMaxAnisotropy) {
+          loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
+        }
+
+        loadedTexture.colorSpace = THREE.SRGBColorSpace;
+        loadedTexture.flipY = true;
+        loadedTexture.premultipliedAlpha = false;
+
+        setTexture(loadedTexture);
+        setIsLoading(false);
+      }, undefined, () => {
+        setHasError(true);
+        setIsLoading(false);
+      });
+    };
+    
+    img.onerror = () => {
+      setHasError(true);
+      setIsLoading(false);
+    };
+    
+    img.src = photo.url;
+
+    return () => {
+      if (texture) {
+        texture.dispose();
+      }
+    };
+  }, [photo.url, gl]);
+
+  const computedDimensions = useMemo(() => {
+    const baseSize = settings.photoSize || 4.0;
+    
+    let aspectRatio = 1;
+    if (detectedAspectRatio) {
+      aspectRatio = detectedAspectRatio;
+    } else if (photo.computedSize && photo.computedSize[0] && photo.computedSize[1]) {
+      aspectRatio = photo.computedSize[0] / photo.computedSize[1];
+    }
+    
+    if (aspectRatio > 1) {
+      return [baseSize * aspectRatio, baseSize];
+    } else {
+      return [baseSize, baseSize / aspectRatio];
+    }
+  }, [settings.photoSize, photo.computedSize, detectedAspectRatio]);
+
+  useFrame(() => {
+    if (!meshRef.current || !shouldFaceCamera) return;
+
+    const mesh = meshRef.current;
+    const currentPositionArray = mesh.position.toArray() as [number, number, number];
+    
+    const positionChanged = currentPositionArray.some((coord, index) => 
+      Math.abs(coord - lastPositionRef.current[index]) > 0.01
+    );
+
+    if (positionChanged || !isInitializedRef.current) {
+      mesh.lookAt(camera.position);
+      lastPositionRef.current = currentPositionArray;
+      isInitializedRef.current = true;
+    }
+  });
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+
+    const targetPosition = new THREE.Vector3(...photo.targetPosition);
+    const targetRotation = new THREE.Euler(...photo.targetRotation);
+
+    const distance = currentPosition.current.distanceTo(targetPosition);
+    const isTeleport = distance > TELEPORT_THRESHOLD;
+
+    if (isTeleport) {
+      currentPosition.current.copy(targetPosition);
+      currentRotation.current.copy(targetRotation);
+    } else {
+      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING);
+      currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
+      currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
+      currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
+    }
+
+    meshRef.current.position.copy(currentPosition.current);
+    if (!shouldFaceCamera) {
+      meshRef.current.rotation.copy(currentRotation.current);
+    }
+  });
+
+  const material = useMemo(() => {
+    if (texture) {
+      const hasTransparency = photo.url.toLowerCase().includes('.png') || 
+                             photo.url.toLowerCase().includes('.webp');
+      
+      return new THREE.MeshStandardMaterial({
+        map: texture,
+        transparent: hasTransparency,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+        color: new THREE.Color().setScalar(settings.photoBrightness || 1.0),
+        metalness: 0,
+        roughness: 0.2,
+        alphaTest: hasTransparency ? 0.01 : 0,
+        premultipliedAlpha: false,
+      });
+    } else {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d')!;
+      
+      ctx.fillStyle = settings.emptySlotColor || '#1A1A1A';
+      ctx.fillRect(0, 0, 256, 256);
+      
+      if (settings.animationPattern === 'grid') {
+        ctx.strokeStyle = '#ffffff20';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 256; i += 32) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, 256);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(256, i);
+          ctx.stroke();
+        }
+      }
+      
+      const emptyTexture = new THREE.CanvasTexture(canvas);
+      return new THREE.MeshStandardMaterial({
+        map: emptyTexture,
+        transparent: false,
+        side: THREE.DoubleSide,
+        color: 0xffffff,
+      });
+    }
+  }, [texture, settings.emptySlotColor, settings.animationPattern, settings.photoBrightness, photo.url]);
+
+  return (
+    <mesh
+      ref={meshRef}
+      material={material}
+      castShadow
+      receiveShadow
+    >
+      <planeGeometry args={[computedDimensions[0], computedDimensions[1]]} />
+    </mesh>
+  );
+});
+
+const SimplePhotoRenderer: React.FC<{ 
+  photosWithPositions: PhotoWithPosition[]; 
+  settings: ExtendedSceneSettings;
+}> = ({ photosWithPositions, settings }) => {
+  // FIXED: Both float and spiral patterns face camera for best visibility
+  const shouldFaceCamera = settings.animationPattern === 'float' || settings.animationPattern === 'spiral';
+  
+  return (
+    <group>
+      {photosWithPositions.map((photo) => (
+        <OptimizedPhotoMesh
+          key={`${photo.id}-${photo.slotIndex}`}
+          photo={photo}
+          settings={settings}
+          shouldFaceCamera={shouldFaceCamera}
+        />
+      ))}
+    </group>
+  );
+};
+
+const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const targetRefs = useRef<THREE.Object3D[]>([]);
+
+  const spotlights = useMemo(() => {
+    const lights = [];
+    const count = Math.min(settings.spotlightCount || 4, 4);
+    
+    while (targetRefs.current.length < count) {
+      targetRefs.current.push(new THREE.Object3D());
+    }
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const distance = Math.max(20, settings.spotlightDistance || 30);
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      const y = Math.max(15, settings.spotlightHeight || 25);
+      
+      targetRefs.current[i].position.set(0, (settings.wallHeight || 0) / 2, 0);
+      
+      lights.push({
+        key: `spotlight-${i}`,
+        position: [x, y, z] as [number, number, number],
+        target: targetRefs.current[i],
+      });
+    }
+    return lights;
+  }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
+
+  return (
+    <group ref={groupRef}>
+      <ambientLight 
+        intensity={(settings.ambientLightIntensity || 0.4) * 0.5} 
+        color="#ffffff" 
+      />
+      
+      <directionalLight
+        position={[20, 30, 20]}
+        intensity={0.1}
+        color="#ffffff"
+        castShadow={settings.shadowsEnabled}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-far={200}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
+        shadow-bias={-0.0001}
+      />
+      
+      {spotlights.map((light, index) => (
+        <group key={light.key}>
+          <spotLight
+            position={light.position}
+            target={light.target}
+            angle={Math.max(0.2, Math.min(Math.PI / 3, settings.spotlightAngle || 0.8))}
+            penumbra={settings.spotlightPenumbra || 0.4}
+            intensity={((settings.spotlightIntensity || 150) / 100) * 8}
+            color={settings.spotlightColor || '#ffffff'}
+            distance={settings.spotlightDistance * 3 || 120}
+            decay={1}
+            castShadow={settings.shadowsEnabled}
+            shadow-mapSize={[1024, 1024]}
+            shadow-camera-near={0.5}
+            shadow-camera-far={settings.spotlightDistance * 2 || 100}
+            shadow-bias={-0.0001}
+          />
+          <primitive object={light.target} />
+        </group>
+      ))}
+    </group>
+  );
+};
+
+// FIXED: Enhanced Animation Controller with proper photo count handling
+const EnhancedAnimationController: React.FC<{
+  settings: ExtendedSceneSettings;
+  photos: Photo[];
+  onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
+}> = ({ settings, photos, onPositionsUpdate }) => {
+  const slotManagerRef = useRef(new EnhancedSlotManager(Math.min(Math.max(settings.photoCount || 100, 1), 500)));
+  const lastPhotoCount = useRef(Math.min(Math.max(settings.photoCount || 100, 1), 500));
+  
+  const updatePositions = useCallback((time: number = 0) => {
+    try {
+      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+      const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
+      
+      let patternState;
+      try {
+        // FIXED: Use our fixed patterns for wave and spiral
+        if (settings.animationPattern === 'wave') {
+          const fixedWavePattern = new FixedWavePattern(settings);
+          patternState = fixedWavePattern.generatePositions(time);
+        } else if (settings.animationPattern === 'spiral') {
+          const fixedSpiralPattern = new FixedSpiralPattern(settings);
+          patternState = fixedSpiralPattern.generatePositions(time);
+        } else {
+          // Use original pattern factory for other patterns
+          const pattern = PatternFactory.createPattern(
+            settings.animationPattern || 'grid',
+            {
+              ...settings,
+              photoCount: Math.min(Math.max(settings.photoCount || 100, 1), 500) // FIXED: Clamp to 1-500
+            },
+            safePhotos
+          );
+          patternState = pattern.generatePositions(time);
+        }
+        
+        const expectedSlots = Math.min(Math.max(settings.photoCount || 100, 1), 500); // FIXED: Clamp to 1-500
+        
+        // Apply floor level adjustments - FIXED: Higher hover height for gentle floating
+        if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
+          const floorLevel = -12;
+          const photoSize = settings.photoSize || 4.0;
+          
+          // Different hover heights for different patterns
+          const hoverHeight = settings.animationPattern === 'wave' ? 8 : 5; // Wave floats higher
+          const minPhotoHeight = floorLevel + photoSize + hoverHeight;
+          
+          patternState.positions = patternState.positions.map((pos, index) => {
+            const [x, y, z] = pos;
+            
+            // FIXED: Ensure photos float gently, never touch floor
+            let adjustedY = Math.max(y, minPhotoHeight);
+            
+            return [x, adjustedY, z];
+          });
+        }
+        
+      } catch (error) {
+        console.error('Pattern generation error:', error);
+        // Fallback grid
+        const positions = [];
+        const rotations = [];
+        const spacing = Math.max(6, (settings.photoSize || 4.0) * 1.5);
+        const totalSlots = Math.min(Math.max(settings.photoCount || 100, 1), 500); // FIXED: Clamp to 1-500
+        
+        for (let i = 0; i < totalSlots; i++) {
+          const x = (i % 10) * spacing - (spacing * 5);
+          const z = Math.floor(i / 10) * spacing - (spacing * 5);
+          positions.push([x, -6, z]);
+          rotations.push([0, 0, 0]);
+        }
+        patternState = { positions, rotations };
+      }
+      
+      const photosWithPositions: PhotoWithPosition[] = [];
+      const totalSlots = Math.min(Math.max(settings.photoCount || 100, 1), 500); // FIXED: Clamp to 1-500
+      const availablePositions = Math.min(patternState.positions.length, totalSlots);
+      
+      for (const photo of safePhotos) {
+        const slotIndex = slotAssignments.get(photo.id);
+        if (slotIndex !== undefined && slotIndex < availablePositions) {
+          const aspectRatio = slotManagerRef.current.getAspectRatio(photo.id);
+          const baseSize = settings.photoSize || 4.0;
+          
+          const computedSize = aspectRatio ? (
+            aspectRatio > 1 
+              ? [baseSize * aspectRatio, baseSize]
+              : [baseSize, baseSize / aspectRatio]
+          ) : undefined;
+          
+          photosWithPositions.push({
+            ...photo,
+            targetPosition: patternState.positions[slotIndex],
+            targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
+            displayIndex: slotIndex,
+            slotIndex,
+            computedSize
+          });
+        }
+      }
+      
+      for (let i = 0; i < availablePositions; i++) {
+        const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
+        if (!hasPhoto) {
+          const baseSize = settings.photoSize || 4.0;
+          
+          photosWithPositions.push({
+            id: `placeholder-${i}`,
+            url: '',
+            targetPosition: patternState.positions[i],
+            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+            displayIndex: i,
+            slotIndex: i,
+            computedSize: [baseSize * (9/16), baseSize]
+          });
+        }
+      }
+      
+      if (availablePositions < totalSlots) {
+        console.log(`🔧 Pattern supports ${availablePositions} positions for ${totalSlots} slots`);
+      }
+      
+      photosWithPositions.sort((a, b) => a.slotIndex - b.slotIndex);
+      onPositionsUpdate(photosWithPositions);
+      
+    } catch (error) {
+      console.error('Error in updatePositions:', error);
+    }
+  }, [photos, settings, onPositionsUpdate]);
+
+  useEffect(() => {
+    const newPhotoCount = Math.min(Math.max(settings.photoCount || 100, 1), 500); // FIXED: Clamp to 1-500
+    if (newPhotoCount !== lastPhotoCount.current) {
+      console.log(`📊 Photo count changed from ${lastPhotoCount.current} to ${newPhotoCount}`);
+      slotManagerRef.current.updateSlotCount(newPhotoCount);
+      lastPhotoCount.current = newPhotoCount;
+      updatePositions(0);
+    }
+  }, [settings.photoCount, updatePositions]);
+
+  useFrame((state) => {
+    const time = settings.animationEnabled ? 
+      state.clock.elapsedTime * ((settings.animationSpeed || 50) / 50) : 0;
+    updatePositions(time);
+  });
+
+  return null;
+};
+
+const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  if (!settings.floorEnabled) return null;
+
+  const floorTexture = useMemo(() => {
+    return FloorTextureFactory.createTexture(
+      settings.floorTexture || 'solid',
+      1024,
+      settings.customFloorTextureUrl
+    );
+  }, [settings.floorTexture, settings.customFloorTextureUrl]);
+
+  const floorMaterial = useMemo(() => {
+    const material = new THREE.MeshStandardMaterial({
+      map: floorTexture,
+      color: settings.floorColor || '#FFFFFF',
+      transparent: (settings.floorOpacity || 1) < 1,
+      opacity: settings.floorOpacity || 1,
+      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
+      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
+      side: THREE.DoubleSide,
+      envMapIntensity: 0.5,
+    });
+
+    switch (settings.floorTexture) {
+      case 'marble':
+        material.metalness = 0.1;
+        material.roughness = 0.2;
+        break;
+      case 'metal':
+        material.metalness = 0.9;
+        material.roughness = 0.1;
+        break;
+      case 'glass':
+        material.metalness = 0;
+        material.roughness = 0.05;
+        material.transparent = true;
+        material.opacity = 0.8;
+        break;
+      case 'wood':
+        material.metalness = 0;
+        material.roughness = 0.8;
+        break;
+    }
+
+    return material;
+  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness, settings.floorTexture, floorTexture]);
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -12, 0]}
+      receiveShadow
+    >
+      <planeGeometry args={[settings.floorSize || 300, settings.floorSize || 300, 64, 64]} />
+      <primitive object={floorMaterial} attach="material" />
+    </mesh>
+  );
+};
+
+// Helper function to get current particle theme
+const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
+  const themeName = settings.particles?.theme ?? 'Purple Magic';
+  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
+};
+
+// Main Enhanced CollageScene Component
+const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ 
+  photos, 
+  settings, 
+  width = 2560, 
+  height = 1440,
+  onSettingsChange 
+}, ref) => {
+  const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = (ref || internalCanvasRef) as React.RefObject<HTMLCanvasElement>;
+
+  const safePhotos = Array.isArray(photos) ? photos : [];
+  const safeSettings = { ...settings };
+
+  const backgroundStyle = useMemo(() => {
+    if (safeSettings.backgroundGradient) {
+      return {
+        background: `linear-gradient(${safeSettings.backgroundGradientAngle || 45}deg, ${safeSettings.backgroundGradientStart || '#000000'}, ${safeSettings.backgroundGradientEnd || '#000000'})`
+      };
+    }
+    return {
+      background: safeSettings.backgroundColor || '#000000'
+    };
+  }, [
+    safeSettings.backgroundGradient,
+    safeSettings.backgroundColor,
+    safeSettings.backgroundGradientStart,
+    safeSettings.backgroundGradientEnd,
+    safeSettings.backgroundGradientAngle
+  ]);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup function
+    };
+  }, []);
+
+  return (
+    <div style={backgroundStyle} className="w-full h-full">
+      <Canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        shadows={safeSettings.shadowsEnabled}
+        camera={{ 
+          position: [0, 5, 25], 
+          fov: 75,
+          near: 0.1,
+          far: 2000
+        }}
+        gl={{ 
+          antialias: true,
+          alpha: safeSettings.backgroundGradient || false,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: true,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.2,
+          outputColorSpace: THREE.SRGBColorSpace,
+        }}
+        onCreated={(state) => {
+          state.gl.shadowMap.enabled = true;
+          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          state.gl.shadowMap.autoUpdate = true;
+          
+          const pixelRatio = Math.min(window.devicePixelRatio, 2);
+          state.gl.setPixelRatio(pixelRatio);
+          
+          if (safeSettings.backgroundGradient) {
+            state.gl.setClearColor('#000000', 0);
+          } else {
+            state.gl.setClearColor(safeSettings.backgroundColor || '#000000', 1);
+          }
+        }}
+        performance={{ min: 0.8 }}
+        linear={true}
+      >
+        {/* Background Management */}
+        <BackgroundRenderer settings={safeSettings} />
+        
+        {/* FIXED Camera Controls - Actually Working */}
+        <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
+        
+        {/* Particle System */}
+        {safeSettings.particles?.enabled && (
+          <MilkyWayParticleSystem
+            colorTheme={getCurrentParticleTheme(safeSettings)}
+            intensity={safeSettings.particles?.intensity ?? 0.7}
+            enabled={safeSettings.particles?.enabled ?? true}
+            photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
+            floorSize={safeSettings.floorSize || 200}
+            gridSize={safeSettings.gridSize || 200}
+          />
+        )}
+        
+        {/* Scene Environment Manager */}
+        <SceneEnvironmentManager settings={safeSettings} />
+        
+        {/* Enhanced Lighting */}
+        <EnhancedLightingSystem settings={safeSettings} />
+        
+        {/* Textured Floor - Always show unless sphere environment */}
+        {safeSettings.sceneEnvironment !== 'sphere' && (
+          <TexturedFloor settings={safeSettings} />
+        )}
+        
+        {/* Grid - Only show for default environment */}
+        {(!safeSettings.sceneEnvironment || safeSettings.sceneEnvironment === 'default') && 
+         safeSettings.gridEnabled && (
+          <gridHelper
+            args={[
+              safeSettings.gridSize || 200,
+              safeSettings.gridDivisions || 30,
+              safeSettings.gridColor || '#444444',
+              safeSettings.gridColor || '#444444'
+            ]}
+            position={[0, -11.99, 0]}
+            material-opacity={safeSettings.gridOpacity || 1.0}
+            material-transparent={true}
+          />
+        )}
+        
+        {/* FIXED Enhanced Animation Controller */}
+        <EnhancedAnimationController
+          settings={safeSettings}
+          photos={safePhotos}
+          onPositionsUpdate={setPhotosWithPositions}
+        />
+        
+        {/* Simple High-Performance Photo Renderer */}
+        <SimplePhotoRenderer 
+          photosWithPositions={photosWithPositions}
+          settings={safeSettings}
+        />
+      </Canvas>
+    </div>
+  );
+});
+
+EnhancedCollageScene.displayName = 'EnhancedCollageScene';
+export default EnhancedCollageScene;// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -50,7 +720,7 @@ interface PhotoPosition {
   id: string;
 }
 
-// Extended settings for scene environments + Camera Systems
+// FIXED: Extended settings with cinematic camera height and distance controls
 interface ExtendedSceneSettings extends SceneSettings {
   sceneEnvironment?: SceneEnvironment;
   floorTexture?: FloorTexture;
@@ -65,7 +735,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingHeight?: number;
   roomDepth?: number;
   
-  // Cinematic Camera Animation Settings
+  // FIXED: Enhanced Cinematic Camera Animation Settings with fine-tuning controls
   cameraAnimation?: {
     enabled?: boolean;
     type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
@@ -75,6 +745,11 @@ interface ExtendedSceneSettings extends SceneSettings {
     transitionTime: number;
     pauseTime: number;
     randomization: number;
+    // NEW: Fine-tuning controls
+    baseHeight?: number;        // Base camera height for all animations
+    baseDistance?: number;      // Base distance from center for all animations
+    heightVariation?: number;   // How much height varies during animation
+    distanceVariation?: number; // How much distance varies during animation
   };
   
   // Auto-Rotate Camera Settings
@@ -152,22 +827,12 @@ const AutoRotateCamera: React.FC<{
     // Set camera position and look at focus point
     camera.position.set(x + focusPoint.x, y + focusPoint.y, z + focusPoint.z);
     camera.lookAt(focusPoint.x, focusPoint.y, focusPoint.z);
-    
-    // Debug occasionally
-    if (Math.floor(timeRef.current * 10) % 100 === 0) {
-      console.log('🔄 Auto-rotate:', {
-        radius: radius.toFixed(1),
-        height: (y + focusPoint.y).toFixed(1),
-        angle: (timeRef.current % (Math.PI * 2)).toFixed(2),
-        phi: phi.toFixed(2)
-      });
-    }
   });
 
   return null;
 };
 
-// FIXED CINEMATIC CAMERA - Much more graceful movements
+// FIXED: Enhanced Cinematic Camera with Fine-tuning Controls
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -178,6 +843,11 @@ const CinematicCamera: React.FC<{
     transitionTime: number;
     pauseTime: number;
     randomization: number;
+    // NEW: Fine-tuning controls
+    baseHeight?: number;
+    baseDistance?: number;
+    heightVariation?: number;
+    distanceVariation?: number;
   };
   photoPositions: PhotoPosition[];
   settings: ExtendedSceneSettings;
@@ -260,11 +930,16 @@ const CinematicCamera: React.FC<{
     const speed = (config.speed || 1.0) * 0.2;
     timeRef.current += delta * speed;
 
-    // FIXED: Better height calculations to prevent looking down at floor
+    // FIXED: Use fine-tuning controls for height and distance
     const photoSize = settings.photoSize || 4;
     const floorHeight = -12;
-    const minCameraHeight = floorHeight + photoSize * 2; // Stay well above floor
-    const preferredHeight = Math.max(settings.cameraHeight || 5, minCameraHeight);
+    
+    // NEW: Fine-tuning controls with defaults
+    const baseHeight = config.baseHeight !== undefined ? config.baseHeight : Math.max(settings.cameraHeight || 5, floorHeight + photoSize * 2);
+    const baseDistance = config.baseDistance !== undefined ? config.baseDistance : Math.max(settings.cameraDistance || 25, photoSize * 6);
+    const heightVariation = config.heightVariation !== undefined ? config.heightVariation : photoSize * 0.4;
+    const distanceVariation = config.distanceVariation !== undefined ? config.distanceVariation : baseDistance * 0.3;
+    
     const photoDisplayHeight = floorHeight + photoSize; // Where photos are displayed
     
     // Get photo bounds for centered tours
@@ -274,33 +949,27 @@ const CinematicCamera: React.FC<{
       Math.sqrt((p.position[0] - centerX) ** 2 + (p.position[2] - centerZ) ** 2)
     ));
 
-    // FIXED: Better distance scaling
-    const baseDistance = Math.max(settings.cameraDistance || 25, maxDistance + photoSize * 3);
-    const scaleDistance = baseDistance * 0.8; // Slightly closer for better viewing
-
     let x, y, z, lookX, lookY, lookZ;
 
     switch (config.type) {
       case 'showcase':
-        // FIXED: Elegant figure-8 with proper height management
+        // FIXED: Elegant figure-8 with fine-tuning controls
         const fig8Time = timeRef.current * 0.4;
-        const fig8Radius = scaleDistance * 0.9;
+        const fig8Radius = baseDistance + Math.sin(fig8Time * 0.7) * distanceVariation;
         
         x = centerX + Math.sin(fig8Time) * fig8Radius;
-        y = preferredHeight + Math.sin(fig8Time * 1.5) * (photoSize * 0.4); // Gentler height variation
+        y = baseHeight + Math.sin(fig8Time * 1.5) * heightVariation;
         z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.6;
         
-        // FIXED: Look at photo display area, not floor
-        lookX = centerX + Math.sin(fig8Time + 0.5) * fig8Radius * 0.2; // Look slightly ahead
-        lookY = photoDisplayHeight + photoSize * 0.5; // Look at middle of photos
+        lookX = centerX + Math.sin(fig8Time + 0.5) * fig8Radius * 0.2;
+        lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
         break;
 
       case 'gallery_walk':
-        // FIXED: More graceful rectangular walk
+        // FIXED: More graceful rectangular walk with fine-tuning
         const walkTime = (timeRef.current * 0.25) % 4;
-        const walkMargin = scaleDistance * 0.7;
-        const walkHeight = preferredHeight;
+        const walkMargin = baseDistance + Math.sin(timeRef.current * 0.3) * (distanceVariation * 0.5);
         
         if (walkTime < 1) {
           x = centerX - walkMargin + (walkTime * walkMargin * 2);
@@ -316,44 +985,36 @@ const CinematicCamera: React.FC<{
           z = centerZ - walkMargin + ((walkTime - 3) * walkMargin * 2);
         }
         
-        y = walkHeight + Math.sin(timeRef.current * 0.3) * (photoSize * 0.2); // Gentle bobbing
+        y = baseHeight + Math.sin(timeRef.current * 0.3) * heightVariation;
         
-        // FIXED: Always look toward photos at proper height
         lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
         break;
 
       case 'spiral_tour':
-        // FIXED: Renamed to avoid conflict with spiral pattern - now called "orbital_tour"
-        // Smooth orbital motion around the photo collection
+        // FIXED: Smooth orbital motion with fine-tuning
         const orbitalTime = timeRef.current * 0.6;
-        const orbitalRadiusMin = scaleDistance * 0.4;
-        const orbitalRadiusMax = scaleDistance * 1.1;
-        const orbitalRadius = orbitalRadiusMin + (orbitalRadiusMax - orbitalRadiusMin) * 
-          (Math.sin(orbitalTime * 0.15) + 1) / 2;
+        const orbitalRadius = baseDistance + Math.sin(orbitalTime * 0.15) * distanceVariation;
         
-        // Create smooth elliptical orbit around the photos
         x = centerX + Math.cos(orbitalTime) * orbitalRadius;
-        y = preferredHeight + Math.sin(orbitalTime * 0.2) * (photoSize * 0.3); // Gentle height variation
-        z = centerZ + Math.sin(orbitalTime) * orbitalRadius * 0.8; // Elliptical orbit
+        y = baseHeight + Math.sin(orbitalTime * 0.2) * heightVariation;
+        z = centerZ + Math.sin(orbitalTime) * orbitalRadius * 0.8;
         
-        // FIXED: Look toward center at photo height
         lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
         break;
 
       case 'wave_follow':
-        // FIXED: Smoother wave motion
+        // FIXED: Smoother wave motion with fine-tuning
         const waveTime = timeRef.current * 0.35;
-        const waveAmplitude = scaleDistance * 0.8;
+        const waveAmplitude = baseDistance + Math.sin(waveTime * 0.5) * (distanceVariation * 0.7);
         
         x = centerX + Math.sin(waveTime) * waveAmplitude;
-        y = preferredHeight + Math.sin(waveTime * 1.7) * (photoSize * 0.4);
+        y = baseHeight + Math.sin(waveTime * 1.7) * heightVariation;
         z = centerZ + Math.cos(waveTime * 0.6) * waveAmplitude * 0.7;
         
-        // FIXED: Look ahead smoothly along wave path
         const lookAheadTime = waveTime + 0.4;
         lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.3;
         lookY = photoDisplayHeight + photoSize * 0.5;
@@ -361,52 +1022,48 @@ const CinematicCamera: React.FC<{
         break;
 
       case 'grid_sweep':
-        // FIXED: Smoother lawnmower pattern
+        // FIXED: Smoother lawnmower pattern with fine-tuning
         const sweepTime = (timeRef.current * 0.2) % 8;
-        const sweepWidth = scaleDistance * 0.8;
-        const sweepHeight = preferredHeight;
+        const sweepWidth = baseDistance + Math.sin(timeRef.current * 0.4) * (distanceVariation * 0.5);
         const rows = 4;
         
         const currentRow = Math.floor(sweepTime / 2);
         const rowProgress = (sweepTime % 2);
         const isEvenRow = currentRow % 2 === 0;
         
-        // Smooth interpolation
         const smoothProgress = 0.5 - 0.5 * Math.cos(rowProgress * Math.PI);
         
         x = centerX + (isEvenRow ? 
           -sweepWidth + smoothProgress * sweepWidth * 2 : 
           sweepWidth - smoothProgress * sweepWidth * 2);
-        y = sweepHeight - (currentRow * photoSize * 0.3);
+        y = baseHeight - (currentRow * heightVariation * 0.3);
         z = centerZ - sweepWidth + (currentRow / (rows - 1)) * sweepWidth * 2;
         
-        // FIXED: Look at photos, not floor
         lookX = x + (isEvenRow ? photoSize * 2 : -photoSize * 2);
         lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = z;
         break;
 
       case 'photo_focus':
-        // FIXED: Elegant infinity symbol
+        // FIXED: Elegant infinity symbol with fine-tuning
         const focusTime = timeRef.current * 0.5;
-        const focusRadius = Math.max(scaleDistance * 0.5, photoSize * 4);
+        const focusRadius = baseDistance + Math.sin(focusTime * 0.3) * (distanceVariation * 0.6);
         
         const denominator = 1 + Math.sin(focusTime) ** 2;
         
         x = centerX + (focusRadius * Math.cos(focusTime)) / denominator;
-        y = preferredHeight + Math.sin(focusTime * 1.3) * (photoSize * 0.2);
+        y = baseHeight + Math.sin(focusTime * 1.3) * heightVariation;
         z = centerZ + (focusRadius * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
         
-        // FIXED: Always look at photos
         lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
         break;
 
       default:
-        x = centerX + Math.cos(timeRef.current) * scaleDistance;
-        y = preferredHeight;
-        z = centerZ + Math.sin(timeRef.current) * scaleDistance;
+        x = centerX + Math.cos(timeRef.current) * baseDistance;
+        y = baseHeight;
+        z = centerZ + Math.sin(timeRef.current) * baseDistance;
         lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
@@ -414,7 +1071,7 @@ const CinematicCamera: React.FC<{
 
     // FIXED: Ensure camera never looks below photo level
     lookY = Math.max(lookY, photoDisplayHeight);
-    y = Math.max(y, minCameraHeight);
+    y = Math.max(y, floorHeight + photoSize + 2);
 
     // Smooth camera updates
     camera.position.x = x;
@@ -425,7 +1082,7 @@ const CinematicCamera: React.FC<{
 
     // Debug occasionally
     if (Math.floor(timeRef.current * 5) % 50 === 0) {
-      console.log(`🎬 ${config.type}: Camera Y=${y.toFixed(1)}, LookAt Y=${lookY.toFixed(1)}, Photos at Y=${photoDisplayHeight.toFixed(1)}`);
+      console.log(`🎬 ${config.type}: H=${baseHeight.toFixed(1)} D=${baseDistance.toFixed(1)} Y=${y.toFixed(1)}`);
     }
   });
 
@@ -908,6 +1565,7 @@ class FloorTextureFactory {
   }
 }
 
+// FIXED: Enhanced Slot Manager with proper photo count handling up to 500
 class EnhancedSlotManager {
   private slotAssignments = new Map<string, number>();
   private occupiedSlots = new Set<number>();
@@ -916,15 +1574,21 @@ class EnhancedSlotManager {
   private photoAspectRatios = new Map<string, number>();
 
   constructor(totalSlots: number) {
-    this.updateSlotCount(totalSlots);
+    this.updateSlotCount(Math.min(Math.max(totalSlots, 1), 500)); // FIXED: Clamp to 1-500
   }
 
   updateSlotCount(newTotal: number) {
-    if (newTotal === this.totalSlots) return;
-    this.totalSlots = newTotal;
+    // FIXED: Ensure we can handle up to 500 photos
+    const clampedTotal = Math.min(Math.max(newTotal, 1), 500);
     
+    if (clampedTotal === this.totalSlots) return;
+    
+    console.log(`📊 Updating slot count from ${this.totalSlots} to ${clampedTotal}`);
+    this.totalSlots = clampedTotal;
+    
+    // Clean up slots that are now out of range
     for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
-      if (slotIndex >= newTotal) {
+      if (slotIndex >= clampedTotal) {
         this.slotAssignments.delete(photoId);
         this.occupiedSlots.delete(slotIndex);
         this.photoAspectRatios.delete(photoId);
@@ -947,6 +1611,7 @@ class EnhancedSlotManager {
   assignSlots(photos: Photo[]): Map<string, number> {
     const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
     
+    // Track aspect ratios
     safePhotos.forEach(photo => {
       if (!this.photoAspectRatios.has(photo.id)) {
         if (photo.width && photo.height) {
@@ -955,6 +1620,7 @@ class EnhancedSlotManager {
       }
     });
     
+    // Clean up slots for photos that no longer exist
     const currentPhotoIds = new Set(safePhotos.map(p => p.id));
     for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
       if (!currentPhotoIds.has(photoId)) {
@@ -966,6 +1632,7 @@ class EnhancedSlotManager {
 
     this.rebuildAvailableSlots();
 
+    // Sort photos for consistent assignment
     const sortedPhotos = [...safePhotos].sort((a, b) => {
       if (a.created_at && b.created_at) {
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -973,6 +1640,7 @@ class EnhancedSlotManager {
       return a.id.localeCompare(b.id);
     });
 
+    // Assign slots to new photos
     for (const photo of sortedPhotos) {
       if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
         const newSlot = this.availableSlots.shift()!;
@@ -1007,7 +1675,8 @@ class FixedWavePattern {
     const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.15);
     const finalSpacing = baseSpacing * spacingMultiplier;
     
-    const totalPhotos = Math.min(photoCount, 500);
+    // FIXED: Support up to 500 photos efficiently
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
     
     // Calculate grid dimensions
     const columns = Math.ceil(Math.sqrt(totalPhotos));
@@ -1090,7 +1759,8 @@ class FixedSpiralPattern {
       ? this.settings.patterns.spiral.photoCount 
       : this.settings.photoCount;
     
-    const totalPhotos = Math.min(photoCount, 500);
+    // FIXED: Support up to 500 photos efficiently
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
     const speed = this.settings.animationSpeed / 50;
     const animationTime = time * speed * 2;
     
@@ -1203,672 +1873,3 @@ const BackgroundRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ set
       if (settings.backgroundGradient) {
         scene.background = null;
         gl.setClearColor('#000000', 0);
-      } else {
-        scene.background = new THREE.Color(settings.backgroundColor || '#000000');
-        gl.setClearColor(settings.backgroundColor || '#000000', 1);
-      }
-    } catch (error) {
-      console.error('Background render error:', error);
-    }
-  }, [
-    scene, 
-    gl, 
-    settings.backgroundColor, 
-    settings.backgroundGradient,
-    settings.backgroundGradientStart,
-    settings.backgroundGradientEnd,
-    settings.backgroundGradientAngle
-  ]);
-
-  return null;
-};
-
-const OptimizedPhotoMesh: React.FC<{
-  photo: PhotoWithPosition;
-  settings: ExtendedSceneSettings;
-  shouldFaceCamera: boolean;
-}> = React.memo(({ photo, settings, shouldFaceCamera }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const { camera, gl } = useThree();
-  const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-  const [detectedAspectRatio, setDetectedAspectRatio] = useState<number | null>(null);
-  
-  const isInitializedRef = useRef(false);
-  const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
-  const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
-  const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
-
-  useEffect(() => {
-    currentPosition.current.set(...photo.targetPosition);
-    currentRotation.current.set(...photo.targetRotation);
-  }, [photo.targetPosition, photo.targetRotation]);
-
-  useEffect(() => {
-    if (!photo.url) {
-      setIsLoading(false);
-      return;
-    }
-
-    const loader = new THREE.TextureLoader();
-    setIsLoading(true);
-    setHasError(false);
-    
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      const actualAspectRatio = img.naturalWidth / img.naturalHeight;
-      setDetectedAspectRatio(actualAspectRatio);
-      
-      const imageUrl = photo.url.includes('?') 
-        ? `${photo.url}&t=${Date.now()}`
-        : `${photo.url}?t=${Date.now()}`;
-
-      loader.load(imageUrl, (loadedTexture) => {
-        loadedTexture.generateMipmaps = true;
-        loadedTexture.minFilter = THREE.LinearMipmapLinearFilter;
-        loadedTexture.magFilter = THREE.LinearFilter;
-        loadedTexture.format = THREE.RGBAFormat;
-        
-        if (gl && gl.capabilities.getMaxAnisotropy) {
-          loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
-        }
-
-        loadedTexture.colorSpace = THREE.SRGBColorSpace;
-        loadedTexture.flipY = true;
-        loadedTexture.premultipliedAlpha = false;
-
-        setTexture(loadedTexture);
-        setIsLoading(false);
-      }, undefined, () => {
-        setHasError(true);
-        setIsLoading(false);
-      });
-    };
-    
-    img.onerror = () => {
-      setHasError(true);
-      setIsLoading(false);
-    };
-    
-    img.src = photo.url;
-
-    return () => {
-      if (texture) {
-        texture.dispose();
-      }
-    };
-  }, [photo.url, gl]);
-
-  const computedDimensions = useMemo(() => {
-    const baseSize = settings.photoSize || 4.0;
-    
-    let aspectRatio = 1;
-    if (detectedAspectRatio) {
-      aspectRatio = detectedAspectRatio;
-    } else if (photo.computedSize && photo.computedSize[0] && photo.computedSize[1]) {
-      aspectRatio = photo.computedSize[0] / photo.computedSize[1];
-    }
-    
-    if (aspectRatio > 1) {
-      return [baseSize * aspectRatio, baseSize];
-    } else {
-      return [baseSize, baseSize / aspectRatio];
-    }
-  }, [settings.photoSize, photo.computedSize, detectedAspectRatio]);
-
-  useFrame(() => {
-    if (!meshRef.current || !shouldFaceCamera) return;
-
-    const mesh = meshRef.current;
-    const currentPositionArray = mesh.position.toArray() as [number, number, number];
-    
-    const positionChanged = currentPositionArray.some((coord, index) => 
-      Math.abs(coord - lastPositionRef.current[index]) > 0.01
-    );
-
-    if (positionChanged || !isInitializedRef.current) {
-      mesh.lookAt(camera.position);
-      lastPositionRef.current = currentPositionArray;
-      isInitializedRef.current = true;
-    }
-  });
-
-  useFrame(() => {
-    if (!meshRef.current) return;
-
-    const targetPosition = new THREE.Vector3(...photo.targetPosition);
-    const targetRotation = new THREE.Euler(...photo.targetRotation);
-
-    const distance = currentPosition.current.distanceTo(targetPosition);
-    const isTeleport = distance > TELEPORT_THRESHOLD;
-
-    if (isTeleport) {
-      currentPosition.current.copy(targetPosition);
-      currentRotation.current.copy(targetRotation);
-    } else {
-      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING);
-      currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
-      currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
-      currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
-    }
-
-    meshRef.current.position.copy(currentPosition.current);
-    if (!shouldFaceCamera) {
-      meshRef.current.rotation.copy(currentRotation.current);
-    }
-  });
-
-  const material = useMemo(() => {
-    if (texture) {
-      const hasTransparency = photo.url.toLowerCase().includes('.png') || 
-                             photo.url.toLowerCase().includes('.webp');
-      
-      return new THREE.MeshStandardMaterial({
-        map: texture,
-        transparent: hasTransparency,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-        color: new THREE.Color().setScalar(settings.photoBrightness || 1.0),
-        metalness: 0,
-        roughness: 0.2,
-        alphaTest: hasTransparency ? 0.01 : 0,
-        premultipliedAlpha: false,
-      });
-    } else {
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext('2d')!;
-      
-      ctx.fillStyle = settings.emptySlotColor || '#1A1A1A';
-      ctx.fillRect(0, 0, 256, 256);
-      
-      if (settings.animationPattern === 'grid') {
-        ctx.strokeStyle = '#ffffff20';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 256; i += 32) {
-          ctx.beginPath();
-          ctx.moveTo(i, 0);
-          ctx.lineTo(i, 256);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(0, i);
-          ctx.lineTo(256, i);
-          ctx.stroke();
-        }
-      }
-      
-      const emptyTexture = new THREE.CanvasTexture(canvas);
-      return new THREE.MeshStandardMaterial({
-        map: emptyTexture,
-        transparent: false,
-        side: THREE.DoubleSide,
-        color: 0xffffff,
-      });
-    }
-  }, [texture, settings.emptySlotColor, settings.animationPattern, settings.photoBrightness, photo.url]);
-
-  return (
-    <mesh
-      ref={meshRef}
-      material={material}
-      castShadow
-      receiveShadow
-    >
-      <planeGeometry args={[computedDimensions[0], computedDimensions[1]]} />
-    </mesh>
-  );
-});
-
-const SimplePhotoRenderer: React.FC<{ 
-  photosWithPositions: PhotoWithPosition[]; 
-  settings: ExtendedSceneSettings;
-}> = ({ photosWithPositions, settings }) => {
-  // FIXED: Both float and spiral patterns face camera for best visibility
-  const shouldFaceCamera = settings.animationPattern === 'float' || settings.animationPattern === 'spiral';
-  
-  return (
-    <group>
-      {photosWithPositions.map((photo) => (
-        <OptimizedPhotoMesh
-          key={`${photo.id}-${photo.slotIndex}`}
-          photo={photo}
-          settings={settings}
-          shouldFaceCamera={shouldFaceCamera}
-        />
-      ))}
-    </group>
-  );
-};
-
-const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const groupRef = useRef<THREE.Group>(null);
-  const targetRefs = useRef<THREE.Object3D[]>([]);
-
-  const spotlights = useMemo(() => {
-    const lights = [];
-    const count = Math.min(settings.spotlightCount || 4, 4);
-    
-    while (targetRefs.current.length < count) {
-      targetRefs.current.push(new THREE.Object3D());
-    }
-    
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const distance = Math.max(20, settings.spotlightDistance || 30);
-      const x = Math.cos(angle) * distance;
-      const z = Math.sin(angle) * distance;
-      const y = Math.max(15, settings.spotlightHeight || 25);
-      
-      targetRefs.current[i].position.set(0, (settings.wallHeight || 0) / 2, 0);
-      
-      lights.push({
-        key: `spotlight-${i}`,
-        position: [x, y, z] as [number, number, number],
-        target: targetRefs.current[i],
-      });
-    }
-    return lights;
-  }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
-
-  return (
-    <group ref={groupRef}>
-      <ambientLight 
-        intensity={(settings.ambientLightIntensity || 0.4) * 0.5} 
-        color="#ffffff" 
-      />
-      
-      <directionalLight
-        position={[20, 30, 20]}
-        intensity={0.1}
-        color="#ffffff"
-        castShadow={settings.shadowsEnabled}
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-far={200}
-        shadow-camera-left={-100}
-        shadow-camera-right={100}
-        shadow-camera-top={100}
-        shadow-camera-bottom={-100}
-        shadow-bias={-0.0001}
-      />
-      
-      {spotlights.map((light, index) => (
-        <group key={light.key}>
-          <spotLight
-            position={light.position}
-            target={light.target}
-            angle={Math.max(0.2, Math.min(Math.PI / 3, settings.spotlightAngle || 0.8))}
-            penumbra={settings.spotlightPenumbra || 0.4}
-            intensity={((settings.spotlightIntensity || 150) / 100) * 8}
-            color={settings.spotlightColor || '#ffffff'}
-            distance={settings.spotlightDistance * 3 || 120}
-            decay={1}
-            castShadow={settings.shadowsEnabled}
-            shadow-mapSize={[1024, 1024]}
-            shadow-camera-near={0.5}
-            shadow-camera-far={settings.spotlightDistance * 2 || 100}
-            shadow-bias={-0.0001}
-          />
-          <primitive object={light.target} />
-        </group>
-      ))}
-    </group>
-  );
-};
-
-// Update the Enhanced Animation Controller to use fixed patterns
-const EnhancedAnimationController: React.FC<{
-  settings: ExtendedSceneSettings;
-  photos: Photo[];
-  onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
-}> = ({ settings, photos, onPositionsUpdate }) => {
-  const slotManagerRef = useRef(new EnhancedSlotManager(settings.photoCount || 100));
-  const lastPhotoCount = useRef(settings.photoCount || 100);
-  
-  const updatePositions = useCallback((time: number = 0) => {
-    try {
-      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-      const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
-      
-      let patternState;
-      try {
-        // FIXED: Use our fixed patterns for wave and spiral
-        if (settings.animationPattern === 'wave') {
-          const fixedWavePattern = new FixedWavePattern(settings);
-          patternState = fixedWavePattern.generatePositions(time);
-        } else if (settings.animationPattern === 'spiral') {
-          const fixedSpiralPattern = new FixedSpiralPattern(settings);
-          patternState = fixedSpiralPattern.generatePositions(time);
-        } else {
-          // Use original pattern factory for other patterns
-          const pattern = PatternFactory.createPattern(
-            settings.animationPattern || 'grid',
-            {
-              ...settings,
-              photoCount: settings.photoCount || 100
-            },
-            safePhotos
-          );
-          patternState = pattern.generatePositions(time);
-        }
-        
-        const expectedSlots = settings.photoCount || 100;
-        
-        // Apply floor level adjustments - FIXED: Higher hover height for gentle floating
-        if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
-          const floorLevel = -12;
-          const photoSize = settings.photoSize || 4.0;
-          
-          // Different hover heights for different patterns
-          const hoverHeight = settings.animationPattern === 'wave' ? 8 : 5; // Wave floats higher
-          const minPhotoHeight = floorLevel + photoSize + hoverHeight;
-          
-          patternState.positions = patternState.positions.map((pos, index) => {
-            const [x, y, z] = pos;
-            
-            // FIXED: Ensure photos float gently, never touch floor
-            let adjustedY = Math.max(y, minPhotoHeight);
-            
-            return [x, adjustedY, z];
-          });
-        }
-        
-      } catch (error) {
-        console.error('Pattern generation error:', error);
-        // Fallback grid
-        const positions = [];
-        const rotations = [];
-        const spacing = Math.max(6, (settings.photoSize || 4.0) * 1.5);
-        const totalSlots = settings.photoCount || 100;
-        
-        for (let i = 0; i < totalSlots; i++) {
-          const x = (i % 10) * spacing - (spacing * 5);
-          const z = Math.floor(i / 10) * spacing - (spacing * 5);
-          positions.push([x, -6, z]);
-          rotations.push([0, 0, 0]);
-        }
-        patternState = { positions, rotations };
-      }
-      
-      const photosWithPositions: PhotoWithPosition[] = [];
-      const totalSlots = settings.photoCount || 100;
-      const availablePositions = Math.min(patternState.positions.length, totalSlots);
-      
-      for (const photo of safePhotos) {
-        const slotIndex = slotAssignments.get(photo.id);
-        if (slotIndex !== undefined && slotIndex < availablePositions) {
-          const aspectRatio = slotManagerRef.current.getAspectRatio(photo.id);
-          const baseSize = settings.photoSize || 4.0;
-          
-          const computedSize = aspectRatio ? (
-            aspectRatio > 1 
-              ? [baseSize * aspectRatio, baseSize]
-              : [baseSize, baseSize / aspectRatio]
-          ) : undefined;
-          
-          photosWithPositions.push({
-            ...photo,
-            targetPosition: patternState.positions[slotIndex],
-            targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
-            displayIndex: slotIndex,
-            slotIndex,
-            computedSize
-          });
-        }
-      }
-      
-      for (let i = 0; i < availablePositions; i++) {
-        const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
-        if (!hasPhoto) {
-          const baseSize = settings.photoSize || 4.0;
-          
-          photosWithPositions.push({
-            id: `placeholder-${i}`,
-            url: '',
-            targetPosition: patternState.positions[i],
-            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-            displayIndex: i,
-            slotIndex: i,
-            computedSize: [baseSize * (9/16), baseSize]
-          });
-        }
-      }
-      
-      if (availablePositions < totalSlots) {
-        console.log(`🔧 Pattern supports ${availablePositions} positions for ${totalSlots} slots`);
-      }
-      
-      photosWithPositions.sort((a, b) => a.slotIndex - b.slotIndex);
-      onPositionsUpdate(photosWithPositions);
-      
-    } catch (error) {
-      console.error('Error in updatePositions:', error);
-    }
-  }, [photos, settings, onPositionsUpdate]);
-
-  useEffect(() => {
-    if ((settings.photoCount || 100) !== lastPhotoCount.current) {
-      slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
-      lastPhotoCount.current = settings.photoCount || 100;
-      updatePositions(0);
-    }
-  }, [settings.photoCount, updatePositions]);
-
-  useFrame((state) => {
-    const time = settings.animationEnabled ? 
-      state.clock.elapsedTime * ((settings.animationSpeed || 50) / 50) : 0;
-    updatePositions(time);
-  });
-
-  return null;
-};
-
-const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  if (!settings.floorEnabled) return null;
-
-  const floorTexture = useMemo(() => {
-    return FloorTextureFactory.createTexture(
-      settings.floorTexture || 'solid',
-      1024,
-      settings.customFloorTextureUrl
-    );
-  }, [settings.floorTexture, settings.customFloorTextureUrl]);
-
-  const floorMaterial = useMemo(() => {
-    const material = new THREE.MeshStandardMaterial({
-      map: floorTexture,
-      color: settings.floorColor || '#FFFFFF',
-      transparent: (settings.floorOpacity || 1) < 1,
-      opacity: settings.floorOpacity || 1,
-      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
-      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
-      side: THREE.DoubleSide,
-      envMapIntensity: 0.5,
-    });
-
-    switch (settings.floorTexture) {
-      case 'marble':
-        material.metalness = 0.1;
-        material.roughness = 0.2;
-        break;
-      case 'metal':
-        material.metalness = 0.9;
-        material.roughness = 0.1;
-        break;
-      case 'glass':
-        material.metalness = 0;
-        material.roughness = 0.05;
-        material.transparent = true;
-        material.opacity = 0.8;
-        break;
-      case 'wood':
-        material.metalness = 0;
-        material.roughness = 0.8;
-        break;
-    }
-
-    return material;
-  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness, settings.floorTexture, floorTexture]);
-
-  return (
-    <mesh
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -12, 0]}
-      receiveShadow
-    >
-      <planeGeometry args={[settings.floorSize || 300, settings.floorSize || 300, 64, 64]} />
-      <primitive object={floorMaterial} attach="material" />
-    </mesh>
-  );
-};
-
-// Helper function to get current particle theme
-const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
-  const themeName = settings.particles?.theme ?? 'Purple Magic';
-  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
-};
-
-// Main Enhanced CollageScene Component
-const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ 
-  photos, 
-  settings, 
-  width = 2560, 
-  height = 1440,
-  onSettingsChange 
-}, ref) => {
-  const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
-  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
-  const canvasRef = (ref || internalCanvasRef) as React.RefObject<HTMLCanvasElement>;
-
-  const safePhotos = Array.isArray(photos) ? photos : [];
-  const safeSettings = { ...settings };
-
-  const backgroundStyle = useMemo(() => {
-    if (safeSettings.backgroundGradient) {
-      return {
-        background: `linear-gradient(${safeSettings.backgroundGradientAngle || 45}deg, ${safeSettings.backgroundGradientStart || '#000000'}, ${safeSettings.backgroundGradientEnd || '#000000'})`
-      };
-    }
-    return {
-      background: safeSettings.backgroundColor || '#000000'
-    };
-  }, [
-    safeSettings.backgroundGradient,
-    safeSettings.backgroundColor,
-    safeSettings.backgroundGradientStart,
-    safeSettings.backgroundGradientEnd,
-    safeSettings.backgroundGradientAngle
-  ]);
-
-  useEffect(() => {
-    return () => {
-      // Cleanup function
-    };
-  }, []);
-
-  return (
-    <div style={backgroundStyle} className="w-full h-full">
-      <Canvas
-        ref={canvasRef}
-        width={width}
-        height={height}
-        shadows={safeSettings.shadowsEnabled}
-        camera={{ 
-          position: [0, 5, 25], 
-          fov: 75,
-          near: 0.1,
-          far: 2000
-        }}
-        gl={{ 
-          antialias: true,
-          alpha: safeSettings.backgroundGradient || false,
-          powerPreference: "high-performance",
-          preserveDrawingBuffer: true,
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.2,
-          outputColorSpace: THREE.SRGBColorSpace,
-        }}
-        onCreated={(state) => {
-          state.gl.shadowMap.enabled = true;
-          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
-          state.gl.shadowMap.autoUpdate = true;
-          
-          const pixelRatio = Math.min(window.devicePixelRatio, 2);
-          state.gl.setPixelRatio(pixelRatio);
-          
-          if (safeSettings.backgroundGradient) {
-            state.gl.setClearColor('#000000', 0);
-          } else {
-            state.gl.setClearColor(safeSettings.backgroundColor || '#000000', 1);
-          }
-        }}
-        performance={{ min: 0.8 }}
-        linear={true}
-      >
-        {/* Background Management */}
-        <BackgroundRenderer settings={safeSettings} />
-        
-        {/* FIXED Camera Controls - Actually Working */}
-        <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
-        
-        {/* Particle System */}
-        {safeSettings.particles?.enabled && (
-          <MilkyWayParticleSystem
-            colorTheme={getCurrentParticleTheme(safeSettings)}
-            intensity={safeSettings.particles?.intensity ?? 0.7}
-            enabled={safeSettings.particles?.enabled ?? true}
-            photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
-            floorSize={safeSettings.floorSize || 200}
-            gridSize={safeSettings.gridSize || 200}
-          />
-        )}
-        
-        {/* Scene Environment Manager */}
-        <SceneEnvironmentManager settings={safeSettings} />
-        
-        {/* Enhanced Lighting */}
-        <EnhancedLightingSystem settings={safeSettings} />
-        
-        {/* Textured Floor - Always show unless sphere environment */}
-        {safeSettings.sceneEnvironment !== 'sphere' && (
-          <TexturedFloor settings={safeSettings} />
-        )}
-        
-        {/* Grid - Only show for default environment */}
-        {(!safeSettings.sceneEnvironment || safeSettings.sceneEnvironment === 'default') && 
-         safeSettings.gridEnabled && (
-          <gridHelper
-            args={[
-              safeSettings.gridSize || 200,
-              safeSettings.gridDivisions || 30,
-              safeSettings.gridColor || '#444444',
-              safeSettings.gridColor || '#444444'
-            ]}
-            position={[0, -11.99, 0]}
-            material-opacity={safeSettings.gridOpacity || 1.0}
-            material-transparent={true}
-          />
-        )}
-        
-        {/* FIXED Enhanced Animation Controller */}
-        <EnhancedAnimationController
-          settings={safeSettings}
-          photos={safePhotos}
-          onPositionsUpdate={setPhotosWithPositions}
-        />
-        
-        {/* Simple High-Performance Photo Renderer */}
-        <SimplePhotoRenderer 
-          photosWithPositions={photosWithPositions}
-          settings={safeSettings}
-        />
-      </Canvas>
-    </div>
-  );
-});
-
-EnhancedCollageScene.displayName = 'EnhancedCollageScene';
-export default EnhancedCollageScene;
