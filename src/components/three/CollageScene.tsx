@@ -987,7 +987,7 @@ class EnhancedSlotManager {
   }
 }
 
-// FIXED WAVE PATTERN - GENTLE and SMOOTH wave action with proper hover
+// FIXED WAVE PATTERN - UNIFIED wave like one solid body of water
 class FixedWavePattern {
   constructor(private settings: any) {}
 
@@ -1012,7 +1012,7 @@ class FixedWavePattern {
     const rows = Math.ceil(totalPhotos / columns);
     
     const speed = this.settings.animationSpeed / 50;
-    const wavePhase = time * speed * 1.5; // Slower, more gentle
+    const wavePhase = time * speed * 1.2; // Smooth wave speed
     
     // FIXED: Proper hover height - well above floor
     const floorHeight = -12;
@@ -1027,42 +1027,39 @@ class FixedWavePattern {
       let x = (col - columns / 2) * finalSpacing;
       let z = (row - rows / 2) * finalSpacing;
       
-      // GENTLE WAVE ACTION: Much smoother and more subtle
-      const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 6, photoSize * 1.5); // Gentler amplitude
-      const frequency = this.settings.patterns?.wave?.frequency || 0.2; // Lower frequency for smoother waves
+      // UNIFIED WAVE: Create one cohesive wave pattern like water
+      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 6, photoSize * 1.5);
+      const frequency = this.settings.patterns?.wave?.frequency || 0.15; // Lower for broader waves
       
       let y = baseHeight; // Start from proper hover height
       
       if (this.settings.animationEnabled) {
-        // PRIMARY GENTLE WAVE: Smooth ripples from center
-        const primaryWave = Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
+        // MAIN UNIFIED WAVE: Single coherent wave traveling across the surface
+        // Creates rolling hills of photos like ocean swells
+        const mainWave = Math.sin(x * frequency - wavePhase) * amplitude;
         
-        // SECONDARY GENTLE WAVE: Soft directional wave
-        const directionalWave = Math.sin(x * frequency * 0.5 + wavePhase * 0.8) * amplitude * 0.4;
+        // PERPENDICULAR WAVE: Creates crossing wave pattern like real water
+        const crossWave = Math.sin(z * frequency * 0.8 + wavePhase * 0.7) * amplitude * 0.6;
         
-        // SUBTLE CROSS WAVE: Very gentle perpendicular motion
-        const crossWave = Math.sin(z * frequency * 0.4 - wavePhase * 0.6) * amplitude * 0.3;
+        // RADIAL COMPONENT: Gentle ripples from center for added realism
+        const distanceFromCenter = Math.sqrt(x * x + z * z);
+        const radialWave = Math.sin(distanceFromCenter * frequency * 0.3 - wavePhase * 0.5) * amplitude * 0.3;
         
-        // BREATHING EFFECT: Gentle overall pulsing
-        const breathingWave = Math.sin(wavePhase * 0.5) * amplitude * 0.2;
+        // BREATHING: Overall gentle rise and fall like tides
+        const breathingWave = Math.sin(wavePhase * 0.3) * amplitude * 0.2;
         
-        // Combine waves with smooth transitions
-        y += primaryWave * 0.7 + directionalWave + crossWave + breathingWave;
-        
-        // Very subtle grid-based variation for extra smoothness
-        y += Math.sin(wavePhase * 0.4 + col * 0.2) * amplitude * 0.1;
-        y += Math.cos(wavePhase * 0.3 + row * 0.15) * amplitude * 0.1;
+        // Combine into one unified water-like motion
+        y += mainWave + crossWave + radialWave + breathingWave;
       }
       
       positions.push([x, y, z]);
 
       if (this.settings.photoRotation) {
         const angle = Math.atan2(x, z);
-        // Very gentle rotation influenced by waves
-        const rotationX = Math.sin(wavePhase * 0.3 + distanceFromCenter * 0.05) * 0.05;
-        const rotationY = angle + Math.sin(wavePhase * 0.2) * 0.05;
-        const rotationZ = Math.cos(wavePhase * 0.3 + distanceFromCenter * 0.05) * 0.05;
+        // Very gentle rotation that follows the wave motion
+        const rotationX = Math.sin(wavePhase * 0.4 + x * frequency * 0.5) * 0.03;
+        const rotationY = angle + Math.sin(wavePhase * 0.3) * 0.02;
+        const rotationZ = Math.cos(wavePhase * 0.4 + z * frequency * 0.5) * 0.03;
         rotations.push([rotationX, rotationY, rotationZ]);
       } else {
         rotations.push([0, 0, 0]);
@@ -1073,7 +1070,7 @@ class FixedWavePattern {
   }
 }
 
-// RESTORED SPIRAL PATTERN - Back to original behavior with proper spacing
+// RESTORED SPIRAL PATTERN - Photos face camera for best visibility
 class FixedSpiralPattern {
   constructor(private settings: any) {}
 
@@ -1157,13 +1154,15 @@ class FixedSpiralPattern {
       
       positions.push([x, finalY, z]);
       
+      // FIXED: Photos should face camera in spiral pattern for better visibility
       if (this.settings.photoRotation) {
-        const rotY = angle + Math.PI / 2; // Face outward from spiral
-        const rotX = Math.sin(animationTime * 0.5 + i * 0.1) * 0.05;
-        const rotZ = Math.cos(animationTime * 0.5 + i * 0.1) * 0.05;
+        // Add subtle animation while letting camera-facing handle main orientation
+        const rotX = Math.sin(animationTime * 0.4 + i * 0.1) * 0.02;
+        const rotY = 0; // Let camera-facing handle Y rotation
+        const rotZ = Math.cos(animationTime * 0.4 + i * 0.1) * 0.02;
         rotations.push([rotX, rotY, rotZ]);
       } else {
-        rotations.push([0, 0, 0]);
+        rotations.push([0, 0, 0]); // No rotation - pure camera facing
       }
     }
 
@@ -1403,8 +1402,8 @@ const SimplePhotoRenderer: React.FC<{
   photosWithPositions: PhotoWithPosition[]; 
   settings: ExtendedSceneSettings;
 }> = ({ photosWithPositions, settings }) => {
-  // RESTORED: Only float pattern faces camera, spiral uses its own rotation
-  const shouldFaceCamera = settings.animationPattern === 'float';
+  // FIXED: Both float and spiral patterns face camera for best visibility
+  const shouldFaceCamera = settings.animationPattern === 'float' || settings.animationPattern === 'spiral';
   
   return (
     <group>
