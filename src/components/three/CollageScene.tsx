@@ -607,7 +607,7 @@ class SimpleInteractionTracker {
   }
 }
 
-// SIMPLIFIED: Auto-rotate camera - pause on interaction, resume from current position
+// FIXED: Auto-rotate camera - pause ALL timers, resume from current position at original speed
 const AutoRotateCamera: React.FC<{
   settings: ExtendedSceneSettings;
 }> = ({ settings }) => {
@@ -618,8 +618,15 @@ const AutoRotateCamera: React.FC<{
   const verticalDriftTimeRef = useRef(0);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   
-  // Store camera state when interaction starts to resume from there
-  const resumeFromPositionRef = useRef<THREE.Vector3 | null>(null);
+  // Store ALL timer states when interaction starts
+  const pausedTimersRef = useRef<{
+    mainTime: number;
+    heightTime: number;
+    distanceTime: number;
+    verticalDriftTime: number;
+    pausedAt: number;
+  } | null>(null);
+  
   const resumeFromAngleRef = useRef<number | null>(null);
 
   // Subscribe to simple interaction tracker
@@ -627,10 +634,16 @@ const AutoRotateCamera: React.FC<{
     const tracker = SimpleInteractionTracker.getInstance();
     const unsubscribe = tracker.subscribe((interacting) => {
       if (interacting && !isUserInteracting) {
-        // Capture current camera position when interaction starts
-        resumeFromPositionRef.current = camera.position.clone();
+        // PAUSE ALL TIMERS - capture current state
+        pausedTimersRef.current = {
+          mainTime: timeRef.current,
+          heightTime: heightTimeRef.current,
+          distanceTime: distanceTimeRef.current,
+          verticalDriftTime: verticalDriftTimeRef.current,
+          pausedAt: Date.now()
+        };
         
-        // Calculate current angle based on camera position for smooth continuation
+        // Calculate current angle from camera position for smooth continuation
         const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
         const centerX = 0;
         const centerZ = 0;
@@ -639,16 +652,34 @@ const AutoRotateCamera: React.FC<{
         const deltaZ = camera.position.z - centerZ;
         resumeFromAngleRef.current = Math.atan2(deltaZ, deltaX);
         
-        console.log('📷 Auto-rotate: Capturing position for resume', {
-          x: camera.position.x.toFixed(2),
-          y: camera.position.y.toFixed(2),
-          z: camera.position.z.toFixed(2),
-          angle: (resumeFromAngleRef.current * 180 / Math.PI).toFixed(1) + '°'
+        console.log('📷 Auto-rotate: PAUSED all timers at interaction start', {
+          mainAngle: (timeRef.current * 180 / Math.PI).toFixed(1) + '°',
+          heightTime: heightTimeRef.current.toFixed(2),
+          distanceTime: distanceTimeRef.current.toFixed(2),
+          userAngle: (resumeFromAngleRef.current * 180 / Math.PI).toFixed(1) + '°'
         });
-      } else if (!interacting && isUserInteracting && resumeFromAngleRef.current !== null) {
-        // Resume from captured angle
+        
+      } else if (!interacting && isUserInteracting && pausedTimersRef.current && resumeFromAngleRef.current !== null) {
+        // RESUME FROM USER'S FINAL POSITION - update main rotation to match user position
         timeRef.current = resumeFromAngleRef.current;
-        console.log('📷 Auto-rotate: Resuming from angle', (resumeFromAngleRef.current * 180 / Math.PI).toFixed(1) + '°');
+        
+        // Keep other animations synchronized by calculating elapsed pause time
+        const pauseDuration = (Date.now() - pausedTimersRef.current.pausedAt) / 1000;
+        
+        // Resume other timers from where they left off (they should stay synchronized)
+        heightTimeRef.current = pausedTimersRef.current.heightTime;
+        distanceTimeRef.current = pausedTimersRef.current.distanceTime;
+        verticalDriftTimeRef.current = pausedTimersRef.current.verticalDriftTime;
+        
+        console.log('📷 Auto-rotate: RESUMED from user position', {
+          resumeAngle: (resumeFromAngleRef.current * 180 / Math.PI).toFixed(1) + '°',
+          pauseDuration: pauseDuration.toFixed(1) + 's',
+          restoredTimers: 'heightTime, distanceTime, verticalDriftTime'
+        });
+        
+        // Clear stored state
+        pausedTimersRef.current = null;
+        resumeFromAngleRef.current = null;
       }
       
       setIsUserInteracting(interacting);
@@ -664,34 +695,39 @@ const AutoRotateCamera: React.FC<{
       return;
     }
 
-    // Update all time counters
-    const speed = settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5;
-    timeRef.current += delta * speed;
-    heightTimeRef.current += delta * (settings.cameraAutoRotateElevationSpeed || 0.3);
-    distanceTimeRef.current += delta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
-    verticalDriftTimeRef.current += delta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
+    // CONSISTENT SPEED UPDATE - all timers advance at their original speeds
+    const mainSpeed = settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5;
+    const heightSpeed = settings.cameraAutoRotateElevationSpeed || 0.3;
+    const distanceSpeed = settings.cameraAutoRotateDistanceSpeed || 0.2;
+    const driftSpeed = settings.cameraAutoRotateVerticalDriftSpeed || 0.1;
+    
+    // Update all timers consistently
+    timeRef.current += delta * mainSpeed;
+    heightTimeRef.current += delta * heightSpeed;
+    distanceTimeRef.current += delta * distanceSpeed;
+    verticalDriftTimeRef.current += delta * driftSpeed;
     
     // Base settings
     const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
     const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 8;
     
-    // Distance variation
+    // Distance variation - uses its own timer
     const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
     const radius = baseRadius + Math.sin(distanceTimeRef.current) * radiusVariation;
     
-    // Height oscillation between min and max elevation
+    // Height oscillation - uses its own timer
     const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6);
     const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3);
     const elevationRange = elevationMax - elevationMin;
     const elevationOscillation = (Math.sin(heightTimeRef.current) + 1) / 2; // 0 to 1
     const phi = elevationMin + (elevationOscillation * elevationRange);
     
-    // Calculate spherical position using timeRef for main rotation
+    // Calculate spherical position using main timeRef for rotation
     const x = radius * Math.sin(phi) * Math.cos(timeRef.current);
     const y = baseHeight + Math.cos(phi) * radius * 0.2;
     const z = radius * Math.sin(phi) * Math.sin(timeRef.current);
     
-    // Vertical drift
+    // Vertical drift - uses its own timer
     const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
     const driftOffset = Math.sin(verticalDriftTimeRef.current) * verticalDrift;
     
