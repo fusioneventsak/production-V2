@@ -1,3 +1,167 @@
+// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
+import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+import * as THREE from 'three';
+import { type SceneSettings } from '../../store/sceneStore';
+import { PatternFactory } from './patterns/PatternFactory';
+import { addCacheBustToUrl } from '../../lib/supabase';
+import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
+
+type Photo = {
+  id: string;
+  url: string;
+  collage_id?: string;
+  created_at?: string;
+  aspect_ratio?: number;
+  width?: number;
+  height?: number;
+};
+
+type CollageSceneProps = {
+  photos: Photo[];
+  settings: ExtendedSceneSettings;
+  width?: number;
+  height?: number;
+  onSettingsChange?: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
+};
+
+type PhotoWithPosition = Photo & {
+  targetPosition: [number, number, number];
+  targetRotation: [number, number, number];
+  displayIndex?: number;
+  slotIndex: number;
+  computedSize: [number, number];
+};
+
+// Enhanced animation constants
+const POSITION_SMOOTHING = 0.08;
+const ROTATION_SMOOTHING = 0.08;
+const TELEPORT_THRESHOLD = 35;
+
+// Scene Environment Types
+type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
+type FloorTexture = 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+
+// Photo position interface for cinematic camera
+interface PhotoPosition {
+  position: [number, number, number];
+  slotIndex: number;
+  id: string;
+}
+
+// FIXED: Extended settings with cinematic camera height and distance controls
+interface ExtendedSceneSettings extends SceneSettings {
+  sceneEnvironment?: SceneEnvironment;
+  floorTexture?: FloorTexture;
+  customFloorTextureUrl?: string;
+  environmentIntensity?: number;
+  cubeTextureUrl?: string;
+  sphereTextureUrl?: string;
+  wallHeight?: number;
+  wallThickness?: number;
+  wallColor?: string;
+  ceilingEnabled?: boolean;
+  ceilingHeight?: number;
+  roomDepth?: number;
+  
+  // FIXED: Enhanced Cinematic Camera Animation Settings with fine-tuning controls
+  cameraAnimation?: {
+    enabled?: boolean;
+    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
+    speed: number;
+    focusDistance: number;
+    heightOffset: number;
+    transitionTime: number;
+    pauseTime: number;
+    randomization: number;
+    // NEW: Fine-tuning controls
+    baseHeight?: number;        // Base camera height for all animations
+    baseDistance?: number;      // Base distance from center for all animations
+    heightVariation?: number;   // How much height varies during animation
+    distanceVariation?: number; // How much distance varies during animation
+  };
+  
+  // Auto-Rotate Camera Settings
+  cameraAutoRotateSpeed?: number;
+  cameraAutoRotateRadius?: number;
+  cameraAutoRotateHeight?: number;
+  cameraAutoRotateElevationMin?: number;
+  cameraAutoRotateElevationMax?: number;
+  cameraAutoRotateElevationSpeed?: number;
+  cameraAutoRotateDistanceVariation?: number;
+  cameraAutoRotateDistanceSpeed?: number;
+  cameraAutoRotateVerticalDrift?: number;
+  cameraAutoRotateVerticalDriftSpeed?: number;
+  cameraAutoRotateFocusOffset?: [number, number, number];
+  cameraAutoRotatePauseOnInteraction?: number;
+}
+
+// SIMPLE AUTO-ROTATE CAMERA - Actually works with all settings
+const AutoRotateCamera: React.FC<{
+  settings: ExtendedSceneSettings;
+}> = ({ settings }) => {
+  const { camera } = useThree();
+  const timeRef = useRef(0);
+  const heightTimeRef = useRef(0);
+  const distanceTimeRef = useRef(0);
+  const verticalDriftTimeRef = useRef(0);
+
+  useFrame((state, delta) => {
+    // Only run if auto-rotate is enabled AND cinematic is disabled
+    const cinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
+    
+    if (!settings.cameraRotationEnabled || cinematicActive) {
+      return;
+    }
+
+    // Update all time counters
+    const speed = settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5;
+    timeRef.current += delta * speed;
+    heightTimeRef.current += delta * (settings.cameraAutoRotateElevationSpeed || 0.3);
+    distanceTimeRef.current += delta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
+    verticalDriftTimeRef.current += delta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
+    
+    // Base settings
+    const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
+    const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 8;
+    
+    // Distance variation
+    const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
+    const radius = baseRadius + Math.sin(distanceTimeRef.current) * radiusVariation;
+    
+    // Height oscillation between min and max elevation
+    const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6);
+    const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3);
+    const elevationRange = elevationMax - elevationMin;
+    const elevationOscillation = (Math.sin(heightTimeRef.current) + 1) / 2; // 0 to 1
+    const phi = elevationMin + (elevationOscillation * elevationRange);
+    
+    // Calculate spherical position
+    const x = radius * Math.sin(phi) * Math.cos(timeRef.current);
+    const y = baseHeight + Math.cos(phi) * radius * 0.2;
+    const z = radius * Math.sin(phi) * Math.sin(timeRef.current);
+    
+    // Vertical drift
+    const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
+    const driftOffset = Math.sin(verticalDriftTimeRef.current) * verticalDrift;
+    
+    // Focus offset
+    const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
+    const focusPoint = new THREE.Vector3(
+      focusOffset[0],
+      focusOffset[1] + driftOffset,
+      focusOffset[2]
+    );
+    
+    // Set camera position and look at focus point
+    camera.position.set(x + focusPoint.x, y + focusPoint.y, z + focusPoint.z);
+    camera.lookAt(focusPoint.x, focusPoint.y, focusPoint.z);
+  });
+
+  return null;
+};
+
 // FIXED: Enhanced Cinematic Camera with Better Wave Pattern and Restored User Interaction
 const CinematicCamera: React.FC<{
   config?: {
@@ -214,385 +378,6 @@ const CinematicCamera: React.FC<{
         const angle = (walkTime / 4) * Math.PI * 2;
         x = centerX + walkRadius * Math.cos(angle);
         z = centerZ + walkRadius * Math.sin(angle) * 0.7;
-        y = baseHeight + Math.sin(timeRef.current * 0.2) * heightVariation * 0// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
-import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
-import * as THREE from 'three';
-import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory } from './patterns/PatternFactory';
-import { addCacheBustToUrl } from '../../lib/supabase';
-import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
-
-type Photo = {
-  id: string;
-  url: string;
-  collage_id?: string;
-  created_at?: string;
-  aspect_ratio?: number;
-  width?: number;
-  height?: number;
-};
-
-type CollageSceneProps = {
-  photos: Photo[];
-  settings: ExtendedSceneSettings;
-  width?: number;
-  height?: number;
-  onSettingsChange?: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
-};
-
-type PhotoWithPosition = Photo & {
-  targetPosition: [number, number, number];
-  targetRotation: [number, number, number];
-  displayIndex?: number;
-  slotIndex: number;
-  computedSize: [number, number];
-};
-
-// Enhanced animation constants
-const POSITION_SMOOTHING = 0.08;
-const ROTATION_SMOOTHING = 0.08;
-const TELEPORT_THRESHOLD = 35;
-
-// Scene Environment Types
-type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
-type FloorTexture = 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
-
-// Photo position interface for cinematic camera
-interface PhotoPosition {
-  position: [number, number, number];
-  slotIndex: number;
-  id: string;
-}
-
-// FIXED: Extended settings with cinematic camera height and distance controls
-interface ExtendedSceneSettings extends SceneSettings {
-  sceneEnvironment?: SceneEnvironment;
-  floorTexture?: FloorTexture;
-  customFloorTextureUrl?: string;
-  environmentIntensity?: number;
-  cubeTextureUrl?: string;
-  sphereTextureUrl?: string;
-  wallHeight?: number;
-  wallThickness?: number;
-  wallColor?: string;
-  ceilingEnabled?: boolean;
-  ceilingHeight?: number;
-  roomDepth?: number;
-  
-  // FIXED: Enhanced Cinematic Camera Animation Settings with fine-tuning controls
-  cameraAnimation?: {
-    enabled?: boolean;
-    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
-    speed: number;
-    focusDistance: number;
-    heightOffset: number;
-    transitionTime: number;
-    pauseTime: number;
-    randomization: number;
-    // NEW: Fine-tuning controls
-    baseHeight?: number;        // Base camera height for all animations
-    baseDistance?: number;      // Base distance from center for all animations
-    heightVariation?: number;   // How much height varies during animation
-    distanceVariation?: number; // How much distance varies during animation
-  };
-  
-  // Auto-Rotate Camera Settings
-  cameraAutoRotateSpeed?: number;
-  cameraAutoRotateRadius?: number;
-  cameraAutoRotateHeight?: number;
-  cameraAutoRotateElevationMin?: number;
-  cameraAutoRotateElevationMax?: number;
-  cameraAutoRotateElevationSpeed?: number;
-  cameraAutoRotateDistanceVariation?: number;
-  cameraAutoRotateDistanceSpeed?: number;
-  cameraAutoRotateVerticalDrift?: number;
-  cameraAutoRotateVerticalDriftSpeed?: number;
-  cameraAutoRotateFocusOffset?: [number, number, number];
-  cameraAutoRotatePauseOnInteraction?: number;
-}
-
-// SIMPLE AUTO-ROTATE CAMERA - Actually works with all settings
-const AutoRotateCamera: React.FC<{
-  settings: ExtendedSceneSettings;
-}> = ({ settings }) => {
-  const { camera } = useThree();
-  const timeRef = useRef(0);
-  const heightTimeRef = useRef(0);
-  const distanceTimeRef = useRef(0);
-  const verticalDriftTimeRef = useRef(0);
-
-  useFrame((state, delta) => {
-    // Only run if auto-rotate is enabled AND cinematic is disabled
-    const cinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
-    
-    if (!settings.cameraRotationEnabled || cinematicActive) {
-      return;
-    }
-
-    // Update all time counters
-    const speed = settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5;
-    timeRef.current += delta * speed;
-    heightTimeRef.current += delta * (settings.cameraAutoRotateElevationSpeed || 0.3);
-    distanceTimeRef.current += delta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
-    verticalDriftTimeRef.current += delta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
-    
-    // Base settings
-    const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
-    const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 8;
-    
-    // Distance variation
-    const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
-    const radius = baseRadius + Math.sin(distanceTimeRef.current) * radiusVariation;
-    
-    // Height oscillation between min and max elevation
-    const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6);
-    const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3);
-    const elevationRange = elevationMax - elevationMin;
-    const elevationOscillation = (Math.sin(heightTimeRef.current) + 1) / 2; // 0 to 1
-    const phi = elevationMin + (elevationOscillation * elevationRange);
-    
-    // Calculate spherical position
-    const x = radius * Math.sin(phi) * Math.cos(timeRef.current);
-    const y = baseHeight + Math.cos(phi) * radius * 0.2;
-    const z = radius * Math.sin(phi) * Math.sin(timeRef.current);
-    
-    // Vertical drift
-    const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
-    const driftOffset = Math.sin(verticalDriftTimeRef.current) * verticalDrift;
-    
-    // Focus offset
-    const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
-    const focusPoint = new THREE.Vector3(
-      focusOffset[0],
-      focusOffset[1] + driftOffset,
-      focusOffset[2]
-    );
-    
-    // Set camera position and look at focus point
-    camera.position.set(x + focusPoint.x, y + focusPoint.y, z + focusPoint.z);
-    camera.lookAt(focusPoint.x, focusPoint.y, focusPoint.z);
-  });
-
-  return null;
-};
-
-// FIXED: Enhanced Cinematic Camera with Better Spiral Handling and Restored User Interaction
-const CinematicCamera: React.FC<{
-  config?: {
-    enabled?: boolean;
-    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
-    speed: number;
-    focusDistance: number;
-    heightOffset: number;
-    transitionTime: number;
-    pauseTime: number;
-    randomization: number;
-    // Fine-tuning controls
-    baseHeight?: number;
-    baseDistance?: number;
-    heightVariation?: number;
-    distanceVariation?: number;
-  };
-  photoPositions: PhotoPosition[];
-  settings: ExtendedSceneSettings;
-}> = ({ config, photoPositions, settings }) => {
-  const { camera } = useThree();
-  const timeRef = useRef(0);
-  const userInteractingRef = useRef(false);
-  const lastInteractionRef = useRef(0);
-  const resumeTimeRef = useRef(0);
-  const wasActiveRef = useRef(false);
-
-  // FIXED: Restored and improved user interaction detection
-  useEffect(() => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return;
-
-    let interactionTimeout: NodeJS.Timeout;
-
-    const handleInteractionStart = (e: Event) => {
-      // Detect actual user interactions on the canvas
-      if (e.isTrusted && (e.target === canvas || canvas.contains(e.target as Node))) {
-        userInteractingRef.current = true;
-        lastInteractionRef.current = Date.now();
-        clearTimeout(interactionTimeout);
-        
-        console.log('🎬 User interaction detected - pausing cinematic camera');
-      }
-    };
-
-    const handleInteractionEnd = (e: Event) => {
-      if (e.isTrusted && (e.target === canvas || canvas.contains(e.target as Node))) {
-        lastInteractionRef.current = Date.now();
-        clearTimeout(interactionTimeout);
-        
-        // Shorter delay before resuming based on user setting
-        const pauseTime = Math.max((config?.pauseTime || 1) * 1000, 800);
-        interactionTimeout = setTimeout(() => {
-          userInteractingRef.current = false;
-          resumeTimeRef.current = Date.now();
-          console.log('🎬 Resuming cinematic camera after user interaction');
-        }, pauseTime);
-      }
-    };
-
-    // Listen to more interaction types for better detection
-    canvas.addEventListener('mousedown', handleInteractionStart, { passive: true });
-    canvas.addEventListener('touchstart', handleInteractionStart, { passive: true });
-    canvas.addEventListener('wheel', handleInteractionStart, { passive: true });
-    canvas.addEventListener('mouseup', handleInteractionEnd, { passive: true });
-    canvas.addEventListener('touchend', handleInteractionEnd, { passive: true });
-    canvas.addEventListener('mousemove', handleInteractionStart, { passive: true }); // Added mouse move
-    canvas.addEventListener('touchmove', handleInteractionStart, { passive: true }); // Added touch move
-
-    // Also listen for keyboard interactions
-    document.addEventListener('keydown', handleInteractionStart, { passive: true });
-
-    return () => {
-      clearTimeout(interactionTimeout);
-      canvas.removeEventListener('mousedown', handleInteractionStart);
-      canvas.removeEventListener('touchstart', handleInteractionStart);
-      canvas.removeEventListener('wheel', handleInteractionStart);
-      canvas.removeEventListener('mouseup', handleInteractionEnd);
-      canvas.removeEventListener('touchend', handleInteractionEnd);
-      canvas.removeEventListener('mousemove', handleInteractionStart);
-      canvas.removeEventListener('touchmove', handleInteractionStart);
-      document.removeEventListener('keydown', handleInteractionStart);
-    };
-  }, [config?.pauseTime]);
-
-  useFrame((state, delta) => {
-    if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
-      if (wasActiveRef.current) {
-        console.log('🎬 Cinematic camera disabled');
-        wasActiveRef.current = false;
-      }
-      return;
-    }
-
-    // FIXED: Better pause logic that actually works
-    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const resumeDelay = Math.max((config.pauseTime || 1) * 1000, 800);
-    const timeSinceResume = Date.now() - resumeTimeRef.current;
-
-    // Pause during interaction or right after
-    if (userInteractingRef.current || (timeSinceInteraction < resumeDelay && timeSinceResume < 300)) {
-      if (wasActiveRef.current) {
-        console.log('🎬 Cinematic camera paused for user interaction');
-        wasActiveRef.current = false;
-      }
-      return;
-    }
-
-    if (!wasActiveRef.current) {
-      console.log('🎬 Cinematic camera resumed');
-      wasActiveRef.current = true;
-    }
-
-    const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
-    if (!validPhotos.length) return;
-
-    // FIXED: Pattern-specific speed adjustments to reduce conflicts
-    const getPatternSpeed = () => {
-      switch (settings.animationPattern) {
-        case 'spiral':
-          return 0.15; // MUCH slower for spiral to avoid conflicts
-        case 'wave':
-          return 0.2; // Slower for wave
-        case 'float':
-          return 0.3; // Normal speed for float (works great)
-        default:
-          return 0.25;
-      }
-    };
-
-    const speed = (config.speed || 1.0) * getPatternSpeed();
-    timeRef.current += delta * speed;
-
-    // Use fine-tuning controls with MUCH better pattern-aware defaults
-    const photoSize = settings.photoSize || 4;
-    const floorHeight = -12;
-    const photoDisplayHeight = floorHeight + photoSize;
-    
-    // FIXED: Greatly improved spiral pattern handling
-    const getPatternAwareDefaults = () => {
-      switch (settings.animationPattern) {
-        case 'spiral':
-          return {
-            height: Math.max(35, photoDisplayHeight + photoSize * 8), // MUCH higher for spiral
-            distance: Math.max(60, photoSize * 15), // MUCH further from spiral center
-            heightVar: photoSize * 0.5, // Minimal height variation
-            distanceVar: 5, // Minimal distance variation to reduce jitter
-          };
-        case 'wave':
-          return {
-            height: Math.max(25, photoDisplayHeight + photoSize * 5),
-            distance: Math.max(45, photoSize * 11),
-            heightVar: photoSize * 1.0,
-            distanceVar: 8,
-          };
-        case 'float':
-          return {
-            height: Math.max(18, photoDisplayHeight + photoSize * 3.5),
-            distance: Math.max(30, photoSize * 8),
-            heightVar: photoSize * 1.5,
-            distanceVar: 12,
-          };
-        default: // grid
-          return {
-            height: Math.max(15, photoDisplayHeight + photoSize * 2.5),
-            distance: Math.max(25, photoSize * 7),
-            heightVar: photoSize * 1.2,
-            distanceVar: 10,
-          };
-      }
-    };
-
-    const patternDefaults = getPatternAwareDefaults();
-    
-    const baseHeight = config.baseHeight !== undefined ? 
-      config.baseHeight : patternDefaults.height;
-    const baseDistance = config.baseDistance !== undefined ? 
-      config.baseDistance : patternDefaults.distance;
-    const heightVariation = config.heightVariation !== undefined ? 
-      config.heightVariation : patternDefaults.heightVar;
-    const distanceVariation = config.distanceVariation !== undefined ? 
-      config.distanceVariation : patternDefaults.distanceVar;
-
-    // Better center calculation
-    let centerX = 0, centerZ = 0;
-    if (validPhotos.length > 0) {
-      centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
-      centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
-    }
-
-    let x, y, z, lookX, lookY, lookZ;
-
-    // FIXED: Much better camera movements, especially for spiral
-    switch (config.type) {
-      case 'showcase':
-        const fig8Time = timeRef.current * 0.4;
-        const fig8Radius = baseDistance * (0.8 + Math.sin(fig8Time * 0.1) * 0.1);
-        
-        x = centerX + Math.sin(fig8Time) * fig8Radius;
-        y = baseHeight + Math.sin(fig8Time * 1.1) * heightVariation * 0.4;
-        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.7;
-        
-        lookX = centerX;
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ;
-        break;
-
-      case 'gallery_walk':
-        const walkTime = (timeRef.current * 0.25) % 4;
-        const walkRadius = baseDistance * 0.8;
-        
-        // Smooth rounded rectangle path
-        const angle = (walkTime / 4) * Math.PI * 2;
-        x = centerX + walkRadius * Math.cos(angle);
-        z = centerZ + walkRadius * Math.sin(angle) * 0.7;
         y = baseHeight + Math.sin(timeRef.current * 0.2) * heightVariation * 0.3;
         
         lookX = centerX;
@@ -773,32 +558,13 @@ const CameraControls: React.FC<{
         <AutoRotateCamera settings={settings} />
       )}
       
-      {/* CHOICE: Use either the existing CinematicCamera OR SmoothCinematicCameraController */}
+      {/* Cinematic Camera */}
       {isCinematicActive && (
-        <>
-          {/* Option 1: Use your existing SmoothCinematicCameraController */}
-          {/* Uncomment this if you want to use the SmoothCinematicCameraController instead */}
-          {/* 
-          <SmoothCinematicCameraController
-            config={settings.cameraAnimation}
-            photoPositions={photoPositions}
-            animationPattern={settings.animationPattern || 'grid'}
-            floorHeight={-12}
-            settings={{
-              photoSize: settings.photoSize,
-              floorSize: settings.floorSize,
-              photoCount: settings.photoCount
-            }}
-          />
-          */}
-          
-          {/* Option 2: Use the updated CinematicCamera (current choice) */}
-          <CinematicCamera 
-            config={settings.cameraAnimation}
-            photoPositions={photoPositions}
-            settings={settings}
-          />
-        </>
+        <CinematicCamera 
+          config={settings.cameraAnimation}
+          photoPositions={photoPositions}
+          settings={settings}
+        />
       )}
     </>
   );
