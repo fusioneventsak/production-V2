@@ -1,4 +1,4 @@
-// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
+// Enhanced CollageScene with WORKING Camera Systems and FIXED Touch Interaction for Auto-Rotate & Cinematic
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -486,7 +486,124 @@ class FixedSpiralPattern {
   }
 }
 
-// SIMPLE AUTO-ROTATE CAMERA - Actually works with all settings
+// ENHANCED: Shared interaction tracker for both auto-rotate and cinematic cameras
+class InteractionTracker {
+  private static instance: InteractionTracker;
+  private userInteracting = false;
+  private lastInteractionTime = 0;
+  private listeners: Set<(interacting: boolean, lastTime: number) => void> = new Set();
+  private interactionTimeout: NodeJS.Timeout | null = null;
+  private pauseDelay = 1000; // Default 1 second
+
+  static getInstance(): InteractionTracker {
+    if (!InteractionTracker.instance) {
+      InteractionTracker.instance = new InteractionTracker();
+    }
+    return InteractionTracker.instance;
+  }
+
+  private constructor() {
+    this.setupEventListeners();
+  }
+
+  setPauseDelay(delay: number) {
+    this.pauseDelay = Math.max(delay, 500); // Minimum 500ms
+  }
+
+  private setupEventListeners() {
+    // FIXED: Comprehensive touch and mouse interaction detection
+    const handleInteractionStart = (e: Event) => {
+      // Only track trusted user events on canvas
+      if (!e.isTrusted) return;
+      
+      const canvas = document.querySelector('canvas');
+      if (!canvas || !(e.target === canvas || canvas.contains(e.target as Node))) return;
+
+      if (!this.userInteracting) {
+        console.log('🎯 User interaction START detected:', e.type);
+        this.userInteracting = true;
+        this.notifyListeners();
+      }
+      
+      this.lastInteractionTime = Date.now();
+      this.clearInteractionTimeout();
+    };
+
+    const handleInteractionEnd = (e: Event) => {
+      if (!e.isTrusted) return;
+      
+      const canvas = document.querySelector('canvas');
+      if (!canvas || !(e.target === canvas || canvas.contains(e.target as Node))) return;
+
+      this.lastInteractionTime = Date.now();
+      this.clearInteractionTimeout();
+      
+      // Start countdown to resume
+      this.interactionTimeout = setTimeout(() => {
+        console.log('🎯 User interaction END - resuming camera animations');
+        this.userInteracting = false;
+        this.notifyListeners();
+      }, this.pauseDelay);
+    };
+
+    // Mouse events
+    document.addEventListener('mousedown', handleInteractionStart, { passive: true });
+    document.addEventListener('mouseup', handleInteractionEnd, { passive: true });
+    document.addEventListener('wheel', handleInteractionStart, { passive: true });
+    
+    // FIXED: Comprehensive touch events for mobile devices
+    document.addEventListener('touchstart', handleInteractionStart, { passive: true });
+    document.addEventListener('touchend', handleInteractionEnd, { passive: true });
+    document.addEventListener('touchmove', handleInteractionStart, { passive: true });
+    document.addEventListener('touchcancel', handleInteractionEnd, { passive: true });
+    
+    // Keyboard events
+    document.addEventListener('keydown', handleInteractionStart, { passive: true });
+    
+    // FIXED: Handle pointer events for better touch support
+    document.addEventListener('pointerdown', handleInteractionStart, { passive: true });
+    document.addEventListener('pointerup', handleInteractionEnd, { passive: true });
+    document.addEventListener('pointermove', (e) => {
+      // Only track pointer move if pointer is down (dragging)
+      if ((e as PointerEvent).buttons > 0) {
+        handleInteractionStart(e);
+      }
+    }, { passive: true });
+  }
+
+  private clearInteractionTimeout() {
+    if (this.interactionTimeout) {
+      clearTimeout(this.interactionTimeout);
+      this.interactionTimeout = null;
+    }
+  }
+
+  private notifyListeners() {
+    this.listeners.forEach(listener => {
+      listener(this.userInteracting, this.lastInteractionTime);
+    });
+  }
+
+  subscribe(callback: (interacting: boolean, lastTime: number) => void) {
+    this.listeners.add(callback);
+    // Immediately notify with current state
+    callback(this.userInteracting, this.lastInteractionTime);
+    
+    return () => {
+      this.listeners.delete(callback);
+    };
+  }
+
+  isUserInteracting(): boolean {
+    return this.userInteracting;
+  }
+
+  getLastInteractionTime(): number {
+    return this.lastInteractionTime;
+  }
+}
+
+// FIXED: Auto-rotate camera with proper touch interaction support
 const AutoRotateCamera: React.FC<{
   settings: ExtendedSceneSettings;
 }> = ({ settings }) => {
@@ -495,24 +612,30 @@ const AutoRotateCamera: React.FC<{
   const heightTimeRef = useRef(0);
   const distanceTimeRef = useRef(0);
   const verticalDriftTimeRef = useRef(0);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const [lastInteractionTime, setLastInteractionTime] = useState(0);
 
-  // FIXED: Initialize animation immediately when enabled
+  // FIXED: Subscribe to shared interaction tracker
   useEffect(() => {
-    if (settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none') {
-      // Force immediate start of animation when enabled
-      timeRef.current = 0;
-      wasActiveRef.current = false; // Reset to ensure proper startup
-      isResumingRef.current = false;
-      isPatternTransitioningRef.current = false;
-      console.log('🎬 Cinematic camera enabled - starting immediately');
-    }
-  }, [settings.cameraAnimation?.enabled, settings.cameraAnimation?.type]);
+    const tracker = InteractionTracker.getInstance();
+    
+    // Set pause delay based on settings
+    const pauseTime = Math.max((settings.cameraAutoRotatePauseOnInteraction || 1) * 1000, 500);
+    tracker.setPauseDelay(pauseTime);
+    
+    const unsubscribe = tracker.subscribe((interacting, lastTime) => {
+      setIsUserInteracting(interacting);
+      setLastInteractionTime(lastTime);
+    });
+
+    return unsubscribe;
+  }, [settings.cameraAutoRotatePauseOnInteraction]);
 
   useFrame((state, delta) => {
-    // Only run if auto-rotate is enabled AND cinematic is disabled
+    // Only run if auto-rotate is enabled AND cinematic is disabled AND user is not interacting
     const cinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
     
-    if (!settings.cameraRotationEnabled || cinematicActive) {
+    if (!settings.cameraRotationEnabled || cinematicActive || isUserInteracting) {
       return;
     }
 
@@ -563,7 +686,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// FIXED: Enhanced Cinematic Camera with SMOOTH RESUMPTION and AUTOMATIC PATTERN TRANSITIONS
+// FIXED: Enhanced Cinematic Camera with proper touch interaction support
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -585,9 +708,8 @@ const CinematicCamera: React.FC<{
 }> = ({ config, photoPositions, settings }) => {
   const { camera } = useThree();
   const timeRef = useRef(0);
-  const userInteractingRef = useRef(false);
-  const lastInteractionRef = useRef(0);
-  const resumeTimeRef = useRef(0);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const [lastInteractionTime, setLastInteractionTime] = useState(0);
   const wasActiveRef = useRef(false);
   
   // FIXED: Add state for smooth resumption
@@ -605,90 +727,67 @@ const CinematicCamera: React.FC<{
   const patternStartPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
   const patternStartLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3());
 
-  // FIXED: Restored and improved user interaction detection
+  // FIXED: Subscribe to shared interaction tracker
   useEffect(() => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return;
-
-    let interactionTimeout: NodeJS.Timeout;
-
-    const handleInteractionStart = (e: Event) => {
-      // Detect actual user interactions on the canvas
-      if (e.isTrusted && (e.target === canvas || canvas.contains(e.target as Node))) {
-        if (!userInteractingRef.current) {
-          // FIXED: Capture current camera state when interaction starts
-          pausedPositionRef.current.copy(camera.position);
-          pausedLookAtRef.current.set(0, 0, 0); // Will be calculated from camera direction
-          
-          // Calculate where camera is looking by using camera's direction
-          const direction = new THREE.Vector3();
-          camera.getWorldDirection(direction);
-          pausedLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
-          
-          console.log('🎬 User interaction START - capturing position:', {
-            x: pausedPositionRef.current.x.toFixed(2),
-            y: pausedPositionRef.current.y.toFixed(2), 
-            z: pausedPositionRef.current.z.toFixed(2)
-          });
-        }
+    const tracker = InteractionTracker.getInstance();
+    
+    // Set pause delay based on settings
+    const pauseTime = Math.max((config?.pauseTime || 1) * 1000, 500);
+    tracker.setPauseDelay(pauseTime);
+    
+    const unsubscribe = tracker.subscribe((interacting, lastTime) => {
+      // Capture camera state when interaction starts
+      if (interacting && !isUserInteracting) {
+        pausedPositionRef.current.copy(camera.position);
+        pausedLookAtRef.current.set(0, 0, 0);
         
-        userInteractingRef.current = true;
-        lastInteractionRef.current = Date.now();
-        clearTimeout(interactionTimeout);
-      }
-    };
-
-    const handleInteractionEnd = (e: Event) => {
-      if (e.isTrusted && (e.target === canvas || canvas.contains(e.target as Node))) {
-        lastInteractionRef.current = Date.now();
-        clearTimeout(interactionTimeout);
+        // Calculate where camera is looking
+        const direction = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+        pausedLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
         
-        // Shorter delay before resuming based on user setting
-        const pauseTime = Math.max((config?.pauseTime || 1) * 1000, 500); // Reduced from 800ms to 500ms
-        interactionTimeout = setTimeout(() => {
-          // FIXED: Start smooth resumption process
-          userInteractingRef.current = false;
-          resumeTimeRef.current = Date.now();
-          resumeStartTimeRef.current = Date.now();
-          isResumingRef.current = true;
-          
-          // Update paused position to current camera position at end of interaction
-          pausedPositionRef.current.copy(camera.position);
-          const direction = new THREE.Vector3();
-          camera.getWorldDirection(direction);
-          pausedLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
-          
-          console.log('🎬 Starting SMOOTH resumption from position:', {
-            x: pausedPositionRef.current.x.toFixed(2),
-            y: pausedPositionRef.current.y.toFixed(2),
-            z: pausedPositionRef.current.z.toFixed(2)
-          });
-        }, pauseTime);
+        console.log('🎬 Cinematic: User interaction START - capturing position:', {
+          x: pausedPositionRef.current.x.toFixed(2),
+          y: pausedPositionRef.current.y.toFixed(2), 
+          z: pausedPositionRef.current.z.toFixed(2)
+        });
       }
-    };
+      
+      // Start resumption process when interaction ends
+      if (!interacting && isUserInteracting) {
+        isResumingRef.current = true;
+        resumeStartTimeRef.current = Date.now();
+        
+        // Update paused position to current camera position
+        pausedPositionRef.current.copy(camera.position);
+        const direction = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+        pausedLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
+        
+        console.log('🎬 Cinematic: Starting SMOOTH resumption from position:', {
+          x: pausedPositionRef.current.x.toFixed(2),
+          y: pausedPositionRef.current.y.toFixed(2),
+          z: pausedPositionRef.current.z.toFixed(2)
+        });
+      }
+      
+      setIsUserInteracting(interacting);
+      setLastInteractionTime(lastTime);
+    });
 
-    // Listen to interaction types but EXCLUDE mousemove to prevent hover pause
-    canvas.addEventListener('mousedown', handleInteractionStart, { passive: true });
-    canvas.addEventListener('touchstart', handleInteractionStart, { passive: true });
-    canvas.addEventListener('wheel', handleInteractionStart, { passive: true });
-    canvas.addEventListener('mouseup', handleInteractionEnd, { passive: true });
-    canvas.addEventListener('touchend', handleInteractionEnd, { passive: true });
-    canvas.addEventListener('touchmove', handleInteractionStart, { passive: true }); // Keep touch move
+    return unsubscribe;
+  }, [config?.pauseTime, camera, isUserInteracting]);
 
-    // Also listen for keyboard interactions
-    document.addEventListener('keydown', handleInteractionStart, { passive: true });
-
-    return () => {
-      clearTimeout(interactionTimeout);
-      canvas.removeEventListener('mousedown', handleInteractionStart);
-      canvas.removeEventListener('touchstart', handleInteractionStart);
-      canvas.removeEventListener('wheel', handleInteractionStart);
-      canvas.removeEventListener('mouseup', handleInteractionEnd);
-      canvas.removeEventListener('touchend', handleInteractionEnd);
-      canvas.removeEventListener('touchmove', handleInteractionStart);
-      document.removeEventListener('keydown', handleInteractionStart);
-    };
-  }, [config?.pauseTime, camera]);
+  // FIXED: Initialize animation immediately when enabled
+  useEffect(() => {
+    if (config?.enabled && config.type !== 'none') {
+      timeRef.current = 0;
+      wasActiveRef.current = false;
+      isResumingRef.current = false;
+      isPatternTransitioningRef.current = false;
+      console.log('🎬 Cinematic camera enabled - starting immediately');
+    }
+  }, [config?.enabled, config?.type]);
 
   useFrame((state, delta) => {
     if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
@@ -705,7 +804,6 @@ const CinematicCamera: React.FC<{
     const patternKey = `${currentPattern}-${currentAnimationPattern}`;
     
     if (lastPatternRef.current !== '' && lastPatternRef.current !== patternKey) {
-      // Pattern changed! Start smooth transition
       console.log(`🎬 PATTERN CHANGE detected: ${lastPatternRef.current} → ${patternKey}`);
       
       isPatternTransitioningRef.current = true;
@@ -716,23 +814,12 @@ const CinematicCamera: React.FC<{
       const direction = new THREE.Vector3();
       camera.getWorldDirection(direction);
       patternStartLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
-      
-      console.log('🎬 Starting pattern transition from:', {
-        x: patternStartPositionRef.current.x.toFixed(2),
-        y: patternStartPositionRef.current.y.toFixed(2),
-        z: patternStartPositionRef.current.z.toFixed(2)
-      });
     }
     
     lastPatternRef.current = patternKey;
 
-    // FIXED: Better pause logic with smooth resumption and faster resume
-    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const resumeDelay = Math.max((config.pauseTime || 1) * 1000, 500); // Reduced minimum delay
-    const timeSinceResume = Date.now() - resumeTimeRef.current;
-
-    // Pause during interaction or right after (reduced pause window)
-    if (userInteractingRef.current || (timeSinceInteraction < resumeDelay && timeSinceResume < 200)) {
+    // FIXED: Pause during user interaction
+    if (isUserInteracting) {
       if (wasActiveRef.current) {
         console.log('🎬 Cinematic camera paused for user interaction');
         wasActiveRef.current = false;
@@ -973,8 +1060,6 @@ const CinematicCamera: React.FC<{
       if (blendFactor >= 1) {
         isPatternTransitioningRef.current = false;
         console.log('🎬 Pattern transition completed - now following new pattern');
-      } else {
-        console.log(`🎬 Pattern transition: ${(blendFactor * 100).toFixed(1)}% complete`);
       }
       
       return; // Skip other transition logic during pattern transition
@@ -1006,12 +1091,10 @@ const CinematicCamera: React.FC<{
       if (blendFactor >= 1) {
         isResumingRef.current = false;
         console.log('🎬 Smooth user resumption completed - back to normal cinematic mode');
-      } else {
-        console.log(`🎬 User resuming: ${(blendFactor * 100).toFixed(1)}% complete`);
       }
     } else {
       // NORMAL CINEMATIC MODE: Use regular smooth movement
-      const resumeBlend = Math.min((timeSinceResume) / 1000, 1); // 1 second blend-in
+      const resumeBlend = Math.min((Date.now() - lastInteractionTime) / 1000, 1); // 1 second blend-in
       const smoothFactor = 0.035 * Math.max(resumeBlend, 0.3); // Always have some smoothing
       
       // Apply smooth movement
@@ -1026,17 +1109,12 @@ const CinematicCamera: React.FC<{
         isPatternTransitioningRef.current = false;
       }
     }
-
-    // Debug logging for wave issues
-    if (settings.animationPattern === 'wave' && Math.floor(timeRef.current * 1) % 100 === 0) {
-      console.log(`🌊 Wave Camera: H=${y.toFixed(1)} D=${Math.sqrt(x*x + z*z).toFixed(1)} LookY=${lookY.toFixed(1)}`);
-    }
   });
 
   return null;
 };
 
-// FIXED: Updated CameraControls with better coordination and SmoothCinematicCameraController integration
+// FIXED: Updated CameraControls with better coordination and interaction support
 const CameraControls: React.FC<{ 
   settings: ExtendedSceneSettings; 
   photosWithPositions: PhotoWithPosition[];
@@ -2291,7 +2369,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* FIXED: Scene Environment Manager - Full 3D environments */}
         <SceneEnvironmentManager settings={safeSettings} />
         
-        {/* FIXED Camera Controls - Actually Working */}
+        {/* FIXED Camera Controls with Touch Interaction Support */}
         <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
         
         {/* FIXED: Textured Floor - Always show unless sphere environment */}
