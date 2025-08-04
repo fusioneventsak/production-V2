@@ -297,11 +297,10 @@ const CinematicCamera: React.FC<{
         y = workingHeight + Math.sin(fig8Time * 2) * (photoSize * 0.5);
         z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.7;
         
-        // Cinematic look-ahead: Look in direction of movement, slightly down toward photos
-        const lookAheadTime = fig8Time + 0.2;
-        lookX = centerX + Math.sin(lookAheadTime) * fig8Radius * 0.5;
-        lookY = workingHeight - (photoSize * 0.5); // Slight downward angle, not floor
-        lookZ = centerZ + Math.sin(lookAheadTime * 2) * fig8Radius * 0.35;
+        // Always look toward photo center
+        lookX = centerX;
+        lookY = floorHeight + photoSize;
+        lookZ = centerZ;
         break;
 
       case 'gallery_walk':
@@ -314,34 +313,26 @@ const CinematicCamera: React.FC<{
           // Bottom edge (left to right)
           x = centerX - walkMargin + (walkTime * walkMargin * 2);
           z = centerZ + walkMargin;
-          // Look ahead in walking direction
-          lookX = centerX - walkMargin + ((walkTime + 0.3) * walkMargin * 2);
-          lookZ = centerZ + walkMargin;
         } else if (walkTime < 2) {
           // Right edge (bottom to top)
           x = centerX + walkMargin;
           z = centerZ + walkMargin - ((walkTime - 1) * walkMargin * 2);
-          // Look ahead in walking direction
-          lookX = centerX + walkMargin;
-          lookZ = centerZ + walkMargin - (((walkTime - 1) + 0.3) * walkMargin * 2);
         } else if (walkTime < 3) {
           // Top edge (right to left)
           x = centerX + walkMargin - ((walkTime - 2) * walkMargin * 2);
           z = centerZ - walkMargin;
-          // Look ahead in walking direction
-          lookX = centerX + walkMargin - (((walkTime - 2) + 0.3) * walkMargin * 2);
-          lookZ = centerZ - walkMargin;
         } else {
           // Left edge (top to bottom)
           x = centerX - walkMargin;
           z = centerZ - walkMargin + ((walkTime - 3) * walkMargin * 2);
-          // Look ahead in walking direction
-          lookX = centerX - walkMargin;
-          lookZ = centerZ - walkMargin + (((walkTime - 3) + 0.3) * walkMargin * 2);
         }
         
         y = walkHeight;
-        lookY = walkHeight - (photoSize * 0.3); // Slight downward gaze, not to floor
+        
+        // Always look toward center where photos are
+        lookX = centerX;
+        lookY = floorHeight + photoSize;
+        lookZ = centerZ;
         break;
 
       case 'spiral_tour':
@@ -356,10 +347,10 @@ const CinematicCamera: React.FC<{
         y = spiralHeight;
         z = centerZ + Math.sin(spiralTime) * spiralRadius;
         
-        // Cinematic spiral: Look toward center but at horizon level
-        lookX = centerX + Math.cos(spiralTime + 0.3) * spiralRadius * 0.3; // Look ahead along spiral
-        lookY = spiralHeight - (photoSize * 0.2); // Stay near horizon
-        lookZ = centerZ + Math.sin(spiralTime + 0.3) * spiralRadius * 0.3;
+        // Look toward center with slight vertical movement
+        lookX = centerX;
+        lookY = spiralHeight - photoSize;
+        lookZ = centerZ;
         break;
 
       case 'wave_follow':
@@ -371,11 +362,11 @@ const CinematicCamera: React.FC<{
         y = workingHeight + Math.sin(waveTime * 2.3) * (photoSize * 0.8);
         z = centerZ + Math.cos(waveTime * 0.7) * waveAmplitude * 0.8;
         
-        // Cinematic wave: Look ahead along the wave path at horizon level
-        const lookAheadTime = waveTime + 0.4;
-        lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.6;
-        lookY = workingHeight + Math.sin(lookAheadTime * 2.3) * (photoSize * 0.4); // Follow wave height
-        lookZ = centerZ + Math.cos(lookAheadTime * 0.7) * waveAmplitude * 0.5;
+        // Look ahead along the wave path
+        const lookAheadTime = waveTime + 0.3;
+        lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.5;
+        lookY = floorHeight + photoSize;
+        lookZ = centerZ + Math.cos(lookAheadTime * 0.7) * waveAmplitude * 0.4;
         break;
 
       case 'grid_sweep':
@@ -393,10 +384,9 @@ const CinematicCamera: React.FC<{
         y = sweepBaseHeight - (currentRow * photoSize * 0.5);
         z = centerZ - sweepWidth + (currentRow / (rows - 1)) * sweepWidth * 2;
         
-        // Cinematic sweep: Look ahead in sweep direction at horizon level
-        const sweepLookAhead = isEvenRow ? photoSize * 2 : -photoSize * 2;
-        lookX = x + sweepLookAhead;
-        lookY = y - (photoSize * 0.5); // Slight downward angle, not floor
+        // Look down and slightly ahead
+        lookX = x + (isEvenRow ? photoSize : -photoSize);
+        lookY = floorHeight + photoSize * 0.5;
         lookZ = z;
         break;
 
@@ -413,10 +403,10 @@ const CinematicCamera: React.FC<{
         y = workingHeight + Math.sin(focusTime * 2) * (photoSize * 0.3);
         z = centerZ + (infinityScale * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
         
-        // Cinematic focus: Look toward center but maintain graceful angle
-        lookX = centerX + Math.cos(focusTime + 0.5) * infinityScale * 0.2; // Look ahead along curve
-        lookY = workingHeight - (photoSize * 0.3); // Gentle downward gaze
-        lookZ = centerZ + Math.sin(focusTime + 0.5) * infinityScale * 0.2;
+        // Always look toward photo center
+        lookX = centerX;
+        lookY = floorHeight + photoSize;
+        lookZ = centerZ;
         break;
 
       default:
@@ -424,10 +414,9 @@ const CinematicCamera: React.FC<{
         x = centerX + Math.cos(timeRef.current) * scaleDistance;
         y = workingHeight;
         z = centerZ + Math.sin(timeRef.current) * scaleDistance;
-        // Look ahead along circular path
-        lookX = centerX + Math.cos(timeRef.current + 0.5) * scaleDistance * 0.5;
-        lookY = workingHeight - (photoSize * 0.2);
-        lookZ = centerZ + Math.sin(timeRef.current + 0.5) * scaleDistance * 0.5;
+        lookX = centerX;
+        lookY = floorHeight + photoSize;
+        lookZ = centerZ;
     }
 
     // Smooth camera updates
