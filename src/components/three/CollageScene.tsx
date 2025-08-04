@@ -1,4 +1,4 @@
-// Enhanced CollageScene with WORKING Camera Systems
+// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -167,7 +167,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// PERFECT LOOPING CINEMATIC TOURS - Respects camera settings + User Interaction
+// FIXED CINEMATIC CAMERA - Much more graceful movements
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -193,7 +193,6 @@ const CinematicCamera: React.FC<{
     if (!canvas) return;
 
     const handleMouseDown = (e: MouseEvent) => {
-      // Only if click is on the canvas
       if (e.target === canvas) {
         userInteractingRef.current = true;
         lastInteractionRef.current = Date.now();
@@ -222,13 +221,11 @@ const CinematicCamera: React.FC<{
     };
 
     const handleWheel = (e: WheelEvent) => {
-      // Only if wheel is over the canvas
       if (e.target === canvas) {
         lastInteractionRef.current = Date.now();
       }
     };
 
-    // Add event listeners only to the canvas
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('touchstart', handleTouchStart);
@@ -251,11 +248,9 @@ const CinematicCamera: React.FC<{
 
     // Check for user interaction pause
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const pauseDuration = (config.pauseTime || 2) * 1000; // Convert to milliseconds
+    const pauseDuration = (config.pauseTime || 2) * 1000;
 
     if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
-      // Pause cinematic camera during user interaction
-      console.log(`🎬 Cinematic PAUSED - User interacting (${timeSinceInteraction}ms ago)`);
       return;
     }
 
@@ -265,15 +260,12 @@ const CinematicCamera: React.FC<{
     const speed = (config.speed || 1.0) * 0.2;
     timeRef.current += delta * speed;
 
-    // Use scene settings for camera control
+    // FIXED: Better height calculations to prevent looking down at floor
     const photoSize = settings.photoSize || 4;
-    const baseHeight = settings.cameraHeight || 5;
-    const baseDistance = settings.cameraDistance || 25;
     const floorHeight = -12;
-    
-    // Adjust heights relative to photo size and floor
-    const minHeight = floorHeight + photoSize + 2; // Stay above photos
-    const workingHeight = Math.max(baseHeight, minHeight);
+    const minCameraHeight = floorHeight + photoSize * 2; // Stay well above floor
+    const preferredHeight = Math.max(settings.cameraHeight || 5, minCameraHeight);
+    const photoDisplayHeight = floorHeight + photoSize; // Where photos are displayed
     
     // Get photo bounds for centered tours
     const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
@@ -282,142 +274,145 @@ const CinematicCamera: React.FC<{
       Math.sqrt((p.position[0] - centerX) ** 2 + (p.position[2] - centerZ) ** 2)
     ));
 
-    // Scale distances based on photo size and user settings
-    const scaleDistance = Math.max(baseDistance * 0.5, maxDistance + photoSize * 2);
+    // FIXED: Better distance scaling
+    const baseDistance = Math.max(settings.cameraDistance || 25, maxDistance + photoSize * 3);
+    const scaleDistance = baseDistance * 0.8; // Slightly closer for better viewing
 
     let x, y, z, lookX, lookY, lookZ;
 
     switch (config.type) {
       case 'showcase':
-        // PERFECT LOOP: Large figure-8 around all photos
-        const fig8Time = timeRef.current * 0.5;
-        const fig8Radius = scaleDistance;
+        // FIXED: Elegant figure-8 with proper height management
+        const fig8Time = timeRef.current * 0.4;
+        const fig8Radius = scaleDistance * 0.9;
         
         x = centerX + Math.sin(fig8Time) * fig8Radius;
-        y = workingHeight + Math.sin(fig8Time * 2) * (photoSize * 0.5);
-        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.7;
+        y = preferredHeight + Math.sin(fig8Time * 1.5) * (photoSize * 0.4); // Gentler height variation
+        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.6;
         
-        // Always look toward photo center
-        lookX = centerX;
-        lookY = floorHeight + photoSize;
+        // FIXED: Look at photo display area, not floor
+        lookX = centerX + Math.sin(fig8Time + 0.5) * fig8Radius * 0.2; // Look slightly ahead
+        lookY = photoDisplayHeight + photoSize * 0.5; // Look at middle of photos
         lookZ = centerZ;
         break;
 
       case 'gallery_walk':
-        // PERFECT LOOP: Walks in a large rectangle around all photos
-        const walkTime = (timeRef.current * 0.3) % 4; // 4-sided rectangle
-        const walkMargin = scaleDistance * 0.8;
-        const walkHeight = Math.max(workingHeight - photoSize, minHeight);
+        // FIXED: More graceful rectangular walk
+        const walkTime = (timeRef.current * 0.25) % 4;
+        const walkMargin = scaleDistance * 0.7;
+        const walkHeight = preferredHeight;
         
         if (walkTime < 1) {
-          // Bottom edge (left to right)
           x = centerX - walkMargin + (walkTime * walkMargin * 2);
           z = centerZ + walkMargin;
         } else if (walkTime < 2) {
-          // Right edge (bottom to top)
           x = centerX + walkMargin;
           z = centerZ + walkMargin - ((walkTime - 1) * walkMargin * 2);
         } else if (walkTime < 3) {
-          // Top edge (right to left)
           x = centerX + walkMargin - ((walkTime - 2) * walkMargin * 2);
           z = centerZ - walkMargin;
         } else {
-          // Left edge (top to bottom)
           x = centerX - walkMargin;
           z = centerZ - walkMargin + ((walkTime - 3) * walkMargin * 2);
         }
         
-        y = walkHeight;
+        y = walkHeight + Math.sin(timeRef.current * 0.3) * (photoSize * 0.2); // Gentle bobbing
         
-        // Always look toward center where photos are
+        // FIXED: Always look toward photos at proper height
         lookX = centerX;
-        lookY = floorHeight + photoSize;
+        lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
         break;
 
       case 'spiral_tour':
-        // PERFECT LOOP: Smooth expanding/contracting spiral
-        const spiralTime = timeRef.current * 0.8;
-        const spiralRadiusMin = scaleDistance * 0.3;
-        const spiralRadiusMax = scaleDistance * 1.2;
-        const spiralRadius = spiralRadiusMin + (spiralRadiusMax - spiralRadiusMin) * (Math.sin(spiralTime * 0.2) + 1) / 2;
-        const spiralHeight = workingHeight + Math.sin(spiralTime * 0.15) * (photoSize * 1.5);
+        // FIXED: Smooth spiral with consistent height
+        const spiralTime = timeRef.current * 0.6;
+        const spiralRadiusMin = scaleDistance * 0.4;
+        const spiralRadiusMax = scaleDistance * 1.1;
+        const spiralRadius = spiralRadiusMin + (spiralRadiusMax - spiralRadiusMin) * 
+          (Math.sin(spiralTime * 0.15) + 1) / 2;
         
         x = centerX + Math.cos(spiralTime) * spiralRadius;
-        y = spiralHeight;
+        y = preferredHeight + Math.sin(spiralTime * 0.2) * (photoSize * 0.3); // Gentle height variation
         z = centerZ + Math.sin(spiralTime) * spiralRadius;
         
-        // Look toward center with slight vertical movement
+        // FIXED: Look toward center at photo height
         lookX = centerX;
-        lookY = spiralHeight - photoSize;
+        lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
         break;
 
       case 'wave_follow':
-        // PERFECT LOOP: Sine wave motion in perfect loop
-        const waveTime = timeRef.current * 0.4;
-        const waveAmplitude = scaleDistance;
+        // FIXED: Smoother wave motion
+        const waveTime = timeRef.current * 0.35;
+        const waveAmplitude = scaleDistance * 0.8;
         
         x = centerX + Math.sin(waveTime) * waveAmplitude;
-        y = workingHeight + Math.sin(waveTime * 2.3) * (photoSize * 0.8);
-        z = centerZ + Math.cos(waveTime * 0.7) * waveAmplitude * 0.8;
+        y = preferredHeight + Math.sin(waveTime * 1.7) * (photoSize * 0.4);
+        z = centerZ + Math.cos(waveTime * 0.6) * waveAmplitude * 0.7;
         
-        // Look ahead along the wave path
-        const lookAheadTime = waveTime + 0.3;
-        lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.5;
-        lookY = floorHeight + photoSize;
-        lookZ = centerZ + Math.cos(lookAheadTime * 0.7) * waveAmplitude * 0.4;
+        // FIXED: Look ahead smoothly along wave path
+        const lookAheadTime = waveTime + 0.4;
+        lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.3;
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = centerZ + Math.cos(lookAheadTime * 0.6) * waveAmplitude * 0.3;
         break;
 
       case 'grid_sweep':
-        // PERFECT LOOP: Smooth lawnmower pattern
-        const sweepTime = (timeRef.current * 0.25) % 8;
-        const sweepWidth = scaleDistance;
-        const sweepBaseHeight = workingHeight + photoSize;
+        // FIXED: Smoother lawnmower pattern
+        const sweepTime = (timeRef.current * 0.2) % 8;
+        const sweepWidth = scaleDistance * 0.8;
+        const sweepHeight = preferredHeight;
         const rows = 4;
         
         const currentRow = Math.floor(sweepTime / 2);
         const rowProgress = (sweepTime % 2);
         const isEvenRow = currentRow % 2 === 0;
         
-        x = centerX + (isEvenRow ? -sweepWidth + rowProgress * sweepWidth * 2 : sweepWidth - rowProgress * sweepWidth * 2);
-        y = sweepBaseHeight - (currentRow * photoSize * 0.5);
+        // Smooth interpolation
+        const smoothProgress = 0.5 - 0.5 * Math.cos(rowProgress * Math.PI);
+        
+        x = centerX + (isEvenRow ? 
+          -sweepWidth + smoothProgress * sweepWidth * 2 : 
+          sweepWidth - smoothProgress * sweepWidth * 2);
+        y = sweepHeight - (currentRow * photoSize * 0.3);
         z = centerZ - sweepWidth + (currentRow / (rows - 1)) * sweepWidth * 2;
         
-        // Look down and slightly ahead
-        lookX = x + (isEvenRow ? photoSize : -photoSize);
-        lookY = floorHeight + photoSize * 0.5;
+        // FIXED: Look at photos, not floor
+        lookX = x + (isEvenRow ? photoSize * 2 : -photoSize * 2);
+        lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = z;
         break;
 
       case 'photo_focus':
-        // PERFECT LOOP: Smooth infinity symbol around photo cluster
-        const focusTime = timeRef.current * 0.6;
-        const focusRadius = Math.max(scaleDistance * 0.4, photoSize * 3);
+        // FIXED: Elegant infinity symbol
+        const focusTime = timeRef.current * 0.5;
+        const focusRadius = Math.max(scaleDistance * 0.5, photoSize * 4);
         
-        // Infinity symbol (lemniscate) formula
-        const infinityScale = focusRadius;
         const denominator = 1 + Math.sin(focusTime) ** 2;
         
-        x = centerX + (infinityScale * Math.cos(focusTime)) / denominator;
-        y = workingHeight + Math.sin(focusTime * 2) * (photoSize * 0.3);
-        z = centerZ + (infinityScale * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
+        x = centerX + (focusRadius * Math.cos(focusTime)) / denominator;
+        y = preferredHeight + Math.sin(focusTime * 1.3) * (photoSize * 0.2);
+        z = centerZ + (focusRadius * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
         
-        // Always look toward photo center
+        // FIXED: Always look at photos
         lookX = centerX;
-        lookY = floorHeight + photoSize;
+        lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
         break;
 
       default:
-        // Simple circular fallback
         x = centerX + Math.cos(timeRef.current) * scaleDistance;
-        y = workingHeight;
+        y = preferredHeight;
         z = centerZ + Math.sin(timeRef.current) * scaleDistance;
         lookX = centerX;
-        lookY = floorHeight + photoSize;
+        lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
     }
+
+    // FIXED: Ensure camera never looks below photo level
+    lookY = Math.max(lookY, photoDisplayHeight);
+    y = Math.max(y, minCameraHeight);
 
     // Smooth camera updates
     camera.position.x = x;
@@ -428,7 +423,7 @@ const CinematicCamera: React.FC<{
 
     // Debug occasionally
     if (Math.floor(timeRef.current * 5) % 50 === 0) {
-      console.log(`🎬 ${config.type}: PhotoSize=${photoSize}, Height=${workingHeight.toFixed(1)}, Distance=${scaleDistance.toFixed(1)}`);
+      console.log(`🎬 ${config.type}: Camera Y=${y.toFixed(1)}, LookAt Y=${lookY.toFixed(1)}, Photos at Y=${photoDisplayHeight.toFixed(1)}`);
     }
   });
 
@@ -992,6 +987,159 @@ class EnhancedSlotManager {
   }
 }
 
+// FIXED WAVE PATTERN - Consistent spacing regardless of photo size
+class FixedWavePattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.wave?.photoCount !== undefined 
+      ? this.settings.patterns.wave.photoCount 
+      : this.settings.photoCount;
+    
+    // FIXED: Consistent base spacing that doesn't change with photo size
+    const baseSpacing = 8; // Fixed base spacing in world units
+    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.15);
+    const finalSpacing = baseSpacing * spacingMultiplier;
+    
+    const totalPhotos = Math.min(photoCount, 500);
+    
+    // Calculate grid dimensions
+    const columns = Math.ceil(Math.sqrt(totalPhotos));
+    const rows = Math.ceil(totalPhotos / columns);
+    
+    const speed = this.settings.animationSpeed / 50;
+    const wavePhase = time * speed * 2;
+    
+    for (let i = 0; i < totalPhotos; i++) {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      
+      // FIXED: Base positions with consistent spacing
+      let x = (col - columns / 2) * finalSpacing;
+      let z = (row - rows / 2) * finalSpacing;
+      
+      // Wave effect
+      const distanceFromCenter = Math.sqrt(x * x + z * z);
+      const amplitude = this.settings.patterns?.wave?.amplitude || 15;
+      const frequency = this.settings.patterns?.wave?.frequency || 0.3;
+      
+      let y = this.settings.wallHeight || -8;
+      
+      if (this.settings.animationEnabled) {
+        y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
+        y += Math.sin(wavePhase * 0.5) * (distanceFromCenter * 0.05);
+      }
+      
+      positions.push([x, y, z]);
+
+      if (this.settings.photoRotation) {
+        const angle = Math.atan2(x, z);
+        const rotationX = Math.sin(wavePhase * 0.5 + distanceFromCenter * 0.1) * 0.1;
+        const rotationY = angle;
+        const rotationZ = Math.cos(wavePhase * 0.5 + distanceFromCenter * 0.1) * 0.1;
+        rotations.push([rotationX, rotationY, rotationZ]);
+      } else {
+        rotations.push([0, 0, 0]);
+      }
+    }
+
+    return { positions, rotations };
+  }
+}
+
+// FIXED SPIRAL PATTERN - Consistent spacing and no collisions
+class FixedSpiralPattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.spiral?.photoCount !== undefined 
+      ? this.settings.patterns.spiral.photoCount 
+      : this.settings.photoCount;
+    
+    const totalPhotos = Math.min(photoCount, 500);
+    const speed = this.settings.animationSpeed / 50;
+    const animationTime = time * speed * 2;
+    
+    // FIXED: Consistent spiral parameters that work with any photo size
+    const baseRadius = 6; // Minimum radius
+    const maxRadius = Math.max(30, this.settings.patterns?.spiral?.radius || 30);
+    const maxHeight = 50; // Height of the spiral
+    const rotationSpeed = 0.6;
+    const orbitalChance = 0.15; // Reduced for better spacing
+    
+    // FIXED: Better vertical distribution
+    const verticalBias = 0.6;
+    const minVerticalSpacing = Math.max(3, this.settings.photoSize || 4); // Minimum space between layers
+    
+    for (let i = 0; i < totalPhotos; i++) {
+      // Consistent random values for each photo
+      const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
+      const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
+      const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
+      
+      const isOrbital = randomSeed1 < orbitalChance;
+      
+      // FIXED: Better height distribution with minimum spacing
+      let normalizedHeight = Math.pow(randomSeed2, verticalBias);
+      const layerIndex = Math.floor(normalizedHeight * 10); // Create distinct layers
+      const y = (this.settings.wallHeight || -8) + (layerIndex * minVerticalSpacing) + 
+                (randomSeed3 * minVerticalSpacing * 0.5); // Small random offset within layer
+      
+      // FIXED: Better radius calculation to prevent collisions
+      const heightFactor = Math.min(normalizedHeight * 2, 1); // Cap the height factor
+      const funnelRadius = baseRadius + (maxRadius - baseRadius) * heightFactor;
+      
+      let radius: number;
+      let angleOffset: number;
+      let verticalWobble: number = 0;
+      
+      if (isOrbital) {
+        // FIXED: Better orbital spacing
+        radius = funnelRadius * (1.3 + randomSeed3 * 0.5); // Less extreme variation
+        angleOffset = randomSeed3 * Math.PI * 2;
+        
+        if (this.settings.animationEnabled) {
+          verticalWobble = Math.sin(animationTime * 1.5 + i) * 2; // Reduced wobble
+        }
+      } else {
+        // FIXED: Main funnel with better spacing
+        const radiusVariation = 0.9 + randomSeed3 * 0.2; // Tighter variation
+        radius = funnelRadius * radiusVariation;
+        angleOffset = (i * 0.1) % (Math.PI * 2); // Distribute evenly
+      }
+      
+      // FIXED: Smoother angle calculation
+      const heightSpeedFactor = 0.4 + normalizedHeight * 0.6;
+      const angle = this.settings.animationEnabled ?
+        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.05)) :
+        (angleOffset + (i * 0.1));
+      
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const finalY = y + verticalWobble;
+      
+      positions.push([x, finalY, z]);
+      
+      if (this.settings.photoRotation) {
+        const rotY = angle + Math.PI / 2; // Face outward from spiral
+        const rotX = Math.sin(animationTime * 0.5 + i * 0.1) * 0.05;
+        const rotZ = Math.cos(animationTime * 0.5 + i * 0.1) * 0.05;
+        rotations.push([rotX, rotY, rotZ]);
+      } else {
+        rotations.push([0, 0, 0]);
+      }
+    }
+
+    return { positions, rotations };
+  }
+}
+
 const BackgroundRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   const { scene, gl } = useThree();
   
@@ -1315,6 +1463,7 @@ const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({
   );
 };
 
+// Update the Enhanced Animation Controller to use fixed patterns
 const EnhancedAnimationController: React.FC<{
   settings: ExtendedSceneSettings;
   photos: Photo[];
@@ -1330,40 +1479,38 @@ const EnhancedAnimationController: React.FC<{
       
       let patternState;
       try {
-        const pattern = PatternFactory.createPattern(
-          settings.animationPattern || 'grid',
-          {
-            ...settings,
-            photoCount: settings.photoCount || 100
-          },
-          safePhotos
-        );
-        patternState = pattern.generatePositions(time);
+        // FIXED: Use our fixed patterns for wave and spiral
+        if (settings.animationPattern === 'wave') {
+          const fixedWavePattern = new FixedWavePattern(settings);
+          patternState = fixedWavePattern.generatePositions(time);
+        } else if (settings.animationPattern === 'spiral') {
+          const fixedSpiralPattern = new FixedSpiralPattern(settings);
+          patternState = fixedSpiralPattern.generatePositions(time);
+        } else {
+          // Use original pattern factory for other patterns
+          const pattern = PatternFactory.createPattern(
+            settings.animationPattern || 'grid',
+            {
+              ...settings,
+              photoCount: settings.photoCount || 100
+            },
+            safePhotos
+          );
+          patternState = pattern.generatePositions(time);
+        }
         
         const expectedSlots = settings.photoCount || 100;
         
+        // Apply floor level adjustments for spiral and wave
         if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
           const floorLevel = -8;
           const photoSize = settings.photoSize || 4.0;
           
           patternState.positions = patternState.positions.map((pos, index) => {
             const [x, y, z] = pos;
-            let adjustedY = y;
             
-            if (settings.animationPattern === 'spiral') {
-              const heightScale = Math.max(0.3, Math.min(1.0, photoSize / 8.0));
-              const baseHeight = floorLevel + (photoSize * 0.5);
-              
-              adjustedY = baseHeight + (y * heightScale);
-              
-              if (photoSize > 6) {
-                adjustedY = baseHeight + (y * 0.4) + (index * photoSize * 0.1);
-              }
-              
-            } else if (settings.animationPattern === 'wave') {
-              const waveHeight = Math.max(2, photoSize * 0.3);
-              adjustedY = floorLevel + waveHeight + (y * 0.2);
-            }
+            // Ensure photos stay above floor level
+            let adjustedY = Math.max(y, floorLevel + photoSize);
             
             return [x, adjustedY, z];
           });
@@ -1371,6 +1518,7 @@ const EnhancedAnimationController: React.FC<{
         
       } catch (error) {
         console.error('Pattern generation error:', error);
+        // Fallback grid
         const positions = [];
         const rotations = [];
         const spacing = Math.max(6, (settings.photoSize || 4.0) * 1.5);
@@ -1430,7 +1578,7 @@ const EnhancedAnimationController: React.FC<{
       }
       
       if (availablePositions < totalSlots) {
-        console.log(`Pattern only supports ${availablePositions} positions, limiting display to match pattern`);
+        console.log(`🔧 Pattern supports ${availablePositions} positions for ${totalSlots} slots`);
       }
       
       photosWithPositions.sort((a, b) => a.slotIndex - b.slotIndex);
@@ -1517,6 +1665,12 @@ const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings
   );
 };
 
+// Helper function to get current particle theme
+const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
+  const themeName = settings.particles?.theme ?? 'Purple Magic';
+  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
+};
+
 // Main Enhanced CollageScene Component
 const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ 
   photos, 
@@ -1597,7 +1751,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* Background Management */}
         <BackgroundRenderer settings={safeSettings} />
         
-        {/* SIMPLE Camera Controls - Actually Working */}
+        {/* FIXED Camera Controls - Actually Working */}
         <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
         
         {/* Particle System */}
@@ -1639,7 +1793,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           />
         )}
         
-        {/* Enhanced Animation Controller */}
+        {/* FIXED Enhanced Animation Controller */}
         <EnhancedAnimationController
           settings={safeSettings}
           photos={safePhotos}
@@ -1655,12 +1809,6 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
     </div>
   );
 });
-
-// Helper function to get current particle theme
-const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
-  const themeName = settings.particles?.theme ?? 'Purple Magic';
-  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
-};
 
 EnhancedCollageScene.displayName = 'EnhancedCollageScene';
 export default EnhancedCollageScene;
