@@ -678,7 +678,7 @@ const CinematicCamera: React.FC<{
       canvas.removeEventListener('touchmove', handleInteractionStart);
       document.removeEventListener('keydown', handleInteractionStart);
     };
-  }, [config?.pauseTime]);
+  }, [config?.pauseTime, camera]);
 
   useFrame((state, delta) => {
     if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
@@ -1285,18 +1285,6 @@ const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settin
 
   return (
     <group>
-      <mesh position={[0, wallHeight / 2 - 50, -wallSize / 2]} receiveShadow>
-        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[-wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
-        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
-        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
       <mesh position={[0, wallHeight / 2 - 50, wallSize / 2]} receiveShadow>
         <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
         <primitive object={wallMaterial} attach="material" />
