@@ -134,7 +134,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotatePauseOnInteraction?: number;
 }
 
-// ENHANCED GRID PATTERN - True edge-to-edge solid wall with configurable spacing and aspect ratio
+// ENHANCED GRID PATTERN - True FLAT WALL on single plane with configurable spacing and aspect ratio
 class EnhancedGridPattern {
   constructor(private settings: any) {}
 
@@ -181,50 +181,59 @@ class EnhancedGridPattern {
     const totalWallWidth = (columns - 1) * horizontalSpacing;
     const totalWallHeight = (rows - 1) * verticalSpacing;
     
-    // Wall positioning
+    // CRITICAL FIX: Wall positioning - ALL PHOTOS ON SAME Z PLANE
     const floorHeight = -12;
     const gridBaseHeight = floorHeight + photoSize * 0.6 + wallHeight;
+    const wallZ = 0; // ALL photos on the SAME Z plane - this creates a flat wall
     
     // Center the wall
     const startX = -totalWallWidth / 2;
-    const startZ = -totalWallHeight / 2;
+    const startY = gridBaseHeight - totalWallHeight / 2; // Center vertically too
     
     // Animation settings
     const speed = this.settings.animationSpeed / 100;
     const animationTime = this.settings.animationEnabled ? time * speed : 0;
     
-    // Generate positions in grid layout
+    // Generate positions in grid layout - ALL ON SAME PLANE
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
       const row = Math.floor(i / columns);
       
+      // FIXED: Position all photos on the same Z plane
       const x = startX + col * horizontalSpacing;
-      const z = startZ + row * verticalSpacing;
+      const y = startY + row * verticalSpacing; // Y goes UP for rows, not Z going back
+      const z = wallZ; // ALL photos on the same Z plane = FLAT WALL
       
-      // Base Y position
-      let y = gridBaseHeight;
+      // Add subtle animation if enabled (but keep on same plane)
+      let animatedX = x;
+      let animatedY = y;
+      let animatedZ = z;
       
-      // Add subtle animation if enabled
       if (this.settings.animationEnabled && spacingPercentage > 0) {
         // Only animate spaced walls to avoid breaking solid wall alignment
-        const heightVariation = Math.sin(animationTime * 0.5 + i * 0.3) * (photoSize * 0.05);
-        y += heightVariation;
+        // Very subtle movement that doesn't break the wall plane
+        const waveIntensity = spacingPercentage * photoSize * 0.05; // Much smaller for subtle effect
+        
+        animatedX += Math.sin(animationTime * 0.3 + col * 0.2) * waveIntensity;
+        animatedY += Math.cos(animationTime * 0.3 + row * 0.2) * waveIntensity;
+        // Keep Z the same for flat wall effect
       }
       
-      positions.push([x, y, z]);
+      positions.push([animatedX, animatedY, animatedZ]);
       
-      // Rotation settings
+      // Rotation settings - minimal for wall effect
       if (this.settings.photoRotation && this.settings.animationEnabled && spacingPercentage > 0) {
         // Only animate spaced walls to maintain solid wall appearance
-        const rotationY = Math.sin(animationTime * 0.2 + i * 0.1) * 0.03;
-        const rotationX = Math.cos(animationTime * 0.3 + i * 0.2) * 0.01;
+        // Very subtle rotations to maintain wall-like appearance
+        const rotationY = Math.sin(animationTime * 0.1 + i * 0.05) * 0.02; // Minimal rotation
+        const rotationX = Math.cos(animationTime * 0.1 + i * 0.05) * 0.01; // Minimal tilt
         rotations.push([rotationX, rotationY, 0]);
       } else {
-        rotations.push([0, 0, 0]);
+        rotations.push([0, 0, 0]); // No rotation for solid wall
       }
     }
     
-    console.log(`🧱 Grid Wall: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)} - ${spacingPercentage === 0 ? 'SOLID WALL' : `${(spacingPercentage * 200).toFixed(0)}% gaps`}`);
+    console.log(`🧱 FLAT Grid Wall: ${columns}x${rows} (${totalPhotos} photos) - AspectRatio: ${aspectRatio.toFixed(2)} - ${spacingPercentage === 0 ? 'SOLID WALL' : `${(spacingPercentage * 200).toFixed(0)}% gaps`} - ALL ON Z=${wallZ}`);
     
     return { positions, rotations };
   }
@@ -2054,7 +2063,7 @@ const EnhancedAnimationController: React.FC<{
       
       let patternState;
       try {
-        // FIXED: Use enhanced grid pattern for perfect symmetrical layouts
+        // FIXED: Use enhanced patterns for better grid wall support
         if (settings.animationPattern === 'grid') {
           const enhancedGridPattern = new EnhancedGridPattern(settings);
           patternState = enhancedGridPattern.generatePositions(time);
@@ -2070,7 +2079,7 @@ const EnhancedAnimationController: React.FC<{
             settings.animationPattern || 'grid',
             {
               ...settings,
-              photoCount: Math.min(Math.max(settings.photoCount || 100, 1), 500) // FIXED: Clamp to 1-500
+              photoCount: Math.min(Math.max(settings.photoCount || 100, 1), 500)
             },
             safePhotos
           );
