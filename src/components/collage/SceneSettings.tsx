@@ -581,233 +581,252 @@ const EnhancedSceneSettings: React.FC<{
         </h4>
         
         <div className="space-y-4">
+          {/* First ensure basic camera is enabled */}
           <div className="flex items-center">
             <input
               type="checkbox"
-              checked={settings.cameraAnimation?.enabled || false}
+              checked={settings.cameraEnabled !== false}
               onChange={(e) => onSettingsChange({ 
-                cameraAnimation: { 
-                  ...settings.cameraAnimation, 
-                  enabled: e.target.checked 
-                }
+                cameraEnabled: e.target.checked 
               })}
               className="mr-2 bg-gray-800 border-gray-700"
             />
             <label className="text-sm text-blue-200">
-              Enable Smart Photo Showcase
+              Enable Camera Controls
             </label>
           </div>
 
-          {settings.cameraAnimation?.enabled && (
+          {settings.cameraEnabled !== false && (
             <>
-              <div>
-                <label className="block text-sm text-blue-300 mb-2">Camera Tour Type</label>
-                <select
-                  value={settings.cameraAnimation?.type || 'showcase'}
-                  onChange={(e) => onSettingsChange({ 
-                    cameraAnimation: { 
-                      ...settings.cameraAnimation, 
-                      type: e.target.value as any 
-                    }
-                  })}
-                  className="w-full bg-gray-800 border border-blue-700 rounded-md py-2 px-3 text-white"
-                >
-                  <option value="showcase">Smart Showcase (Recommended)</option>
-                  <option value="gallery_walk">Gallery Walk</option>
-                  <option value="grid_sweep">Grid Sweep</option>
-                  <option value="spiral_tour">Spiral Tour</option>
-                  <option value="wave_follow">Wave Follower</option>
-                  <option value="photo_focus">Photo Focus</option>
-                </select>
-                <p className="text-xs text-blue-400 mt-1">
-                  {getCinematicCameraTypeDescription(settings.cameraAnimation?.type || 'showcase')}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-blue-300 mb-1">
-                    <Zap className="h-3 w-3 inline mr-1" />
-                    Speed: {settings.cameraAnimation?.speed?.toFixed(1) || '1.0'}x
-                  </label>
-                  <input
-                    type="range"
-                    min="0.2"
-                    max="3.0"
-                    step="0.1"
-                    value={settings.cameraAnimation?.speed || 1.0}
-                    onChange={(e) => onSettingsChange({ 
-                      cameraAnimation: { 
-                        ...settings.cameraAnimation, 
-                        speed: parseFloat(e.target.value) 
-                      }
-                    })}
-                    className="w-full bg-gray-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-blue-300 mb-1">
-                    <Target className="h-3 w-3 inline mr-1" />
-                    Focus: {settings.cameraAnimation?.focusDistance?.toFixed(0) || '12'}
-                  </label>
-                  <input
-                    type="range"
-                    min="8"
-                    max="25"
-                    step="1"
-                    value={settings.cameraAnimation?.focusDistance || 12}
-                    onChange={(e) => onSettingsChange({ 
-                      cameraAnimation: { 
-                        ...settings.cameraAnimation, 
-                        focusDistance: parseFloat(e.target.value) 
-                      }
-                    })}
-                    className="w-full bg-gray-800"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-blue-300 mb-2">
-                  <Clock className="h-3 w-3 inline mr-1" />
-                  Pause Time: {settings.cameraAnimation?.pauseTime?.toFixed(1) || '1.5'}s
-                </label>
+              <div className="flex items-center">
                 <input
-                  type="range"
-                  min="0.5"
-                  max="5.0"
-                  step="0.5"
-                  value={settings.cameraAnimation?.pauseTime || 1.5}
+                  type="checkbox"
+                  checked={settings.cameraAnimation?.enabled || false}
                   onChange={(e) => onSettingsChange({ 
                     cameraAnimation: { 
                       ...settings.cameraAnimation, 
-                      pauseTime: parseFloat(e.target.value) 
+                      enabled: e.target.checked 
                     }
                   })}
-                  className="w-full bg-gray-800"
+                  className="mr-2 bg-gray-800 border-gray-700"
                 />
-                <p className="text-xs text-blue-400 mt-1">
-                  Time to pause and showcase each photo group
-                </p>
+                <label className="text-sm text-blue-200">
+                  Enable Smart Photo Showcase
+                </label>
               </div>
 
-              {/* NEW: Fine-Tuning Controls Section */}
-              <div className="bg-blue-800/30 border border-blue-600/30 rounded-lg p-4 space-y-4">
-                <div className="flex items-center text-sm font-medium text-blue-200 mb-2">
-                  <Settings className="h-4 w-4 mr-2" />
-                  🎛️ Fine-Tuning Controls
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
+              {settings.cameraAnimation?.enabled && (
+                <>
                   <div>
-                    <label className="block text-sm text-blue-300 mb-1">
-                      <ArrowUp className="h-3 w-3 inline mr-1" />
-                      Base Height: {settings.cameraAnimation?.baseHeight?.toFixed(0) || 'Auto'}
-                    </label>
-                    <input
-                      type="range"
-                      min="5"
-                      max="80"
-                      step="2"
-                      value={settings.cameraAnimation?.baseHeight || 25}
+                    <label className="block text-sm text-blue-300 mb-2">Camera Tour Type</label>
+                    <select
+                      value={settings.cameraAnimation?.type || 'showcase'}
                       onChange={(e) => onSettingsChange({ 
                         cameraAnimation: { 
                           ...settings.cameraAnimation, 
-                          baseHeight: parseFloat(e.target.value) 
+                          type: e.target.value as any 
+                        }
+                      })}
+                      className="w-full bg-gray-800 border border-blue-700 rounded-md py-2 px-3 text-white"
+                    >
+                      <option value="showcase">Smart Showcase (Recommended)</option>
+                      <option value="gallery_walk">Gallery Walk</option>
+                      <option value="grid_sweep">Grid Sweep</option>
+                      <option value="spiral_tour">Spiral Tour</option>
+                      <option value="wave_follow">Wave Follower</option>
+                      <option value="photo_focus">Photo Focus</option>
+                    </select>
+                    <p className="text-xs text-blue-400 mt-1">
+                      {getCinematicCameraTypeDescription(settings.cameraAnimation?.type || 'showcase')}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm text-blue-300 mb-1">
+                        <Zap className="h-3 w-3 inline mr-1" />
+                        Speed: {settings.cameraAnimation?.speed?.toFixed(1) || '1.0'}x
+                      </label>
+                      <input
+                        type="range"
+                        min="0.2"
+                        max="3.0"
+                        step="0.1"
+                        value={settings.cameraAnimation?.speed || 1.0}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAnimation: { 
+                            ...settings.cameraAnimation, 
+                            speed: parseFloat(e.target.value) 
+                          }
+                        })}
+                        className="w-full bg-gray-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-blue-300 mb-1">
+                        <Target className="h-3 w-3 inline mr-1" />
+                        Focus: {settings.cameraAnimation?.focusDistance?.toFixed(0) || '12'}
+                      </label>
+                      <input
+                        type="range"
+                        min="8"
+                        max="25"
+                        step="1"
+                        value={settings.cameraAnimation?.focusDistance || 12}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAnimation: { 
+                            ...settings.cameraAnimation, 
+                            focusDistance: parseFloat(e.target.value) 
+                          }
+                        })}
+                        className="w-full bg-gray-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-blue-300 mb-2">
+                      <Clock className="h-3 w-3 inline mr-1" />
+                      Pause Time: {settings.cameraAnimation?.pauseTime?.toFixed(1) || '1.5'}s
+                    </label>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="5.0"
+                      step="0.5"
+                      value={settings.cameraAnimation?.pauseTime || 1.5}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { 
+                          ...settings.cameraAnimation, 
+                          pauseTime: parseFloat(e.target.value) 
                         }
                       })}
                       className="w-full bg-gray-800"
                     />
-                    <p className="text-xs text-blue-400/80 mt-1">Base camera height for all movements</p>
+                    <p className="text-xs text-blue-400 mt-1">
+                      Time to pause and showcase each photo group
+                    </p>
                   </div>
 
-                  <div>
-                    <label className="block text-sm text-blue-300 mb-1">
-                      <ArrowRight className="h-3 w-3 inline mr-1" />
-                      Base Distance: {settings.cameraAnimation?.baseDistance?.toFixed(0) || 'Auto'}
-                    </label>
-                    <input
-                      type="range"
-                      min="15"
-                      max="100"
-                      step="2"
-                      value={settings.cameraAnimation?.baseDistance || 35}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { 
-                          ...settings.cameraAnimation, 
-                          baseDistance: parseFloat(e.target.value) 
-                        }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                    <p className="text-xs text-blue-400/80 mt-1">Base distance from photo center</p>
+                  {/* NEW: Fine-Tuning Controls Section */}
+                  <div className="bg-blue-800/30 border border-blue-600/30 rounded-lg p-4 space-y-4">
+                    <div className="flex items-center text-sm font-medium text-blue-200 mb-2">
+                      <Settings className="h-4 w-4 mr-2" />
+                      🎛️ Fine-Tuning Controls
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm text-blue-300 mb-1">
+                          <ArrowUp className="h-3 w-3 inline mr-1" />
+                          Base Height: {settings.cameraAnimation?.baseHeight?.toFixed(0) || 'Auto'}
+                        </label>
+                        <input
+                          type="range"
+                          min="5"
+                          max="80"
+                          step="2"
+                          value={settings.cameraAnimation?.baseHeight || 25}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              baseHeight: parseFloat(e.target.value) 
+                            }
+                          })}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-blue-400/80 mt-1">Base camera height for all movements</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-blue-300 mb-1">
+                          <ArrowRight className="h-3 w-3 inline mr-1" />
+                          Base Distance: {settings.cameraAnimation?.baseDistance?.toFixed(0) || 'Auto'}
+                        </label>
+                        <input
+                          type="range"
+                          min="15"
+                          max="100"
+                          step="2"
+                          value={settings.cameraAnimation?.baseDistance || 35}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              baseDistance: parseFloat(e.target.value) 
+                            }
+                          })}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-blue-400/80 mt-1">Base distance from photo center</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm text-blue-300 mb-1">
+                          <TrendingUp className="h-3 w-3 inline mr-1" />
+                          Height Variation: {settings.cameraAnimation?.heightVariation?.toFixed(0) || 'Auto'}
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          step="1"
+                          value={settings.cameraAnimation?.heightVariation || 8}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              heightVariation: parseFloat(e.target.value) 
+                            }
+                          })}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-blue-400/80 mt-1">How much height varies during animation</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-blue-300 mb-1">
+                          <Maximize className="h-3 w-3 inline mr-1" />
+                          Distance Variation: {settings.cameraAnimation?.distanceVariation?.toFixed(0) || 'Auto'}
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="25"
+                          step="1"
+                          value={settings.cameraAnimation?.distanceVariation || 10}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              distanceVariation: parseFloat(e.target.value) 
+                            }
+                          })}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-blue-400/80 mt-1">How much distance varies during animation</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-700/20 p-3 rounded border border-blue-500/20">
+                      <p className="text-xs text-blue-300 font-medium mb-1">💡 Pattern-Aware Defaults</p>
+                      <p className="text-xs text-blue-400/90">
+                        Leave controls at "Auto" for smart defaults that adapt to your animation pattern. 
+                        <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances, 
+                        <strong>Float</strong> gets moderate settings for optimal viewing.
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm text-blue-300 mb-1">
-                      <TrendingUp className="h-3 w-3 inline mr-1" />
-                      Height Variation: {settings.cameraAnimation?.heightVariation?.toFixed(0) || 'Auto'}
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="20"
-                      step="1"
-                      value={settings.cameraAnimation?.heightVariation || 8}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { 
-                          ...settings.cameraAnimation, 
-                          heightVariation: parseFloat(e.target.value) 
-                        }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                    <p className="text-xs text-blue-400/80 mt-1">How much height varies during animation</p>
+                  <div className="bg-blue-800/30 p-3 rounded border border-blue-600/30">
+                    <p className="text-xs text-blue-300 flex items-center">
+                      <Play className="h-3 w-3 mr-1" />
+                      <strong>How it works:</strong> Camera automatically tours your photos with smooth transitions between patterns. 
+                      Take manual control anytime - the tour resumes gracefully after user interaction.
+                    </p>
                   </div>
-
-                  <div>
-                    <label className="block text-sm text-blue-300 mb-1">
-                      <Maximize className="h-3 w-3 inline mr-1" />
-                      Distance Variation: {settings.cameraAnimation?.distanceVariation?.toFixed(0) || 'Auto'}
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="25"
-                      step="1"
-                      value={settings.cameraAnimation?.distanceVariation || 10}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { 
-                          ...settings.cameraAnimation, 
-                          distanceVariation: parseFloat(e.target.value) 
-                        }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                    <p className="text-xs text-blue-400/80 mt-1">How much distance varies during animation</p>
-                  </div>
-                </div>
-
-                <div className="bg-blue-700/20 p-3 rounded border border-blue-500/20">
-                  <p className="text-xs text-blue-300 font-medium mb-1">💡 Pattern-Aware Defaults</p>
-                  <p className="text-xs text-blue-400/90">
-                    Leave controls at "Auto" for smart defaults that adapt to your animation pattern. 
-                    <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances, 
-                    <strong>Float</strong> gets moderate settings for optimal viewing.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-blue-800/30 p-3 rounded border border-blue-600/30">
-                <p className="text-xs text-blue-300 flex items-center">
-                  <Play className="h-3 w-3 mr-1" />
-                  <strong>How it works:</strong> Camera automatically tours your photos with smooth transitions between patterns. 
-                  Take manual control anytime - the tour resumes gracefully after user interaction.
-                </p>
-              </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -817,25 +836,11 @@ const EnhancedSceneSettings: React.FC<{
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <CameraIcon className="h-4 w-4 mr-2" />
-          Camera Controls
+          Manual Camera Controls
         </h4>
         
         <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.cameraEnabled}
-              onChange={(e) => onSettingsChange({ 
-                cameraEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Enable Camera Movement
-            </label>
-          </div>
-
-          {settings.cameraEnabled && !settings.cameraAnimation?.enabled && (
+          {settings.cameraEnabled !== false && !settings.cameraAnimation?.enabled && (
             <div className="space-y-4">
               {/* Camera Movement Type Selector */}
               <div>
@@ -1046,6 +1051,22 @@ const EnhancedSceneSettings: React.FC<{
                   />
                 </div>
               </div>
+            </div>
+          )}
+          
+          {settings.cameraEnabled === false && (
+            <div className="bg-gray-800/20 p-3 rounded border border-gray-600/30">
+              <p className="text-xs text-gray-400">
+                📵 Camera controls are disabled. Enable camera controls in the Cinematic Camera section above to access manual movement options.
+              </p>
+            </div>
+          )}
+          
+          {settings.cameraAnimation?.enabled && (
+            <div className="bg-blue-800/20 p-3 rounded border border-blue-600/30">
+              <p className="text-xs text-blue-300">
+                🎬 <strong>Cinematic Mode Active:</strong> Manual camera controls are managed by the cinematic camera system above. Disable cinematic mode to access manual controls.
+              </p>
             </div>
           )}
         </div>
