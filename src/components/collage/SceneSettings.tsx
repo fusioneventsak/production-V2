@@ -481,8 +481,8 @@ const EnhancedSceneSettings: React.FC<{
                     <input
                       type="range"
                       min="0"
-                      max="50"
-                      step="1"
+                      max="150"
+                      step="2"
                       value={settings.cameraAutoRotateHeight || settings.cameraHeight || 5}
                       onChange={(e) => onSettingsChange({ 
                         cameraAutoRotateHeight: parseFloat(e.target.value),
@@ -504,7 +504,7 @@ const EnhancedSceneSettings: React.FC<{
                         </label>
                         <input
                           type="range"
-                          min={Math.PI/8}
+                          min={Math.PI/12}
                           max={Math.PI/2}
                           step={Math.PI/180}
                           value={settings.cameraAutoRotateElevationMin || Math.PI/6}
@@ -522,8 +522,8 @@ const EnhancedSceneSettings: React.FC<{
                         </label>
                         <input
                           type="range"
-                          min={Math.PI/4}
-                          max={Math.PI/2}
+                          min={Math.PI/6}
+                          max={Math.PI/1.5}
                           step={Math.PI/180}
                           value={settings.cameraAutoRotateElevationMax || Math.PI/3}
                           onChange={(e) => onSettingsChange({ 
@@ -715,8 +715,8 @@ const EnhancedSceneSettings: React.FC<{
                     <input
                       type="range"
                       min="0"
-                      max="50"
-                      step="1"
+                      max="200"
+                      step="2"
                       value={settings.cameraAnimation?.height || 10}
                       onChange={(e) => onSettingsChange({ 
                         cameraAnimation: { ...settings.cameraAnimation, height: parseFloat(e.target.value) }
@@ -813,8 +813,8 @@ const EnhancedSceneSettings: React.FC<{
                   <input
                     type="range"
                     min="0"
-                    max="50"
-                    step="1"
+                    max="150"
+                    step="2"
                     value={settings.cameraHeight}
                     onChange={(e) => onSettingsChange({ 
                       cameraHeight: parseFloat(e.target.value) 
