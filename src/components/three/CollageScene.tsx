@@ -167,7 +167,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// PERFECT LOOPING CINEMATIC TOURS - Continuous shots with no jump cuts
+// PERFECT LOOPING CINEMATIC TOURS - Respects camera settings + User Interaction
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -180,12 +180,67 @@ const CinematicCamera: React.FC<{
     randomization: number;
   };
   photoPositions: PhotoPosition[];
-}> = ({ config, photoPositions }) => {
+  settings: ExtendedSceneSettings;
+}> = ({ config, photoPositions, settings }) => {
   const { camera } = useThree();
   const timeRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const lastInteractionRef = useRef(0);
+
+  // User interaction detection (without OrbitControls interference)
+  useEffect(() => {
+    const handleMouseDown = () => {
+      userInteractingRef.current = true;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleMouseUp = () => {
+      userInteractingRef.current = false;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleTouchStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleTouchEnd = () => {
+      userInteractingRef.current = false;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleWheel = () => {
+      lastInteractionRef.current = Date.now();
+    };
+
+    // Add event listeners to detect user interaction
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('wheel', handleWheel);
+
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   useFrame((state, delta) => {
     if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
+      return;
+    }
+
+    // Check for user interaction pause
+    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
+    const pauseDuration = (config.pauseTime || 2) * 1000; // Convert to milliseconds
+
+    if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
+      // Pause cinematic camera during user interaction
+      console.log(`🎬 Cinematic PAUSED - User interacting (${timeSinceInteraction}ms ago)`);
       return;
     }
 
@@ -195,6 +250,16 @@ const CinematicCamera: React.FC<{
     const speed = (config.speed || 1.0) * 0.2;
     timeRef.current += delta * speed;
 
+    // Use scene settings for camera control
+    const photoSize = settings.photoSize || 4;
+    const baseHeight = settings.cameraHeight || 5;
+    const baseDistance = settings.cameraDistance || 25;
+    const floorHeight = -12;
+    
+    // Adjust heights relative to photo size and floor
+    const minHeight = floorHeight + photoSize + 2; // Stay above photos
+    const workingHeight = Math.max(baseHeight, minHeight);
+    
     // Get photo bounds for centered tours
     const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
     const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
@@ -202,29 +267,32 @@ const CinematicCamera: React.FC<{
       Math.sqrt((p.position[0] - centerX) ** 2 + (p.position[2] - centerZ) ** 2)
     ));
 
+    // Scale distances based on photo size and user settings
+    const scaleDistance = Math.max(baseDistance * 0.5, maxDistance + photoSize * 2);
+
     let x, y, z, lookX, lookY, lookZ;
 
     switch (config.type) {
       case 'showcase':
         // PERFECT LOOP: Large figure-8 around all photos
         const fig8Time = timeRef.current * 0.5;
-        const fig8Radius = maxDistance + 15;
+        const fig8Radius = scaleDistance;
         
         x = centerX + Math.sin(fig8Time) * fig8Radius;
-        y = -2 + Math.sin(fig8Time * 2) * 3;
+        y = workingHeight + Math.sin(fig8Time * 2) * (photoSize * 0.5);
         z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.7;
         
         // Always look toward photo center
         lookX = centerX;
-        lookY = -4;
+        lookY = floorHeight + photoSize;
         lookZ = centerZ;
         break;
 
       case 'gallery_walk':
         // PERFECT LOOP: Walks in a large rectangle around all photos
         const walkTime = (timeRef.current * 0.3) % 4; // 4-sided rectangle
-        const walkMargin = maxDistance + 10;
-        const walkHeight = -6;
+        const walkMargin = scaleDistance * 0.8;
+        const walkHeight = Math.max(workingHeight - photoSize, minHeight);
         
         if (walkTime < 1) {
           // Bottom edge (left to right)
@@ -248,15 +316,17 @@ const CinematicCamera: React.FC<{
         
         // Always look toward center where photos are
         lookX = centerX;
-        lookY = -4;
+        lookY = floorHeight + photoSize;
         lookZ = centerZ;
         break;
 
       case 'spiral_tour':
         // PERFECT LOOP: Smooth expanding/contracting spiral
         const spiralTime = timeRef.current * 0.8;
-        const spiralRadius = (maxDistance * 0.5) + (maxDistance * 0.8) * (Math.sin(spiralTime * 0.2) + 1) / 2;
-        const spiralHeight = -2 + Math.sin(spiralTime * 0.15) * 6;
+        const spiralRadiusMin = scaleDistance * 0.3;
+        const spiralRadiusMax = scaleDistance * 1.2;
+        const spiralRadius = spiralRadiusMin + (spiralRadiusMax - spiralRadiusMin) * (Math.sin(spiralTime * 0.2) + 1) / 2;
+        const spiralHeight = workingHeight + Math.sin(spiralTime * 0.15) * (photoSize * 1.5);
         
         x = centerX + Math.cos(spiralTime) * spiralRadius;
         y = spiralHeight;
@@ -264,31 +334,31 @@ const CinematicCamera: React.FC<{
         
         // Look toward center with slight vertical movement
         lookX = centerX;
-        lookY = spiralHeight - 3;
+        lookY = spiralHeight - photoSize;
         lookZ = centerZ;
         break;
 
       case 'wave_follow':
         // PERFECT LOOP: Sine wave motion in perfect loop
         const waveTime = timeRef.current * 0.4;
-        const waveAmplitude = maxDistance * 1.2;
+        const waveAmplitude = scaleDistance;
         
         x = centerX + Math.sin(waveTime) * waveAmplitude;
-        y = -2 + Math.sin(waveTime * 2.3) * 4; // Different frequency for complexity
-        z = centerZ + Math.cos(waveTime * 0.7) * waveAmplitude * 0.8; // Elliptical motion
+        y = workingHeight + Math.sin(waveTime * 2.3) * (photoSize * 0.8);
+        z = centerZ + Math.cos(waveTime * 0.7) * waveAmplitude * 0.8;
         
         // Look ahead along the wave path
         const lookAheadTime = waveTime + 0.3;
         lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.5;
-        lookY = -4;
+        lookY = floorHeight + photoSize;
         lookZ = centerZ + Math.cos(lookAheadTime * 0.7) * waveAmplitude * 0.4;
         break;
 
       case 'grid_sweep':
         // PERFECT LOOP: Smooth lawnmower pattern
-        const sweepTime = (timeRef.current * 0.25) % 8; // 8-segment loop
-        const sweepWidth = maxDistance * 1.5;
-        const sweepHeight = 5;
+        const sweepTime = (timeRef.current * 0.25) % 8;
+        const sweepWidth = scaleDistance;
+        const sweepBaseHeight = workingHeight + photoSize;
         const rows = 4;
         
         const currentRow = Math.floor(sweepTime / 2);
@@ -296,41 +366,41 @@ const CinematicCamera: React.FC<{
         const isEvenRow = currentRow % 2 === 0;
         
         x = centerX + (isEvenRow ? -sweepWidth + rowProgress * sweepWidth * 2 : sweepWidth - rowProgress * sweepWidth * 2);
-        y = sweepHeight - (currentRow * 2);
+        y = sweepBaseHeight - (currentRow * photoSize * 0.5);
         z = centerZ - sweepWidth + (currentRow / (rows - 1)) * sweepWidth * 2;
         
         // Look down and slightly ahead
-        lookX = x + (isEvenRow ? 5 : -5);
-        lookY = -2;
+        lookX = x + (isEvenRow ? photoSize : -photoSize);
+        lookY = floorHeight + photoSize * 0.5;
         lookZ = z;
         break;
 
       case 'photo_focus':
         // PERFECT LOOP: Smooth infinity symbol around photo cluster
         const focusTime = timeRef.current * 0.6;
-        const focusRadius = Math.min(maxDistance + 8, 20);
+        const focusRadius = Math.max(scaleDistance * 0.4, photoSize * 3);
         
         // Infinity symbol (lemniscate) formula
         const infinityScale = focusRadius;
         const denominator = 1 + Math.sin(focusTime) ** 2;
         
         x = centerX + (infinityScale * Math.cos(focusTime)) / denominator;
-        y = -1 + Math.sin(focusTime * 2) * 2;
+        y = workingHeight + Math.sin(focusTime * 2) * (photoSize * 0.3);
         z = centerZ + (infinityScale * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
         
         // Always look toward photo center
         lookX = centerX;
-        lookY = -4;
+        lookY = floorHeight + photoSize;
         lookZ = centerZ;
         break;
 
       default:
         // Simple circular fallback
-        x = centerX + Math.cos(timeRef.current) * 20;
-        y = 0;
-        z = centerZ + Math.sin(timeRef.current) * 20;
+        x = centerX + Math.cos(timeRef.current) * scaleDistance;
+        y = workingHeight;
+        z = centerZ + Math.sin(timeRef.current) * scaleDistance;
         lookX = centerX;
-        lookY = 0;
+        lookY = floorHeight + photoSize;
         lookZ = centerZ;
     }
 
@@ -343,14 +413,14 @@ const CinematicCamera: React.FC<{
 
     // Debug occasionally
     if (Math.floor(timeRef.current * 5) % 50 === 0) {
-      console.log(`🎬 ${config.type}: Perfect loop at t=${timeRef.current.toFixed(2)}`);
+      console.log(`🎬 ${config.type}: PhotoSize=${photoSize}, Height=${workingHeight.toFixed(1)}, Distance=${scaleDistance.toFixed(1)}`);
     }
   });
 
   return null;
 };
 
-// SIMPLE CAMERA CONTROLS - Clean and working
+// SIMPLE CAMERA CONTROLS - With cinematic interaction support
 const CameraControls: React.FC<{ 
   settings: ExtendedSceneSettings; 
   photosWithPositions: PhotoWithPosition[];
@@ -388,31 +458,30 @@ const CameraControls: React.FC<{
 
   return (
     <>
-      {/* ONLY render OrbitControls when cinematic is completely OFF */}
+      {/* OrbitControls - ALWAYS available for user interaction */}
+      <OrbitControls
+        ref={controlsRef}
+        enabled={settings.cameraEnabled !== false}
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        minDistance={Math.max(10, (settings.photoSize || 4) * 2)}
+        maxDistance={200}
+        enableDamping={true}
+        dampingFactor={0.05}
+      />
+      
+      {/* Auto-Rotate only when cinematic is OFF */}
       {!isCinematicActive && (
-        <>
-          <OrbitControls
-            ref={controlsRef}
-            enabled={settings.cameraEnabled !== false}
-            enablePan={true}
-            enableZoom={true}
-            enableRotate={true}
-            minDistance={10}
-            maxDistance={200}
-            enableDamping={true}
-            dampingFactor={0.05}
-          />
-          
-          {/* Auto-Rotate only when manual controls are available */}
-          <AutoRotateCamera settings={settings} />
-        </>
+        <AutoRotateCamera settings={settings} />
       )}
       
-      {/* Cinematic Camera - NO other components in scene */}
+      {/* Cinematic Camera works alongside OrbitControls */}
       {isCinematicActive && (
         <CinematicCamera 
           config={settings.cameraAnimation}
           photoPositions={photoPositions}
+          settings={settings}
         />
       )}
     </>
