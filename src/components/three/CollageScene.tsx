@@ -126,7 +126,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// SIMPLE CINEMATIC CAMERA - Actually visits photos
+// SMOOTH SPLINE-BASED CINEMATIC CAMERA - NO JUMP CUTS
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -142,127 +142,171 @@ const CinematicCamera: React.FC<{
 }> = ({ config, photoPositions }) => {
   const { camera } = useThree();
   const progressRef = useRef(0);
-  const waypointsRef = useRef<THREE.Vector3[]>([]);
+  const splineCurveRef = useRef<THREE.CatmullRomCurve3 | null>(null);
+  const lookAtCurveRef = useRef<THREE.CatmullRomCurve3 | null>(null);
 
-  // Generate waypoints based on photos
+  // Generate smooth spline curves based on photos
   useEffect(() => {
     if (!config?.enabled || !photoPositions.length || config.type === 'none') {
-      waypointsRef.current = [];
+      splineCurveRef.current = null;
+      lookAtCurveRef.current = null;
       return;
     }
 
     const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
     if (!validPhotos.length) return;
 
-    console.log(`🎬 Generating waypoints for ${validPhotos.length} photos`);
+    console.log(`🎬 Generating SMOOTH spline path for ${validPhotos.length} photos`);
 
-    const waypoints: THREE.Vector3[] = [];
+    const cameraPoints: THREE.Vector3[] = [];
+    const lookAtPoints: THREE.Vector3[] = [];
     const photoHeight = -4; // Just above floor
     const distance = 15; // Distance from photos
 
     switch (config.type) {
       case 'showcase':
       case 'gallery_walk':
-        // Visit each photo in order
-        validPhotos.forEach(photo => {
-          waypoints.push(new THREE.Vector3(
-            photo.position[0],
-            photoHeight,
-            photo.position[2] + distance
+        // Create smooth path visiting each photo
+        validPhotos.forEach((photo, index) => {
+          // Camera position - smooth curve around photos
+          const angle = (index / validPhotos.length) * Math.PI * 2;
+          const offsetX = Math.cos(angle) * distance * 0.3;
+          const offsetZ = Math.sin(angle) * distance * 0.3;
+          
+          cameraPoints.push(new THREE.Vector3(
+            photo.position[0] + offsetX,
+            photoHeight + Math.sin(index * 0.2) * 2,
+            photo.position[2] + distance + offsetZ
           ));
+          
+          // Look at the actual photo
+          lookAtPoints.push(new THREE.Vector3(...photo.position));
         });
         break;
 
       case 'spiral_tour':
-        // Create spiral around all photos
-        const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
-        const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+        // Create smooth spiral around all photos
+        const bounds = this.getPhotoBounds(validPhotos);
+        const centerX = (bounds.minX + bounds.maxX) / 2;
+        const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+        const maxRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + 20;
         
-        for (let i = 0; i < 60; i++) {
-          const angle = (i / 60) * Math.PI * 4; // 2 full rotations
-          const radius = 20 + Math.sin(i * 0.1) * 5;
-          waypoints.push(new THREE.Vector3(
+        // Generate many points for ultra-smooth spiral
+        for (let i = 0; i < 120; i++) {
+          const t = i / 120;
+          const angle = t * Math.PI * 6; // 3 full rotations
+          const radius = maxRadius * (0.3 + t * 0.7);
+          const height = photoHeight + Math.sin(t * Math.PI * 2) * 4;
+          
+          cameraPoints.push(new THREE.Vector3(
             centerX + Math.cos(angle) * radius,
-            photoHeight + Math.sin(i * 0.05) * 3,
+            height,
             centerZ + Math.sin(angle) * radius
           ));
+          
+          // Look towards center, slightly above
+          lookAtPoints.push(new THREE.Vector3(centerX, photoHeight + 2, centerZ));
         }
         break;
 
+      case 'wave_follow':
+        // Smooth wave through photos
+        const sortedPhotos = [...validPhotos].sort((a, b) => a.position[0] - b.position[0]);
+        
+        sortedPhotos.forEach((photo, index) => {
+          const waveOffset = Math.sin(index * 0.3) * 8;
+          const heightWave = Math.sin(index * 0.2) * 3;
+          
+          cameraPoints.push(new THREE.Vector3(
+            photo.position[0],
+            photoHeight + heightWave,
+            photo.position[2] + distance + waveOffset
+          ));
+          
+          lookAtPoints.push(new THREE.Vector3(...photo.position));
+        });
+        break;
+
       case 'photo_focus':
-        // Close-up of each photo
+        // Close orbits around each photo
         validPhotos.forEach(photo => {
-          const angles = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
-          angles.forEach(angle => {
-            waypoints.push(new THREE.Vector3(
-              photo.position[0] + Math.cos(angle) * 8,
-              photo.position[1] + 2,
-              photo.position[2] + Math.sin(angle) * 8
+          // Create 4 points around each photo for smooth orbit
+          for (let i = 0; i < 4; i++) {
+            const angle = (i / 4) * Math.PI * 2;
+            const orbitRadius = 8;
+            
+            cameraPoints.push(new THREE.Vector3(
+              photo.position[0] + Math.cos(angle) * orbitRadius,
+              photo.position[1] + 3,
+              photo.position[2] + Math.sin(angle) * orbitRadius
             ));
-          });
+            
+            lookAtPoints.push(new THREE.Vector3(...photo.position));
+          }
         });
         break;
 
       default:
-        // Default tour around all photos
-        validPhotos.forEach(photo => {
-          waypoints.push(new THREE.Vector3(
-            photo.position[0] + 5,
+        // Default smooth tour
+        validPhotos.forEach((photo, index) => {
+          cameraPoints.push(new THREE.Vector3(
+            photo.position[0] + Math.cos(index) * distance,
             photoHeight,
-            photo.position[2] + 5
+            photo.position[2] + Math.sin(index) * distance
           ));
+          lookAtPoints.push(new THREE.Vector3(...photo.position));
         });
     }
 
-    waypointsRef.current = waypoints;
-    progressRef.current = 0;
-    
-    console.log(`🎬 Created ${waypoints.length} waypoints for ${config.type}`);
+    if (cameraPoints.length >= 2) {
+      // Create smooth closed spline curves
+      splineCurveRef.current = new THREE.CatmullRomCurve3(cameraPoints, true);
+      splineCurveRef.current.tension = 0.1; // Very smooth
+      
+      lookAtCurveRef.current = new THREE.CatmullRomCurve3(lookAtPoints, true);
+      lookAtCurveRef.current.tension = 0.1; // Very smooth
+      
+      progressRef.current = 0;
+      
+      console.log(`🎬 Created SMOOTH spline with ${cameraPoints.length} points for ${config.type}`);
+    }
   }, [config?.enabled, config?.type, photoPositions]);
 
+  // Helper method for bounds calculation
+  const getPhotoBounds = (photos: PhotoPosition[]) => {
+    const positions = photos.map(p => p.position);
+    return {
+      minX: Math.min(...positions.map(p => p[0])),
+      maxX: Math.max(...positions.map(p => p[0])),
+      minZ: Math.min(...positions.map(p => p[2])),
+      maxZ: Math.max(...positions.map(p => p[2]))
+    };
+  };
+
   useFrame((state, delta) => {
-    if (!config?.enabled || config.type === 'none' || !waypointsRef.current.length) {
+    if (!config?.enabled || config.type === 'none' || !splineCurveRef.current || !lookAtCurveRef.current) {
       return;
     }
 
-    // Move along waypoints
-    const speed = (config.speed || 1.0) * 0.01;
+    // Ultra-smooth continuous movement along spline
+    const speed = (config.speed || 1.0) * 0.005; // Very slow for cinematic smoothness
     progressRef.current += delta * speed;
-    
-    const totalWaypoints = waypointsRef.current.length;
-    const currentIndex = Math.floor(progressRef.current * totalWaypoints) % totalWaypoints;
-    const nextIndex = (currentIndex + 1) % totalWaypoints;
-    const t = (progressRef.current * totalWaypoints) % 1;
+    progressRef.current = progressRef.current % 1; // Loop smoothly
 
-    // Interpolate between waypoints
-    const currentWaypoint = waypointsRef.current[currentIndex];
-    const nextWaypoint = waypointsRef.current[nextIndex];
-    
-    if (currentWaypoint && nextWaypoint) {
-      const position = currentWaypoint.clone().lerp(nextWaypoint, t);
-      camera.position.copy(position);
+    // Get position from smooth spline curve - NO LERPING!
+    const cameraPosition = splineCurveRef.current.getPointAt(progressRef.current);
+    const lookAtTarget = lookAtCurveRef.current.getPointAt(progressRef.current);
 
-      // Look at closest photo
-      let closestPhoto = null;
-      let closestDistance = Infinity;
-      
-      photoPositions.forEach(photo => {
-        if (!photo.id.startsWith('placeholder-')) {
-          const photoPos = new THREE.Vector3(...photo.position);
-          const distance = position.distanceTo(photoPos);
-          if (distance < closestDistance) {
-            closestDistance = distance;
-            closestPhoto = photo;
-          }
-        }
-      });
+    // Direct camera updates - NO interpolation to avoid jitter
+    camera.position.copy(cameraPosition);
+    camera.lookAt(lookAtTarget);
 
-      if (closestPhoto) {
-        camera.lookAt(...closestPhoto.position);
-      }
+    // Optional: Slight look-ahead for more natural camera movement
+    if (config.type === 'showcase' || config.type === 'gallery_walk') {
+      const lookAheadProgress = (progressRef.current + 0.02) % 1;
+      const lookAheadTarget = lookAtCurveRef.current.getPointAt(lookAheadProgress);
+      camera.lookAt(lookAheadTarget);
     }
-
-    console.log('🎬 Cinematic active:', { progress: progressRef.current, waypoint: currentIndex });
   });
 
   return null;
