@@ -187,45 +187,60 @@ const CinematicCamera: React.FC<{
   const userInteractingRef = useRef(false);
   const lastInteractionRef = useRef(0);
 
-  // User interaction detection (without OrbitControls interference)
+  // User interaction detection (only on canvas, not UI)
   useEffect(() => {
-    const handleMouseDown = () => {
-      userInteractingRef.current = true;
-      lastInteractionRef.current = Date.now();
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      // Only if click is on the canvas
+      if (e.target === canvas) {
+        userInteractingRef.current = true;
+        lastInteractionRef.current = Date.now();
+      }
     };
 
-    const handleMouseUp = () => {
-      userInteractingRef.current = false;
-      lastInteractionRef.current = Date.now();
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.target === canvas) {
+        userInteractingRef.current = false;
+        lastInteractionRef.current = Date.now();
+      }
     };
 
-    const handleTouchStart = () => {
-      userInteractingRef.current = true;
-      lastInteractionRef.current = Date.now();
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.target === canvas) {
+        userInteractingRef.current = true;
+        lastInteractionRef.current = Date.now();
+      }
     };
 
-    const handleTouchEnd = () => {
-      userInteractingRef.current = false;
-      lastInteractionRef.current = Date.now();
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.target === canvas) {
+        userInteractingRef.current = false;
+        lastInteractionRef.current = Date.now();
+      }
     };
 
-    const handleWheel = () => {
-      lastInteractionRef.current = Date.now();
+    const handleWheel = (e: WheelEvent) => {
+      // Only if wheel is over the canvas
+      if (e.target === canvas) {
+        lastInteractionRef.current = Date.now();
+      }
     };
 
-    // Add event listeners to detect user interaction
-    window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('touchstart', handleTouchStart);
-    window.addEventListener('touchend', handleTouchEnd);
-    window.addEventListener('wheel', handleWheel);
+    // Add event listeners only to the canvas
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchend', handleTouchEnd);
+    canvas.addEventListener('wheel', handleWheel);
 
     return () => {
-      window.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
-      window.removeEventListener('wheel', handleWheel);
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('wheel', handleWheel);
     };
   }, []);
 
