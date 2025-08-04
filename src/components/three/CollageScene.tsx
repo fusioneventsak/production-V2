@@ -1300,6 +1300,7 @@ const EnhancedAnimationController: React.FC<{
         // FIXED: Adjust pattern heights to be just above floor level
         // Floor is at Y=-12, so we want patterns to start around Y=-8 to Y=0
         const floorLevel = -8; // Just above the floor at Y=-12
+        const photoSize = settings.photoSize || 4.0;
         
         if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
           // Lower the spiral and wave patterns significantly
@@ -1308,11 +1309,22 @@ const EnhancedAnimationController: React.FC<{
             let adjustedY = y;
             
             if (settings.animationPattern === 'spiral') {
-              // For spiral: start at floor level and go up more gradually
-              adjustedY = floorLevel + (y * 0.5); // Reduce height by 50%
+              // FIXED: For spiral - keep it grounded regardless of photo size
+              // Scale the height based on photo size to prevent collisions
+              const heightScale = Math.max(0.3, Math.min(1.0, photoSize / 8.0)); // Scale between 0.3-1.0
+              const baseHeight = floorLevel + (photoSize * 0.5); // Start higher for larger photos
+              
+              adjustedY = baseHeight + (y * heightScale); // Reduced height scaling
+              
+              // Ensure minimum separation for larger photos
+              if (photoSize > 6) {
+                adjustedY = baseHeight + (y * 0.4) + (index * photoSize * 0.1); // Extra spacing for large photos
+              }
+              
             } else if (settings.animationPattern === 'wave') {
-              // For wave: keep oscillation but much closer to floor
-              adjustedY = floorLevel + 2 + (y * 0.3); // Start 2 units above floor, reduce oscillation
+              // FIXED: For wave - keep oscillation grounded with photo size consideration
+              const waveHeight = Math.max(2, photoSize * 0.3); // Wave height scales with photo size
+              adjustedY = floorLevel + waveHeight + (y * 0.2); // Minimal oscillation, stays low
             }
             
             return [x, adjustedY, z];
