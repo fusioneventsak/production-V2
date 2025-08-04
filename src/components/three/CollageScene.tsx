@@ -1170,17 +1170,20 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
     };
   }, [settings.cameraAutoRotatePauseOnInteraction]);
 
-  // Enhanced auto rotation with fine controls
+  // Enhanced auto rotation with fine controls - OPTIMIZED for performance
   useFrame((state, delta) => {
     if (!controlsRef.current) return;
 
     // Only auto-rotate if camera rotation is enabled AND user isn't interacting
     if (settings.cameraRotationEnabled && !userInteractingRef.current) {
-      // Update time references
-      autoRotateTimeRef.current += delta * (settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5);
-      heightOscillationRef.current += delta * (settings.cameraAutoRotateElevationSpeed || 0.3);
-      distanceOscillationRef.current += delta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
-      verticalDriftRef.current += delta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
+      // FIXED: Smoother time updates to reduce jitter
+      const smoothDelta = Math.min(delta, 0.016); // Cap delta to 60fps equivalent
+      
+      // Update time references with smoothed delta
+      autoRotateTimeRef.current += smoothDelta * (settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5);
+      heightOscillationRef.current += smoothDelta * (settings.cameraAutoRotateElevationSpeed || 0.3);
+      distanceOscillationRef.current += smoothDelta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
+      verticalDriftRef.current += smoothDelta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
 
       // Calculate base position from current camera position
       const currentOffset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
@@ -1221,20 +1224,10 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
       // Add focus point to camera position
       newPosition.add(focusPoint);
       
-      // Update camera and controls
-      camera.position.copy(newPosition);
-      controlsRef.current.target.copy(focusPoint);
+      // FIXED: Smoother camera updates using lerp for reduced jitter
+      camera.position.lerp(newPosition, 0.05); // Smooth interpolation
+      controlsRef.current.target.lerp(focusPoint, 0.05);
       controlsRef.current.update();
-
-      // Debug logging (can be removed)
-      if (Math.floor(autoRotateTimeRef.current * 10) % 50 === 0) {
-        console.log('🎬 Auto-Rotate:', {
-          radius: dynamicRadius.toFixed(1),
-          elevation: (currentSpherical.phi * 180 / Math.PI).toFixed(1) + '°',
-          rotation: (currentSpherical.theta * 180 / Math.PI).toFixed(1) + '°',
-          drift: driftOffset.toFixed(2)
-        });
-      }
     }
   });
 
@@ -1250,10 +1243,10 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
       minPolarAngle={Math.PI / 6}
       maxPolarAngle={Math.PI - Math.PI / 6}
       enableDamping={true}
-      dampingFactor={0.03}
-      zoomSpeed={1.5}
-      rotateSpeed={1.2}
-      panSpeed={1.2}
+      dampingFactor={0.05} // Increased damping for smoother movement
+      zoomSpeed={1.2} // Slightly reduced for smoother zoom
+      rotateSpeed={1.0} // Slightly reduced for smoother rotation
+      panSpeed={1.0}
       touches={{
         ONE: THREE.TOUCH.ROTATE,
         TWO: THREE.TOUCH.DOLLY_PAN
