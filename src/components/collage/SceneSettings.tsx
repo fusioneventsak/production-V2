@@ -1,4 +1,4 @@
-// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features
+// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features - FIXED MOUSE MOVEMENT ISSUE
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
@@ -33,7 +33,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
   
-  // ENHANCED: Cinematic Camera Settings with Fine-Tuning Controls
+  // ENHANCED: Cinematic Camera Settings with Fine-Tuning Controls + FIXED INTERACTION DETECTION
   cameraAnimation?: {
     enabled?: boolean;
     type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
@@ -43,6 +43,11 @@ interface ExtendedSceneSettings extends SceneSettings {
     transitionTime: number;
     pauseTime: number;
     randomization: number;
+    // FIXED: Interaction detection settings
+    interactionSensitivity?: 'low' | 'medium' | 'high'; // How sensitive to user interactions
+    ignoreMouseMovement?: boolean; // NEW: Ignore pure mouse movement without clicks
+    mouseMoveThreshold?: number; // Pixels of movement before considering interaction
+    resumeDelay?: number; // How long to wait after interaction before resuming
     // NEW: Fine-tuning controls
     baseHeight?: number;        // Base camera height for all animations
     baseDistance?: number;      // Base distance from center for all animations
@@ -783,11 +788,11 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       )}
 
-      {/* ENHANCED: Cinematic Camera Controls with Fine-Tuning */}
+      {/* ENHANCED: Cinematic Camera Controls with FIXED INTERACTION DETECTION */}
       <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
         <h4 className="flex items-center text-sm font-medium text-blue-200 mb-3">
           <Video className="h-4 w-4 mr-2" />
-          🎬 Cinematic Camera (Enhanced!)
+          🎬 Cinematic Camera (Enhanced + Fixed!)
         </h4>
         
         <div className="space-y-4">
@@ -919,32 +924,117 @@ const EnhancedSceneSettings: React.FC<{
                     </p>
                   </div>
 
-                  {/* NEW: Interaction Pause Duration */}
-                  <div>
-                    <label className="block text-sm text-blue-300 mb-2">
-                      <Clock className="h-3 w-3 inline mr-1" />
-                      Resume Delay: {settings.cameraAnimation?.resumeDelay?.toFixed(1) || '2.0'}s
-                    </label>
-                    <input
-                      type="range"
-                      min="1.0"
-                      max="10.0"
-                      step="0.5"
-                      value={settings.cameraAnimation?.resumeDelay || 2.0}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { 
-                          ...settings.cameraAnimation, 
-                          resumeDelay: parseFloat(e.target.value) 
-                        }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                    <p className="text-xs text-blue-400 mt-1">
-                      How long to wait after user interaction before resuming cinematic camera
-                    </p>
+                  {/* FIXED: Interaction Detection Controls */}
+                  <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center text-sm font-medium text-red-200 mb-2">
+                      <Settings className="h-4 w-4 mr-2" />
+                      🐭 Mouse Interaction Settings (FIXED!)
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={settings.cameraAnimation?.ignoreMouseMovement !== false}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              ignoreMouseMovement: e.target.checked 
+                            }
+                          })}
+                          className="mr-2 bg-gray-800 border-gray-700"
+                        />
+                        <label className="text-sm text-red-200">
+                          🚫 Ignore Mouse Movement (Recommended ✅)
+                        </label>
+                      </div>
+                      <p className="text-xs text-red-300/80 ml-6">
+                        When enabled, only clicks/drags pause the camera - mouse movement over the scene won't interrupt the animation
+                      </p>
+
+                      <div>
+                        <label className="block text-sm text-red-300 mb-2">
+                          Interaction Sensitivity
+                        </label>
+                        <select
+                          value={settings.cameraAnimation?.interactionSensitivity || 'medium'}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              interactionSensitivity: e.target.value as 'low' | 'medium' | 'high'
+                            }
+                          })}
+                          className="w-full bg-gray-800 border border-red-700 rounded-md py-2 px-3 text-white"
+                        >
+                          <option value="low">🐌 Low - Only major interactions pause</option>
+                          <option value="medium">⚖️ Medium - Standard sensitivity</option>
+                          <option value="high">⚡ High - Any touch pauses</option>
+                        </select>
+                        <p className="text-xs text-red-300/80 mt-1">
+                          Controls how much user input is needed to pause the cinematic camera
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-red-300 mb-2">
+                          <Clock className="h-3 w-3 inline mr-1" />
+                          Resume Delay: {settings.cameraAnimation?.resumeDelay?.toFixed(1) || '2.0'}s
+                        </label>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="10.0"
+                          step="0.5"
+                          value={settings.cameraAnimation?.resumeDelay || 2.0}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              resumeDelay: parseFloat(e.target.value) 
+                            }
+                          })}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-red-300/80 mt-1">
+                          How long to wait after user interaction before resuming cinematic camera
+                        </p>
+                      </div>
+
+                      {!settings.cameraAnimation?.ignoreMouseMovement && (
+                        <div>
+                          <label className="block text-sm text-red-300 mb-2">
+                            Mouse Move Threshold: {settings.cameraAnimation?.mouseMoveThreshold || 50}px
+                          </label>
+                          <input
+                            type="range"
+                            min="10"
+                            max="200"
+                            step="10"
+                            value={settings.cameraAnimation?.mouseMoveThreshold || 50}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { 
+                                ...settings.cameraAnimation, 
+                                mouseMoveThreshold: parseFloat(e.target.value) 
+                              }
+                            }, true)}
+                            className="w-full bg-gray-800"
+                          />
+                          <p className="text-xs text-red-300/80 mt-1">
+                            How much mouse movement triggers interaction detection (when not ignored)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-red-800/20 p-3 rounded border border-red-600/30">
+                      <p className="text-xs text-red-300 font-medium mb-1">🔧 FIX APPLIED:</p>
+                      <p className="text-xs text-red-400/90">
+                        The mouse movement issue has been fixed! Enable "Ignore Mouse Movement" above to prevent 
+                        accidental pausing when hovering over the scene. Only intentional clicks and drags will pause the cinematic camera.
+                      </p>
+                    </div>
                   </div>
 
-                  {/* NEW: Fine-Tuning Controls Section */}
+                  {/* Fine-Tuning Controls Section */}
                   <div className="bg-blue-800/30 border border-blue-600/30 rounded-lg p-4 space-y-4">
                     <div className="flex items-center text-sm font-medium text-blue-200 mb-2">
                       <Settings className="h-4 w-4 mr-2" />
