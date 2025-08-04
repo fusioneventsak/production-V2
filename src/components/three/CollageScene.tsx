@@ -167,7 +167,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// ULTRA-SIMPLE CINEMATIC CAMERA - Direct position updates, no interpolation
+// VARIED CINEMATIC CAMERA TOURS - Each type is completely different
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -192,79 +192,146 @@ const CinematicCamera: React.FC<{
     const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
     if (!validPhotos.length) return;
 
-    // Simple time-based movement
-    const speed = (config.speed || 1.0) * 0.5;
+    const speed = (config.speed || 1.0) * 0.3;
     timeRef.current += delta * speed;
-
-    const height = -4;
-    const distance = 15;
 
     let x, y, z, lookX, lookY, lookZ;
 
     switch (config.type) {
       case 'showcase':
+        // FLYBY: Flies past each photo in sequence, pausing to look
+        const showcasePhotoIndex = Math.floor(timeRef.current * 0.5) % validPhotos.length;
+        const showcasePhoto = validPhotos[showcasePhotoIndex];
+        const showcaseProgress = (timeRef.current * 0.5) % 1;
+        
+        if (showcaseProgress < 0.7) {
+          // Fly to photo
+          const approachDistance = 12 - (showcaseProgress * 8); // Start far, move close
+          x = showcasePhoto.position[0] + approachDistance;
+          y = showcasePhoto.position[1] + 2;
+          z = showcasePhoto.position[2] + approachDistance;
+        } else {
+          // Pause and examine photo closely
+          const examineAngle = (showcaseProgress - 0.7) * Math.PI * 4;
+          x = showcasePhoto.position[0] + Math.cos(examineAngle) * 3;
+          y = showcasePhoto.position[1] + 1;
+          z = showcasePhoto.position[2] + Math.sin(examineAngle) * 3;
+        }
+        
+        lookX = showcasePhoto.position[0];
+        lookY = showcasePhoto.position[1];
+        lookZ = showcasePhoto.position[2];
+        break;
+
       case 'gallery_walk':
-        // Simple circular path around all photos
-        const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
-        const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+        // WALKING TOUR: Moves in straight lines between photos like a person walking
+        const walkIndex = Math.floor(timeRef.current * 0.3) % validPhotos.length;
+        const currentWalkPhoto = validPhotos[walkIndex];
+        const nextWalkPhoto = validPhotos[(walkIndex + 1) % validPhotos.length];
+        const walkProgress = (timeRef.current * 0.3) % 1;
         
-        x = centerX + Math.cos(timeRef.current) * distance;
-        y = height;
-        z = centerZ + Math.sin(timeRef.current) * distance;
+        // Walk straight from one photo to the next
+        const walkHeight = -6; // Ground level
+        x = currentWalkPhoto.position[0] + (nextWalkPhoto.position[0] - currentWalkPhoto.position[0]) * walkProgress;
+        y = walkHeight;
+        z = currentWalkPhoto.position[2] + (nextWalkPhoto.position[2] - currentWalkPhoto.position[2]) * walkProgress;
         
-        lookX = centerX;
-        lookY = height;
-        lookZ = centerZ;
+        // Look at the photo we're walking towards
+        lookX = nextWalkPhoto.position[0];
+        lookY = nextWalkPhoto.position[1];
+        lookZ = nextWalkPhoto.position[2];
         break;
 
       case 'spiral_tour':
-        // Simple expanding spiral
-        const spiralRadius = 10 + Math.sin(timeRef.current * 0.1) * 15;
-        x = Math.cos(timeRef.current) * spiralRadius;
-        y = height + Math.sin(timeRef.current * 0.2) * 3;
-        z = Math.sin(timeRef.current) * spiralRadius;
+        // TRUE SPIRAL: Spirals inward and outward while rising and falling
+        const spiralAngle = timeRef.current * 2;
+        const spiralRadius = 25 + Math.sin(timeRef.current * 0.2) * 15;
+        const spiralHeight = -2 + Math.sin(timeRef.current * 0.15) * 8;
         
-        lookX = 0;
-        lookY = height;
-        lookZ = 0;
+        x = Math.cos(spiralAngle) * spiralRadius;
+        y = spiralHeight;
+        z = Math.sin(spiralAngle) * spiralRadius;
+        
+        // Look at center, but also follow nearest photo
+        const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
+        const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+        lookX = centerX;
+        lookY = spiralHeight - 2;
+        lookZ = centerZ;
+        break;
+
+      case 'wave_follow':
+        // WAVE MOTION: Follows a sine wave path through the scene
+        const waveX = Math.sin(timeRef.current * 0.5) * 30;
+        const waveZ = timeRef.current * 3; // Move forward
+        const waveHeight = -2 + Math.sin(timeRef.current * 1.2) * 4; // Up and down wave
+        
+        x = waveX;
+        y = waveHeight;
+        z = (waveZ % 60) - 30; // Loop back and forth
+        
+        // Look ahead in the direction of travel
+        lookX = waveX + Math.sin((timeRef.current + 0.5) * 0.5) * 10;
+        lookY = waveHeight;
+        lookZ = z + 10;
+        break;
+
+      case 'grid_sweep':
+        // SECURITY CAMERA: Systematic back-and-forth sweeping motion
+        const sweepTime = timeRef.current * 0.4;
+        const sweepRow = Math.floor(sweepTime) % 3; // 3 rows
+        const sweepCol = sweepTime % 1;
+        
+        // Zigzag pattern
+        const sweepDirection = sweepRow % 2 === 0 ? sweepCol : 1 - sweepCol;
+        
+        x = (sweepDirection - 0.5) * 40; // -20 to +20
+        y = 8 - (sweepRow * 3); // Different heights per row
+        z = (sweepRow - 1) * 15; // Different depths per row
+        
+        // Look down at the scene being swept
+        lookX = x + Math.sin(timeRef.current) * 5;
+        lookY = -5;
+        lookZ = z + Math.cos(timeRef.current) * 5;
         break;
 
       case 'photo_focus':
-        // Focus on one photo at a time
-        const photoIndex = Math.floor(timeRef.current * 0.1) % validPhotos.length;
-        const currentPhoto = validPhotos[photoIndex];
-        const orbitAngle = timeRef.current * 2;
+        // MACRO PHOTOGRAPHY: Gets very close to individual photos
+        const focusPhotoIndex = Math.floor(timeRef.current * 0.2) % validPhotos.length;
+        const focusPhoto = validPhotos[focusPhotoIndex];
+        const focusAngle = timeRef.current * 3;
+        const focusDistance = 2 + Math.sin(timeRef.current * 2) * 1; // Very close, slight breathing
         
-        x = currentPhoto.position[0] + Math.cos(orbitAngle) * 8;
-        y = currentPhoto.position[1] + 2;
-        z = currentPhoto.position[2] + Math.sin(orbitAngle) * 8;
+        x = focusPhoto.position[0] + Math.cos(focusAngle) * focusDistance;
+        y = focusPhoto.position[1] + Math.sin(timeRef.current * 1.5) * 0.5; // Slight vertical drift
+        z = focusPhoto.position[2] + Math.sin(focusAngle) * focusDistance;
         
-        lookX = currentPhoto.position[0];
-        lookY = currentPhoto.position[1];
-        lookZ = currentPhoto.position[2];
+        // Always look directly at the photo being examined
+        lookX = focusPhoto.position[0];
+        lookY = focusPhoto.position[1];
+        lookZ = focusPhoto.position[2];
         break;
 
       default:
-        // Simple orbit
+        // Simple fallback orbit
         x = Math.cos(timeRef.current) * 20;
-        y = height;
+        y = 0;
         z = Math.sin(timeRef.current) * 20;
-        
         lookX = 0;
-        lookY = height;
+        lookY = 0;
         lookZ = 0;
     }
 
-    // Direct camera updates - NO LERPING OR INTERPOLATION
+    // Direct camera updates - smooth as butter
     camera.position.x = x;
     camera.position.y = y;
     camera.position.z = z;
     
     camera.lookAt(lookX, lookY, lookZ);
 
-    // Debug every 2 seconds
-    if (Math.floor(timeRef.current) % 2 === 0 && Math.floor(timeRef.current * 10) % 10 === 0) {
-      console.log(`🎬 ${config.type}: pos(${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}) time:${timeRef.current.toFixed(1)}`);
+    // Debug different tour types
+    if (Math.floor(timeRef.current * 2) % 8 === 0 && Math.floor(timeRef.current * 20) % 20 === 0) {
+      console.log(`🎬 ${config.type}: ${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)} -> ${lookX.toFixed(1)}, ${lookY.toFixed(1)}, ${lookZ.toFixed(1)}`);
     }
   });
 
