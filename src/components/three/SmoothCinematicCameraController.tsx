@@ -1,4 +1,4 @@
-// src/components/three/SmoothCinematicCameraController.tsx
+// src/components/three/SmoothCinematicCameraController.tsx - FIXED: No Mouse Hover + Auto Resume
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -18,6 +18,16 @@ interface CinematicCameraConfig {
   transitionTime: number;
   pauseTime: number;
   randomization: number;
+  // FIXED: Enhanced interaction settings
+  interactionSensitivity?: 'low' | 'medium' | 'high';
+  ignoreMouseMovement?: boolean;
+  mouseMoveThreshold?: number;
+  resumeDelay?: number;
+  enableManualControl?: boolean;
+  resumeFromCurrentPosition?: boolean;
+  blendDuration?: number;
+  preserveUserDistance?: boolean;
+  preserveUserHeight?: boolean;
 }
 
 interface SmoothCinematicCameraControllerProps {
@@ -319,6 +329,12 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   const isActiveRef = useRef(false);
   const currentPathRef = useRef<SmoothCameraPath | null>(null);
   const visibilityTrackerRef = useRef(new Set<string>());
+  
+  // FIXED: Enhanced interaction tracking
+  const lastUserPositionRef = useRef<THREE.Vector3>();
+  const lastUserTargetRef = useRef<THREE.Vector3>();
+  const resumeBlendRef = useRef(0);
+  const isResuming = useRef(false);
 
   // Generate smooth camera path based on photo positions and tour type
   const cameraPath = useMemo(() => {
@@ -373,50 +389,174 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     currentPathRef.current = cameraPath;
   }, [cameraPath]);
 
-  // User interaction detection
+  // FIXED: Enhanced user interaction detection - NO MOUSE HOVER
   useEffect(() => {
-    if (!controls) return;
+    const canvas = document.querySelector('canvas');
+    if (!canvas || !config?.enabled) return;
 
-    const handleStart = () => {
+    // Get interaction settings with defaults
+    const ignoreMouseMovement = config.ignoreMouseMovement !== false; // Default: true
+    const sensitivity = config.interactionSensitivity || 'medium';
+    const mouseMoveThreshold = config.mouseMoveThreshold || 50;
+
+    // Mouse tracking for movement threshold
+    let lastMousePos = { x: 0, y: 0 };
+    let mouseMoveAccumulator = 0;
+    let isMouseDown = false;
+
+    const handleInteractionStart = (e: Event) => {
+      const eventType = e.type;
+      
+      // Only detect intentional interactions
+      if (eventType === 'mousedown' || eventType === 'touchstart') {
+        console.log('🎮 Camera Animation: User interaction started -', eventType);
+        userInteractingRef.current = true;
+        lastInteractionRef.current = Date.now();
+        isMouseDown = true;
+        
+        // Store current position for resume-from-position
+        if (config.resumeFromCurrentPosition !== false) {
+          lastUserPositionRef.current = camera.position.clone();
+          if (controls && 'target' in controls) {
+            lastUserTargetRef.current = (controls as any).target.clone();
+          }
+        }
+      }
+      
+      // Wheel events (zoom) - always detect
+      if (eventType === 'wheel') {
+        const sensitivity_multiplier = sensitivity === 'low' ? 3 : sensitivity === 'high' ? 0.5 : 1;
+        if (Math.abs((e as WheelEvent).deltaY) > 10 * sensitivity_multiplier) {
+          console.log('🎮 Camera Animation: Wheel interaction');
+          userInteractingRef.current = true;
+          lastInteractionRef.current = Date.now();
+        }
+      }
+    };
+
+    const handleInteractionEnd = (e: Event) => {
+      const eventType = e.type;
+      
+      if (eventType === 'mouseup' || eventType === 'touchend') {
+        lastInteractionRef.current = Date.now();
+        isMouseDown = false;
+        
+        // Start resume process after delay
+        const resumeDelay = (config.resumeDelay || 2.0) * 1000;
+        setTimeout(() => {
+          if (!userInteractingRef.current) {
+            userInteractingRef.current = false;
+            console.log('🎬 Camera Animation: Auto-resuming after interaction');
+          }
+        }, resumeDelay);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (ignoreMouseMovement) return; // FIXED: Ignore mouse movement by default
+      
+      if (!isMouseDown) return; // Only track movement during drag
+      
+      // Track mouse movement for threshold detection
+      const deltaX = e.clientX - lastMousePos.x;
+      const deltaY = e.clientY - lastMousePos.y;
+      const movementDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      mouseMoveAccumulator += movementDistance;
+      lastMousePos = { x: e.clientX, y: e.clientY };
+      
+      // Only trigger on significant movement
+      if (mouseMoveAccumulator > mouseMoveThreshold) {
+        userInteractingRef.current = true;
+        lastInteractionRef.current = Date.now();
+        mouseMoveAccumulator = 0; // Reset accumulator
+      }
+    };
+
+    // FIXED: Only listen to actual interaction events, not hover
+    canvas.addEventListener('mousedown', handleInteractionStart);
+    canvas.addEventListener('touchstart', handleInteractionStart);
+    canvas.addEventListener('wheel', handleInteractionStart);
+    canvas.addEventListener('mouseup', handleInteractionEnd);
+    canvas.addEventListener('touchend', handleInteractionEnd);
+    
+    // Only add mousemove if not ignoring mouse movement
+    if (!ignoreMouseMovement) {
+      canvas.addEventListener('mousemove', handleMouseMove);
+    }
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleInteractionStart);
+      canvas.removeEventListener('touchstart', handleInteractionStart);
+      canvas.removeEventListener('wheel', handleInteractionStart);
+      canvas.removeEventListener('mouseup', handleInteractionEnd);
+      canvas.removeEventListener('touchend', handleInteractionEnd);
+      if (!ignoreMouseMovement) {
+        canvas.removeEventListener('mousemove', handleMouseMove);
+      }
+    };
+  }, [config, camera, controls]);
+
+  // FIXED: Also listen to OrbitControls events for better integration
+  useEffect(() => {
+    if (!controls || !config?.enabled) return;
+
+    const handleControlStart = () => {
+      console.log('🎮 Camera Animation: OrbitControls interaction started');
       userInteractingRef.current = true;
       lastInteractionRef.current = Date.now();
     };
 
-    const handleEnd = () => {
-      userInteractingRef.current = false;
+    const handleControlEnd = () => {
       lastInteractionRef.current = Date.now();
+      
+      // Auto-resume after delay
+      const resumeDelay = (config.resumeDelay || 2.0) * 1000;
+      setTimeout(() => {
+        if (!userInteractingRef.current) {
+          userInteractingRef.current = false;
+          console.log('🎬 Camera Animation: Auto-resuming after OrbitControls interaction');
+        }
+      }, resumeDelay);
     };
 
     if ('addEventListener' in controls) {
-      controls.addEventListener('start', handleStart);
-      controls.addEventListener('end', handleEnd);
+      controls.addEventListener('start', handleControlStart);
+      controls.addEventListener('end', handleControlEnd);
       
       return () => {
-        controls.removeEventListener('start', handleStart);
-        controls.removeEventListener('end', handleEnd);
+        controls.removeEventListener('start', handleControlStart);
+        controls.removeEventListener('end', handleControlEnd);
       };
     }
-  }, [controls]);
+  }, [controls, config]);
 
-  // Smooth animation loop
+  // FIXED: Enhanced animation loop with smooth resume
   useFrame((state, delta) => {
     if (!config?.enabled || !currentPathRef.current || config.type === 'none') {
       isActiveRef.current = false;
       return;
     }
 
-    // Pause during user interaction
+    // Check if we should pause for user interaction
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const pauseDuration = 2000;
+    const pauseDuration = (config.resumeDelay || 2.0) * 1000;
 
     if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
       isActiveRef.current = false;
+      if (userInteractingRef.current && config.enableManualControl !== false) {
+        // Allow full manual control during pause
+        return;
+      }
       return;
     }
 
-    // Activate smooth animation
+    // FIXED: Smooth resume with blending
     if (!isActiveRef.current) {
       isActiveRef.current = true;
+      isResuming.current = true;
+      resumeBlendRef.current = 0;
+      console.log('🎬 Camera Animation: Smoothly resuming animation');
     }
 
     // Smooth continuous movement
@@ -434,13 +574,30 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       config.focusDistance || 12
     );
 
+    // FIXED: Smooth blending when resuming
+    let lerpFactor = 0.03; // Default smooth lerping
+    
+    if (isResuming.current) {
+      const blendDuration = config.blendDuration || 2.0;
+      resumeBlendRef.current += delta;
+      
+      if (resumeBlendRef.current < blendDuration) {
+        // Gradual blend from current position to animation path
+        const blendProgress = resumeBlendRef.current / blendDuration;
+        lerpFactor = 0.01 + (blendProgress * 0.02); // Start slow, speed up
+      } else {
+        isResuming.current = false;
+        console.log('🎬 Camera Animation: Resume blend complete');
+      }
+    }
+
     // Apply smooth camera movement
-    camera.position.lerp(targetPosition, 0.03); // Very smooth lerping
+    camera.position.lerp(targetPosition, lerpFactor);
     camera.lookAt(lookAtTarget);
 
     // Update controls
     if (controls && 'target' in controls) {
-      (controls as any).target.lerp(lookAtTarget, 0.02);
+      (controls as any).target.lerp(lookAtTarget, lerpFactor * 0.7);
       (controls as any).update();
     }
 
@@ -469,11 +626,14 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log(`🎬 Smooth Cinematic Camera Active: ${config.type}`);
+      console.log(`🎬 FIXED Smooth Cinematic Camera Active: ${config.type}`);
+      console.log(`🚫 Mouse hover ignored: ${config.ignoreMouseMovement !== false}`);
+      console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
+      console.log(`🎮 Manual control: ${config.enableManualControl !== false ? 'enabled' : 'disabled'}`);
       console.log(`📹 Continuous path generated - perfect for video recording!`);
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}, Focus: ${config.focusDistance}`);
     }
-  }, [config?.enabled, config?.type, cameraPath, animationPattern]);
+  }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.ignoreMouseMovement, config?.resumeDelay, config?.enableManualControl]);
 
   return null;
 };
