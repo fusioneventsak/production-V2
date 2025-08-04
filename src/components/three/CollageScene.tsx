@@ -162,7 +162,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// FIXED: Enhanced Cinematic Camera with Better Wave Pattern and Restored User Interaction
+// FIXED: Enhanced Cinematic Camera with SMOOTH RESUMPTION and AUTOMATIC PATTERN TRANSITIONS
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -188,6 +188,21 @@ const CinematicCamera: React.FC<{
   const lastInteractionRef = useRef(0);
   const resumeTimeRef = useRef(0);
   const wasActiveRef = useRef(false);
+  
+  // FIXED: Add state for smooth resumption
+  const pausedPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const pausedLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const timeOffsetRef = useRef(0);
+  const isResumingRef = useRef(false);
+  const resumeStartTimeRef = useRef(0);
+  
+  // FIXED: Add state for automatic pattern transitions
+  const lastPatternRef = useRef<string>('');
+  const lastAnimationPatternRef = useRef<string>('');
+  const isPatternTransitioningRef = useRef(false);
+  const patternTransitionStartRef = useRef(0);
+  const patternStartPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const patternStartLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3());
 
   // FIXED: Restored and improved user interaction detection
   useEffect(() => {
@@ -199,11 +214,26 @@ const CinematicCamera: React.FC<{
     const handleInteractionStart = (e: Event) => {
       // Detect actual user interactions on the canvas
       if (e.isTrusted && (e.target === canvas || canvas.contains(e.target as Node))) {
+        if (!userInteractingRef.current) {
+          // FIXED: Capture current camera state when interaction starts
+          pausedPositionRef.current.copy(camera.position);
+          pausedLookAtRef.current.set(0, 0, 0); // Will be calculated from camera direction
+          
+          // Calculate where camera is looking by using camera's direction
+          const direction = new THREE.Vector3();
+          camera.getWorldDirection(direction);
+          pausedLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
+          
+          console.log('🎬 User interaction START - capturing position:', {
+            x: pausedPositionRef.current.x.toFixed(2),
+            y: pausedPositionRef.current.y.toFixed(2), 
+            z: pausedPositionRef.current.z.toFixed(2)
+          });
+        }
+        
         userInteractingRef.current = true;
         lastInteractionRef.current = Date.now();
         clearTimeout(interactionTimeout);
-        
-        console.log('🎬 User interaction detected - pausing cinematic camera');
       }
     };
 
@@ -215,9 +245,23 @@ const CinematicCamera: React.FC<{
         // Shorter delay before resuming based on user setting
         const pauseTime = Math.max((config?.pauseTime || 1) * 1000, 800);
         interactionTimeout = setTimeout(() => {
+          // FIXED: Start smooth resumption process
           userInteractingRef.current = false;
           resumeTimeRef.current = Date.now();
-          console.log('🎬 Resuming cinematic camera after user interaction');
+          resumeStartTimeRef.current = Date.now();
+          isResumingRef.current = true;
+          
+          // Update paused position to current camera position at end of interaction
+          pausedPositionRef.current.copy(camera.position);
+          const direction = new THREE.Vector3();
+          camera.getWorldDirection(direction);
+          pausedLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
+          
+          console.log('🎬 Starting SMOOTH resumption from position:', {
+            x: pausedPositionRef.current.x.toFixed(2),
+            y: pausedPositionRef.current.y.toFixed(2),
+            z: pausedPositionRef.current.z.toFixed(2)
+          });
         }, pauseTime);
       }
     };
@@ -256,7 +300,34 @@ const CinematicCamera: React.FC<{
       return;
     }
 
-    // FIXED: Better pause logic that actually works
+    // FIXED: Detect pattern changes and start smooth transitions
+    const currentPattern = config.type;
+    const currentAnimationPattern = settings.animationPattern || 'grid';
+    const patternKey = `${currentPattern}-${currentAnimationPattern}`;
+    
+    if (lastPatternRef.current !== '' && lastPatternRef.current !== patternKey) {
+      // Pattern changed! Start smooth transition
+      console.log(`🎬 PATTERN CHANGE detected: ${lastPatternRef.current} → ${patternKey}`);
+      
+      isPatternTransitioningRef.current = true;
+      patternTransitionStartRef.current = Date.now();
+      
+      // Capture current camera state as starting point for transition
+      patternStartPositionRef.current.copy(camera.position);
+      const direction = new THREE.Vector3();
+      camera.getWorldDirection(direction);
+      patternStartLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
+      
+      console.log('🎬 Starting pattern transition from:', {
+        x: patternStartPositionRef.current.x.toFixed(2),
+        y: patternStartPositionRef.current.y.toFixed(2),
+        z: patternStartPositionRef.current.z.toFixed(2)
+      });
+    }
+    
+    lastPatternRef.current = patternKey;
+
+    // FIXED: Better pause logic with smooth resumption
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
     const resumeDelay = Math.max((config.pauseTime || 1) * 1000, 800);
     const timeSinceResume = Date.now() - resumeTimeRef.current;
@@ -271,7 +342,7 @@ const CinematicCamera: React.FC<{
     }
 
     if (!wasActiveRef.current) {
-      console.log('🎬 Cinematic camera resumed');
+      console.log('🎬 Cinematic camera resumed with smooth transition');
       wasActiveRef.current = true;
     }
 
@@ -355,7 +426,8 @@ const CinematicCamera: React.FC<{
 
     let x, y, z, lookX, lookY, lookZ;
 
-    // FIXED: Much better camera movements, especially for wave
+    // FIXED: Calculate the "ideal" animation position based on current time
+    // This is where the camera would be if there was no interruption
     switch (config.type) {
       case 'showcase':
         const fig8Time = timeRef.current * 0.4;
@@ -472,16 +544,89 @@ const CinematicCamera: React.FC<{
     y = Math.max(y, photoDisplayHeight + 2);
     lookY = Math.max(lookY, photoDisplayHeight);
 
-    // FIXED: More responsive camera transitions
-    const resumeBlend = Math.min((timeSinceResume) / 1000, 1); // 1 second blend-in
-    const smoothFactor = 0.035 * Math.max(resumeBlend, 0.3); // Always have some smoothing
-    
+    // FIXED: SMOOTH RESUMPTION and AUTOMATIC PATTERN TRANSITIONS
     const targetPos = new THREE.Vector3(x, y, z);
     const targetLook = new THREE.Vector3(lookX, lookY, lookZ);
     
-    // Apply smooth movement
-    camera.position.lerp(targetPos, smoothFactor);
-    camera.lookAt(targetLook);
+    // PRIORITY 1: Handle pattern transitions (takes precedence over user resumption)
+    const patternTransitionTime = 2500; // 2.5 seconds for pattern transitions
+    const timeSincePatternChange = Date.now() - patternTransitionStartRef.current;
+    
+    if (isPatternTransitioningRef.current && timeSincePatternChange < patternTransitionTime) {
+      // SMOOTH PATTERN TRANSITION: Blend from old pattern position to new pattern position
+      const blendFactor = Math.min(timeSincePatternChange / patternTransitionTime, 1);
+      
+      // Use easeInOutCubic for smooth acceleration/deceleration
+      const easeInOutCubic = (t: number) => {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      };
+      const smoothBlend = easeInOutCubic(blendFactor);
+      
+      // Interpolate from pattern start position to current target
+      const blendedPos = new THREE.Vector3().lerpVectors(patternStartPositionRef.current, targetPos, smoothBlend);
+      const blendedLook = new THREE.Vector3().lerpVectors(patternStartLookAtRef.current, targetLook, smoothBlend);
+      
+      // Apply the blended position
+      camera.position.copy(blendedPos);
+      camera.lookAt(blendedLook);
+      
+      // End pattern transition when complete
+      if (blendFactor >= 1) {
+        isPatternTransitioningRef.current = false;
+        console.log('🎬 Pattern transition completed - now following new pattern');
+      } else {
+        console.log(`🎬 Pattern transition: ${(blendFactor * 100).toFixed(1)}% complete`);
+      }
+      
+      return; // Skip other transition logic during pattern transition
+    }
+    
+    // PRIORITY 2: Handle user interaction resumption
+    const resumeTransitionTime = 3000; // 3 seconds to smoothly transition back
+    const timeSinceResumeStart = Date.now() - resumeStartTimeRef.current;
+    
+    if (isResumingRef.current && timeSinceResumeStart < resumeTransitionTime) {
+      // SMOOTH USER RESUMPTION: Blend from paused position to target position
+      const blendFactor = Math.min(timeSinceResumeStart / resumeTransitionTime, 1);
+      
+      // Use easeInOutCubic for smooth acceleration/deceleration
+      const easeInOutCubic = (t: number) => {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      };
+      const smoothBlend = easeInOutCubic(blendFactor);
+      
+      // Interpolate position
+      const blendedPos = new THREE.Vector3().lerpVectors(pausedPositionRef.current, targetPos, smoothBlend);
+      const blendedLook = new THREE.Vector3().lerpVectors(pausedLookAtRef.current, targetLook, smoothBlend);
+      
+      // Apply the blended position
+      camera.position.copy(blendedPos);
+      camera.lookAt(blendedLook);
+      
+      // End resumption phase when transition is complete
+      if (blendFactor >= 1) {
+        isResumingRef.current = false;
+        console.log('🎬 Smooth user resumption completed - back to normal cinematic mode');
+      } else {
+        console.log(`🎬 User resuming: ${(blendFactor * 100).toFixed(1)}% complete`);
+      }
+    } else {
+      // NORMAL CINEMATIC MODE: Use regular smooth movement
+      const resumeBlend = Math.min((timeSinceResume) / 1000, 1); // 1 second blend-in
+      const smoothFactor = 0.035 * Math.max(resumeBlend, 0.3); // Always have some smoothing
+      
+      // Apply smooth movement
+      camera.position.lerp(targetPos, smoothFactor);
+      camera.lookAt(targetLook);
+      
+      // End resumption flags if they're still set
+      if (isResumingRef.current) {
+        isResumingRef.current = false;
+      }
+      if (isPatternTransitioningRef.current) {
+        isPatternTransitioningRef.current = false;
+      }
+    }
 
     // Debug logging for wave issues
     if (settings.animationPattern === 'wave' && Math.floor(timeRef.current * 1) % 100 === 0) {
@@ -974,6 +1119,425 @@ const EnvironmentRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ se
   }, [scene, settings.sceneEnvironment]);
 
   return null;
+};
+
+// Enhanced Cube Environment
+const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const wallSize = Math.max((settings.floorSize || 200) * 3, 600);
+  const wallHeight = Math.max(settings.wallHeight || 40, 300);
+  const wallThickness = settings.wallThickness || 2;
+  const wallColor = settings.wallColor || settings.floorColor || '#3A3A3A';
+
+  const wallMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: wallColor,
+      metalness: 0.1,
+      roughness: 0.8,
+      side: THREE.DoubleSide,
+    });
+  }, [wallColor]);
+
+  return (
+    <group>
+      <mesh position={[0, wallHeight / 2 - 50, -wallSize / 2]} receiveShadow>
+        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      <mesh position={[-wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
+        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      <mesh position={[wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
+        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      <mesh position={[0, wallHeight / 2 - 50, wallSize / 2]} receiveShadow>
+        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      {settings.ceilingEnabled && (
+        <mesh position={[0, (settings.ceilingHeight || wallHeight) - 50, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[wallSize, wallSize]} />
+          <meshStandardMaterial color={wallColor} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+};
+
+const SphereEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const sphereRadius = (settings.floorSize || 200) * 0.6;
+  const wallColor = settings.wallColor || settings.floorColor || '#1A1A2E';
+
+  const sphereMaterial = useMemo(() => {
+    if (settings.sphereTextureUrl) {
+      const texture = new THREE.TextureLoader().load(settings.sphereTextureUrl);
+      return new THREE.MeshStandardMaterial({
+        map: texture,
+        side: THREE.BackSide,
+        metalness: 0,
+        roughness: 0.8,
+      });
+    }
+    
+    return new THREE.MeshStandardMaterial({
+      color: wallColor,
+      side: THREE.BackSide,
+      metalness: 0.1,
+      roughness: 0.9,
+    });
+  }, [wallColor, settings.sphereTextureUrl]);
+
+  return (
+    <mesh position={[0, 0, 0]}>
+      <sphereGeometry args={[sphereRadius, 64, 32]} />
+      <primitive object={sphereMaterial} attach="material" />
+    </mesh>
+  );
+};
+
+const GalleryEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const roomWidth = Math.max(settings.floorSize || 200, 400) * 2;
+  const roomHeight = Math.max(settings.wallHeight || 50, 200);
+  const roomDepth = settings.roomDepth || roomWidth;
+  const wallColor = settings.wallColor || '#F5F5F5';
+
+  const wallMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: wallColor,
+      metalness: 0.0,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+  }, [wallColor]);
+
+  return (
+    <group>
+      <mesh position={[0, roomHeight / 2 - 50, -roomDepth / 2]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      <mesh position={[-roomWidth / 2, roomHeight / 2 - 50, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[roomDepth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      <mesh position={[roomWidth / 2, roomHeight / 2 - 50, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[roomDepth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      <mesh position={[0, roomHeight / 2 - 50, roomDepth / 2]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomHeight]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      <mesh position={[0, roomHeight - 50, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[roomWidth, roomDepth]} />
+        <primitive object={wallMaterial} attach="material" />
+      </mesh>
+      {Array.from({ length: 8 }, (_, i) => (
+        <group key={i}>
+          <mesh position={[(i - 3.5) * (roomWidth / 8), roomHeight - 55, 0]}>
+            <cylinderGeometry args={[1, 1.5, 3, 8]} />
+            <meshStandardMaterial color="#333333" metalness={0.8} roughness={0.2} />
+          </mesh>
+          <spotLight
+            position={[(i - 3.5) * (roomWidth / 8), roomHeight - 55, 0]}
+            target-position={[(i - 3.5) * (roomWidth / 8), -10, 0]}
+            angle={Math.PI / 6}
+            penumbra={0.3}
+            intensity={2}
+            color="#FFFFFF"
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+          />
+        </group>
+      ))}
+    </group>
+  );
+};
+
+const StudioEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const studioSize = Math.max(settings.floorSize || 200, 300) * 2;
+  const backdropColor = settings.wallColor || '#E8E8E8';
+
+  const backdropMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: backdropColor,
+      metalness: 0.0,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+  }, [backdropColor]);
+
+  const backdropGeometry = useMemo(() => {
+    const geometry = new THREE.CylinderGeometry(
+      studioSize,
+      studioSize,
+      studioSize * 1.2,
+      32,
+      1,
+      true,
+      0,
+      Math.PI
+    );
+    return geometry;
+  }, [studioSize]);
+
+  const lightPositions = useMemo(() => [
+    [studioSize * 0.3, studioSize * 0.4, studioSize * 0.5],
+    [-studioSize * 0.3, studioSize * 0.4, studioSize * 0.5],
+    [0, studioSize * 0.6, -studioSize * 0.3],
+    [studioSize * 0.2, studioSize * 0.8, 0],
+    [-studioSize * 0.2, studioSize * 0.8, 0],
+    [0, studioSize * 0.2, -studioSize * 0.8]
+  ], [studioSize]);
+
+  return (
+    <group>
+      <mesh 
+        geometry={backdropGeometry} 
+        material={backdropMaterial}
+        position={[0, studioSize * 0.2 - 50, -studioSize * 0.6]}
+        rotation={[0, 0, 0]}
+      />
+      <mesh position={[0, -50, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[studioSize * 2, studioSize * 2]} />
+        <primitive object={backdropMaterial} attach="material" />
+      </mesh>
+      <group position={[0, studioSize / 2, 0]}>
+        {lightPositions.map((pos, i) => (
+          <group key={i}>
+            <mesh position={pos as [number, number, number]}>
+              <cylinderGeometry args={[1, 2, 4, 8]} />
+              <meshStandardMaterial color="#222222" metalness={0.9} roughness={0.1} />
+            </mesh>
+            <spotLight
+              position={pos as [number, number, number]}
+              target-position={[0, -25, 0]}
+              angle={i < 2 ? Math.PI / 4 : Math.PI / 6}
+              penumbra={0.5}
+              intensity={i === 0 ? 3 : i === 1 ? 2 : 1.5}
+              color="#FFFFFF"
+              castShadow={i < 3}
+              shadow-mapSize-width={2048}
+              shadow-mapSize-height={2048}
+            />
+          </group>
+        ))}
+      </group>
+    </group>
+  );
+};
+
+const SceneEnvironmentManager: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const environment = settings.sceneEnvironment || 'default';
+
+  switch (environment) {
+    case 'cube':
+      return <CubeEnvironment settings={settings} />;
+    case 'sphere':
+      return <SphereEnvironment settings={settings} />;
+    case 'gallery':
+      return <GalleryEnvironment settings={settings} />;
+    case 'studio':
+      return <StudioEnvironment settings={settings} />;
+    case 'default':
+    default:
+      return null;
+  }
+};
+
+class FloorTextureFactory {
+  static createTexture(type: FloorTexture, size: number = 512, customUrl?: string): THREE.Texture {
+    if (type === 'custom' && customUrl) {
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load(customUrl);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(8, 8);
+      return texture;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    switch (type) {
+      case 'marble':
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#f8f8ff');
+        gradient.addColorStop(0.3, '#e6e6fa');
+        gradient.addColorStop(0.6, '#dda0dd');
+        gradient.addColorStop(1, '#d8bfd8');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#c0c0c0';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 20; i++) {
+          ctx.beginPath();
+          ctx.moveTo(Math.random() * size, Math.random() * size);
+          ctx.bezierCurveTo(
+            Math.random() * size, Math.random() * size,
+            Math.random() * size, Math.random() * size,
+            Math.random() * size, Math.random() * size
+          );
+          ctx.stroke();
+        }
+        break;
+
+      case 'wood':
+        const woodGradient = ctx.createLinearGradient(0, 0, 0, size);
+        woodGradient.addColorStop(0, '#8B4513');
+        woodGradient.addColorStop(0.3, '#A0522D');
+        woodGradient.addColorStop(0.7, '#CD853F');
+        woodGradient.addColorStop(1, '#DEB887');
+        ctx.fillStyle = woodGradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 1;
+        for (let y = 0; y < size; y += 8) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(size, y + Math.sin(y * 0.1) * 4);
+          ctx.stroke();
+        }
+        break;
+
+      case 'concrete':
+        ctx.fillStyle = '#696969';
+        ctx.fillRect(0, 0, size, size);
+        
+        for (let i = 0; i < 1000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#808080' : '#556B2F';
+          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+        }
+        break;
+
+      case 'metal':
+        const metalGradient = ctx.createLinearGradient(0, 0, size, 0);
+        metalGradient.addColorStop(0, '#C0C0C0');
+        metalGradient.addColorStop(0.5, '#A9A9A9');
+        metalGradient.addColorStop(1, '#808080');
+        ctx.fillStyle = metalGradient;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#B8B8B8';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < size; x += 4) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, size);
+          ctx.stroke();
+        }
+        break;
+
+      case 'glass':
+        ctx.fillStyle = '#E0F6FF';
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#FFFFFF80';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 10; i++) {
+          const x = (i * size) / 10;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + 50, size);
+          ctx.stroke();
+        }
+        break;
+
+      case 'checkerboard':
+        const tileSize = size / 16;
+        for (let x = 0; x < 16; x++) {
+          for (let y = 0; y < 16; y++) {
+            ctx.fillStyle = (x + y) % 2 === 0 ? '#FFFFFF' : '#000000';
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
+        break;
+
+      default:
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(0, 0, size, size);
+        break;
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = 16;
+    
+    return texture;
+  }
+}
+
+// FIXED: Textured Floor component that uses the FloorTextureFactory
+const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  if (!settings.floorEnabled) return null;
+
+  const floorTexture = useMemo(() => {
+    return FloorTextureFactory.createTexture(
+      settings.floorTexture || 'solid',
+      1024,
+      settings.customFloorTextureUrl
+    );
+  }, [settings.floorTexture, settings.customFloorTextureUrl]);
+
+  const floorMaterial = useMemo(() => {
+    const material = new THREE.MeshStandardMaterial({
+      map: floorTexture,
+      color: settings.floorColor || '#FFFFFF',
+      transparent: (settings.floorOpacity || 1) < 1,
+      opacity: settings.floorOpacity || 1,
+      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
+      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
+      side: THREE.DoubleSide,
+      envMapIntensity: 0.5,
+    });
+
+    switch (settings.floorTexture) {
+      case 'marble':
+        material.metalness = 0.1;
+        material.roughness = 0.2;
+        break;
+      case 'metal':
+        material.metalness = 0.9;
+        material.roughness = 0.1;
+        break;
+      case 'glass':
+        material.metalness = 0;
+        material.roughness = 0.05;
+        material.transparent = true;
+        material.opacity = 0.8;
+        break;
+      case 'wood':
+        material.metalness = 0;
+        material.roughness = 0.8;
+        break;
+    }
+
+    return material;
+  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness, settings.floorTexture, floorTexture]);
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -12, 0]}
+      receiveShadow
+    >
+      <planeGeometry args={[settings.floorSize || 300, settings.floorSize || 300, 64, 64]} />
+      <primitive object={floorMaterial} attach="material" />
+    </mesh>
+  );
 };
 
 // FIXED: Floor component that actually renders in the scene
@@ -1579,12 +2143,22 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* FIXED: Environment renderer for different scene types */}
         <EnvironmentRenderer settings={safeSettings} />
         
+        {/* FIXED: Scene Environment Manager - Full 3D environments */}
+        <SceneEnvironmentManager settings={safeSettings} />
+        
         {/* FIXED Camera Controls - Actually Working */}
         <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
         
-        {/* FIXED: Add Floor and Grid components that were missing */}
-        <Floor settings={safeSettings} />
-        <Grid settings={safeSettings} />
+        {/* FIXED: Textured Floor - Always show unless sphere environment */}
+        {safeSettings.sceneEnvironment !== 'sphere' && (
+          <TexturedFloor settings={safeSettings} />
+        )}
+        
+        {/* FIXED: Grid - Only show for default environment */}
+        {(!safeSettings.sceneEnvironment || safeSettings.sceneEnvironment === 'default') && 
+         safeSettings.gridEnabled && (
+          <Grid settings={safeSettings} />
+        )}
         
         {/* Particle System */}
         {safeSettings.particles?.enabled && (
