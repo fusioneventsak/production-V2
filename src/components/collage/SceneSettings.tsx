@@ -1,7 +1,7 @@
 // src/components/collage/SceneSettings.tsx - COMPLETE with Enhanced Grid Wall Settings
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Aspect, Hash, Ruler } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
 import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
 import { getCinematicCameraTypeDescription } from '../../store/sceneStore';
 
@@ -191,7 +191,7 @@ const EnhancedSceneSettings: React.FC<{
             {/* Aspect Ratio */}
             <div>
               <label className="block text-sm text-green-300 mb-2">
-                <Aspect className="h-3 w-3 inline mr-1" />
+                <Ratio className="h-3 w-3 inline mr-1" />
                 Grid Aspect Ratio
                 <span className="ml-2 text-xs text-green-400">{(settings.patterns?.grid?.aspectRatio || 1.0).toFixed(2)}</span>
               </label>
