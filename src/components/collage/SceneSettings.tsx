@@ -442,7 +442,7 @@ const EnhancedSceneSettings: React.FC<{
               <p className="text-xs text-blue-300 font-medium mb-1">💡 Grid Wall Tips</p>
               <p className="text-xs text-blue-400/90">
                 • <strong>Spacing = 0</strong>: Perfect solid wall with no gaps<br/>
-                • <strong>Spacing > 0</strong>: Uniform gaps for spaced gallery look<br/>
+                • <strong>Spacing &gt; 0</strong>: Uniform gaps for spaced gallery look<br/>
                 • <strong>Aspect Ratio</strong>: Controls wall shape (wide vs tall)
               </p>
             </div>
