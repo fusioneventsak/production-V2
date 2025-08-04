@@ -486,14 +486,14 @@ class FixedSpiralPattern {
   }
 }
 
-// SIMPLIFIED: Basic interaction tracker - just pause on interaction, resume after 2 seconds
+// SIMPLIFIED: Basic interaction tracker - pause immediately, resume 2 seconds after interaction stops
 class SimpleInteractionTracker {
   private static instance: SimpleInteractionTracker;
   private userInteracting = false;
   private lastInteractionTime = 0;
   private listeners: Set<(interacting: boolean) => void> = new Set();
   private interactionTimeout: NodeJS.Timeout | null = null;
-  private readonly RESUME_DELAY = 2000; // Fixed 2 seconds
+  private readonly RESUME_DELAY = 2000; // Fixed 2 seconds AFTER interaction stops
 
   static getInstance(): SimpleInteractionTracker {
     if (!SimpleInteractionTracker.instance) {
@@ -507,48 +507,76 @@ class SimpleInteractionTracker {
   }
 
   private setupEventListeners() {
-    // Simple interaction detection - any canvas interaction pauses cameras
+    // Start interaction - camera pauses immediately
     const handleInteractionStart = (e: Event) => {
       if (!e.isTrusted) return;
       
       const canvas = document.querySelector('canvas');
       if (!canvas || !(e.target === canvas || canvas.contains(e.target as Node))) return;
 
-      // Mark as interacting and update time
+      // Mark as interacting immediately
       if (!this.userInteracting) {
-        console.log('📷 Camera pause: User interaction detected');
+        console.log('📷 Camera pause: User interaction started');
         this.userInteracting = true;
         this.notifyListeners();
       }
       
+      // Update last interaction time and cancel any pending resume
       this.lastInteractionTime = Date.now();
       this.clearInteractionTimeout();
     };
 
+    // Continue interaction - reset the 2-second timer
+    const handleInteractionContinue = (e: Event) => {
+      if (!e.isTrusted) return;
+      
+      const canvas = document.querySelector('canvas');
+      if (!canvas || !(e.target === canvas || canvas.contains(e.target as Node))) return;
+
+      // Reset the timer - user is still interacting
+      this.lastInteractionTime = Date.now();
+      this.clearInteractionTimeout();
+    };
+
+    // End interaction - start 2-second countdown
     const handleInteractionEnd = (e: Event) => {
       if (!e.isTrusted) return;
       
       const canvas = document.querySelector('canvas');
       if (!canvas || !(e.target === canvas || canvas.contains(e.target as Node))) return;
 
+      // Update last interaction time
       this.lastInteractionTime = Date.now();
       this.clearInteractionTimeout();
       
-      // Always wait 2 seconds before resuming
+      // Start 2-second countdown AFTER interaction ends
       this.interactionTimeout = setTimeout(() => {
-        console.log('📷 Camera resume: 2 seconds of no interaction');
+        console.log('📷 Camera resume: 2 seconds since interaction stopped');
         this.userInteracting = false;
         this.notifyListeners();
       }, this.RESUME_DELAY);
     };
 
-    // Basic events - mouse and touch
+    // Mouse events
     document.addEventListener('mousedown', handleInteractionStart, { passive: true });
+    document.addEventListener('mousemove', (e) => {
+      // Only count as interaction if dragging (mouse is down)
+      if ((e as MouseEvent).buttons > 0) {
+        handleInteractionContinue(e);
+      }
+    }, { passive: true });
     document.addEventListener('mouseup', handleInteractionEnd, { passive: true });
     document.addEventListener('wheel', handleInteractionStart, { passive: true });
+    
+    // Touch events - user can interact as long as they want
     document.addEventListener('touchstart', handleInteractionStart, { passive: true });
+    document.addEventListener('touchmove', handleInteractionContinue, { passive: true });
     document.addEventListener('touchend', handleInteractionEnd, { passive: true });
-    document.addEventListener('touchmove', handleInteractionStart, { passive: true });
+    document.addEventListener('touchcancel', handleInteractionEnd, { passive: true });
+    
+    // Keyboard events
+    document.addEventListener('keydown', handleInteractionStart, { passive: true });
+    document.addEventListener('keyup', handleInteractionEnd, { passive: true });
   }
 
   private clearInteractionTimeout() {
@@ -579,7 +607,7 @@ class SimpleInteractionTracker {
   }
 }
 
-// SIMPLIFIED: Auto-rotate camera - just pause on interaction, resume after 2 seconds
+// SIMPLIFIED: Auto-rotate camera - pause on interaction, resume from current position
 const AutoRotateCamera: React.FC<{
   settings: ExtendedSceneSettings;
 }> = ({ settings }) => {
@@ -589,15 +617,44 @@ const AutoRotateCamera: React.FC<{
   const distanceTimeRef = useRef(0);
   const verticalDriftTimeRef = useRef(0);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
+  
+  // Store camera state when interaction starts to resume from there
+  const resumeFromPositionRef = useRef<THREE.Vector3 | null>(null);
+  const resumeFromAngleRef = useRef<number | null>(null);
 
   // Subscribe to simple interaction tracker
   useEffect(() => {
     const tracker = SimpleInteractionTracker.getInstance();
     const unsubscribe = tracker.subscribe((interacting) => {
+      if (interacting && !isUserInteracting) {
+        // Capture current camera position when interaction starts
+        resumeFromPositionRef.current = camera.position.clone();
+        
+        // Calculate current angle based on camera position for smooth continuation
+        const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
+        const centerX = 0;
+        const centerZ = 0;
+        
+        const deltaX = camera.position.x - centerX;
+        const deltaZ = camera.position.z - centerZ;
+        resumeFromAngleRef.current = Math.atan2(deltaZ, deltaX);
+        
+        console.log('📷 Auto-rotate: Capturing position for resume', {
+          x: camera.position.x.toFixed(2),
+          y: camera.position.y.toFixed(2),
+          z: camera.position.z.toFixed(2),
+          angle: (resumeFromAngleRef.current * 180 / Math.PI).toFixed(1) + '°'
+        });
+      } else if (!interacting && isUserInteracting && resumeFromAngleRef.current !== null) {
+        // Resume from captured angle
+        timeRef.current = resumeFromAngleRef.current;
+        console.log('📷 Auto-rotate: Resuming from angle', (resumeFromAngleRef.current * 180 / Math.PI).toFixed(1) + '°');
+      }
+      
       setIsUserInteracting(interacting);
     });
     return unsubscribe;
-  }, []);
+  }, [camera, settings.cameraAutoRotateRadius, settings.cameraDistance, isUserInteracting]);
 
   useFrame((state, delta) => {
     // Only run if auto-rotate is enabled AND cinematic is disabled AND user is not interacting
@@ -629,7 +686,7 @@ const AutoRotateCamera: React.FC<{
     const elevationOscillation = (Math.sin(heightTimeRef.current) + 1) / 2; // 0 to 1
     const phi = elevationMin + (elevationOscillation * elevationRange);
     
-    // Calculate spherical position
+    // Calculate spherical position using timeRef for main rotation
     const x = radius * Math.sin(phi) * Math.cos(timeRef.current);
     const y = baseHeight + Math.cos(phi) * radius * 0.2;
     const z = radius * Math.sin(phi) * Math.sin(timeRef.current);
