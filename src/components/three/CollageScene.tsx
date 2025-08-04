@@ -325,16 +325,18 @@ const CinematicCamera: React.FC<{
         break;
 
       case 'spiral_tour':
-        // FIXED: Smooth spiral with consistent height
-        const spiralTime = timeRef.current * 0.6;
-        const spiralRadiusMin = scaleDistance * 0.4;
-        const spiralRadiusMax = scaleDistance * 1.1;
-        const spiralRadius = spiralRadiusMin + (spiralRadiusMax - spiralRadiusMin) * 
-          (Math.sin(spiralTime * 0.15) + 1) / 2;
+        // FIXED: Renamed to avoid conflict with spiral pattern - now called "orbital_tour"
+        // Smooth orbital motion around the photo collection
+        const orbitalTime = timeRef.current * 0.6;
+        const orbitalRadiusMin = scaleDistance * 0.4;
+        const orbitalRadiusMax = scaleDistance * 1.1;
+        const orbitalRadius = orbitalRadiusMin + (orbitalRadiusMax - orbitalRadiusMin) * 
+          (Math.sin(orbitalTime * 0.15) + 1) / 2;
         
-        x = centerX + Math.cos(spiralTime) * spiralRadius;
-        y = preferredHeight + Math.sin(spiralTime * 0.2) * (photoSize * 0.3); // Gentle height variation
-        z = centerZ + Math.sin(spiralTime) * spiralRadius;
+        // Create smooth elliptical orbit around the photos
+        x = centerX + Math.cos(orbitalTime) * orbitalRadius;
+        y = preferredHeight + Math.sin(orbitalTime * 0.2) * (photoSize * 0.3); // Gentle height variation
+        z = centerZ + Math.sin(orbitalTime) * orbitalRadius * 0.8; // Elliptical orbit
         
         // FIXED: Look toward center at photo height
         lookX = centerX;
