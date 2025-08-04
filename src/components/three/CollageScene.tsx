@@ -2193,8 +2193,6 @@ const EnhancedAnimationController: React.FC<{
           patternState = pattern.generatePositions(time);
         }
         
-        const expectedSlots = Math.min(Math.max(settings.photoCount || 100, 1), 500); // FIXED: Clamp to 1-500
-        
         // Apply floor level adjustments - FIXED: Higher hover height for gentle floating
         if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
           const floorLevel = -12;
