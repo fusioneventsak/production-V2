@@ -167,7 +167,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// VARIED CINEMATIC CAMERA TOURS - Each type is completely different
+// PERFECT LOOPING CINEMATIC TOURS - Continuous shots with no jump cuts
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -192,146 +192,158 @@ const CinematicCamera: React.FC<{
     const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
     if (!validPhotos.length) return;
 
-    const speed = (config.speed || 1.0) * 0.3;
+    const speed = (config.speed || 1.0) * 0.2;
     timeRef.current += delta * speed;
+
+    // Get photo bounds for centered tours
+    const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
+    const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+    const maxDistance = Math.max(...validPhotos.map(p => 
+      Math.sqrt((p.position[0] - centerX) ** 2 + (p.position[2] - centerZ) ** 2)
+    ));
 
     let x, y, z, lookX, lookY, lookZ;
 
     switch (config.type) {
       case 'showcase':
-        // FLYBY: Flies past each photo in sequence, pausing to look
-        const showcasePhotoIndex = Math.floor(timeRef.current * 0.5) % validPhotos.length;
-        const showcasePhoto = validPhotos[showcasePhotoIndex];
-        const showcaseProgress = (timeRef.current * 0.5) % 1;
+        // PERFECT LOOP: Large figure-8 around all photos
+        const fig8Time = timeRef.current * 0.5;
+        const fig8Radius = maxDistance + 15;
         
-        if (showcaseProgress < 0.7) {
-          // Fly to photo
-          const approachDistance = 12 - (showcaseProgress * 8); // Start far, move close
-          x = showcasePhoto.position[0] + approachDistance;
-          y = showcasePhoto.position[1] + 2;
-          z = showcasePhoto.position[2] + approachDistance;
-        } else {
-          // Pause and examine photo closely
-          const examineAngle = (showcaseProgress - 0.7) * Math.PI * 4;
-          x = showcasePhoto.position[0] + Math.cos(examineAngle) * 3;
-          y = showcasePhoto.position[1] + 1;
-          z = showcasePhoto.position[2] + Math.sin(examineAngle) * 3;
-        }
+        x = centerX + Math.sin(fig8Time) * fig8Radius;
+        y = -2 + Math.sin(fig8Time * 2) * 3;
+        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.7;
         
-        lookX = showcasePhoto.position[0];
-        lookY = showcasePhoto.position[1];
-        lookZ = showcasePhoto.position[2];
+        // Always look toward photo center
+        lookX = centerX;
+        lookY = -4;
+        lookZ = centerZ;
         break;
 
       case 'gallery_walk':
-        // WALKING TOUR: Moves in straight lines between photos like a person walking
-        const walkIndex = Math.floor(timeRef.current * 0.3) % validPhotos.length;
-        const currentWalkPhoto = validPhotos[walkIndex];
-        const nextWalkPhoto = validPhotos[(walkIndex + 1) % validPhotos.length];
-        const walkProgress = (timeRef.current * 0.3) % 1;
+        // PERFECT LOOP: Walks in a large rectangle around all photos
+        const walkTime = (timeRef.current * 0.3) % 4; // 4-sided rectangle
+        const walkMargin = maxDistance + 10;
+        const walkHeight = -6;
         
-        // Walk straight from one photo to the next
-        const walkHeight = -6; // Ground level
-        x = currentWalkPhoto.position[0] + (nextWalkPhoto.position[0] - currentWalkPhoto.position[0]) * walkProgress;
+        if (walkTime < 1) {
+          // Bottom edge (left to right)
+          x = centerX - walkMargin + (walkTime * walkMargin * 2);
+          z = centerZ + walkMargin;
+        } else if (walkTime < 2) {
+          // Right edge (bottom to top)
+          x = centerX + walkMargin;
+          z = centerZ + walkMargin - ((walkTime - 1) * walkMargin * 2);
+        } else if (walkTime < 3) {
+          // Top edge (right to left)
+          x = centerX + walkMargin - ((walkTime - 2) * walkMargin * 2);
+          z = centerZ - walkMargin;
+        } else {
+          // Left edge (top to bottom)
+          x = centerX - walkMargin;
+          z = centerZ - walkMargin + ((walkTime - 3) * walkMargin * 2);
+        }
+        
         y = walkHeight;
-        z = currentWalkPhoto.position[2] + (nextWalkPhoto.position[2] - currentWalkPhoto.position[2]) * walkProgress;
         
-        // Look at the photo we're walking towards
-        lookX = nextWalkPhoto.position[0];
-        lookY = nextWalkPhoto.position[1];
-        lookZ = nextWalkPhoto.position[2];
+        // Always look toward center where photos are
+        lookX = centerX;
+        lookY = -4;
+        lookZ = centerZ;
         break;
 
       case 'spiral_tour':
-        // TRUE SPIRAL: Spirals inward and outward while rising and falling
-        const spiralAngle = timeRef.current * 2;
-        const spiralRadius = 25 + Math.sin(timeRef.current * 0.2) * 15;
-        const spiralHeight = -2 + Math.sin(timeRef.current * 0.15) * 8;
+        // PERFECT LOOP: Smooth expanding/contracting spiral
+        const spiralTime = timeRef.current * 0.8;
+        const spiralRadius = (maxDistance * 0.5) + (maxDistance * 0.8) * (Math.sin(spiralTime * 0.2) + 1) / 2;
+        const spiralHeight = -2 + Math.sin(spiralTime * 0.15) * 6;
         
-        x = Math.cos(spiralAngle) * spiralRadius;
+        x = centerX + Math.cos(spiralTime) * spiralRadius;
         y = spiralHeight;
-        z = Math.sin(spiralAngle) * spiralRadius;
+        z = centerZ + Math.sin(spiralTime) * spiralRadius;
         
-        // Look at center, but also follow nearest photo
-        const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
-        const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+        // Look toward center with slight vertical movement
         lookX = centerX;
-        lookY = spiralHeight - 2;
+        lookY = spiralHeight - 3;
         lookZ = centerZ;
         break;
 
       case 'wave_follow':
-        // WAVE MOTION: Follows a sine wave path through the scene
-        const waveX = Math.sin(timeRef.current * 0.5) * 30;
-        const waveZ = timeRef.current * 3; // Move forward
-        const waveHeight = -2 + Math.sin(timeRef.current * 1.2) * 4; // Up and down wave
+        // PERFECT LOOP: Sine wave motion in perfect loop
+        const waveTime = timeRef.current * 0.4;
+        const waveAmplitude = maxDistance * 1.2;
         
-        x = waveX;
-        y = waveHeight;
-        z = (waveZ % 60) - 30; // Loop back and forth
+        x = centerX + Math.sin(waveTime) * waveAmplitude;
+        y = -2 + Math.sin(waveTime * 2.3) * 4; // Different frequency for complexity
+        z = centerZ + Math.cos(waveTime * 0.7) * waveAmplitude * 0.8; // Elliptical motion
         
-        // Look ahead in the direction of travel
-        lookX = waveX + Math.sin((timeRef.current + 0.5) * 0.5) * 10;
-        lookY = waveHeight;
-        lookZ = z + 10;
+        // Look ahead along the wave path
+        const lookAheadTime = waveTime + 0.3;
+        lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.5;
+        lookY = -4;
+        lookZ = centerZ + Math.cos(lookAheadTime * 0.7) * waveAmplitude * 0.4;
         break;
 
       case 'grid_sweep':
-        // SECURITY CAMERA: Systematic back-and-forth sweeping motion
-        const sweepTime = timeRef.current * 0.4;
-        const sweepRow = Math.floor(sweepTime) % 3; // 3 rows
-        const sweepCol = sweepTime % 1;
+        // PERFECT LOOP: Smooth lawnmower pattern
+        const sweepTime = (timeRef.current * 0.25) % 8; // 8-segment loop
+        const sweepWidth = maxDistance * 1.5;
+        const sweepHeight = 5;
+        const rows = 4;
         
-        // Zigzag pattern
-        const sweepDirection = sweepRow % 2 === 0 ? sweepCol : 1 - sweepCol;
+        const currentRow = Math.floor(sweepTime / 2);
+        const rowProgress = (sweepTime % 2);
+        const isEvenRow = currentRow % 2 === 0;
         
-        x = (sweepDirection - 0.5) * 40; // -20 to +20
-        y = 8 - (sweepRow * 3); // Different heights per row
-        z = (sweepRow - 1) * 15; // Different depths per row
+        x = centerX + (isEvenRow ? -sweepWidth + rowProgress * sweepWidth * 2 : sweepWidth - rowProgress * sweepWidth * 2);
+        y = sweepHeight - (currentRow * 2);
+        z = centerZ - sweepWidth + (currentRow / (rows - 1)) * sweepWidth * 2;
         
-        // Look down at the scene being swept
-        lookX = x + Math.sin(timeRef.current) * 5;
-        lookY = -5;
-        lookZ = z + Math.cos(timeRef.current) * 5;
+        // Look down and slightly ahead
+        lookX = x + (isEvenRow ? 5 : -5);
+        lookY = -2;
+        lookZ = z;
         break;
 
       case 'photo_focus':
-        // MACRO PHOTOGRAPHY: Gets very close to individual photos
-        const focusPhotoIndex = Math.floor(timeRef.current * 0.2) % validPhotos.length;
-        const focusPhoto = validPhotos[focusPhotoIndex];
-        const focusAngle = timeRef.current * 3;
-        const focusDistance = 2 + Math.sin(timeRef.current * 2) * 1; // Very close, slight breathing
+        // PERFECT LOOP: Smooth infinity symbol around photo cluster
+        const focusTime = timeRef.current * 0.6;
+        const focusRadius = Math.min(maxDistance + 8, 20);
         
-        x = focusPhoto.position[0] + Math.cos(focusAngle) * focusDistance;
-        y = focusPhoto.position[1] + Math.sin(timeRef.current * 1.5) * 0.5; // Slight vertical drift
-        z = focusPhoto.position[2] + Math.sin(focusAngle) * focusDistance;
+        // Infinity symbol (lemniscate) formula
+        const infinityScale = focusRadius;
+        const denominator = 1 + Math.sin(focusTime) ** 2;
         
-        // Always look directly at the photo being examined
-        lookX = focusPhoto.position[0];
-        lookY = focusPhoto.position[1];
-        lookZ = focusPhoto.position[2];
+        x = centerX + (infinityScale * Math.cos(focusTime)) / denominator;
+        y = -1 + Math.sin(focusTime * 2) * 2;
+        z = centerZ + (infinityScale * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
+        
+        // Always look toward photo center
+        lookX = centerX;
+        lookY = -4;
+        lookZ = centerZ;
         break;
 
       default:
-        // Simple fallback orbit
-        x = Math.cos(timeRef.current) * 20;
+        // Simple circular fallback
+        x = centerX + Math.cos(timeRef.current) * 20;
         y = 0;
-        z = Math.sin(timeRef.current) * 20;
-        lookX = 0;
+        z = centerZ + Math.sin(timeRef.current) * 20;
+        lookX = centerX;
         lookY = 0;
-        lookZ = 0;
+        lookZ = centerZ;
     }
 
-    // Direct camera updates - smooth as butter
+    // Smooth camera updates
     camera.position.x = x;
     camera.position.y = y;
     camera.position.z = z;
     
     camera.lookAt(lookX, lookY, lookZ);
 
-    // Debug different tour types
-    if (Math.floor(timeRef.current * 2) % 8 === 0 && Math.floor(timeRef.current * 20) % 20 === 0) {
-      console.log(`🎬 ${config.type}: ${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)} -> ${lookX.toFixed(1)}, ${lookY.toFixed(1)}, ${lookZ.toFixed(1)}`);
+    // Debug occasionally
+    if (Math.floor(timeRef.current * 5) % 50 === 0) {
+      console.log(`🎬 ${config.type}: Perfect loop at t=${timeRef.current.toFixed(2)}`);
     }
   });
 
