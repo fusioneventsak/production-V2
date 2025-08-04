@@ -1,4 +1,4 @@
-// Enhanced CollageScene with Cinematic Camera System
+// Enhanced CollageScene with Smooth Cinematic Camera System (No Jump Cuts)
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -7,6 +7,7 @@ import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
+import { SmoothCinematicCameraController } from './SmoothCinematicCameraController';
 
 type Photo = {
   id: string;
@@ -1511,8 +1512,8 @@ const EnhancedCameraControls: React.FC<{
         }}
       />
       
-      {/* NEW: Cinematic Camera Controller */}
-      <CinematicCameraController
+      {/* NEW: Smooth Cinematic Camera Controller (No Jump Cuts) */}
+      <SmoothCinematicCameraController
         config={settings.cameraAnimation}
         photoPositions={photoPositions}
         animationPattern={settings.animationPattern || 'grid'}
