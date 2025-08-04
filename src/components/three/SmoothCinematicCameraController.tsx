@@ -1,4 +1,4 @@
-// src/components/three/SmoothCinematicCameraController.tsx - FIXED: No Mouse Hover + Auto Resume
+// src/components/three/SmoothCinematicCameraController.tsx - FULLY FIXED: No Mouse Hover + Auto Config Changes
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -336,6 +336,13 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   const resumeBlendRef = useRef(0);
   const isResuming = useRef(false);
 
+  // FIXED: Add automatic config change detection
+  const lastConfigRef = useRef<string>('');
+  const isConfigTransitioningRef = useRef(false);
+  const configTransitionStartRef = useRef(0);
+  const configStartPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const configStartLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3());
+
   // Generate smooth camera path based on photo positions and tour type
   const cameraPath = useMemo(() => {
     if (!config?.enabled || !photoPositions.length || config.type === 'none') {
@@ -389,30 +396,23 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     currentPathRef.current = cameraPath;
   }, [cameraPath]);
 
-  // FIXED: Enhanced user interaction detection - NO MOUSE HOVER
+  // FIXED: Enhanced user interaction detection - COMPLETELY NO MOUSE HOVER
   useEffect(() => {
     const canvas = document.querySelector('canvas');
     if (!canvas || !config?.enabled) return;
 
-    // Get interaction settings with defaults
+    // Get interaction settings with defaults - ALWAYS ignore mouse movement by default
     const ignoreMouseMovement = config.ignoreMouseMovement !== false; // Default: true
     const sensitivity = config.interactionSensitivity || 'medium';
-    const mouseMoveThreshold = config.mouseMoveThreshold || 50;
-
-    // Mouse tracking for movement threshold
-    let lastMousePos = { x: 0, y: 0 };
-    let mouseMoveAccumulator = 0;
-    let isMouseDown = false;
 
     const handleInteractionStart = (e: Event) => {
       const eventType = e.type;
       
-      // Only detect intentional interactions
+      // FIXED: Only detect clicks, touches, and wheel - NEVER mouse movement
       if (eventType === 'mousedown' || eventType === 'touchstart') {
         console.log('🎮 Camera Animation: User interaction started -', eventType);
         userInteractingRef.current = true;
         lastInteractionRef.current = Date.now();
-        isMouseDown = true;
         
         // Store current position for resume-from-position
         if (config.resumeFromCurrentPosition !== false) {
@@ -439,51 +439,24 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       
       if (eventType === 'mouseup' || eventType === 'touchend') {
         lastInteractionRef.current = Date.now();
-        isMouseDown = false;
         
         // Start resume process after delay
         const resumeDelay = (config.resumeDelay || 2.0) * 1000;
         setTimeout(() => {
-          if (!userInteractingRef.current) {
-            userInteractingRef.current = false;
-            console.log('🎬 Camera Animation: Auto-resuming after interaction');
-          }
+          userInteractingRef.current = false;
+          console.log('🎬 Camera Animation: Auto-resuming after interaction');
         }, resumeDelay);
       }
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (ignoreMouseMovement) return; // FIXED: Ignore mouse movement by default
-      
-      if (!isMouseDown) return; // Only track movement during drag
-      
-      // Track mouse movement for threshold detection
-      const deltaX = e.clientX - lastMousePos.x;
-      const deltaY = e.clientY - lastMousePos.y;
-      const movementDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      
-      mouseMoveAccumulator += movementDistance;
-      lastMousePos = { x: e.clientX, y: e.clientY };
-      
-      // Only trigger on significant movement
-      if (mouseMoveAccumulator > mouseMoveThreshold) {
-        userInteractingRef.current = true;
-        lastInteractionRef.current = Date.now();
-        mouseMoveAccumulator = 0; // Reset accumulator
-      }
-    };
-
-    // FIXED: Only listen to actual interaction events, not hover
+    // FIXED: Only listen to actual interaction events - NO MOUSE MOVEMENT AT ALL
     canvas.addEventListener('mousedown', handleInteractionStart);
     canvas.addEventListener('touchstart', handleInteractionStart);
     canvas.addEventListener('wheel', handleInteractionStart);
     canvas.addEventListener('mouseup', handleInteractionEnd);
     canvas.addEventListener('touchend', handleInteractionEnd);
-    
-    // Only add mousemove if not ignoring mouse movement
-    if (!ignoreMouseMovement) {
-      canvas.addEventListener('mousemove', handleMouseMove);
-    }
+
+    // FIXED: Completely removed mousemove listener - no mouse hover detection
 
     return () => {
       canvas.removeEventListener('mousedown', handleInteractionStart);
@@ -491,9 +464,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       canvas.removeEventListener('wheel', handleInteractionStart);
       canvas.removeEventListener('mouseup', handleInteractionEnd);
       canvas.removeEventListener('touchend', handleInteractionEnd);
-      if (!ignoreMouseMovement) {
-        canvas.removeEventListener('mousemove', handleMouseMove);
-      }
     };
   }, [config, camera, controls]);
 
@@ -513,10 +483,8 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       // Auto-resume after delay
       const resumeDelay = (config.resumeDelay || 2.0) * 1000;
       setTimeout(() => {
-        if (!userInteractingRef.current) {
-          userInteractingRef.current = false;
-          console.log('🎬 Camera Animation: Auto-resuming after OrbitControls interaction');
-        }
+        userInteractingRef.current = false;
+        console.log('🎬 Camera Animation: Auto-resuming after OrbitControls interaction');
       }, resumeDelay);
     };
 
@@ -531,12 +499,37 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     }
   }, [controls, config]);
 
-  // FIXED: Enhanced animation loop with smooth resume
+  // FIXED: Enhanced animation loop with automatic config change detection and smooth resume
   useFrame((state, delta) => {
     if (!config?.enabled || !currentPathRef.current || config.type === 'none') {
       isActiveRef.current = false;
       return;
     }
+
+    // FIXED: Automatic config change detection
+    const currentConfigKey = `${config.type}-${config.speed}-${animationPattern}-${config.enabled}`;
+    
+    if (lastConfigRef.current !== '' && lastConfigRef.current !== currentConfigKey) {
+      // Config changed! Start smooth transition automatically
+      console.log(`🎬 CONFIG CHANGE AUTO-DETECTED: ${lastConfigRef.current} → ${currentConfigKey}`);
+      
+      isConfigTransitioningRef.current = true;
+      configTransitionStartRef.current = Date.now();
+      
+      // Capture current camera state as starting point for transition
+      configStartPositionRef.current.copy(camera.position);
+      const direction = new THREE.Vector3();
+      camera.getWorldDirection(direction);
+      configStartLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
+      
+      console.log('🎬 Starting automatic config transition from:', {
+        x: configStartPositionRef.current.x.toFixed(2),
+        y: configStartPositionRef.current.y.toFixed(2),
+        z: configStartPositionRef.current.z.toFixed(2)
+      });
+    }
+    
+    lastConfigRef.current = currentConfigKey;
 
     // Check if we should pause for user interaction
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
@@ -574,7 +567,34 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       config.focusDistance || 12
     );
 
-    // FIXED: Smooth blending when resuming
+    // FIXED: Handle automatic config transitions (takes priority)
+    const configTransitionTime = 2500; // 2.5 seconds for config transitions
+    const timeSinceConfigChange = Date.now() - configTransitionStartRef.current;
+    
+    if (isConfigTransitioningRef.current && timeSinceConfigChange < configTransitionTime) {
+      // SMOOTH CONFIG TRANSITION
+      const blendFactor = Math.min(timeSinceConfigChange / configTransitionTime, 1);
+      
+      const easeInOutCubic = (t: number) => {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      };
+      const smoothBlend = easeInOutCubic(blendFactor);
+      
+      const blendedPos = new THREE.Vector3().lerpVectors(configStartPositionRef.current, targetPosition, smoothBlend);
+      const blendedLook = new THREE.Vector3().lerpVectors(configStartLookAtRef.current, lookAtTarget, smoothBlend);
+      
+      camera.position.copy(blendedPos);
+      camera.lookAt(blendedLook);
+      
+      if (blendFactor >= 1) {
+        isConfigTransitioningRef.current = false;
+        console.log('🎬 Automatic config transition completed - now following new animation type');
+      }
+      
+      return; // Skip other logic during config transition
+    }
+
+    // FIXED: Smooth blending when resuming from user interaction
     let lerpFactor = 0.03; // Default smooth lerping
     
     if (isResuming.current) {
@@ -626,8 +646,9 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log(`🎬 FIXED Smooth Cinematic Camera Active: ${config.type}`);
-      console.log(`🚫 Mouse hover ignored: ${config.ignoreMouseMovement !== false}`);
+      console.log(`🎬 FULLY FIXED Smooth Cinematic Camera Active: ${config.type}`);
+      console.log(`🚫 Mouse hover completely ignored: ${config.ignoreMouseMovement !== false}`);
+      console.log(`🔄 Auto config change detection: ENABLED`);
       console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
       console.log(`🎮 Manual control: ${config.enableManualControl !== false ? 'enabled' : 'disabled'}`);
       console.log(`📹 Continuous path generated - perfect for video recording!`);
