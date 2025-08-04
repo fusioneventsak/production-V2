@@ -203,6 +203,8 @@ const CameraAnimationController: React.FC<{
   }, [controls, camera, config?.speed, photoBounds]);
 
   // SIMPLIFIED and SMOOTH Animation calculation functions
+
+  // Main animation frame update - FIXED
   const getAnimationPosition = (time: number, config: any): THREE.Vector3 => {
     const t = time * (config.speed || 0.3); // Slower default speed
     
