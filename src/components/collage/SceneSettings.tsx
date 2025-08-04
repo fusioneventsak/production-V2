@@ -919,6 +919,31 @@ const EnhancedSceneSettings: React.FC<{
                     </p>
                   </div>
 
+                  {/* NEW: Interaction Pause Duration */}
+                  <div>
+                    <label className="block text-sm text-blue-300 mb-2">
+                      <Clock className="h-3 w-3 inline mr-1" />
+                      Resume Delay: {settings.cameraAnimation?.resumeDelay?.toFixed(1) || '2.0'}s
+                    </label>
+                    <input
+                      type="range"
+                      min="1.0"
+                      max="10.0"
+                      step="0.5"
+                      value={settings.cameraAnimation?.resumeDelay || 2.0}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { 
+                          ...settings.cameraAnimation, 
+                          resumeDelay: parseFloat(e.target.value) 
+                        }
+                      })}
+                      className="w-full bg-gray-800"
+                    />
+                    <p className="text-xs text-blue-400 mt-1">
+                      How long to wait after user interaction before resuming cinematic camera
+                    </p>
+                  </div>
+
                   {/* NEW: Fine-Tuning Controls Section */}
                   <div className="bg-blue-800/30 border border-blue-600/30 rounded-lg p-4 space-y-4">
                     <div className="flex items-center text-sm font-medium text-blue-200 mb-2">
