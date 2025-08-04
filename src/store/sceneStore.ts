@@ -1,4 +1,4 @@
-// src/store/sceneStore.ts - UPDATED with Environment Settings
+// src/store/sceneStore.ts - UPDATED with Cinematic Camera Settings
 import { create } from 'zustand';
 
 export type SceneSettings = {
@@ -8,7 +8,7 @@ export type SceneSettings = {
   animationSpeed: number;
   animationEnabled: boolean;
 
-  // Environment Settings (NEW!)
+  // Environment Settings
   sceneEnvironment?: 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
   wallColor?: string;
   wallThickness?: number;
@@ -18,7 +18,7 @@ export type SceneSettings = {
   sphereTextureUrl?: string;
   cubeTextureUrl?: string;
 
-  // Floor Texture Settings (ENHANCED!)
+  // Floor Texture Settings
   floorTexture?: 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
   customFloorTextureUrl?: string;
 
@@ -61,15 +61,16 @@ export type SceneSettings = {
     };
   };
 
-  // Camera Animation Settings (ENHANCED!)
+  // NEW: Enhanced Cinematic Camera Animation Settings
   cameraAnimation: {
     enabled?: boolean;
-    type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
+    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
     speed: number;
-    radius: number;
-    height: number;
-    amplitude: number;
-    frequency: number;
+    focusDistance: number;
+    heightOffset: number;
+    transitionTime: number;
+    pauseTime: number;
+    randomization: number;
   };
 
   // Photo Settings
@@ -85,12 +86,26 @@ export type SceneSettings = {
   backgroundGradientEnd: string;
   backgroundGradientAngle: number;
 
-  // Camera Settings
+  // Camera Settings (Legacy + New)
   cameraDistance: number;
   cameraRotationEnabled: boolean;
   cameraRotationSpeed: number;
   cameraHeight: number;
   cameraEnabled: boolean;
+
+  // Legacy Auto-Rotate Settings (for backward compatibility)
+  cameraAutoRotateSpeed?: number;
+  cameraAutoRotateRadius?: number;
+  cameraAutoRotateHeight?: number;
+  cameraAutoRotateElevationMin?: number;
+  cameraAutoRotateElevationMax?: number;
+  cameraAutoRotateElevationSpeed?: number;
+  cameraAutoRotateDistanceVariation?: number;
+  cameraAutoRotateDistanceSpeed?: number;
+  cameraAutoRotateVerticalDrift?: number;
+  cameraAutoRotateVerticalDriftSpeed?: number;
+  cameraAutoRotateFocusOffset?: [number, number, number];
+  cameraAutoRotatePauseOnInteraction?: number;
 
   // Lighting Settings
   spotlightCount: number;
@@ -130,7 +145,7 @@ interface SceneStore {
   resetSettings: () => void;
 }
 
-// Default settings with new environment options
+// Default settings with new cinematic camera options
 const defaultSettings: SceneSettings = {
   // Animation
   animationPattern: 'grid',
@@ -138,7 +153,7 @@ const defaultSettings: SceneSettings = {
   animationSpeed: 50,
   animationEnabled: true,
 
-  // Environment (NEW!)
+  // Environment
   sceneEnvironment: 'default',
   wallColor: '#3A3A3A',
   wallThickness: 2,
@@ -148,7 +163,7 @@ const defaultSettings: SceneSettings = {
   sphereTextureUrl: '',
   cubeTextureUrl: '',
 
-  // Floor Texture (ENHANCED!)
+  // Floor Texture
   floorTexture: 'solid',
   customFloorTextureUrl: '',
 
@@ -191,15 +206,16 @@ const defaultSettings: SceneSettings = {
     },
   },
 
-  // Camera Animation (ENHANCED!)
+  // NEW: Cinematic Camera Animation (Replaces old cameraAnimation)
   cameraAnimation: {
-    enabled: false,
-    type: 'orbit',
+    enabled: true, // Enable by default for better photo showcase
+    type: 'showcase', // Smart photo-focused animation
     speed: 1.0,
-    radius: 30,
-    height: 15,
-    amplitude: 8,
-    frequency: 0.5,
+    focusDistance: 12.0, // Distance to focus on photos
+    heightOffset: 2.0, // Height above floor particles
+    transitionTime: 2.0, // Time to move between waypoints
+    pauseTime: 1.5, // Time to pause at each photo group
+    randomization: 0.2, // Add slight randomness to paths
   },
 
   // Photos
@@ -215,12 +231,26 @@ const defaultSettings: SceneSettings = {
   backgroundGradientEnd: '#1a1a2e',
   backgroundGradientAngle: 45,
 
-  // Camera
+  // Camera (Legacy settings maintained for compatibility)
   cameraDistance: 30,
-  cameraRotationEnabled: false,
+  cameraRotationEnabled: false, // Disabled by default when cinematic is active
   cameraRotationSpeed: 0.5,
   cameraHeight: 10,
   cameraEnabled: true,
+
+  // Legacy Auto-Rotate (for backward compatibility)
+  cameraAutoRotateSpeed: 0.5,
+  cameraAutoRotateRadius: 30,
+  cameraAutoRotateHeight: 10,
+  cameraAutoRotateElevationMin: Math.PI / 6,
+  cameraAutoRotateElevationMax: Math.PI / 3,
+  cameraAutoRotateElevationSpeed: 0.3,
+  cameraAutoRotateDistanceVariation: 5,
+  cameraAutoRotateDistanceSpeed: 0.2,
+  cameraAutoRotateVerticalDrift: 2,
+  cameraAutoRotateVerticalDriftSpeed: 0.1,
+  cameraAutoRotateFocusOffset: [0, 0, 0],
+  cameraAutoRotatePauseOnInteraction: 500,
 
   // Lighting
   spotlightCount: 3,
@@ -265,3 +295,18 @@ export const useSceneStore = create<SceneStore>((set) => ({
   resetSettings: () =>
     set({ settings: { ...defaultSettings } }),
 }));
+
+// Helper function to get cinematic camera type descriptions
+export const getCinematicCameraTypeDescription = (type: string): string => {
+  const descriptions: Record<string, string> = {
+    'none': 'Disabled - Use manual camera controls',
+    'showcase': 'Smart Photo Showcase - Automatically visits each photo with optimal viewing angles',
+    'gallery_walk': 'Gallery Walk - Simulates walking through a traditional photo gallery',
+    'spiral_tour': 'Spiral Tour - Follows spiral patterns with dynamic photo focusing',
+    'wave_follow': 'Wave Follower - Tracks wave patterns while showcasing photos',
+    'grid_sweep': 'Grid Sweep - Systematically covers grid layouts to show all photos',
+    'photo_focus': 'Photo Focus - Prioritizes close-up views of individual photos'
+  };
+  
+  return descriptions[type] || descriptions['none'];
+};
