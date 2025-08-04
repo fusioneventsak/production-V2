@@ -1,4 +1,4 @@
-// Enhanced CollageScene with Fixed Camera Animations and Wall Color Support
+// Enhanced CollageScene with Cinematic Camera System
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -43,7 +43,14 @@ const TELEPORT_THRESHOLD = 35;
 type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
 type FloorTexture = 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
 
-// Extended settings for scene environments
+// Photo position interface for cinematic camera
+interface PhotoPosition {
+  position: [number, number, number];
+  slotIndex: number;
+  id: string;
+}
+
+// Extended settings for scene environments + NEW CINEMATIC CAMERA
 interface ExtendedSceneSettings extends SceneSettings {
   sceneEnvironment?: SceneEnvironment;
   floorTexture?: FloorTexture;
@@ -58,7 +65,19 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingHeight?: number;
   roomDepth?: number;
   
-  // Enhanced Auto-Rotate Camera Settings
+  // NEW: Enhanced Cinematic Camera Animation Settings
+  cameraAnimation?: {
+    enabled?: boolean;
+    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
+    speed: number;
+    focusDistance: number;
+    heightOffset: number;
+    transitionTime: number;
+    pauseTime: number;
+    randomization: number;
+  };
+  
+  // Legacy Auto-Rotate Camera Settings (for backward compatibility)
   cameraAutoRotateSpeed?: number;
   cameraAutoRotateRadius?: number;
   cameraAutoRotateHeight?: number;
@@ -73,25 +92,173 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotatePauseOnInteraction?: number;
 }
 
-// FIXED Camera Animation Controller
-const CameraAnimationController: React.FC<{
+// NEW: Cinematic Camera Controller with Smart Photo Showcasing
+const CinematicCameraController: React.FC<{
   config?: {
     enabled?: boolean;
-    type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
+    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
     speed: number;
-    radius: number;
-    height: number;
-    amplitude: number;
-    frequency: number;
+    focusDistance: number;
+    heightOffset: number;
+    transitionTime: number;
+    pauseTime: number;
+    randomization: number;
   };
-}> = ({ config }) => {
+  photoPositions: PhotoPosition[];
+  animationPattern: string;
+  floorHeight: number;
+  settings: {
+    photoSize?: number;
+    floorSize?: number;
+    photoCount?: number;
+  };
+}> = ({ config, photoPositions, animationPattern, floorHeight = -12, settings }) => {
   const { camera, controls } = useThree();
+  
+  // Refs for animation state
   const timeRef = useRef(0);
+  const waypointIndexRef = useRef(0);
+  const transitionProgressRef = useRef(0);
+  const pauseTimeRef = useRef(0);
   const userInteractingRef = useRef(false);
   const lastInteractionRef = useRef(0);
   const isActiveRef = useRef(false);
+  
+  // Smart systems
+  const visibilityTrackerRef = useRef(new Set<string>());
+  const photoLastViewedRef = useRef(new Map<string, number>());
+  
+  // Memoized waypoints - recalculate when photos or pattern changes
+  const waypoints = useMemo(() => {
+    if (!photoPositions.length || !config?.enabled) return [];
+    
+    const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
+    if (!validPhotos.length) return [];
 
-  // Detect user interaction with controls
+    console.log(`🎬 Generating ${config.type} waypoints for ${validPhotos.length} photos in ${animationPattern} pattern`);
+    
+    const photoSize = settings.photoSize || 4;
+    const optimalHeight = floorHeight + photoSize + 2; // Just above floor particles
+    const points: THREE.Vector3[] = [];
+    
+    switch (config.type) {
+      case 'showcase':
+      case 'grid_sweep':
+        // Smart grid traversal - serpentine path through photos
+        const photosByZ = new Map<number, typeof validPhotos>();
+        validPhotos.forEach(photo => {
+          const z = Math.round(photo.position[2] / photoSize) * photoSize;
+          if (!photosByZ.has(z)) photosByZ.set(z, []);
+          photosByZ.get(z)!.push(photo);
+        });
+
+        const sortedZRows = Array.from(photosByZ.keys()).sort((a, b) => b - a); // Start from back
+        
+        sortedZRows.forEach((z, rowIndex) => {
+          const rowPhotos = photosByZ.get(z)!.sort((a, b) => 
+            rowIndex % 2 === 0 ? a.position[0] - b.position[0] : b.position[0] - a.position[0]
+          );
+          
+          rowPhotos.forEach((photo, photoIndex) => {
+            // Add viewing position slightly in front and to the side
+            const offset = photoIndex % 2 === 0 ? -photoSize * 0.7 : photoSize * 0.7;
+            points.push(new THREE.Vector3(
+              photo.position[0] + offset,
+              optimalHeight,
+              photo.position[2] + photoSize * 1.5
+            ));
+          });
+        });
+        break;
+
+      case 'gallery_walk':
+        // Traditional gallery walk - stay at consistent height, move systematically
+        const sortedByDistance = [...validPhotos].sort((a, b) => {
+          const distA = Math.sqrt(a.position[0] ** 2 + a.position[2] ** 2);
+          const distB = Math.sqrt(b.position[0] ** 2 + b.position[2] ** 2);
+          return distA - distB;
+        });
+
+        sortedByDistance.forEach(photo => {
+          const cameraDistance = photoSize * 2.5;
+          const angle = Math.atan2(photo.position[2], photo.position[0]);
+          
+          points.push(new THREE.Vector3(
+            photo.position[0] - Math.cos(angle) * cameraDistance,
+            optimalHeight,
+            photo.position[2] - Math.sin(angle) * cameraDistance
+          ));
+        });
+        break;
+
+      case 'spiral_tour':
+        // Follow spiral pattern with photo focus
+        const spiralSorted = [...validPhotos].sort((a, b) => {
+          const distA = Math.sqrt(a.position[0] ** 2 + a.position[2] ** 2);
+          const distB = Math.sqrt(b.position[0] ** 2 + b.position[2] ** 2);
+          if (Math.abs(distA - distB) > photoSize) return distA - distB;
+          
+          const angleA = Math.atan2(a.position[2], a.position[0]);
+          const angleB = Math.atan2(b.position[2], b.position[0]);
+          return angleA - angleB;
+        });
+
+        spiralSorted.forEach(photo => {
+          const radius = Math.sqrt(photo.position[0] ** 2 + photo.position[2] ** 2);
+          const angle = Math.atan2(photo.position[2], photo.position[0]);
+          const offsetRadius = Math.max(radius - photoSize * 1.5, photoSize);
+          
+          points.push(new THREE.Vector3(
+            Math.cos(angle) * offsetRadius,
+            Math.max(photo.position[1] - 1, optimalHeight),
+            Math.sin(angle) * offsetRadius
+          ));
+        });
+        break;
+
+      case 'wave_follow':
+        // Follow wave pattern
+        const waveSorted = [...validPhotos].sort((a, b) => a.position[0] - b.position[0]);
+        
+        waveSorted.forEach(photo => {
+          const lookAheadDistance = photoSize * 1.8;
+          
+          points.push(new THREE.Vector3(
+            photo.position[0],
+            optimalHeight,
+            photo.position[2] - lookAheadDistance
+          ));
+        });
+        break;
+
+      case 'photo_focus':
+        // Close-up focus on individual photos
+        validPhotos.forEach(photo => {
+          const focusDistance = photoSize * 1.2;
+          const angle = Math.random() * Math.PI * 2; // Random approach angle
+          
+          points.push(new THREE.Vector3(
+            photo.position[0] + Math.cos(angle) * focusDistance,
+            photo.position[1] + photoSize * 0.3,
+            photo.position[2] + Math.sin(angle) * focusDistance
+          ));
+        });
+        break;
+
+      default:
+        return [];
+    }
+    
+    // Reset visibility tracking when waypoints change
+    visibilityTrackerRef.current.clear();
+    photoLastViewedRef.current.clear();
+    waypointIndexRef.current = 0;
+    transitionProgressRef.current = 0;
+    
+    return points;
+  }, [photoPositions, animationPattern, config?.type, config?.enabled, settings, floorHeight]);
+
+  // User interaction detection
   useEffect(() => {
     if (!controls) return;
 
@@ -116,129 +283,156 @@ const CameraAnimationController: React.FC<{
     }
   }, [controls]);
 
-  // Animation calculation functions
-  const getAnimationPosition = (time: number, config: any): THREE.Vector3 => {
-    const t = time * (config.speed || 1);
-    
-    switch (config.type) {
-      case 'orbit':
-        return new THREE.Vector3(
-          Math.cos(t) * (config.radius || 30),
-          config.height || 15,
-          Math.sin(t) * (config.radius || 30)
-        );
-
-      case 'figure8':
-        // Perfect figure-8 pattern
-        return new THREE.Vector3(
-          Math.sin(t) * (config.radius || 30),
-          (config.height || 15) + Math.sin(t * 2) * 3,
-          Math.sin(t * 2) * (config.amplitude || 10)
-        );
-
-      case 'centerRotate':
-        // Multi-phase center-focused rotation
-        const cycleTime = 20;
-        const phase = (t % cycleTime) / cycleTime;
-        const angle = t * 2;
-        
-        let currentRadius: number;
-        let currentHeight: number;
-        
-        if (phase < 0.3) {
-          const phaseT = phase / 0.3;
-          currentRadius = (config.radius || 30) * (1 - phaseT * 0.7);
-          currentHeight = (config.height || 15) + Math.sin(phaseT * Math.PI) * 5;
-        } else if (phase < 0.7) {
-          currentRadius = (config.radius || 30) * 0.3;
-          currentHeight = (config.height || 15) * 0.8;
-        } else {
-          const phaseT = (phase - 0.7) / 0.3;
-          currentRadius = (config.radius || 30) * (0.3 + phaseT * 0.7);
-          currentHeight = (config.height || 15) + Math.sin(phaseT * Math.PI) * 5;
-        }
-        
-        return new THREE.Vector3(
-          Math.cos(angle) * currentRadius,
-          currentHeight,
-          Math.sin(angle) * currentRadius
-        );
-
-      case 'wave':
-        // Wave pattern with radius oscillation
-        const waveRadius = (config.radius || 30) + Math.sin(t * (config.frequency || 0.5)) * (config.amplitude || 8);
-        return new THREE.Vector3(
-          Math.cos(t) * waveRadius,
-          (config.height || 15) + Math.sin(t * (config.frequency || 0.5) * 2) * 3,
-          Math.sin(t) * waveRadius
-        );
-
-      case 'spiral':
-        // Expanding/contracting spiral with height variation
-        const spiralMod = 1 + Math.sin(t * (config.frequency || 0.5)) * 0.4;
-        return new THREE.Vector3(
-          Math.cos(t * 2) * (config.radius || 30) * spiralMod,
-          (config.height || 15) + Math.sin(t * (config.frequency || 0.5) * 0.5) * (config.amplitude || 8),
-          Math.sin(t * 2) * (config.radius || 30) * spiralMod
-        );
-
-      default:
-        return camera.position.clone();
-    }
-  };
+  // Smart photo targeting system
+  const getNextTarget = useCallback((): THREE.Vector3 | null => {
+    if (!waypoints.length) return null;
+    return waypoints[waypointIndexRef.current] || null;
+  }, [waypoints]);
 
   // Main animation frame update
   useFrame((state, delta) => {
-    if (!config || !config.enabled || config.type === 'none') {
+    if (!config?.enabled || !waypoints.length || config.type === 'none') {
       isActiveRef.current = false;
       return;
     }
 
-    // Check if user recently interacted (pause animation for 3 seconds after interaction)
+    // Pause animation during user interaction
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const pauseAfterInteraction = 3000;
+    const pauseDuration = 2000; // 2 second pause
 
-    if (userInteractingRef.current || timeSinceInteraction < pauseAfterInteraction) {
+    if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
       isActiveRef.current = false;
       return;
     }
 
-    // Resume animation
+    // Activate animation
     if (!isActiveRef.current) {
       isActiveRef.current = true;
-      timeRef.current = Date.now() * 0.001;
+      timeRef.current = 0;
     }
 
-    // Update time
     timeRef.current += delta;
 
-    // Calculate new position
-    const targetPosition = getAnimationPosition(timeRef.current, config);
+    // Handle pausing at waypoints to showcase photos
+    if (pauseTimeRef.current > 0) {
+      pauseTimeRef.current -= delta;
+      
+      // During pause, track which photos are in view
+      photoPositions.forEach(photo => {
+        if (!photo.id.startsWith('placeholder-')) {
+          const photoVec = new THREE.Vector3(...photo.position);
+          const distance = camera.position.distanceTo(photoVec);
+          if (distance <= (config.focusDistance || 12)) {
+            visibilityTrackerRef.current.add(photo.id);
+            photoLastViewedRef.current.set(photo.id, Date.now());
+          }
+        }
+      });
+
+      // Subtle photo-focused adjustment during pause
+      const nearbyPhotos = photoPositions
+        .filter(p => !p.id.startsWith('placeholder-'))
+        .map(p => ({
+          photo: p,
+          distance: camera.position.distanceTo(new THREE.Vector3(...p.position))
+        }))
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 3);
+
+      if (nearbyPhotos.length > 0) {
+        const closestPhoto = nearbyPhotos[0].photo;
+        const photoVec = new THREE.Vector3(...closestPhoto.position);
+        
+        // Subtle look-at adjustment during pause
+        const lookTarget = photoVec.clone();
+        lookTarget.y = Math.max(lookTarget.y, floorHeight + 2);
+        
+        camera.lookAt(lookTarget);
+        
+        if (controls && 'target' in controls) {
+          (controls as any).target.lerp(lookTarget, 0.02);
+          (controls as any).update();
+        }
+      }
+      return;
+    }
+
+    // Move to next waypoint
+    const currentTarget = getNextTarget();
+    if (!currentTarget) return;
+
+    // Smooth movement with easing
+    const transitionSpeed = (config.speed || 1.0) * 0.5;
+    transitionProgressRef.current += delta * transitionSpeed;
+
+    // Smooth interpolation to waypoint
+    const lerpFactor = Math.min(transitionProgressRef.current, 1.0);
+    const easedProgress = 1 - Math.pow(1 - lerpFactor, 3); // Ease-out cubic
     
-    // Smooth camera movement
-    camera.position.lerp(targetPosition, 0.02);
+    camera.position.lerp(currentTarget, easedProgress * 0.05);
+
+    // Dynamic look-at targeting for photo showcase
+    const lookTarget = new THREE.Vector3();
     
-    // Always look at center
-    camera.lookAt(0, 0, 0);
+    // Find photos to focus on based on current camera position
+    const photosInRange = photoPositions
+      .filter(p => !p.id.startsWith('placeholder-'))
+      .map(p => ({
+        photo: p,
+        distance: camera.position.distanceTo(new THREE.Vector3(...p.position))
+      }))
+      .filter(p => p.distance < (config.focusDistance || 15))
+      .sort((a, b) => a.distance - b.distance);
+
+    if (photosInRange.length > 0) {
+      // Focus on closest photo group
+      const avgPosition = photosInRange.slice(0, 3).reduce((acc, p) => {
+        acc.add(new THREE.Vector3(...p.photo.position));
+        return acc;
+      }, new THREE.Vector3()).divideScalar(Math.min(3, photosInRange.length));
+      
+      lookTarget.copy(avgPosition);
+      lookTarget.y = Math.max(lookTarget.y, floorHeight + 2);
+    } else {
+      // Look forward along path
+      lookTarget.copy(currentTarget);
+      lookTarget.y = Math.max(lookTarget.y, floorHeight + 1);
+    }
+
+    camera.lookAt(lookTarget);
     
-    // Update controls target if available
     if (controls && 'target' in controls) {
-      (controls as any).target.set(0, 0, 0);
+      (controls as any).target.lerp(lookTarget, 0.03);
       (controls as any).update();
+    }
+
+    // Check if we've reached the current waypoint
+    if (camera.position.distanceTo(currentTarget) < 2.0 || transitionProgressRef.current >= 1.0) {
+      // Move to next waypoint
+      waypointIndexRef.current = (waypointIndexRef.current + 1) % waypoints.length;
+      transitionProgressRef.current = 0;
+      
+      // Add pause time to showcase photos
+      pauseTimeRef.current = config.pauseTime || 1.5;
+      
+      // Log progress for debugging
+      const viewedCount = visibilityTrackerRef.current.size;
+      const totalPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
+      
+      if (waypointIndexRef.current % 10 === 0) {
+        console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPhotos} photos showcased (${Math.round(viewedCount/totalPhotos*100)}%)`);
+      }
     }
   });
 
-  // Debug logging
+  // Debug info
   useEffect(() => {
-    if (config?.enabled && config.type !== 'none') {
-      console.log('🎬 Camera Animation Started:', {
-        type: config.type,
-        speed: config.speed,
-        radius: config.radius,
-        height: config.height
-      });
+    if (config?.enabled && waypoints.length > 0) {
+      console.log(`🎬 Cinematic Camera Active: ${config.type}`);
+      console.log(`📸 Generated ${waypoints.length} waypoints for ${photoPositions.length} photos`);
+      console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}`);
     }
-  }, [config?.enabled, config?.type]);
+  }, [config?.enabled, config?.type, waypoints.length, animationPattern]);
 
   return null;
 };
@@ -1115,8 +1309,11 @@ const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({
   );
 };
 
-// Enhanced Camera Controls with Fine-Tuning Auto-Rotate
-const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+// UPDATED: Enhanced Camera Controls with Cinematic Integration
+const EnhancedCameraControls: React.FC<{ 
+  settings: ExtendedSceneSettings; 
+  photosWithPositions: PhotoWithPosition[];
+}> = ({ settings, photosWithPositions }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
   const userInteractingRef = useRef(false);
@@ -1126,23 +1323,65 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
   const distanceOscillationRef = useRef(0);
   const verticalDriftRef = useRef(0);
   
-  // Initialize camera position
+  // Convert PhotoWithPosition to PhotoPosition for cinematic camera
+  const photoPositions = useMemo(() => {
+    return photosWithPositions
+      .filter(photo => photo.id && !photo.id.startsWith('placeholder-'))
+      .map(photo => ({
+        position: photo.targetPosition,
+        slotIndex: photo.slotIndex,
+        id: photo.id
+      }));
+  }, [photosWithPositions]);
+  
+  // Initialize camera position optimized for photo viewing
   useEffect(() => {
     if (camera && controlsRef.current) {
-      const initialDistance = settings.cameraDistance || 25;
-      const initialHeight = settings.cameraHeight || 5;
+      const photoSize = settings.photoSize || 4;
+      const floorHeight = -12;
+      
+      // Position camera for optimal photo viewing
+      const initialDistance = Math.max(settings.cameraDistance || 25, photoSize * 3);
+      let initialHeight = Math.max(settings.cameraHeight || 5, floorHeight + photoSize + 2);
+      
+      // Adjust height based on animation pattern for better initial view
+      switch (settings.animationPattern) {
+        case 'spiral':
+          initialHeight = Math.max(initialHeight, floorHeight + photoSize * 2);
+          break;
+        case 'wave':
+          initialHeight = Math.max(initialHeight, floorHeight + photoSize * 1.5);
+          break;
+        case 'float':
+          initialHeight = Math.max(initialHeight, floorHeight + photoSize * 3);
+          break;
+        default: // grid
+          initialHeight = Math.max(initialHeight, floorHeight + photoSize + 3);
+          break;
+      }
+      
       const initialPosition = new THREE.Vector3(
-        initialDistance,
+        initialDistance * 0.7,
         initialHeight,
-        initialDistance
+        initialDistance * 0.7
       );
+      
       camera.position.copy(initialPosition);
       
-      const target = new THREE.Vector3(0, initialHeight * 0.3, 0);
+      // Target slightly above floor level where photos are
+      const target = new THREE.Vector3(0, floorHeight + photoSize, 0);
       controlsRef.current.target.copy(target);
       controlsRef.current.update();
+      
+      console.log('📷 Camera initialized for photo showcase:', {
+        position: initialPosition.toArray(),
+        target: target.toArray(),
+        photoSize,
+        floorHeight,
+        pattern: settings.animationPattern
+      });
     }
-  }, [camera, settings.cameraDistance, settings.cameraHeight]);
+  }, [camera, settings.cameraDistance, settings.cameraHeight, settings.photoSize, settings.animationPattern]);
 
   // Handle user interaction detection
   useEffect(() => {
@@ -1170,93 +1409,121 @@ const EnhancedCameraControls: React.FC<{ settings: ExtendedSceneSettings }> = ({
     };
   }, [settings.cameraAutoRotatePauseOnInteraction]);
 
-  // Enhanced auto rotation with fine controls - OPTIMIZED for performance
+  // Legacy auto-rotation with photo-aware height (fallback when cinematic is disabled)
   useFrame((state, delta) => {
     if (!controlsRef.current) return;
+    
+    // Skip if cinematic camera is active
+    if (settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none') {
+      return;
+    }
 
-    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
+    // Only auto-rotate if legacy rotation is enabled AND user isn't interacting
     if (settings.cameraRotationEnabled && !userInteractingRef.current) {
-      // FIXED: Smoother time updates to reduce jitter
-      const smoothDelta = Math.min(delta, 0.016); // Cap delta to 60fps equivalent
+      const smoothDelta = Math.min(delta, 0.016);
       
-      // Update time references with smoothed delta
       autoRotateTimeRef.current += smoothDelta * (settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5);
       heightOscillationRef.current += smoothDelta * (settings.cameraAutoRotateElevationSpeed || 0.3);
       distanceOscillationRef.current += smoothDelta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
       verticalDriftRef.current += smoothDelta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
 
-      // Calculate base position from current camera position
       const currentOffset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
       const currentSpherical = new THREE.Spherical().setFromVector3(currentOffset);
 
-      // Apply horizontal rotation
       currentSpherical.theta = autoRotateTimeRef.current;
 
-      // Calculate dynamic radius with variation
       const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
       const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
       const dynamicRadius = baseRadius + Math.sin(distanceOscillationRef.current) * radiusVariation;
       currentSpherical.radius = dynamicRadius;
 
-      // Calculate dynamic elevation (phi angle)
-      const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 5;
-      const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6); // 30 degrees
-      const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3); // 60 degrees
+      // Adjust height for better photo viewing based on pattern
+      const photoSize = settings.photoSize || 4;
+      const floorHeight = -12;
+      let minHeight = floorHeight + photoSize + 2;
+      
+      // Pattern-specific height adjustments
+      switch (settings.animationPattern) {
+        case 'spiral':
+          minHeight = floorHeight + photoSize * 2;
+          break;
+        case 'wave':
+          minHeight = floorHeight + photoSize * 1.5;
+          break;
+        case 'float':
+          minHeight = floorHeight + photoSize * 2.5;
+          break;
+      }
+      
+      const baseHeight = Math.max(settings.cameraAutoRotateHeight || settings.cameraHeight || 5, minHeight);
+      const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6);
+      const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3);
       const elevationRange = elevationMax - elevationMin;
-      const elevationOscillation = (Math.sin(heightOscillationRef.current) + 1) / 2; // 0 to 1
+      const elevationOscillation = (Math.sin(heightOscillationRef.current) + 1) / 2;
       currentSpherical.phi = elevationMin + (elevationOscillation * elevationRange);
 
-      // Calculate new camera position
       const newPosition = new THREE.Vector3().setFromSpherical(currentSpherical);
 
-      // Apply vertical drift to the focus point
       const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
       const driftOffset = Math.sin(verticalDriftRef.current) * verticalDrift;
       
-      // Calculate focus point with offset
       const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
       const focusPoint = new THREE.Vector3(
         focusOffset[0],
-        focusOffset[1] + driftOffset,
+        Math.max(focusOffset[1] + driftOffset, minHeight - photoSize),
         focusOffset[2]
       );
 
-      // Add focus point to camera position
       newPosition.add(focusPoint);
       
-      // FIXED: Smoother camera updates using lerp for reduced jitter
-      camera.position.lerp(newPosition, 0.05); // Smooth interpolation
+      camera.position.lerp(newPosition, 0.05);
       controlsRef.current.target.lerp(focusPoint, 0.05);
       controlsRef.current.update();
     }
   });
 
   return (
-    <OrbitControls
-      ref={controlsRef}
-      enabled={settings.cameraEnabled !== false}
-      enablePan={true}
-      enableZoom={true}
-      enableRotate={true}
-      minDistance={8}
-      maxDistance={300}
-      minPolarAngle={Math.PI / 6}
-      maxPolarAngle={Math.PI - Math.PI / 6}
-      enableDamping={true}
-      dampingFactor={0.05} // Increased damping for smoother movement
-      zoomSpeed={1.2} // Slightly reduced for smoother zoom
-      rotateSpeed={1.0} // Slightly reduced for smoother rotation
-      panSpeed={1.0}
-      touches={{
-        ONE: THREE.TOUCH.ROTATE,
-        TWO: THREE.TOUCH.DOLLY_PAN
-      }}
-      mouseButtons={{
-        LEFT: THREE.MOUSE.ROTATE,
-        MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.PAN
-      }}
-    />
+    <>
+      {/* Main Orbit Controls */}
+      <OrbitControls
+        ref={controlsRef}
+        enabled={settings.cameraEnabled !== false}
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        minDistance={Math.max(8, (settings.photoSize || 4) * 1.5)}
+        maxDistance={300}
+        minPolarAngle={Math.PI / 8} // Allow lower angle for photo viewing
+        maxPolarAngle={Math.PI - Math.PI / 8}
+        enableDamping={true}
+        dampingFactor={0.05}
+        zoomSpeed={1.2}
+        rotateSpeed={1.0}
+        panSpeed={1.0}
+        touches={{
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: THREE.TOUCH.DOLLY_PAN
+        }}
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN
+        }}
+      />
+      
+      {/* NEW: Cinematic Camera Controller */}
+      <CinematicCameraController
+        config={settings.cameraAnimation}
+        photoPositions={photoPositions}
+        animationPattern={settings.animationPattern || 'grid'}
+        floorHeight={-12}
+        settings={{
+          photoSize: settings.photoSize,
+          floorSize: settings.floorSize,
+          photoCount: settings.photoCount
+        }}
+      />
+    </>
   );
 };
 
@@ -1559,9 +1826,8 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* Background Management */}
         <BackgroundRenderer settings={safeSettings} />
         
-        {/* FIXED Camera Controls with Animation Support */}
-        <EnhancedCameraControls settings={safeSettings} />
-        <CameraAnimationController config={safeSettings.cameraAnimation} />
+        {/* UPDATED: Camera Controls with Cinematic Integration */}
+        <EnhancedCameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
         
         {/* Particle System */}
         {safeSettings.particles?.enabled && (
@@ -1575,7 +1841,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           />
         )}
         
-        {/* FIXED Scene Environment Manager with Wall Color Support */}
+        {/* Scene Environment Manager with Wall Color Support */}
         <SceneEnvironmentManager settings={safeSettings} />
         
         {/* Enhanced Lighting */}
