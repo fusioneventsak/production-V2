@@ -145,6 +145,17 @@ const CinematicCamera: React.FC<{
   const splineCurveRef = useRef<THREE.CatmullRomCurve3 | null>(null);
   const lookAtCurveRef = useRef<THREE.CatmullRomCurve3 | null>(null);
 
+  // Helper method for bounds calculation
+  const getPhotoBounds = useCallback((photos: PhotoPosition[]) => {
+    const positions = photos.map(p => p.position);
+    return {
+      minX: Math.min(...positions.map(p => p[0])),
+      maxX: Math.max(...positions.map(p => p[0])),
+      minZ: Math.min(...positions.map(p => p[2])),
+      maxZ: Math.max(...positions.map(p => p[2]))
+    };
+  }, []);
+
   // Generate smooth spline curves based on photos
   useEffect(() => {
     if (!config?.enabled || !photoPositions.length || config.type === 'none') {
@@ -186,7 +197,7 @@ const CinematicCamera: React.FC<{
 
       case 'spiral_tour':
         // Create smooth spiral around all photos
-        const bounds = this.getPhotoBounds(validPhotos);
+        const bounds = getPhotoBounds(validPhotos);
         const centerX = (bounds.minX + bounds.maxX) / 2;
         const centerZ = (bounds.minZ + bounds.maxZ) / 2;
         const maxRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + 20;
@@ -270,18 +281,7 @@ const CinematicCamera: React.FC<{
       
       console.log(`🎬 Created SMOOTH spline with ${cameraPoints.length} points for ${config.type}`);
     }
-  }, [config?.enabled, config?.type, photoPositions]);
-
-  // Helper method for bounds calculation
-  const getPhotoBounds = (photos: PhotoPosition[]) => {
-    const positions = photos.map(p => p.position);
-    return {
-      minX: Math.min(...positions.map(p => p[0])),
-      maxX: Math.max(...positions.map(p => p[0])),
-      minZ: Math.min(...positions.map(p => p[2])),
-      maxZ: Math.max(...positions.map(p => p[2]))
-    };
-  };
+  }, [config?.enabled, config?.type, photoPositions, getPhotoBounds]);
 
   useFrame((state, delta) => {
     if (!config?.enabled || config.type === 'none' || !splineCurveRef.current || !lookAtCurveRef.current) {
