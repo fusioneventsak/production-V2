@@ -1,7 +1,7 @@
-// src/components/collage/SceneSettings.tsx - COMPLETE with Cinematic Camera Integration
+// src/components/collage/SceneSettings.tsx - COMPLETE with Enhanced Cinematic Camera Fine-Tuning
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize } from 'lucide-react';
 import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
 import { getCinematicCameraTypeDescription } from '../../store/sceneStore';
 
@@ -34,7 +34,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
   
-  // NEW: Cinematic Camera Settings
+  // ENHANCED: Cinematic Camera Settings with Fine-Tuning Controls
   cameraAnimation?: {
     enabled?: boolean;
     type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
@@ -44,6 +44,11 @@ interface ExtendedSceneSettings extends SceneSettings {
     transitionTime: number;
     pauseTime: number;
     randomization: number;
+    // NEW: Fine-tuning controls
+    baseHeight?: number;        // Base camera height for all animations
+    baseDistance?: number;      // Base distance from center for all animations
+    heightVariation?: number;   // How much height varies during animation
+    distanceVariation?: number; // How much distance varies during animation
   };
 }
 
@@ -316,11 +321,11 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* NEW: Cinematic Camera Controls - Priority Section */}
+      {/* ENHANCED: Cinematic Camera Controls with Fine-Tuning */}
       <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
         <h4 className="flex items-center text-sm font-medium text-blue-200 mb-3">
           <Video className="h-4 w-4 mr-2" />
-          🎬 Cinematic Camera (NEW!)
+          🎬 Cinematic Camera (Enhanced!)
         </h4>
         
         <div className="space-y-4">
@@ -435,11 +440,120 @@ const EnhancedSceneSettings: React.FC<{
                 </p>
               </div>
 
+              {/* NEW: Fine-Tuning Controls Section */}
+              <div className="bg-blue-800/30 border border-blue-600/30 rounded-lg p-4 space-y-4">
+                <div className="flex items-center text-sm font-medium text-blue-200 mb-2">
+                  <Settings className="h-4 w-4 mr-2" />
+                  🎛️ Fine-Tuning Controls
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-blue-300 mb-1">
+                      <ArrowUp className="h-3 w-3 inline mr-1" />
+                      Base Height: {settings.cameraAnimation?.baseHeight?.toFixed(0) || 'Auto'}
+                    </label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="80"
+                      step="2"
+                      value={settings.cameraAnimation?.baseHeight || 25}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { 
+                          ...settings.cameraAnimation, 
+                          baseHeight: parseFloat(e.target.value) 
+                        }
+                      })}
+                      className="w-full bg-gray-800"
+                    />
+                    <p className="text-xs text-blue-400/80 mt-1">Base camera height for all movements</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-blue-300 mb-1">
+                      <ArrowRight className="h-3 w-3 inline mr-1" />
+                      Base Distance: {settings.cameraAnimation?.baseDistance?.toFixed(0) || 'Auto'}
+                    </label>
+                    <input
+                      type="range"
+                      min="15"
+                      max="100"
+                      step="2"
+                      value={settings.cameraAnimation?.baseDistance || 35}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { 
+                          ...settings.cameraAnimation, 
+                          baseDistance: parseFloat(e.target.value) 
+                        }
+                      })}
+                      className="w-full bg-gray-800"
+                    />
+                    <p className="text-xs text-blue-400/80 mt-1">Base distance from photo center</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-blue-300 mb-1">
+                      <TrendingUp className="h-3 w-3 inline mr-1" />
+                      Height Variation: {settings.cameraAnimation?.heightVariation?.toFixed(0) || 'Auto'}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="1"
+                      value={settings.cameraAnimation?.heightVariation || 8}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { 
+                          ...settings.cameraAnimation, 
+                          heightVariation: parseFloat(e.target.value) 
+                        }
+                      })}
+                      className="w-full bg-gray-800"
+                    />
+                    <p className="text-xs text-blue-400/80 mt-1">How much height varies during animation</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-blue-300 mb-1">
+                      <Maximize className="h-3 w-3 inline mr-1" />
+                      Distance Variation: {settings.cameraAnimation?.distanceVariation?.toFixed(0) || 'Auto'}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="25"
+                      step="1"
+                      value={settings.cameraAnimation?.distanceVariation || 10}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { 
+                          ...settings.cameraAnimation, 
+                          distanceVariation: parseFloat(e.target.value) 
+                        }
+                      })}
+                      className="w-full bg-gray-800"
+                    />
+                    <p className="text-xs text-blue-400/80 mt-1">How much distance varies during animation</p>
+                  </div>
+                </div>
+
+                <div className="bg-blue-700/20 p-3 rounded border border-blue-500/20">
+                  <p className="text-xs text-blue-300 font-medium mb-1">💡 Pattern-Aware Defaults</p>
+                  <p className="text-xs text-blue-400/90">
+                    Leave controls at "Auto" for smart defaults that adapt to your animation pattern. 
+                    <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances, 
+                    <strong>Float</strong> gets moderate settings for optimal viewing.
+                  </p>
+                </div>
+              </div>
+
               <div className="bg-blue-800/30 p-3 rounded border border-blue-600/30">
                 <p className="text-xs text-blue-300 flex items-center">
                   <Play className="h-3 w-3 mr-1" />
-                  <strong>How it works:</strong> Camera automatically tours your photos, pausing to showcase each one. 
-                  Take manual control anytime - the tour resumes after 2 seconds of inactivity.
+                  <strong>How it works:</strong> Camera automatically tours your photos with smooth transitions between patterns. 
+                  Take manual control anytime - the tour resumes gracefully after user interaction.
                 </p>
               </div>
             </>
