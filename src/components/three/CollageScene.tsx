@@ -240,7 +240,7 @@ class EnhancedGridPattern {
   }
 }
 
-// FIXED WAVE PATTERN - Supports up to 500 photos with proper floating heights
+// FIXED WAVE PATTERN - Properly responds to main photo count slider, supports up to 500 photos
 class FixedWavePattern {
   constructor(private settings: any) {}
 
@@ -248,12 +248,8 @@ class FixedWavePattern {
     const positions: any[] = [];
     const rotations: [number, number, number][] = [];
 
-    const photoCount = this.settings.patterns?.wave?.photoCount !== undefined 
-      ? this.settings.patterns.wave.photoCount 
-      : this.settings.photoCount;
-    
-    // Support up to 500 photos for wave pattern
-    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    // FIXED: Always use main photoCount setting, not pattern-specific one
+    const totalPhotos = Math.min(Math.max(this.settings.photoCount || 100, 1), 500);
     
     // Better spacing that spreads photos out more naturally
     const photoSize = this.settings.photoSize || 4;
@@ -362,7 +358,7 @@ class FixedWavePattern {
       }
     }
 
-    console.log(`🌊 Wave Pattern: ${columns}x${rows} (${totalPhotos} photos) - Supports up to 500 photos floating between Y=${minFloatHeight}-${maxFloatHeight}`);
+    console.log(`🌊 Wave Pattern: ${columns}x${rows} (${totalPhotos} photos) - FIXED: Uses main photoCount slider - Floating Y=${minFloatHeight}-${maxFloatHeight}`);
 
     return { positions, rotations };
   }
