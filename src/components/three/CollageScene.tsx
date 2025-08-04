@@ -326,7 +326,7 @@ const CameraAnimationController: React.FC<{
     camera.position.lerp(targetPosition, 0.015);
     
   // SIMPLIFIED Look-at system for smoother movement
-  const calculateLookAtTarget = useCallback((time: number, cameraPosition: THREE.Vector3): THREE.Vector3 => {
+  const calculateLookAtTarget = (time: number, cameraPosition: THREE.Vector3): THREE.Vector3 => {
     // Simple, smooth look-at that doesn't jump around
     const t = time * 0.05; // Very slow target changes
     
@@ -344,7 +344,7 @@ const CameraAnimationController: React.FC<{
     
     const baseTarget = new THREE.Vector3(photoBounds.centerX, photoBounds.centerY, photoBounds.centerZ);
     return baseTarget.add(offset);
-  }, [photoBounds]);
+  };
     
     camera.lookAt(lookAtTarget);
     
