@@ -32,6 +32,22 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateVerticalDriftSpeed?: number;
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
+  
+  // Enhanced Cinematic Camera Settings
+  cameraAnimation?: {
+    enabled?: boolean;
+    type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
+    speed: number;
+    radius: number;
+    height: number;
+    amplitude: number;
+    frequency: number;
+    // NEW: Advanced cinematic controls
+    verticalAmplitude?: number;
+    elevationSpeed?: number;
+    focusDrift?: number;
+    tiltAmount?: number;
+  };
 }
 
 const EnhancedSceneSettings: React.FC<{
@@ -737,7 +753,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="1"
-                          max="25"
+                          max="50"
                           step="1"
                           value={settings.cameraAnimation?.amplitude || 5}
                           onChange={(e) => onSettingsChange({ 
@@ -758,7 +774,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0.1"
-                          max="2.0"
+                          max="3.0"
                           step="0.1"
                           value={settings.cameraAnimation?.frequency || 0.5}
                           onChange={(e) => onSettingsChange({ 
@@ -769,6 +785,87 @@ const EnhancedSceneSettings: React.FC<{
                         <p className="mt-1 text-xs text-gray-400">
                           How often the camera changes direction
                         </p>
+                      </div>
+
+                      {/* NEW: Enhanced Cinematic Controls */}
+                      <div className="border-t border-gray-700 pt-3">
+                        <h6 className="text-xs font-medium text-purple-300 mb-3">🎬 Advanced Cinematic Controls</h6>
+                        
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">
+                            Vertical Look Amplitude (Up/Down)
+                            <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.verticalAmplitude?.toFixed(0) || '10'} units</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="50"
+                            step="1"
+                            value={settings.cameraAnimation?.verticalAmplitude || 10}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { ...settings.cameraAnimation, verticalAmplitude: parseFloat(e.target.value) }
+                            })}
+                            className="w-full bg-gray-800"
+                          />
+                          <p className="mt-1 text-xs text-gray-400">How much the camera looks up and down</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">
+                            Elevation Change Speed
+                            <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.elevationSpeed?.toFixed(1) || '0.8'}x</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="0.1"
+                            max="3.0"
+                            step="0.1"
+                            value={settings.cameraAnimation?.elevationSpeed || 0.8}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { ...settings.cameraAnimation, elevationSpeed: parseFloat(e.target.value) }
+                            })}
+                            className="w-full bg-gray-800"
+                          />
+                          <p className="mt-1 text-xs text-gray-400">Speed of looking up/down motions</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">
+                            Focus Drift Range
+                            <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.focusDrift?.toFixed(0) || '5'} units</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="25"
+                            step="1"
+                            value={settings.cameraAnimation?.focusDrift || 5}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { ...settings.cameraAnimation, focusDrift: parseFloat(e.target.value) }
+                            })}
+                            className="w-full bg-gray-800"
+                          />
+                          <p className="mt-1 text-xs text-gray-400">How much the camera's focus point drifts</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">
+                            Banking/Tilt Amount
+                            <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAnimation?.tiltAmount || 0) * 180 / Math.PI)}°</span>
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max={Math.PI / 6}
+                            step={Math.PI / 180}
+                            value={settings.cameraAnimation?.tiltAmount || 0}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { ...settings.cameraAnimation, tiltAmount: parseFloat(e.target.value) }
+                            })}
+                            className="w-full bg-gray-800"
+                          />
+                          <p className="mt-1 text-xs text-gray-400">Camera roll/tilt for dynamic feel (0-30°)</p>
+                        </div>
                       </div>
                     </>
                   )}
