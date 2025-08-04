@@ -278,7 +278,7 @@ class CinematicPathGenerator {
   }
 }
 
-// FIXED: Smooth Cinematic Camera Controller with NO conflicts
+// ULTRA-SMOOTH Cinematic Camera Controller - NO conflicts, NO jitter
 const SmoothCinematicCameraController: React.FC<{
   config?: {
     enabled?: boolean;
@@ -311,8 +311,7 @@ const SmoothCinematicCameraController: React.FC<{
   const pathProgressRef = useRef(0);
   const isActiveRef = useRef(false);
   const currentPathRef = useRef<SmoothCameraPath | null>(null);
-  const lastPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
-  const lastTargetRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const timeAccumulatorRef = useRef(0);
 
   // Generate smooth camera path based on photo positions and tour type
   const cameraPath = useMemo(() => {
@@ -323,7 +322,7 @@ const SmoothCinematicCameraController: React.FC<{
     const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
     if (!validPhotos.length) return null;
 
-    console.log(`🎬 Generating SMOOTH ${config.type} path for ${validPhotos.length} photos`);
+    console.log(`🎬 Generating ULTRA-SMOOTH ${config.type} path for ${validPhotos.length} photos`);
 
     let waypoints: THREE.Vector3[] = [];
 
@@ -355,11 +354,12 @@ const SmoothCinematicCameraController: React.FC<{
     // Create smooth continuous path
     const smoothPath = new SmoothCameraPath(waypoints, true);
     
-    // Reset progress
+    // Reset everything
     pathProgressRef.current = 0;
+    timeAccumulatorRef.current = 0;
     isActiveRef.current = true;
     
-    console.log(`🎬 SMOOTH path created with ${waypoints.length} waypoints - NO JITTER!`);
+    console.log(`🎬 ULTRA-SMOOTH path created with ${waypoints.length} waypoints - PERFECT for video!`);
     
     return smoothPath;
   }, [photoPositions, config?.type, config?.enabled, settings, animationPattern]);
@@ -369,55 +369,170 @@ const SmoothCinematicCameraController: React.FC<{
     currentPathRef.current = cameraPath;
     if (cameraPath) {
       isActiveRef.current = true;
-      console.log('🎬 Cinematic camera ACTIVATED - Manual controls DISABLED');
+      pathProgressRef.current = 0;
+      timeAccumulatorRef.current = 0;
+      console.log('🎬 Cinematic camera ACTIVATED - One smooth continuous shot!');
     } else {
       isActiveRef.current = false;
-      console.log('📷 Cinematic camera DEACTIVATED - Manual controls ENABLED');
+      console.log('📷 Cinematic camera DEACTIVATED');
     }
   }, [cameraPath]);
 
-  // SMOOTH animation loop - NO CONFLICTS
+  // ULTRA-SMOOTH animation loop - ONE CONTINUOUS SHOT
   useFrame((state, delta) => {
-    if (!config?.enabled || !currentPathRef.current || config.type === 'none' || !isActiveRef.current) {
+    if (!config?.enabled || !currentPathRef.current || config.type === 'none') {
       return;
     }
 
-    // Smooth continuous movement with consistent speed
-    const speed = (config.speed || 1.0) * 0.008; // Much slower for ultra-smooth movement
-    pathProgressRef.current += delta * speed;
-    pathProgressRef.current = pathProgressRef.current % 1; // Loop the path smoothly
+    // Accumulate time for ultra-smooth consistent movement
+    timeAccumulatorRef.current += delta;
+    
+    // Ultra-smooth speed calculation (frame-rate independent)
+    const baseSpeed = (config.speed || 1.0) * 0.005; // Much slower for cinematic smoothness
+    const smoothDelta = Math.min(delta, 1/30); // Cap delta to prevent jumps
+    
+    // Update progress with consistent smooth movement
+    pathProgressRef.current += smoothDelta * baseSpeed;
+    pathProgressRef.current = pathProgressRef.current % 1; // Loop seamlessly
 
-    // Get smooth camera position - NO LERPING (causes jitter)
+    // Get ultra-smooth camera position (no interpolation!)
     const targetPosition = currentPathRef.current.getPositionAt(pathProgressRef.current);
     
-    // Get smooth look-at target - NO LERPING
+    // Get ultra-smooth look-at target with improved targeting
     const lookAtTarget = currentPathRef.current.getLookAtTarget(
       pathProgressRef.current, 
       photoPositions, 
-      config.focusDistance || 12
+      config.focusDistance || 15
     );
 
-    // DIRECT camera updates - NO INTERPOLATION (this was causing jitter!)
+    // DIRECT camera updates for perfect smoothness
     camera.position.copy(targetPosition);
     camera.lookAt(lookAtTarget);
-
-    // Store for debugging
-    lastPositionRef.current.copy(targetPosition);
-    lastTargetRef.current.copy(lookAtTarget);
   });
 
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log('🎬 SMOOTH Cinematic Camera Active:', {
+      console.log('🎬 ULTRA-SMOOTH Cinematic Camera Active:', {
         type: config.type,
         speed: config.speed,
-        pathLength: cameraPath.getTotalLength(),
-        noJitter: true,
-        directCameraControl: true
+        totalPhotos: photoPositions.length,
+        pathLength: cameraPath.getTotalLength().toFixed(2),
+        perfectForVideo: true,
+        oneContinuousShot: true
       });
     }
-  }, [config?.enabled, config?.type, cameraPath]);
+  }, [config?.enabled, config?.type, cameraPath, photoPositions.length]);
+
+  return null;
+};
+
+// Legacy Auto-Rotate Camera System (when cinematic is OFF)
+const LegacyAutoRotateCamera: React.FC<{
+  settings: ExtendedSceneSettings;
+  controlsRef: React.RefObject<any>;
+}> = ({ settings, controlsRef }) => {
+  const { camera } = useThree();
+  const autoRotateTimeRef = useRef(0);
+  const heightOscillationRef = useRef(0);
+  const distanceOscillationRef = useRef(0);
+  const verticalDriftRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const lastInteractionRef = useRef(0);
+
+  // User interaction detection for auto-rotate
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      userInteractingRef.current = false;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const controls = controlsRef.current;
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+
+    return () => {
+      controls.removeEventListener('start', handleStart);
+      controls.removeEventListener('end', handleEnd);
+    };
+  }, [controlsRef]);
+
+  // Legacy auto-rotation (only when cinematic is OFF)
+  useFrame((state, delta) => {
+    if (!controlsRef.current) return;
+    
+    // Only auto-rotate if enabled AND user isn't interacting AND cinematic is OFF
+    const isCinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
+    
+    if (settings.cameraRotationEnabled && !userInteractingRef.current && !isCinematicActive) {
+      const smoothDelta = Math.min(delta, 0.016);
+      
+      autoRotateTimeRef.current += smoothDelta * (settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5);
+      heightOscillationRef.current += smoothDelta * (settings.cameraAutoRotateElevationSpeed || 0.3);
+      distanceOscillationRef.current += smoothDelta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
+      verticalDriftRef.current += smoothDelta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
+
+      const currentOffset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
+      const currentSpherical = new THREE.Spherical().setFromVector3(currentOffset);
+
+      currentSpherical.theta = autoRotateTimeRef.current;
+
+      const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
+      const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
+      const dynamicRadius = baseRadius + Math.sin(distanceOscillationRef.current) * radiusVariation;
+      currentSpherical.radius = dynamicRadius;
+
+      // Adjust height for better photo viewing
+      const photoSize = settings.photoSize || 4;
+      const floorHeight = -12;
+      let minHeight = floorHeight + photoSize + 2;
+      
+      // Pattern-specific height adjustments
+      switch (settings.animationPattern) {
+        case 'spiral':
+          minHeight = floorHeight + photoSize * 2;
+          break;
+        case 'wave':
+          minHeight = floorHeight + photoSize * 1.5;
+          break;
+        case 'float':
+          minHeight = floorHeight + photoSize * 2.5;
+          break;
+      }
+      
+      const baseHeight = Math.max(settings.cameraAutoRotateHeight || settings.cameraHeight || 5, minHeight);
+      const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6);
+      const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3);
+      const elevationRange = elevationMax - elevationMin;
+      const elevationOscillation = (Math.sin(heightOscillationRef.current) + 1) / 2;
+      currentSpherical.phi = elevationMin + (elevationOscillation * elevationRange);
+
+      const newPosition = new THREE.Vector3().setFromSpherical(currentSpherical);
+
+      const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
+      const driftOffset = Math.sin(verticalDriftRef.current) * verticalDrift;
+      
+      const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
+      const focusPoint = new THREE.Vector3(
+        focusOffset[0],
+        Math.max(focusOffset[1] + driftOffset, minHeight - photoSize),
+        focusOffset[2]
+      );
+
+      newPosition.add(focusPoint);
+      
+      camera.position.lerp(newPosition, 0.05);
+      controlsRef.current.target.lerp(focusPoint, 0.05);
+      controlsRef.current.update();
+    }
+  });
 
   return null;
 };
