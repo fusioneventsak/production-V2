@@ -289,7 +289,7 @@ const CinematicCamera: React.FC<{
     }
 
     // Ultra-smooth continuous movement along spline
-    const speed = (config.speed || 1.0) * 0.005; // Very slow for cinematic smoothness
+    const speed = (config.speed || 1.0) * 0.003; // Even slower for ultra-smooth movement
     progressRef.current += delta * speed;
     progressRef.current = progressRef.current % 1; // Loop smoothly
 
@@ -297,15 +297,22 @@ const CinematicCamera: React.FC<{
     const cameraPosition = splineCurveRef.current.getPointAt(progressRef.current);
     const lookAtTarget = lookAtCurveRef.current.getPointAt(progressRef.current);
 
-    // Direct camera updates - NO interpolation to avoid jitter
-    camera.position.copy(cameraPosition);
-    camera.lookAt(lookAtTarget);
+    // FORCE camera updates - override any other systems
+    camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    camera.lookAt(lookAtTarget.x, lookAtTarget.y, lookAtTarget.z);
+    
+    // Force camera matrix update
+    camera.updateMatrixWorld(true);
 
-    // Optional: Slight look-ahead for more natural camera movement
-    if (config.type === 'showcase' || config.type === 'gallery_walk') {
-      const lookAheadProgress = (progressRef.current + 0.02) % 1;
-      const lookAheadTarget = lookAtCurveRef.current.getPointAt(lookAheadProgress);
-      camera.lookAt(lookAheadTarget);
+    // Debug every 60 frames to see if it's actually moving
+    if (Math.floor(state.clock.elapsedTime * 60) % 60 === 0) {
+      console.log('🎬 Cinematic camera position:', {
+        x: cameraPosition.x.toFixed(2),
+        y: cameraPosition.y.toFixed(2), 
+        z: cameraPosition.z.toFixed(2),
+        progress: progressRef.current.toFixed(3),
+        type: config.type
+      });
     }
   });
 
@@ -351,29 +358,56 @@ const CameraControls: React.FC<{
     }
   }, [camera, isCinematicActive]);
 
+  // CRITICAL: Properly disable OrbitControls during cinematic mode
+  useEffect(() => {
+    if (controlsRef.current) {
+      if (isCinematicActive) {
+        // Completely disable OrbitControls during cinematic mode
+        controlsRef.current.enabled = false;
+        controlsRef.current.enableRotate = false;
+        controlsRef.current.enablePan = false;
+        controlsRef.current.enableZoom = false;
+        controlsRef.current.enableDamping = false;
+        console.log('🎬 OrbitControls COMPLETELY DISABLED for cinematic mode');
+      } else {
+        // Re-enable OrbitControls for manual control
+        controlsRef.current.enabled = settings.cameraEnabled !== false;
+        controlsRef.current.enableRotate = true;
+        controlsRef.current.enablePan = true;
+        controlsRef.current.enableZoom = true;
+        controlsRef.current.enableDamping = true;
+        console.log('📷 OrbitControls RE-ENABLED for manual control');
+      }
+    }
+  }, [isCinematicActive, settings.cameraEnabled]);
+
   return (
     <>
-      {/* Orbit Controls */}
+      {/* Orbit Controls - COMPLETELY disabled during cinematic mode */}
       <OrbitControls
         ref={controlsRef}
         enabled={!isCinematicActive && settings.cameraEnabled !== false}
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
+        enablePan={!isCinematicActive}
+        enableZoom={!isCinematicActive}
+        enableRotate={!isCinematicActive}
+        enableDamping={!isCinematicActive}
         minDistance={10}
         maxDistance={200}
-        enableDamping={true}
         dampingFactor={0.05}
       />
       
       {/* Auto-Rotate (when manual control and cinematic both off) */}
-      <AutoRotateCamera settings={settings} />
+      {!isCinematicActive && (
+        <AutoRotateCamera settings={settings} />
+      )}
       
-      {/* Cinematic Camera (when enabled) */}
-      <CinematicCamera 
-        config={settings.cameraAnimation}
-        photoPositions={photoPositions}
-      />
+      {/* Cinematic Camera (when enabled) - NO OrbitControls interference */}
+      {isCinematicActive && (
+        <CinematicCamera 
+          config={settings.cameraAnimation}
+          photoPositions={photoPositions}
+        />
+      )}
     </>
   );
 };
