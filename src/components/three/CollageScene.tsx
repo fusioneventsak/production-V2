@@ -2291,12 +2291,8 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* FIXED: Scene Environment Manager - Full 3D environments */}
         <SceneEnvironmentManager settings={safeSettings} />
         
-        {/* FIXED Camera Controls - Actually Working with proper key for re-rendering */}
-        <CameraControls 
-          key={cameraAnimationKey} 
-          settings={safeSettings} 
-          photosWithPositions={photosWithPositions} 
-        />
+        {/* FIXED Camera Controls - Actually Working */}
+        <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
         
         {/* FIXED: Textured Floor - Always show unless sphere environment */}
         {safeSettings.sceneEnvironment !== 'sphere' && (
