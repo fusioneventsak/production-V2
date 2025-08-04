@@ -162,7 +162,7 @@ const AutoRotateCamera: React.FC<{
   return null;
 };
 
-// FIXED: Enhanced Cinematic Camera with Fine-tuning Controls
+// FIXED: Enhanced Cinematic Camera with Better Conflict Resolution
 const CinematicCamera: React.FC<{
   config?: {
     enabled?: boolean;
@@ -173,7 +173,7 @@ const CinematicCamera: React.FC<{
     transitionTime: number;
     pauseTime: number;
     randomization: number;
-    // NEW: Fine-tuning controls
+    // Fine-tuning controls
     baseHeight?: number;
     baseDistance?: number;
     heightVariation?: number;
@@ -186,133 +186,153 @@ const CinematicCamera: React.FC<{
   const timeRef = useRef(0);
   const userInteractingRef = useRef(false);
   const lastInteractionRef = useRef(0);
+  const resumeTimeRef = useRef(0);
 
-  // User interaction detection (only on canvas, not UI)
+  // FIXED: Much more lenient user interaction detection
   useEffect(() => {
     const canvas = document.querySelector('canvas');
     if (!canvas) return;
 
-    const handleMouseDown = (e: MouseEvent) => {
-      if (e.target === canvas) {
+    let interactionTimeout: NodeJS.Timeout;
+
+    const handleInteractionStart = (e: Event) => {
+      // Only detect actual user interactions on the canvas
+      if (e.isTrusted && e.target === canvas) {
         userInteractingRef.current = true;
         lastInteractionRef.current = Date.now();
+        clearTimeout(interactionTimeout);
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
-      if (e.target === canvas) {
-        userInteractingRef.current = false;
+    const handleInteractionEnd = (e: Event) => {
+      if (e.isTrusted && e.target === canvas) {
         lastInteractionRef.current = Date.now();
+        clearTimeout(interactionTimeout);
+        
+        // FIXED: Much shorter delay before resuming
+        interactionTimeout = setTimeout(() => {
+          userInteractingRef.current = false;
+          resumeTimeRef.current = Date.now();
+        }, Math.max((config?.pauseTime || 1) * 1000, 500)); // Minimum 0.5s, respect user setting
       }
     };
 
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.target === canvas) {
-        userInteractingRef.current = true;
-        lastInteractionRef.current = Date.now();
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (e.target === canvas) {
-        userInteractingRef.current = false;
-        lastInteractionRef.current = Date.now();
-      }
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.target === canvas) {
-        lastInteractionRef.current = Date.now();
-      }
-    };
-
-    canvas.addEventListener('mousedown', handleMouseDown);
-    canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('touchstart', handleTouchStart);
-    canvas.addEventListener('touchend', handleTouchEnd);
-    canvas.addEventListener('wheel', handleWheel);
+    // Only listen to direct user interactions
+    canvas.addEventListener('mousedown', handleInteractionStart, { passive: true });
+    canvas.addEventListener('touchstart', handleInteractionStart, { passive: true });
+    canvas.addEventListener('wheel', handleInteractionStart, { passive: true });
+    canvas.addEventListener('mouseup', handleInteractionEnd, { passive: true });
+    canvas.addEventListener('touchend', handleInteractionEnd, { passive: true });
 
     return () => {
-      canvas.removeEventListener('mousedown', handleMouseDown);
-      canvas.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('touchstart', handleTouchStart);
-      canvas.removeEventListener('touchend', handleTouchEnd);
-      canvas.removeEventListener('wheel', handleWheel);
+      clearTimeout(interactionTimeout);
+      canvas.removeEventListener('mousedown', handleInteractionStart);
+      canvas.removeEventListener('touchstart', handleInteractionStart);
+      canvas.removeEventListener('wheel', handleInteractionStart);
+      canvas.removeEventListener('mouseup', handleInteractionEnd);
+      canvas.removeEventListener('touchend', handleInteractionEnd);
     };
-  }, []);
+  }, [config?.pauseTime]);
 
   useFrame((state, delta) => {
     if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
       return;
     }
 
-    // Check for user interaction pause
+    // FIXED: More responsive pause logic
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const pauseDuration = (config.pauseTime || 2) * 1000;
+    const pauseDuration = Math.max((config.pauseTime || 1) * 1000, 500);
+    const timeSinceResume = Date.now() - resumeTimeRef.current;
 
-    if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
+    // Only pause if actively interacting OR very recently interacted
+    if (userInteractingRef.current || (timeSinceInteraction < pauseDuration && timeSinceResume < 200)) {
       return;
     }
 
     const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
     if (!validPhotos.length) return;
 
-    const speed = (config.speed || 1.0) * 0.2;
+    // FIXED: Better speed coordination with patterns
+    const speed = (config.speed || 1.0) * 0.25; // Slightly more responsive
     timeRef.current += delta * speed;
 
-    // FIXED: Use fine-tuning controls for height and distance
+    // Use fine-tuning controls with better pattern-aware defaults
     const photoSize = settings.photoSize || 4;
     const floorHeight = -12;
+    const photoDisplayHeight = floorHeight + photoSize;
     
-    // NEW: Fine-tuning controls with defaults
-    const baseHeight = config.baseHeight !== undefined ? config.baseHeight : Math.max(settings.cameraHeight || 5, floorHeight + photoSize * 2);
-    const baseDistance = config.baseDistance !== undefined ? config.baseDistance : Math.max(settings.cameraDistance || 25, photoSize * 6);
-    const heightVariation = config.heightVariation !== undefined ? config.heightVariation : photoSize * 0.4;
-    const distanceVariation = config.distanceVariation !== undefined ? config.distanceVariation : baseDistance * 0.3;
+    // FIXED: Pattern-aware defaults that avoid conflicts
+    const getPatternAwareDefaults = () => {
+      switch (settings.animationPattern) {
+        case 'wave':
+          return {
+            height: Math.max(20, photoDisplayHeight + photoSize * 4), // Higher for wave
+            distance: Math.max(35, photoSize * 9), // Further for wave
+          };
+        case 'spiral':
+          return {
+            height: Math.max(25, photoDisplayHeight + photoSize * 5), // Higher for spiral
+            distance: Math.max(40, photoSize * 10), // Even further for spiral
+          };
+        case 'float':
+          return {
+            height: Math.max(15, photoDisplayHeight + photoSize * 3),
+            distance: Math.max(25, photoSize * 7),
+          };
+        default: // grid
+          return {
+            height: Math.max(12, photoDisplayHeight + photoSize * 2),
+            distance: Math.max(20, photoSize * 6),
+          };
+      }
+    };
+
+    const patternDefaults = getPatternAwareDefaults();
     
-    const photoDisplayHeight = floorHeight + photoSize; // Where photos are displayed
-    
-    // Get photo bounds for centered tours
-    const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
-    const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+    const baseHeight = config.baseHeight !== undefined ? 
+      config.baseHeight : patternDefaults.height;
+    const baseDistance = config.baseDistance !== undefined ? 
+      config.baseDistance : patternDefaults.distance;
+    const heightVariation = config.heightVariation !== undefined ? 
+      config.heightVariation : photoSize * 1.2;
+    const distanceVariation = config.distanceVariation !== undefined ? 
+      config.distanceVariation : baseDistance * 0.3;
+
+    // Better center calculation
+    let centerX = 0, centerZ = 0;
+    if (validPhotos.length > 0) {
+      centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
+      centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+    }
 
     let x, y, z, lookX, lookY, lookZ;
 
+    // FIXED: Smoother, more predictable camera movements
     switch (config.type) {
       case 'showcase':
-        // FIXED: Elegant figure-8 with fine-tuning controls
         const fig8Time = timeRef.current * 0.4;
-        const fig8Radius = baseDistance + Math.sin(fig8Time * 0.7) * distanceVariation;
+        const fig8Radius = baseDistance * (0.8 + Math.sin(fig8Time * 0.2) * 0.15);
         
         x = centerX + Math.sin(fig8Time) * fig8Radius;
-        y = baseHeight + Math.sin(fig8Time * 1.5) * heightVariation;
-        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.6;
+        y = baseHeight + Math.sin(fig8Time * 1.1) * heightVariation * 0.5;
+        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.7;
         
-        lookX = centerX + Math.sin(fig8Time + 0.5) * fig8Radius * 0.2;
+        lookX = centerX + Math.sin(fig8Time + 0.3) * fig8Radius * 0.1;
         lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
         break;
 
       case 'gallery_walk':
-        // FIXED: More graceful rectangular walk with fine-tuning
         const walkTime = (timeRef.current * 0.25) % 4;
-        const walkMargin = baseDistance + Math.sin(timeRef.current * 0.3) * (distanceVariation * 0.5);
+        const walkRadius = baseDistance * 0.85;
         
-        if (walkTime < 1) {
-          x = centerX - walkMargin + (walkTime * walkMargin * 2);
-          z = centerZ + walkMargin;
-        } else if (walkTime < 2) {
-          x = centerX + walkMargin;
-          z = centerZ + walkMargin - ((walkTime - 1) * walkMargin * 2);
-        } else if (walkTime < 3) {
-          x = centerX + walkMargin - ((walkTime - 2) * walkMargin * 2);
-          z = centerZ - walkMargin;
-        } else {
-          x = centerX - walkMargin;
-          z = centerZ - walkMargin + ((walkTime - 3) * walkMargin * 2);
-        }
+        // Smooth rounded rectangle path
+        const angle = (walkTime / 4) * Math.PI * 2;
+        const cornerRadius = walkRadius * 0.2;
         
-        y = baseHeight + Math.sin(timeRef.current * 0.3) * heightVariation;
+        x = centerX + (walkRadius - cornerRadius) * Math.cos(angle) + cornerRadius * Math.cos(angle * 3);
+        z = centerZ + (walkRadius - cornerRadius) * Math.sin(angle) + cornerRadius * Math.sin(angle * 3);
+        y = baseHeight + Math.sin(timeRef.current * 0.3) * heightVariation * 0.3;
         
         lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
@@ -320,13 +340,12 @@ const CinematicCamera: React.FC<{
         break;
 
       case 'spiral_tour':
-        // FIXED: Smooth orbital motion with fine-tuning
-        const orbitalTime = timeRef.current * 0.6;
-        const orbitalRadius = baseDistance + Math.sin(orbitalTime * 0.15) * distanceVariation;
+        const spiralTime = timeRef.current * 0.3;
+        const spiralRadius = baseDistance * (0.4 + (spiralTime % 3) / 3 * 0.6);
         
-        x = centerX + Math.cos(orbitalTime) * orbitalRadius;
-        y = baseHeight + Math.sin(orbitalTime * 0.2) * heightVariation;
-        z = centerZ + Math.sin(orbitalTime) * orbitalRadius * 0.8;
+        x = centerX + Math.cos(spiralTime * 1.5) * spiralRadius;
+        y = baseHeight + Math.sin(spiralTime * 0.2) * heightVariation * 0.4;
+        z = centerZ + Math.sin(spiralTime * 1.5) * spiralRadius * 0.8;
         
         lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
@@ -334,53 +353,51 @@ const CinematicCamera: React.FC<{
         break;
 
       case 'wave_follow':
-        // FIXED: Smoother wave motion with fine-tuning
         const waveTime = timeRef.current * 0.35;
-        const waveAmplitude = baseDistance + Math.sin(waveTime * 0.5) * (distanceVariation * 0.7);
+        const waveRadius = baseDistance * (0.9 + Math.sin(waveTime * 0.3) * 0.1);
         
-        x = centerX + Math.sin(waveTime) * waveAmplitude;
-        y = baseHeight + Math.sin(waveTime * 1.7) * heightVariation;
-        z = centerZ + Math.cos(waveTime * 0.6) * waveAmplitude * 0.7;
+        x = centerX + Math.sin(waveTime) * waveRadius;
+        y = baseHeight + Math.sin(waveTime * 1.2) * heightVariation * 0.4;
+        z = centerZ + Math.cos(waveTime * 0.7) * waveRadius * 0.6;
         
-        const lookAheadTime = waveTime + 0.4;
-        lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.3;
+        lookX = centerX + Math.sin(waveTime + 0.5) * waveRadius * 0.15;
         lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ + Math.cos(lookAheadTime * 0.6) * waveAmplitude * 0.3;
+        lookZ = centerZ;
         break;
 
       case 'grid_sweep':
-        // FIXED: Smoother lawnmower pattern with fine-tuning
-        const sweepTime = (timeRef.current * 0.2) % 8;
-        const sweepWidth = baseDistance + Math.sin(timeRef.current * 0.4) * (distanceVariation * 0.5);
-        const rows = 4;
+        const sweepTime = (timeRef.current * 0.2) % 6;
+        const sweepRadius = baseDistance * 0.8;
         
-        const currentRow = Math.floor(sweepTime / 2);
-        const rowProgress = (sweepTime % 2);
-        const isEvenRow = currentRow % 2 === 0;
+        if (sweepTime < 2) {
+          const t = sweepTime / 2;
+          x = centerX + (t * 2 - 1) * sweepRadius;
+          z = centerZ + sweepRadius * 0.7;
+        } else if (sweepTime < 4) {
+          const t = (sweepTime - 2) / 2;
+          x = centerX + (1 - t * 2) * sweepRadius;
+          z = centerZ - sweepRadius * 0.7;
+        } else {
+          const t = (sweepTime - 4) / 2;
+          x = centerX - sweepRadius + t * sweepRadius * 0.3;
+          z = centerZ + (sweepRadius * 0.7) * (1 - t * 2);
+        }
         
-        const smoothProgress = 0.5 - 0.5 * Math.cos(rowProgress * Math.PI);
+        y = baseHeight + Math.sin(sweepTime * 0.4) * heightVariation * 0.2;
         
-        x = centerX + (isEvenRow ? 
-          -sweepWidth + smoothProgress * sweepWidth * 2 : 
-          sweepWidth - smoothProgress * sweepWidth * 2);
-        y = baseHeight - (currentRow * heightVariation * 0.3);
-        z = centerZ - sweepWidth + (currentRow / (rows - 1)) * sweepWidth * 2;
-        
-        lookX = x + (isEvenRow ? photoSize * 2 : -photoSize * 2);
+        lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = z;
+        lookZ = centerZ;
         break;
 
       case 'photo_focus':
-        // FIXED: Elegant infinity symbol with fine-tuning
         const focusTime = timeRef.current * 0.5;
-        const focusRadius = baseDistance + Math.sin(focusTime * 0.3) * (distanceVariation * 0.6);
+        const focusRadius = baseDistance * 0.6;
         
-        const denominator = 1 + Math.sin(focusTime) ** 2;
-        
-        x = centerX + (focusRadius * Math.cos(focusTime)) / denominator;
-        y = baseHeight + Math.sin(focusTime * 1.3) * heightVariation;
-        z = centerZ + (focusRadius * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
+        const scale = focusRadius / (1 + Math.sin(focusTime) ** 2);
+        x = centerX + scale * Math.cos(focusTime);
+        y = baseHeight + Math.sin(focusTime * 0.9) * heightVariation * 0.3;
+        z = centerZ + scale * Math.sin(focusTime) * Math.cos(focusTime);
         
         lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
@@ -388,30 +405,39 @@ const CinematicCamera: React.FC<{
         break;
 
       default:
-        x = centerX + Math.cos(timeRef.current) * baseDistance;
+        x = centerX + Math.cos(timeRef.current * 0.3) * baseDistance;
         y = baseHeight;
-        z = centerZ + Math.sin(timeRef.current) * baseDistance;
+        z = centerZ + Math.sin(timeRef.current * 0.3) * baseDistance;
         lookX = centerX;
         lookY = photoDisplayHeight + photoSize * 0.5;
         lookZ = centerZ;
     }
 
-    // FIXED: Ensure camera never looks below photo level
+    // Ensure reasonable bounds
+    y = Math.max(y, photoDisplayHeight + 1);
     lookY = Math.max(lookY, photoDisplayHeight);
-    y = Math.max(y, floorHeight + photoSize + 2);
 
-    // Smooth camera updates
-    camera.position.x = x;
-    camera.position.y = y;
-    camera.position.z = z;
+    // FIXED: Much smoother camera transitions with resume blending
+    const resumeBlend = Math.min((timeSinceResume) / 1500, 1); // 1.5 second blend-in
+    const smoothFactor = 0.025 * resumeBlend; // Smooth when resuming
     
-    camera.lookAt(lookX, lookY, lookZ);
+    const targetPos = new THREE.Vector3(x, y, z);
+    const targetLook = new THREE.Vector3(lookX, lookY, lookZ);
+    
+    // Apply smooth movement
+    camera.position.lerp(targetPos, smoothFactor);
+    camera.lookAt(targetLook);
+
+    // Debug logging (less frequent)
+    if (Math.floor(timeRef.current * 1) % 50 === 0) {
+      console.log(`🎬 Cinematic ${config.type} (Pattern: ${settings.animationPattern}): H=${baseHeight.toFixed(1)} D=${baseDistance.toFixed(1)}`);
+    }
   });
 
   return null;
 };
 
-// SIMPLE CAMERA CONTROLS - With cinematic interaction support
+// FIXED: Updated CameraControls with better coordination and SmoothCinematicCameraController integration
 const CameraControls: React.FC<{ 
   settings: ExtendedSceneSettings; 
   photosWithPositions: PhotoWithPosition[];
@@ -432,34 +458,44 @@ const CameraControls: React.FC<{
   
   const isCinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
   
-  // Initialize camera
+  // FIXED: Better camera initialization that doesn't fight with cinematic
   useEffect(() => {
-    if (camera && !isCinematicActive && controlsRef.current) {
+    if (camera && controlsRef.current) {
       const photoSize = settings.photoSize || 4;
-      const distance = Math.max(settings.cameraDistance || 25, photoSize * 3);
-      const height = Math.max(settings.cameraHeight || 5, photoSize + 2);
+      const distance = Math.max(settings.cameraDistance || 25, photoSize * 6);
+      const height = Math.max(settings.cameraHeight || 5, photoSize * 3);
       
-      camera.position.set(distance * 0.7, height, distance * 0.7);
-      controlsRef.current.target.set(0, 0, 0);
-      controlsRef.current.update();
+      // Only set initial position when cinematic is off or just starting
+      if (!isCinematicActive) {
+        camera.position.set(distance * 0.7, height, distance * 0.7);
+        controlsRef.current.target.set(0, 0, 0);
+        controlsRef.current.update();
+      }
       
-      console.log('📷 Camera initialized for manual control');
+      console.log(`📷 Camera controls - Cinematic: ${isCinematicActive ? 'ACTIVE' : 'MANUAL'}`);
     }
-  }, [camera, isCinematicActive]);
+  }, [camera, isCinematicActive, settings.cameraDistance, settings.cameraHeight, settings.photoSize]);
 
   return (
     <>
-      {/* OrbitControls - ALWAYS available for user interaction */}
+      {/* FIXED: OrbitControls that work smoothly alongside cinematic */}
       <OrbitControls
         ref={controlsRef}
         enabled={settings.cameraEnabled !== false}
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        minDistance={Math.max(10, (settings.photoSize || 4) * 2)}
-        maxDistance={200}
+        minDistance={Math.max(8, (settings.photoSize || 4) * 2)}
+        maxDistance={300}
         enableDamping={true}
-        dampingFactor={0.05}
+        dampingFactor={0.08} // Slightly more responsive
+        // FIXED: Auto-rotate only when neither cinematic mode is active
+        autoRotate={!isCinematicActive && settings.cameraRotationEnabled}
+        autoRotateSpeed={settings.cameraRotationSpeed || 0.5}
+        // FIXED: Less aggressive mouse sensitivity when cinematic is active
+        rotateSpeed={isCinematicActive ? 0.3 : 0.5}
+        panSpeed={isCinematicActive ? 0.5 : 0.8}
+        zoomSpeed={isCinematicActive ? 0.8 : 1.2}
       />
       
       {/* Auto-Rotate only when cinematic is OFF */}
@@ -467,13 +503,32 @@ const CameraControls: React.FC<{
         <AutoRotateCamera settings={settings} />
       )}
       
-      {/* Cinematic Camera works alongside OrbitControls */}
+      {/* CHOICE: Use either the existing CinematicCamera OR SmoothCinematicCameraController */}
       {isCinematicActive && (
-        <CinematicCamera 
-          config={settings.cameraAnimation}
-          photoPositions={photoPositions}
-          settings={settings}
-        />
+        <>
+          {/* Option 1: Use your existing SmoothCinematicCameraController */}
+          {/* Uncomment this if you want to use the SmoothCinematicCameraController instead */}
+          {/* 
+          <SmoothCinematicCameraController
+            config={settings.cameraAnimation}
+            photoPositions={photoPositions}
+            animationPattern={settings.animationPattern || 'grid'}
+            floorHeight={-12}
+            settings={{
+              photoSize: settings.photoSize,
+              floorSize: settings.floorSize,
+              photoCount: settings.photoCount
+            }}
+          />
+          */}
+          
+          {/* Option 2: Use the updated CinematicCamera (current choice) */}
+          <CinematicCamera 
+            config={settings.cameraAnimation}
+            photoPositions={photoPositions}
+            settings={settings}
+          />
+        </>
       )}
     </>
   );
