@@ -202,96 +202,163 @@ const CameraAnimationController: React.FC<{
     }
   }, [controls, camera, config?.speed, photoBounds]);
 
-  // SIMPLIFIED and SMOOTH Animation calculation functions
-
-  // Main animation frame update - FIXED
+  // ENHANCED Animation calculation functions with Photo-Aware Coverage
   const getAnimationPosition = (time: number, config: any): THREE.Vector3 => {
-    const t = time * (config.speed || 0.3); // Slower default speed
+    const t = time * (config.speed || 1);
     
-    // Calculate adaptive parameters based on photo distribution
+    // Calculate adaptive parameters based on photo distribution and count
+    const photoCount = photosWithPositions.filter(p => p.url).length;
     const adaptiveRadius = Math.max(
       config.radius || 30,
-      Math.max(photoBounds.spanX, photoBounds.spanZ) * 0.8
+      Math.max(photoBounds.spanX, photoBounds.spanZ) * 0.9
     );
     
     const adaptiveHeight = Math.max(
       config.height || 15,
-      photoBounds.centerY + Math.max(photoBounds.spanY, 15)
+      photoBounds.centerY + Math.max(photoBounds.spanY, 20)
     );
 
-    // Simplified randomness for smoother motion
-    const slowVariation = Math.sin(t * 0.1) * 0.2;
+    // Enhanced randomness factors for better photo coverage
+    const randomSeed1 = Math.sin(t * 0.17) * 0.3; // Slow variation
+    const randomSeed2 = Math.cos(t * 0.23) * 0.2; // Different frequency
+    const randomSeed3 = Math.sin(t * 0.31) * 0.15; // Another variation
 
     switch (config.type) {
       case 'orbit':
-        // Smooth orbital motion with gentle variation
+        // ENHANCED Orbit: Multiple orbital paths with height and radius variation
+        const orbitCycle = t * 0.1; // Very slow cycle change
+        const orbitVariation = Math.sin(orbitCycle) * 0.4;
+        const heightVariation = Math.sin(t * 0.3 + orbitCycle) * (photoBounds.spanY * 0.3 + 8);
+        
         return new THREE.Vector3(
-          photoBounds.centerX + Math.cos(t + slowVariation) * (adaptiveRadius + slowVariation * 8),
-          adaptiveHeight + Math.sin(t * 0.3) * 5,
-          photoBounds.centerZ + Math.sin(t + slowVariation) * (adaptiveRadius + slowVariation * 6)
+          photoBounds.centerX + Math.cos(t + orbitVariation) * (adaptiveRadius + randomSeed1 * 15),
+          adaptiveHeight + heightVariation + randomSeed2 * 10,
+          photoBounds.centerZ + Math.sin(t + orbitVariation) * (adaptiveRadius + randomSeed3 * 12)
         );
 
       case 'figure8':
-        // Smooth figure-8 with gentle morphing
-        const figure8Scale = Math.max(adaptiveRadius * 0.8, 20);
+        // ENHANCED Figure-8: Multiple intersecting paths with randomness
+        const figure8Scale = Math.max(adaptiveRadius * 0.8, 25);
+        const pathVariation = Math.sin(t * 0.13) * 0.6; // Path morphing
+        const heightOscillation = Math.sin(t * 0.4) * (photoBounds.spanY * 0.4 + 10);
+        
+        // Multiple figure-8 patterns that morph over time
+        const primaryPath = Math.sin(t + pathVariation) * figure8Scale;
+        const secondaryPath = Math.sin(t * 2 + pathVariation * 0.5) * (figure8Scale * 0.7);
+        
         return new THREE.Vector3(
-          photoBounds.centerX + Math.sin(t) * figure8Scale,
-          adaptiveHeight + Math.sin(t * 2) * 8 + Math.sin(t * 0.2) * 3,
-          photoBounds.centerZ + Math.sin(t * 2) * (figure8Scale * 0.6)
+          photoBounds.centerX + primaryPath + randomSeed1 * 8,
+          adaptiveHeight + heightOscillation + randomSeed2 * 6,
+          photoBounds.centerZ + secondaryPath + randomSeed3 * 10
         );
 
       case 'centerRotate':
-        // Simplified center rotate with smooth phases
-        const cycleTime = 30; // Reduced from 45
-        const phase = (t % cycleTime) / cycleTime;
-        const angle = t * 1.2; // Smoother rotation
+        // ENHANCED Center Rotate: Much longer cycle with multiple phases
+        const longCycleTime = 45; // Increased from 20 to 45 seconds
+        const phase = (t % longCycleTime) / longCycleTime;
+        const angle = t * 1.5 + randomSeed1; // Slower rotation with variation
         
         let currentRadius: number;
         let currentHeight: number;
+        let currentVariation: number;
         
-        if (phase < 0.33) {
-          // Close phase
-          currentRadius = adaptiveRadius * (0.4 + phase * 0.4);
-          currentHeight = adaptiveHeight * (0.8 + phase * 0.4);
-        } else if (phase < 0.66) {
-          // Medium phase
-          currentRadius = adaptiveRadius * (0.8 + (phase - 0.33) * 0.3);
-          currentHeight = adaptiveHeight * (1.2 + (phase - 0.33) * 0.3);
+        if (phase < 0.2) {
+          // Phase 1: Close inspection (0-20%)
+          const phaseT = phase / 0.2;
+          currentRadius = adaptiveRadius * (0.3 + phaseT * 0.2) + randomSeed2 * 5;
+          currentHeight = adaptiveHeight * (0.6 + phaseT * 0.3) + randomSeed3 * 8;
+          currentVariation = Math.sin(phaseT * Math.PI) * 10;
+        } else if (phase < 0.4) {
+          // Phase 2: Medium distance sweep (20-40%)
+          const phaseT = (phase - 0.2) / 0.2;
+          currentRadius = adaptiveRadius * (0.5 + phaseT * 0.3) + randomSeed1 * 8;
+          currentHeight = adaptiveHeight * (0.9 + phaseT * 0.4) + randomSeed2 * 12;
+          currentVariation = Math.sin(phaseT * Math.PI * 2) * 15;
+        } else if (phase < 0.6) {
+          // Phase 3: Wide overview (40-60%)
+          const phaseT = (phase - 0.4) / 0.2;
+          currentRadius = adaptiveRadius * (0.8 + phaseT * 0.4) + randomSeed3 * 12;
+          currentHeight = adaptiveHeight * (1.3 + phaseT * 0.5) + randomSeed1 * 15;
+          currentVariation = Math.sin(phaseT * Math.PI * 1.5) * 20;
+        } else if (phase < 0.8) {
+          // Phase 4: Dynamic exploration (60-80%)
+          const phaseT = (phase - 0.6) / 0.2;
+          currentRadius = adaptiveRadius * (1.0 + Math.sin(phaseT * Math.PI * 3) * 0.3) + randomSeed2 * 10;
+          currentHeight = adaptiveHeight * (1.1 + Math.cos(phaseT * Math.PI * 2) * 0.4) + randomSeed3 * 18;
+          currentVariation = Math.sin(phaseT * Math.PI * 4) * 25;
         } else {
-          // Wide phase
-          const phaseT = (phase - 0.66) / 0.34;
-          currentRadius = adaptiveRadius * (1.1 - phaseT * 0.7);
-          currentHeight = adaptiveHeight * (1.5 - phaseT * 0.7);
+          // Phase 5: Return journey (80-100%)
+          const phaseT = (phase - 0.8) / 0.2;
+          currentRadius = adaptiveRadius * (1.2 - phaseT * 0.9) + randomSeed1 * 6;
+          currentHeight = adaptiveHeight * (1.6 - phaseT * 1.0) + randomSeed2 * 10;
+          currentVariation = Math.sin(phaseT * Math.PI) * 12;
         }
         
         return new THREE.Vector3(
-          photoBounds.centerX + Math.cos(angle) * currentRadius,
+          photoBounds.centerX + Math.cos(angle) * currentRadius + currentVariation,
           currentHeight,
-          photoBounds.centerZ + Math.sin(angle) * currentRadius
+          photoBounds.centerZ + Math.sin(angle) * currentRadius + currentVariation * 0.7
         );
 
       case 'wave':
-        // Simplified wave motion
-        const waveFreq = config.frequency || 0.4;
-        const waveRadius = adaptiveRadius + Math.sin(t * waveFreq) * (adaptiveRadius * 0.25);
-        const waveHeight = adaptiveHeight + Math.sin(t * waveFreq * 1.5) * 8;
+        // ENHANCED Wave: Multiple wave patterns with photo-aware coverage
+        const waveFreq1 = config.frequency || 0.4;
+        const waveFreq2 = waveFreq1 * 0.7; // Harmonic frequency
+        const waveFreq3 = waveFreq1 * 1.3; // Another harmonic
+        
+        // Multi-layered wave motion
+        const waveRadius1 = adaptiveRadius + Math.sin(t * waveFreq1) * (config.amplitude || adaptiveRadius * 0.3);
+        const waveRadius2 = Math.sin(t * waveFreq2) * (adaptiveRadius * 0.2);
+        const waveRadius3 = Math.cos(t * waveFreq3) * (adaptiveRadius * 0.15);
+        
+        const totalRadius = waveRadius1 + waveRadius2 + waveRadius3 + randomSeed1 * 8;
+        
+        // Enhanced height variation with multiple frequencies
+        const heightWave1 = Math.sin(t * waveFreq1 * 2) * (photoBounds.spanY * 0.3 + 8);
+        const heightWave2 = Math.cos(t * waveFreq2 * 1.5) * (photoBounds.spanY * 0.2 + 5);
+        const heightWave3 = Math.sin(t * waveFreq3 * 0.8) * (photoBounds.spanY * 0.15 + 3);
+        
+        const totalHeight = adaptiveHeight + heightWave1 + heightWave2 + heightWave3 + randomSeed2 * 6;
+        
+        // Orbital motion with wave variations
+        const orbitAngle = t + Math.sin(t * waveFreq1) * 0.5; // Wave affects orbit path
         
         return new THREE.Vector3(
-          photoBounds.centerX + Math.cos(t) * waveRadius,
-          waveHeight,
-          photoBounds.centerZ + Math.sin(t) * waveRadius
+          photoBounds.centerX + Math.cos(orbitAngle) * totalRadius + randomSeed3 * 5,
+          totalHeight,
+          photoBounds.centerZ + Math.sin(orbitAngle) * totalRadius + randomSeed1 * 4
         );
 
       case 'spiral':
-        // Simplified spiral motion
-        const spiralMod = 1 + Math.sin(t * 0.15) * 0.3;
-        const spiralRadius = adaptiveRadius * spiralMod;
-        const spiralHeight = adaptiveHeight + Math.sin(t * 0.25) * 10;
+        // ENHANCED Spiral: Multi-dimensional spiral with photo exploration
+        const spiralFreq = config.frequency || 0.3;
+        const longSpiralCycle = t * 0.08; // Very slow expansion/contraction cycle
+        
+        // Multiple spiral components
+        const spiralMod1 = 1 + Math.sin(longSpiralCycle) * 0.5;
+        const spiralMod2 = 1 + Math.cos(longSpiralCycle * 0.7) * 0.3;
+        const spiralMod3 = 1 + Math.sin(longSpiralCycle * 1.3) * 0.2;
+        
+        const combinedMod = (spiralMod1 + spiralMod2 + spiralMod3) / 3;
+        
+        // Enhanced spiral radius with multiple variations
+        const spiralRadius = adaptiveRadius * combinedMod + randomSeed1 * 12;
+        
+        // Complex height variation
+        const heightSpiral1 = Math.sin(t * spiralFreq * 0.5) * (photoBounds.spanY * 0.4 + 10);
+        const heightSpiral2 = Math.cos(t * spiralFreq * 0.3) * (photoBounds.spanY * 0.2 + 6);
+        const heightSpiral3 = Math.sin(longSpiralCycle * 2) * (photoBounds.spanY * 0.3 + 8);
+        
+        const spiralHeight = adaptiveHeight + heightSpiral1 + heightSpiral2 + heightSpiral3 + randomSeed2 * 8;
+        
+        // Multiple spiral arms for better coverage
+        const armOffset = (photoCount > 50) ? Math.sin(t * 0.1) * Math.PI * 0.5 : 0;
+        const spiralAngle = t * 1.8 + armOffset; // Slower spiral rotation
         
         return new THREE.Vector3(
-          photoBounds.centerX + Math.cos(t * 1.5) * spiralRadius,
+          photoBounds.centerX + Math.cos(spiralAngle) * spiralRadius + randomSeed3 * 6,
           spiralHeight,
-          photoBounds.centerZ + Math.sin(t * 1.5) * spiralRadius
+          photoBounds.centerZ + Math.sin(spiralAngle) * spiralRadius + randomSeed1 * 5
         );
 
       default:
@@ -325,32 +392,52 @@ const CameraAnimationController: React.FC<{
     // Smooth camera movement - more gradual
     camera.position.lerp(targetPosition, 0.015);
     
-  // SIMPLIFIED Look-at system for smoother movement
+  // ENHANCED Look-at system for better photo coverage
   const calculateLookAtTarget = (time: number, cameraPosition: THREE.Vector3): THREE.Vector3 => {
-    // Simple, smooth look-at that doesn't jump around
-    const t = time * 0.05; // Very slow target changes
+    const actualPhotos = photosWithPositions.filter(p => p.url);
+    if (actualPhotos.length === 0) {
+      return new THREE.Vector3(photoBounds.centerX, photoBounds.centerY, photoBounds.centerZ);
+    }
+
+    // Intelligent look-at targeting based on camera position and time
+    const t = time * 0.1; // Slow target switching
     
-    // Safety check for photoBounds
-    if (!photoBounds || photoBounds.centerX === undefined) {
-      return new THREE.Vector3(0, 0, 0);
+    // Calculate which photos are in a good viewing cone from current camera position
+    const viewablePhotos = actualPhotos.filter(photo => {
+      const photoPos = new THREE.Vector3(...photo.targetPosition);
+      const distance = cameraPosition.distanceTo(photoPos);
+      return distance > 5 && distance < 100; // Not too close, not too far
+    });
+    
+    if (viewablePhotos.length === 0) {
+      return new THREE.Vector3(photoBounds.centerX, photoBounds.centerY, photoBounds.centerZ);
     }
     
-    // Gentle movement around the photo center
+    // Use time-based selection with some randomness to see different photos
+    const targetIndex = Math.floor((Math.sin(t) + 1) * 0.5 * viewablePhotos.length);
+    const primaryTarget = viewablePhotos[Math.min(targetIndex, viewablePhotos.length - 1)];
+    
+    // Add some offset variation to explore around the target photo
     const offset = new THREE.Vector3(
-      Math.sin(t) * 2,
-      Math.cos(t * 0.7) * 1,
-      Math.sin(t * 1.3) * 2
+      Math.sin(t * 1.7) * 3,
+      Math.cos(t * 1.3) * 2,
+      Math.sin(t * 2.1) * 3
     );
     
-    const baseTarget = new THREE.Vector3(photoBounds.centerX, photoBounds.centerY, photoBounds.centerZ);
-    return baseTarget.add(offset);
+    const targetPos = new THREE.Vector3(...primaryTarget.targetPosition).add(offset);
+    
+    // Blend with overall scene center for stability
+    const sceneCenter = new THREE.Vector3(photoBounds.centerX, photoBounds.centerY, photoBounds.centerZ);
+    const blendFactor = 0.7; // 70% specific photo, 30% scene center
+    
+    return targetPos.lerp(sceneCenter, 1 - blendFactor);
   };
     
     camera.lookAt(lookAtTarget);
     
-    // Update controls target smoothly but not too aggressively
+    // Update controls target smoothly
     if (controls && 'target' in controls) {
-      (controls as any).target.lerp(lookAtTarget, 0.02);
+      (controls as any).target.lerp(lookAtTarget, 0.015);
       (controls as any).update();
     }
   });
@@ -365,17 +452,10 @@ const CameraAnimationController: React.FC<{
         radius: config.radius,
         height: config.height,
         photoCount,
-        photoBounds: {
-          centerX: photoBounds.centerX,
-          centerY: photoBounds.centerY,
-          centerZ: photoBounds.centerZ,
-          spanX: photoBounds.spanX,
-          spanY: photoBounds.spanY,
-          spanZ: photoBounds.spanZ
-        },
-        estimatedCycleTime: config.type === 'centerRotate' ? '30 seconds' : 
-                           config.type === 'spiral' ? '25+ seconds' :
-                           config.type === 'wave' ? '20+ seconds' : '15+ seconds'
+        photoBounds,
+        estimatedCycleTime: config.type === 'centerRotate' ? '45 seconds' : 
+                           config.type === 'spiral' ? '30+ seconds' :
+                           config.type === 'wave' ? '25+ seconds' : '20+ seconds'
       });
       
       // Start animation in a ready state
@@ -383,7 +463,7 @@ const CameraAnimationController: React.FC<{
         isActiveRef.current = true;
       }, 100);
     }
-  }, [config?.enabled, config?.type, photosWithPositions, photoBounds]);
+  }, [config?.enabled, config?.type, photosWithPositions]);
 
   return null;
 };
@@ -1710,19 +1790,17 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           settings={safeSettings} 
           photosWithPositions={photosWithPositions}
         />
-        {safeSettings.cameraAnimation?.enabled && (
-          <CameraAnimationController 
-            config={safeSettings.cameraAnimation} 
-            photosWithPositions={photosWithPositions}
-            settings={safeSettings}
-          />
-        )}
+        <CameraAnimationController 
+          config={safeSettings.cameraAnimation} 
+          photosWithPositions={photosWithPositions}
+          settings={safeSettings}
+        />
         
-        {/* Particle System with FIXED floating behavior */}
+        {/* Particle System */}
         {safeSettings.particles?.enabled && (
           <MilkyWayParticleSystem
             colorTheme={getCurrentParticleTheme(safeSettings)}
-            intensity={safeSettings.particles?.intensity ?? 0.3} // Reduced intensity
+            intensity={safeSettings.particles?.intensity ?? 0.7}
             enabled={safeSettings.particles?.enabled ?? true}
             photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
             floorSize={safeSettings.floorSize || 200}
