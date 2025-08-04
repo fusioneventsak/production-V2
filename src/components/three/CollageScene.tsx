@@ -1,4 +1,220 @@
-// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
+// FIXED: Enhanced Cinematic Camera with Better Wave Pattern and Restored User Interaction
+const CinematicCamera: React.FC<{
+  config?: {
+    enabled?: boolean;
+    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
+    speed: number;
+    focusDistance: number;
+    heightOffset: number;
+    transitionTime: number;
+    pauseTime: number;
+    randomization: number;
+    // Fine-tuning controls
+    baseHeight?: number;
+    baseDistance?: number;
+    heightVariation?: number;
+    distanceVariation?: number;
+  };
+  photoPositions: PhotoPosition[];
+  settings: ExtendedSceneSettings;
+}> = ({ config, photoPositions, settings }) => {
+  const { camera } = useThree();
+  const timeRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const lastInteractionRef = useRef(0);
+  const resumeTimeRef = useRef(0);
+  const wasActiveRef = useRef(false);
+
+  // FIXED: Restored and improved user interaction detection
+  useEffect(() => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    let interactionTimeout: NodeJS.Timeout;
+
+    const handleInteractionStart = (e: Event) => {
+      // Detect actual user interactions on the canvas
+      if (e.isTrusted && (e.target === canvas || canvas.contains(e.target as Node))) {
+        userInteractingRef.current = true;
+        lastInteractionRef.current = Date.now();
+        clearTimeout(interactionTimeout);
+        
+        console.log('🎬 User interaction detected - pausing cinematic camera');
+      }
+    };
+
+    const handleInteractionEnd = (e: Event) => {
+      if (e.isTrusted && (e.target === canvas || canvas.contains(e.target as Node))) {
+        lastInteractionRef.current = Date.now();
+        clearTimeout(interactionTimeout);
+        
+        // Shorter delay before resuming based on user setting
+        const pauseTime = Math.max((config?.pauseTime || 1) * 1000, 800);
+        interactionTimeout = setTimeout(() => {
+          userInteractingRef.current = false;
+          resumeTimeRef.current = Date.now();
+          console.log('🎬 Resuming cinematic camera after user interaction');
+        }, pauseTime);
+      }
+    };
+
+    // Listen to more interaction types for better detection
+    canvas.addEventListener('mousedown', handleInteractionStart, { passive: true });
+    canvas.addEventListener('touchstart', handleInteractionStart, { passive: true });
+    canvas.addEventListener('wheel', handleInteractionStart, { passive: true });
+    canvas.addEventListener('mouseup', handleInteractionEnd, { passive: true });
+    canvas.addEventListener('touchend', handleInteractionEnd, { passive: true });
+    canvas.addEventListener('mousemove', handleInteractionStart, { passive: true }); // Added mouse move
+    canvas.addEventListener('touchmove', handleInteractionStart, { passive: true }); // Added touch move
+
+    // Also listen for keyboard interactions
+    document.addEventListener('keydown', handleInteractionStart, { passive: true });
+
+    return () => {
+      clearTimeout(interactionTimeout);
+      canvas.removeEventListener('mousedown', handleInteractionStart);
+      canvas.removeEventListener('touchstart', handleInteractionStart);
+      canvas.removeEventListener('wheel', handleInteractionStart);
+      canvas.removeEventListener('mouseup', handleInteractionEnd);
+      canvas.removeEventListener('touchend', handleInteractionEnd);
+      canvas.removeEventListener('mousemove', handleInteractionStart);
+      canvas.removeEventListener('touchmove', handleInteractionStart);
+      document.removeEventListener('keydown', handleInteractionStart);
+    };
+  }, [config?.pauseTime]);
+
+  useFrame((state, delta) => {
+    if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
+      if (wasActiveRef.current) {
+        console.log('🎬 Cinematic camera disabled');
+        wasActiveRef.current = false;
+      }
+      return;
+    }
+
+    // FIXED: Better pause logic that actually works
+    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
+    const resumeDelay = Math.max((config.pauseTime || 1) * 1000, 800);
+    const timeSinceResume = Date.now() - resumeTimeRef.current;
+
+    // Pause during interaction or right after
+    if (userInteractingRef.current || (timeSinceInteraction < resumeDelay && timeSinceResume < 300)) {
+      if (wasActiveRef.current) {
+        console.log('🎬 Cinematic camera paused for user interaction');
+        wasActiveRef.current = false;
+      }
+      return;
+    }
+
+    if (!wasActiveRef.current) {
+      console.log('🎬 Cinematic camera resumed');
+      wasActiveRef.current = true;
+    }
+
+    const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
+    if (!validPhotos.length) return;
+
+    // FIXED: Pattern-specific speed adjustments to reduce conflicts
+    const getPatternSpeed = () => {
+      switch (settings.animationPattern) {
+        case 'spiral':
+          return 0.15; // MUCH slower for spiral to avoid conflicts
+        case 'wave':
+          return 0.2; // Slower for wave
+        case 'float':
+          return 0.3; // Normal speed for float (works great)
+        default:
+          return 0.25;
+      }
+    };
+
+    const speed = (config.speed || 1.0) * getPatternSpeed();
+    timeRef.current += delta * speed;
+
+    // Use fine-tuning controls with MUCH better pattern-aware defaults
+    const photoSize = settings.photoSize || 4;
+    const floorHeight = -12;
+    const photoDisplayHeight = floorHeight + photoSize;
+    
+    // FIXED: Much better pattern-aware defaults, especially for wave
+    const getPatternAwareDefaults = () => {
+      switch (settings.animationPattern) {
+        case 'spiral':
+          return {
+            height: Math.max(35, photoDisplayHeight + photoSize * 8), // MUCH higher for spiral
+            distance: Math.max(60, photoSize * 15), // MUCH further from spiral center
+            heightVar: photoSize * 0.5, // Minimal height variation
+            distanceVar: 5, // Minimal distance variation to reduce jitter
+          };
+        case 'wave':
+          return {
+            // FIXED: Much lower height for wave - human perspective, not bird's eye
+            height: Math.max(8, photoDisplayHeight + photoSize * 1.5), // Much lower - at photo level
+            distance: Math.max(20, photoSize * 5), // Closer to photos for better viewing
+            heightVar: photoSize * 0.8, // Moderate height variation
+            distanceVar: 8, // Moderate distance variation
+          };
+        case 'float':
+          return {
+            height: Math.max(18, photoDisplayHeight + photoSize * 3.5),
+            distance: Math.max(30, photoSize * 8),
+            heightVar: photoSize * 1.5,
+            distanceVar: 12,
+          };
+        default: // grid
+          return {
+            height: Math.max(15, photoDisplayHeight + photoSize * 2.5),
+            distance: Math.max(25, photoSize * 7),
+            heightVar: photoSize * 1.2,
+            distanceVar: 10,
+          };
+      }
+    };
+
+    const patternDefaults = getPatternAwareDefaults();
+    
+    const baseHeight = config.baseHeight !== undefined ? 
+      config.baseHeight : patternDefaults.height;
+    const baseDistance = config.baseDistance !== undefined ? 
+      config.baseDistance : patternDefaults.distance;
+    const heightVariation = config.heightVariation !== undefined ? 
+      config.heightVariation : patternDefaults.heightVar;
+    const distanceVariation = config.distanceVariation !== undefined ? 
+      config.distanceVariation : patternDefaults.distanceVar;
+
+    // Better center calculation
+    let centerX = 0, centerZ = 0;
+    if (validPhotos.length > 0) {
+      centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
+      centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+    }
+
+    let x, y, z, lookX, lookY, lookZ;
+
+    // FIXED: Much better camera movements, especially for wave
+    switch (config.type) {
+      case 'showcase':
+        const fig8Time = timeRef.current * 0.4;
+        const fig8Radius = baseDistance * (0.8 + Math.sin(fig8Time * 0.1) * 0.1);
+        
+        x = centerX + Math.sin(fig8Time) * fig8Radius;
+        y = baseHeight + Math.sin(fig8Time * 1.1) * heightVariation * 0.4;
+        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.7;
+        
+        lookX = centerX;
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = centerZ;
+        break;
+
+      case 'gallery_walk':
+        const walkTime = (timeRef.current * 0.25) % 4;
+        const walkRadius = baseDistance * 0.8;
+        
+        // Smooth rounded rectangle path
+        const angle = (walkTime / 4) * Math.PI * 2;
+        x = centerX + walkRadius * Math.cos(angle);
+        z = centerZ + walkRadius * Math.sin(angle) * 0.7;
+        y = baseHeight + Math.sin(timeRef.current * 0.2) * heightVariation * 0// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -404,16 +620,19 @@ const CinematicCamera: React.FC<{
         break;
 
       case 'wave_follow':
+        // FIXED: Much better wave camera - human perspective at photo level
         const waveTime = timeRef.current * 0.3;
-        const waveRadius = baseDistance * (0.9 + Math.sin(waveTime * 0.2) * 0.05);
+        const waveRadius = baseDistance * (0.9 + Math.sin(waveTime * 0.2) * 0.1);
         
+        // Camera follows wave motion at human eye level
         x = centerX + Math.sin(waveTime) * waveRadius;
-        y = baseHeight + Math.sin(waveTime * 1.1) * heightVariation * 0.4;
+        y = baseHeight + Math.sin(waveTime * 1.1) * heightVariation * 0.4; // Gentle bobbing motion
         z = centerZ + Math.cos(waveTime * 0.7) * waveRadius * 0.6;
         
-        lookX = centerX;
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ;
+        // FIXED: Look at photos at their level, not down from above
+        lookX = centerX + Math.sin(waveTime + 0.3) * waveRadius * 0.2; // Look slightly ahead
+        lookY = photoDisplayHeight + photoSize * 0.3; // Look at photo level, not down
+        lookZ = centerZ + Math.cos(waveTime * 0.7 + 0.3) * waveRadius * 0.1;
         break;
 
       case 'grid_sweep':
@@ -479,9 +698,9 @@ const CinematicCamera: React.FC<{
     camera.position.lerp(targetPos, smoothFactor);
     camera.lookAt(targetLook);
 
-    // Debug logging for spiral issues
-    if (settings.animationPattern === 'spiral' && Math.floor(timeRef.current * 1) % 100 === 0) {
-      console.log(`🌀 Spiral Camera: H=${y.toFixed(1)} D=${Math.sqrt(x*x + z*z).toFixed(1)} Speed=${speed.toFixed(3)}`);
+    // Debug logging for wave issues
+    if (settings.animationPattern === 'wave' && Math.floor(timeRef.current * 1) % 100 === 0) {
+      console.log(`🌊 Wave Camera: H=${y.toFixed(1)} D=${Math.sqrt(x*x + z*z).toFixed(1)} LookY=${lookY.toFixed(1)}`);
     }
   });
 
