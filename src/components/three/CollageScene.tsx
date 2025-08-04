@@ -360,10 +360,17 @@ const CameraAnimationController: React.FC<{
         radius: config.radius,
         height: config.height,
         photoCount,
-        photoBounds,
-        estimatedCycleTime: config.type === 'centerRotate' ? '45 seconds' : 
-                           config.type === 'spiral' ? '30+ seconds' :
-                           config.type === 'wave' ? '25+ seconds' : '20+ seconds'
+        photoBounds: {
+          centerX: photoBounds.centerX,
+          centerY: photoBounds.centerY,
+          centerZ: photoBounds.centerZ,
+          spanX: photoBounds.spanX,
+          spanY: photoBounds.spanY,
+          spanZ: photoBounds.spanZ
+        },
+        estimatedCycleTime: config.type === 'centerRotate' ? '30 seconds' : 
+                           config.type === 'spiral' ? '25+ seconds' :
+                           config.type === 'wave' ? '20+ seconds' : '15+ seconds'
       });
       
       // Start animation in a ready state
@@ -371,7 +378,7 @@ const CameraAnimationController: React.FC<{
         isActiveRef.current = true;
       }, 100);
     }
-  }, [config?.enabled, config?.type, photosWithPositions]);
+  }, [config?.enabled, config?.type, photosWithPositions, photoBounds]);
 
   return null;
 };
