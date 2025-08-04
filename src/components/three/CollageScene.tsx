@@ -486,7 +486,7 @@ class FixedSpiralPattern {
   }
 }
 
-// SIMPLIFIED: Basic interaction tracker - pause immediately, resume 2 seconds after interaction stops
+// FIXED: Basic interaction tracker - handle wheel/zoom events properly
 class SimpleInteractionTracker {
   private static instance: SimpleInteractionTracker;
   private userInteracting = false;
@@ -557,6 +557,32 @@ class SimpleInteractionTracker {
       }, this.RESUME_DELAY);
     };
 
+    // FIXED: Special handling for wheel events (zoom) - they don't have an "end" event
+    const handleWheelInteraction = (e: Event) => {
+      if (!e.isTrusted) return;
+      
+      const canvas = document.querySelector('canvas');
+      if (!canvas || !(e.target === canvas || canvas.contains(e.target as Node))) return;
+
+      // Mark as interacting immediately
+      if (!this.userInteracting) {
+        console.log('📷 Camera pause: Wheel/zoom interaction');
+        this.userInteracting = true;
+        this.notifyListeners();
+      }
+      
+      // Update last interaction time and cancel any pending resume
+      this.lastInteractionTime = Date.now();
+      this.clearInteractionTimeout();
+      
+      // For wheel events, immediately start the 2-second countdown since there's no "end" event
+      this.interactionTimeout = setTimeout(() => {
+        console.log('📷 Camera resume: 2 seconds since wheel interaction');
+        this.userInteracting = false;
+        this.notifyListeners();
+      }, this.RESUME_DELAY);
+    };
+
     // Mouse events
     document.addEventListener('mousedown', handleInteractionStart, { passive: true });
     document.addEventListener('mousemove', (e) => {
@@ -566,7 +592,9 @@ class SimpleInteractionTracker {
       }
     }, { passive: true });
     document.addEventListener('mouseup', handleInteractionEnd, { passive: true });
-    document.addEventListener('wheel', handleInteractionStart, { passive: true });
+    
+    // FIXED: Wheel events get special handling
+    document.addEventListener('wheel', handleWheelInteraction, { passive: true });
     
     // Touch events - user can interact as long as they want
     document.addEventListener('touchstart', handleInteractionStart, { passive: true });
