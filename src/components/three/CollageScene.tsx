@@ -1,4 +1,793 @@
-} else {
+// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
+import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+import * as THREE from 'three';
+import { type SceneSettings } from '../../store/sceneStore';
+import { PatternFactory } from './patterns/PatternFactory';
+import { addCacheBustToUrl } from '../../lib/supabase';
+import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
+
+type Photo = {
+  id: string;
+  url: string;
+  collage_id?: string;
+  created_at?: string;
+  aspect_ratio?: number;
+  width?: number;
+  height?: number;
+};
+
+type CollageSceneProps = {
+  photos: Photo[];
+  settings: ExtendedSceneSettings;
+  width?: number;
+  height?: number;
+  onSettingsChange?: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
+};
+
+type PhotoWithPosition = Photo & {
+  targetPosition: [number, number, number];
+  targetRotation: [number, number, number];
+  displayIndex?: number;
+  slotIndex: number;
+  computedSize: [number, number];
+};
+
+// Enhanced animation constants
+const POSITION_SMOOTHING = 0.08;
+const ROTATION_SMOOTHING = 0.08;
+const TELEPORT_THRESHOLD = 35;
+
+// Scene Environment Types
+type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
+type FloorTexture = 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+
+// Photo position interface for cinematic camera
+interface PhotoPosition {
+  position: [number, number, number];
+  slotIndex: number;
+  id: string;
+}
+
+// FIXED: Extended settings with cinematic camera height and distance controls
+interface ExtendedSceneSettings extends SceneSettings {
+  sceneEnvironment?: SceneEnvironment;
+  floorTexture?: FloorTexture;
+  customFloorTextureUrl?: string;
+  environmentIntensity?: number;
+  cubeTextureUrl?: string;
+  sphereTextureUrl?: string;
+  wallHeight?: number;
+  wallThickness?: number;
+  wallColor?: string;
+  ceilingEnabled?: boolean;
+  ceilingHeight?: number;
+  roomDepth?: number;
+  
+  // FIXED: Enhanced Cinematic Camera Animation Settings with fine-tuning controls
+  cameraAnimation?: {
+    enabled?: boolean;
+    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
+    speed: number;
+    focusDistance: number;
+    heightOffset: number;
+    transitionTime: number;
+    pauseTime: number;
+    randomization: number;
+    // NEW: Fine-tuning controls
+    baseHeight?: number;        // Base camera height for all animations
+    baseDistance?: number;      // Base distance from center for all animations
+    heightVariation?: number;   // How much height varies during animation
+    distanceVariation?: number; // How much distance varies during animation
+  };
+  
+  // Auto-Rotate Camera Settings
+  cameraAutoRotateSpeed?: number;
+  cameraAutoRotateRadius?: number;
+  cameraAutoRotateHeight?: number;
+  cameraAutoRotateElevationMin?: number;
+  cameraAutoRotateElevationMax?: number;
+  cameraAutoRotateElevationSpeed?: number;
+  cameraAutoRotateDistanceVariation?: number;
+  cameraAutoRotateDistanceSpeed?: number;
+  cameraAutoRotateVerticalDrift?: number;
+  cameraAutoRotateVerticalDriftSpeed?: number;
+  cameraAutoRotateFocusOffset?: [number, number, number];
+  cameraAutoRotatePauseOnInteraction?: number;
+}
+
+// SIMPLE AUTO-ROTATE CAMERA - Actually works with all settings
+const AutoRotateCamera: React.FC<{
+  settings: ExtendedSceneSettings;
+}> = ({ settings }) => {
+  const { camera } = useThree();
+  const timeRef = useRef(0);
+  const heightTimeRef = useRef(0);
+  const distanceTimeRef = useRef(0);
+  const verticalDriftTimeRef = useRef(0);
+
+  useFrame((state, delta) => {
+    // Only run if auto-rotate is enabled AND cinematic is disabled
+    const cinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
+    
+    if (!settings.cameraRotationEnabled || cinematicActive) {
+      return;
+    }
+
+    // Update all time counters
+    const speed = settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5;
+    timeRef.current += delta * speed;
+    heightTimeRef.current += delta * (settings.cameraAutoRotateElevationSpeed || 0.3);
+    distanceTimeRef.current += delta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
+    verticalDriftTimeRef.current += delta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
+    
+    // Base settings
+    const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
+    const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 8;
+    
+    // Distance variation
+    const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
+    const radius = baseRadius + Math.sin(distanceTimeRef.current) * radiusVariation;
+    
+    // Height oscillation between min and max elevation
+    const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6);
+    const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3);
+    const elevationRange = elevationMax - elevationMin;
+    const elevationOscillation = (Math.sin(heightTimeRef.current) + 1) / 2; // 0 to 1
+    const phi = elevationMin + (elevationOscillation * elevationRange);
+    
+    // Calculate spherical position
+    const x = radius * Math.sin(phi) * Math.cos(timeRef.current);
+    const y = baseHeight + Math.cos(phi) * radius * 0.2;
+    const z = radius * Math.sin(phi) * Math.sin(timeRef.current);
+    
+    // Vertical drift
+    const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
+    const driftOffset = Math.sin(verticalDriftTimeRef.current) * verticalDrift;
+    
+    // Focus offset
+    const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
+    const focusPoint = new THREE.Vector3(
+      focusOffset[0],
+      focusOffset[1] + driftOffset,
+      focusOffset[2]
+    );
+    
+    // Set camera position and look at focus point
+    camera.position.set(x + focusPoint.x, y + focusPoint.y, z + focusPoint.z);
+    camera.lookAt(focusPoint.x, focusPoint.y, focusPoint.z);
+  });
+
+  return null;
+};
+
+// FIXED: Enhanced Cinematic Camera with Fine-tuning Controls
+const CinematicCamera: React.FC<{
+  config?: {
+    enabled?: boolean;
+    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
+    speed: number;
+    focusDistance: number;
+    heightOffset: number;
+    transitionTime: number;
+    pauseTime: number;
+    randomization: number;
+    // NEW: Fine-tuning controls
+    baseHeight?: number;
+    baseDistance?: number;
+    heightVariation?: number;
+    distanceVariation?: number;
+  };
+  photoPositions: PhotoPosition[];
+  settings: ExtendedSceneSettings;
+}> = ({ config, photoPositions, settings }) => {
+  const { camera } = useThree();
+  const timeRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const lastInteractionRef = useRef(0);
+
+  // User interaction detection (only on canvas, not UI)
+  useEffect(() => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.target === canvas) {
+        userInteractingRef.current = true;
+        lastInteractionRef.current = Date.now();
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.target === canvas) {
+        userInteractingRef.current = false;
+        lastInteractionRef.current = Date.now();
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.target === canvas) {
+        userInteractingRef.current = true;
+        lastInteractionRef.current = Date.now();
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.target === canvas) {
+        userInteractingRef.current = false;
+        lastInteractionRef.current = Date.now();
+      }
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.target === canvas) {
+        lastInteractionRef.current = Date.now();
+      }
+    };
+
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchend', handleTouchEnd);
+    canvas.addEventListener('wheel', handleWheel);
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
+  useFrame((state, delta) => {
+    if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
+      return;
+    }
+
+    // Check for user interaction pause
+    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
+    const pauseDuration = (config.pauseTime || 2) * 1000;
+
+    if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
+      return;
+    }
+
+    const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
+    if (!validPhotos.length) return;
+
+    const speed = (config.speed || 1.0) * 0.2;
+    timeRef.current += delta * speed;
+
+    // FIXED: Use fine-tuning controls for height and distance
+    const photoSize = settings.photoSize || 4;
+    const floorHeight = -12;
+    
+    // NEW: Fine-tuning controls with defaults
+    const baseHeight = config.baseHeight !== undefined ? config.baseHeight : Math.max(settings.cameraHeight || 5, floorHeight + photoSize * 2);
+    const baseDistance = config.baseDistance !== undefined ? config.baseDistance : Math.max(settings.cameraDistance || 25, photoSize * 6);
+    const heightVariation = config.heightVariation !== undefined ? config.heightVariation : photoSize * 0.4;
+    const distanceVariation = config.distanceVariation !== undefined ? config.distanceVariation : baseDistance * 0.3;
+    
+    const photoDisplayHeight = floorHeight + photoSize; // Where photos are displayed
+    
+    // Get photo bounds for centered tours
+    const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
+    const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
+
+    let x, y, z, lookX, lookY, lookZ;
+
+    switch (config.type) {
+      case 'showcase':
+        // FIXED: Elegant figure-8 with fine-tuning controls
+        const fig8Time = timeRef.current * 0.4;
+        const fig8Radius = baseDistance + Math.sin(fig8Time * 0.7) * distanceVariation;
+        
+        x = centerX + Math.sin(fig8Time) * fig8Radius;
+        y = baseHeight + Math.sin(fig8Time * 1.5) * heightVariation;
+        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.6;
+        
+        lookX = centerX + Math.sin(fig8Time + 0.5) * fig8Radius * 0.2;
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = centerZ;
+        break;
+
+      case 'gallery_walk':
+        // FIXED: More graceful rectangular walk with fine-tuning
+        const walkTime = (timeRef.current * 0.25) % 4;
+        const walkMargin = baseDistance + Math.sin(timeRef.current * 0.3) * (distanceVariation * 0.5);
+        
+        if (walkTime < 1) {
+          x = centerX - walkMargin + (walkTime * walkMargin * 2);
+          z = centerZ + walkMargin;
+        } else if (walkTime < 2) {
+          x = centerX + walkMargin;
+          z = centerZ + walkMargin - ((walkTime - 1) * walkMargin * 2);
+        } else if (walkTime < 3) {
+          x = centerX + walkMargin - ((walkTime - 2) * walkMargin * 2);
+          z = centerZ - walkMargin;
+        } else {
+          x = centerX - walkMargin;
+          z = centerZ - walkMargin + ((walkTime - 3) * walkMargin * 2);
+        }
+        
+        y = baseHeight + Math.sin(timeRef.current * 0.3) * heightVariation;
+        
+        lookX = centerX;
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = centerZ;
+        break;
+
+      case 'spiral_tour':
+        // FIXED: Smooth orbital motion with fine-tuning
+        const orbitalTime = timeRef.current * 0.6;
+        const orbitalRadius = baseDistance + Math.sin(orbitalTime * 0.15) * distanceVariation;
+        
+        x = centerX + Math.cos(orbitalTime) * orbitalRadius;
+        y = baseHeight + Math.sin(orbitalTime * 0.2) * heightVariation;
+        z = centerZ + Math.sin(orbitalTime) * orbitalRadius * 0.8;
+        
+        lookX = centerX;
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = centerZ;
+        break;
+
+      case 'wave_follow':
+        // FIXED: Smoother wave motion with fine-tuning
+        const waveTime = timeRef.current * 0.35;
+        const waveAmplitude = baseDistance + Math.sin(waveTime * 0.5) * (distanceVariation * 0.7);
+        
+        x = centerX + Math.sin(waveTime) * waveAmplitude;
+        y = baseHeight + Math.sin(waveTime * 1.7) * heightVariation;
+        z = centerZ + Math.cos(waveTime * 0.6) * waveAmplitude * 0.7;
+        
+        const lookAheadTime = waveTime + 0.4;
+        lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.3;
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = centerZ + Math.cos(lookAheadTime * 0.6) * waveAmplitude * 0.3;
+        break;
+
+      case 'grid_sweep':
+        // FIXED: Smoother lawnmower pattern with fine-tuning
+        const sweepTime = (timeRef.current * 0.2) % 8;
+        const sweepWidth = baseDistance + Math.sin(timeRef.current * 0.4) * (distanceVariation * 0.5);
+        const rows = 4;
+        
+        const currentRow = Math.floor(sweepTime / 2);
+        const rowProgress = (sweepTime % 2);
+        const isEvenRow = currentRow % 2 === 0;
+        
+        const smoothProgress = 0.5 - 0.5 * Math.cos(rowProgress * Math.PI);
+        
+        x = centerX + (isEvenRow ? 
+          -sweepWidth + smoothProgress * sweepWidth * 2 : 
+          sweepWidth - smoothProgress * sweepWidth * 2);
+        y = baseHeight - (currentRow * heightVariation * 0.3);
+        z = centerZ - sweepWidth + (currentRow / (rows - 1)) * sweepWidth * 2;
+        
+        lookX = x + (isEvenRow ? photoSize * 2 : -photoSize * 2);
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = z;
+        break;
+
+      case 'photo_focus':
+        // FIXED: Elegant infinity symbol with fine-tuning
+        const focusTime = timeRef.current * 0.5;
+        const focusRadius = baseDistance + Math.sin(focusTime * 0.3) * (distanceVariation * 0.6);
+        
+        const denominator = 1 + Math.sin(focusTime) ** 2;
+        
+        x = centerX + (focusRadius * Math.cos(focusTime)) / denominator;
+        y = baseHeight + Math.sin(focusTime * 1.3) * heightVariation;
+        z = centerZ + (focusRadius * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
+        
+        lookX = centerX;
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = centerZ;
+        break;
+
+      default:
+        x = centerX + Math.cos(timeRef.current) * baseDistance;
+        y = baseHeight;
+        z = centerZ + Math.sin(timeRef.current) * baseDistance;
+        lookX = centerX;
+        lookY = photoDisplayHeight + photoSize * 0.5;
+        lookZ = centerZ;
+    }
+
+    // FIXED: Ensure camera never looks below photo level
+    lookY = Math.max(lookY, photoDisplayHeight);
+    y = Math.max(y, floorHeight + photoSize + 2);
+
+    // Smooth camera updates
+    camera.position.x = x;
+    camera.position.y = y;
+    camera.position.z = z;
+    
+    camera.lookAt(lookX, lookY, lookZ);
+  });
+
+  return null;
+};
+
+// SIMPLE CAMERA CONTROLS - With cinematic interaction support
+const CameraControls: React.FC<{ 
+  settings: ExtendedSceneSettings; 
+  photosWithPositions: PhotoWithPosition[];
+}> = ({ settings, photosWithPositions }) => {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>();
+  
+  // Photo positions for cinematic camera
+  const photoPositions = useMemo(() => {
+    return photosWithPositions
+      .filter(photo => photo.id && !photo.id.startsWith('placeholder-'))
+      .map(photo => ({
+        position: photo.targetPosition,
+        slotIndex: photo.slotIndex,
+        id: photo.id
+      }));
+  }, [photosWithPositions]);
+  
+  const isCinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
+  
+  // Initialize camera
+  useEffect(() => {
+    if (camera && !isCinematicActive && controlsRef.current) {
+      const photoSize = settings.photoSize || 4;
+      const distance = Math.max(settings.cameraDistance || 25, photoSize * 3);
+      const height = Math.max(settings.cameraHeight || 5, photoSize + 2);
+      
+      camera.position.set(distance * 0.7, height, distance * 0.7);
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+      
+      console.log('📷 Camera initialized for manual control');
+    }
+  }, [camera, isCinematicActive]);
+
+  return (
+    <>
+      {/* OrbitControls - ALWAYS available for user interaction */}
+      <OrbitControls
+        ref={controlsRef}
+        enabled={settings.cameraEnabled !== false}
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        minDistance={Math.max(10, (settings.photoSize || 4) * 2)}
+        maxDistance={200}
+        enableDamping={true}
+        dampingFactor={0.05}
+      />
+      
+      {/* Auto-Rotate only when cinematic is OFF */}
+      {!isCinematicActive && (
+        <AutoRotateCamera settings={settings} />
+      )}
+      
+      {/* Cinematic Camera works alongside OrbitControls */}
+      {isCinematicActive && (
+        <CinematicCamera 
+          config={settings.cameraAnimation}
+          photoPositions={photoPositions}
+          settings={settings}
+        />
+      )}
+    </>
+  );
+};
+
+// FIXED: Enhanced Slot Manager with proper photo count handling up to 500
+class EnhancedSlotManager {
+  private slotAssignments = new Map<string, number>();
+  private occupiedSlots = new Set<number>();
+  private availableSlots: number[] = [];
+  private totalSlots = 0;
+  private photoAspectRatios = new Map<string, number>();
+
+  constructor(totalSlots: number) {
+    this.updateSlotCount(Math.min(Math.max(totalSlots, 1), 500)); // FIXED: Clamp to 1-500
+  }
+
+  updateSlotCount(newTotal: number) {
+    // FIXED: Ensure we can handle up to 500 photos
+    const clampedTotal = Math.min(Math.max(newTotal, 1), 500);
+    
+    if (clampedTotal === this.totalSlots) return;
+    
+    console.log(`📊 Updating slot count from ${this.totalSlots} to ${clampedTotal}`);
+    this.totalSlots = clampedTotal;
+    
+    // Clean up slots that are now out of range
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (slotIndex >= clampedTotal) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+        this.photoAspectRatios.delete(photoId);
+      }
+    }
+    
+    this.rebuildAvailableSlots();
+  }
+
+  private rebuildAvailableSlots() {
+    this.availableSlots = [];
+    for (let i = 0; i < this.totalSlots; i++) {
+      if (!this.occupiedSlots.has(i)) {
+        this.availableSlots.push(i);
+      }
+    }
+    this.availableSlots.sort((a, b) => a - b);
+  }
+
+  assignSlots(photos: Photo[]): Map<string, number> {
+    const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+    
+    // Track aspect ratios
+    safePhotos.forEach(photo => {
+      if (!this.photoAspectRatios.has(photo.id)) {
+        if (photo.width && photo.height) {
+          this.photoAspectRatios.set(photo.id, photo.width / photo.height);
+        }
+      }
+    });
+    
+    // Clean up slots for photos that no longer exist
+    const currentPhotoIds = new Set(safePhotos.map(p => p.id));
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (!currentPhotoIds.has(photoId)) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+        this.photoAspectRatios.delete(photoId);
+      }
+    }
+
+    this.rebuildAvailableSlots();
+
+    // Sort photos for consistent assignment
+    const sortedPhotos = [...safePhotos].sort((a, b) => {
+      if (a.created_at && b.created_at) {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    // Assign slots to new photos
+    for (const photo of sortedPhotos) {
+      if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
+        const newSlot = this.availableSlots.shift()!;
+        this.slotAssignments.set(photo.id, newSlot);
+        this.occupiedSlots.add(newSlot);
+      }
+    }
+
+    return new Map(this.slotAssignments);
+  }
+
+  getAspectRatio(photoId: string): number | null {
+    return this.photoAspectRatios.get(photoId) || null;
+  }
+}
+
+// FIXED WAVE PATTERN - Gentle flowing like water hovering over floor
+class FixedWavePattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.wave?.photoCount !== undefined 
+      ? this.settings.patterns.wave.photoCount 
+      : this.settings.photoCount;
+    
+    // FIXED: Much better spacing - wider spread, proper photo size consideration
+    const photoSize = this.settings.photoSize || 4;
+    const baseSpacing = Math.max(12, photoSize * 2.5); // Much wider base spacing
+    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.15);
+    const finalSpacing = baseSpacing * spacingMultiplier;
+    
+    // FIXED: Support up to 500 photos efficiently
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    
+    // Calculate grid dimensions
+    const columns = Math.ceil(Math.sqrt(totalPhotos));
+    const rows = Math.ceil(totalPhotos / columns);
+    
+    const speed = this.settings.animationSpeed / 50;
+    const wavePhase = time * speed * 1.0; // Even slower for gentle flow
+    
+    // FIXED: Higher hover height for gentle floating effect
+    const floorHeight = -12;
+    const minHoverHeight = 8; // Much higher minimum hover
+    const maxHoverHeight = 16; // Higher ceiling for wave motion
+    const baseHeight = floorHeight + photoSize + minHoverHeight; // Higher base
+    
+    for (let i = 0; i < totalPhotos; i++) {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      
+      // FIXED: Base positions with much better spacing
+      let x = (col - columns / 2) * finalSpacing;
+      let z = (row - rows / 2) * finalSpacing;
+      
+      // GENTLE FLOATING WAVE: Much smoother amplitude that never gets too low
+      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 4, photoSize * 1.0); // Smaller, gentler waves
+      const frequency = this.settings.patterns?.wave?.frequency || 0.1; // Even lower frequency for broader, gentler waves
+      
+      let y = baseHeight; // Start from higher base
+      
+      if (this.settings.animationEnabled) {
+        // MAIN GENTLE WAVE: Soft rolling motion like floating on water
+        const mainWave = Math.sin(x * frequency - wavePhase) * amplitude;
+        
+        // PERPENDICULAR GENTLE WAVE: Soft crossing patterns
+        const crossWave = Math.sin(z * frequency * 0.7 + wavePhase * 0.6) * amplitude * 0.5;
+        
+        // FLOATING RIPPLES: Very gentle radial ripples
+        const distanceFromCenter = Math.sqrt(x * x + z * z);
+        const radialWave = Math.sin(distanceFromCenter * frequency * 0.2 - wavePhase * 0.4) * amplitude * 0.3;
+        
+        // GENTLE BREATHING: Soft overall rise and fall
+        const breathingWave = Math.sin(wavePhase * 0.25) * amplitude * 0.4;
+        
+        // Combine into very gentle water-like floating motion
+        const totalWaveHeight = mainWave + crossWave + radialWave + breathingWave;
+        
+        // ENSURE ALWAYS FLOATING: Never let photos get too close to floor
+        y += Math.max(totalWaveHeight, -amplitude * 0.5); // Clamp the minimum
+        
+        // Additional safety: ensure minimum hover height is maintained
+        y = Math.max(y, baseHeight - amplitude * 0.3);
+      }
+      
+      positions.push([x, y, z]);
+
+      if (this.settings.photoRotation) {
+        const angle = Math.atan2(x, z);
+        // Very gentle rotation that follows the gentle wave motion
+        const rotationX = Math.sin(wavePhase * 0.3 + x * frequency * 0.3) * 0.02;
+        const rotationY = angle + Math.sin(wavePhase * 0.2) * 0.015;
+        const rotationZ = Math.cos(wavePhase * 0.3 + z * frequency * 0.3) * 0.02;
+        rotations.push([rotationX, rotationY, rotationZ]);
+      } else {
+        rotations.push([0, 0, 0]);
+      }
+    }
+
+    return { positions, rotations };
+  }
+}
+
+// FIXED SPIRAL PATTERN - TALLER cyclone with better distribution and some randomness
+class FixedSpiralPattern {
+  constructor(private settings: any) {}
+
+  generatePositions(time: number) {
+    const positions: any[] = [];
+    const rotations: [number, number, number][] = [];
+
+    const photoCount = this.settings.patterns?.spiral?.photoCount !== undefined 
+      ? this.settings.patterns.spiral.photoCount 
+      : this.settings.photoCount;
+    
+    // FIXED: Support up to 500 photos efficiently
+    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
+    const speed = this.settings.animationSpeed / 50;
+    const animationTime = time * speed * 2;
+    
+    // FIXED: MUCH TALLER spiral parameters for better visibility
+    const photoSize = this.settings.photoSize || 4;
+    const baseRadius = Math.max(8, photoSize * 1.5); // Reasonable minimum radius
+    const maxRadius = Math.max(50, photoSize * 10); // Even wider spread
+    const maxHeight = Math.max(60, photoSize * 12); // MUCH TALLER - doubled the height
+    const rotationSpeed = 0.6;
+    const orbitalChance = 0.25; // Slightly more orbital photos for area filling
+    
+    // FIXED: Proper hover height - well above floor
+    const floorHeight = -12;
+    const hoverHeight = 5; // Slightly higher hover
+    const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
+    
+    // FIXED: BETTER vertical distribution - less bottom-heavy, more spread out
+    const verticalBias = 0.4; // MUCH less bias toward bottom (was 0.7)
+    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.8; // Taller steps between layers
+    
+    for (let i = 0; i < totalPhotos; i++) {
+      // Generate random but consistent values for each photo
+      const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
+      const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
+      const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
+      const randomSeed4 = Math.sin(i * 3.17) * 0.5 + 0.5; // Additional randomness
+      
+      // Determine if this photo is on the main funnel or an outer orbit
+      const isOrbital = randomSeed1 < orbitalChance;
+      
+      // FIXED: Better height distribution - more spread throughout the height
+      let normalizedHeight = Math.pow(randomSeed2, verticalBias);
+      
+      // ADD RANDOMNESS: Some photos get random height boosts for better filling
+      if (randomSeed4 > 0.7) {
+        normalizedHeight = Math.min(1.0, normalizedHeight + (randomSeed4 - 0.7) * 1.5); // Random height boost
+      }
+      
+      // Apply height step to create taller spiral layers
+      const y = baseHeight + normalizedHeight * maxHeight * heightStep;
+      
+      // Calculate radius at this height (funnel shape)
+      const funnelRadius = baseRadius + (maxRadius - baseRadius) * normalizedHeight;
+      
+      let radius: number;
+      let angleOffset: number;
+      let verticalWobble: number = 0;
+      
+      if (isOrbital) {
+        // Orbital photos - farther out with more randomness for area filling
+        const orbitalVariation = 1.3 + randomSeed3 * 1.0; // More variation (was 0.8)
+        radius = funnelRadius * orbitalVariation;
+        angleOffset = randomSeed3 * Math.PI * 2; // Random starting angle
+        
+        // ADD RANDOMNESS: Some orbital photos get random radius boosts
+        if (randomSeed4 > 0.6) {
+          radius *= (1.0 + (randomSeed4 - 0.6) * 1.5); // Random radius boost
+        }
+        
+        // Add vertical oscillation for orbital photos
+        if (this.settings.animationEnabled) {
+          verticalWobble = Math.sin(animationTime * 2 + i) * 4; // Slightly more wobble
+        }
+      } else {
+        // Main funnel photos with some randomness
+        const radiusVariation = 0.7 + randomSeed3 * 0.6; // More variation (was 0.8 to 1.2)
+        radius = funnelRadius * radiusVariation;
+        angleOffset = randomSeed4 * 0.5; // Small random angle offset
+        
+        // ADD RANDOMNESS: Some main photos get scattered for filling
+        if (randomSeed4 > 0.8) {
+          radius *= (1.0 + (randomSeed4 - 0.8) * 2.0); // Scatter some photos further
+        }
+      }
+      
+      // Calculate angle with height-based rotation speed
+      // Photos at the bottom rotate slower, creating a realistic vortex effect
+      const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
+      const angle = this.settings.animationEnabled ?
+        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.05)) :
+        (angleOffset + (i * 0.1));
+      
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const finalY = y + verticalWobble;
+      
+      positions.push([x, finalY, z]);
+      
+      // FIXED: Photos should face camera in spiral pattern for better visibility
+      if (this.settings.photoRotation) {
+        // Add subtle animation while letting camera-facing handle main orientation
+        const rotX = Math.sin(animationTime * 0.4 + i * 0.1) * 0.02;
+        const rotY = 0; // Let camera-facing handle Y rotation
+        const rotZ = Math.cos(animationTime * 0.4 + i * 0.1) * 0.02;
+        rotations.push([rotX, rotY, rotZ]);
+      } else {
+        rotations.push([0, 0, 0]); // No rotation - pure camera facing
+      }
+    }
+
+    return { positions, rotations };
+  }
+}
+
+const BackgroundRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const { scene, gl } = useThree();
+  
+  useEffect(() => {
+    try {
+      if (settings.backgroundGradient) {
+        scene.background = null;
+        gl.setClearColor('#000000', 0);
+      } else {
         scene.background = new THREE.Color(settings.backgroundColor || '#000000');
         gl.setClearColor(settings.backgroundColor || '#000000', 1);
       }
@@ -463,65 +1252,6 @@ const EnhancedAnimationController: React.FC<{
   return null;
 };
 
-const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  if (!settings.floorEnabled) return null;
-
-  const floorTexture = useMemo(() => {
-    return FloorTextureFactory.createTexture(
-      settings.floorTexture || 'solid',
-      1024,
-      settings.customFloorTextureUrl
-    );
-  }, [settings.floorTexture, settings.customFloorTextureUrl]);
-
-  const floorMaterial = useMemo(() => {
-    const material = new THREE.MeshStandardMaterial({
-      map: floorTexture,
-      color: settings.floorColor || '#FFFFFF',
-      transparent: (settings.floorOpacity || 1) < 1,
-      opacity: settings.floorOpacity || 1,
-      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
-      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
-      side: THREE.DoubleSide,
-      envMapIntensity: 0.5,
-    });
-
-    switch (settings.floorTexture) {
-      case 'marble':
-        material.metalness = 0.1;
-        material.roughness = 0.2;
-        break;
-      case 'metal':
-        material.metalness = 0.9;
-        material.roughness = 0.1;
-        break;
-      case 'glass':
-        material.metalness = 0;
-        material.roughness = 0.05;
-        material.transparent = true;
-        material.opacity = 0.8;
-        break;
-      case 'wood':
-        material.metalness = 0;
-        material.roughness = 0.8;
-        break;
-    }
-
-    return material;
-  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness, settings.floorTexture, floorTexture]);
-
-  return (
-    <mesh
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -12, 0]}
-      receiveShadow
-    >
-      <planeGeometry args={[settings.floorSize || 300, settings.floorSize || 300, 64, 64]} />
-      <primitive object={floorMaterial} attach="material" />
-    </mesh>
-  );
-};
-
 // Helper function to get current particle theme
 const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
   const themeName = settings.particles?.theme ?? 'Purple Magic';
@@ -623,34 +1353,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           />
         )}
         
-        {/* Scene Environment Manager */}
-        <SceneEnvironmentManager settings={safeSettings} />
-        
-        {/* Enhanced Lighting */}
-        <EnhancedLightingSystem settings={safeSettings} />
-        
-        {/* Textured Floor - Always show unless sphere environment */}
-        {safeSettings.sceneEnvironment !== 'sphere' && (
-          <TexturedFloor settings={safeSettings} />
-        )}
-        
-        {/* Grid - Only show for default environment */}
-        {(!safeSettings.sceneEnvironment || safeSettings.sceneEnvironment === 'default') && 
-         safeSettings.gridEnabled && (
-          <gridHelper
-            args={[
-              safeSettings.gridSize || 200,
-              safeSettings.gridDivisions || 30,
-              safeSettings.gridColor || '#444444',
-              safeSettings.gridColor || '#444444'
-            ]}
-            position={[0, -11.99, 0]}
-            material-opacity={safeSettings.gridOpacity || 1.0}
-            material-transparent={true}
-          />
-        )}
-        
-        {/* FIXED Enhanced Animation Controller */}
+        {/* Enhanced Animation Controller */}
         <EnhancedAnimationController
           settings={safeSettings}
           photos={safePhotos}
@@ -662,1214 +1365,13 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           photosWithPositions={photosWithPositions}
           settings={safeSettings}
         />
+        
+        {/* Enhanced Lighting */}
+        <EnhancedLightingSystem settings={safeSettings} />
       </Canvas>
     </div>
   );
 });
 
 EnhancedCollageScene.displayName = 'EnhancedCollageScene';
-export default EnhancedCollageScene;// Enhanced CollageScene with WORKING Camera Systems and FIXED Pattern Spacing + Camera Fine-tuning
-import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
-import * as THREE from 'three';
-import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory } from './patterns/PatternFactory';
-import { addCacheBustToUrl } from '../../lib/supabase';
-import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
-
-type Photo = {
-  id: string;
-  url: string;
-  collage_id?: string;
-  created_at?: string;
-  aspect_ratio?: number;
-  width?: number;
-  height?: number;
-};
-
-type CollageSceneProps = {
-  photos: Photo[];
-  settings: ExtendedSceneSettings;
-  width?: number;
-  height?: number;
-  onSettingsChange?: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
-};
-
-type PhotoWithPosition = Photo & {
-  targetPosition: [number, number, number];
-  targetRotation: [number, number, number];
-  displayIndex?: number;
-  slotIndex: number;
-  computedSize: [number, number];
-};
-
-// Enhanced animation constants
-const POSITION_SMOOTHING = 0.08;
-const ROTATION_SMOOTHING = 0.08;
-const TELEPORT_THRESHOLD = 35;
-
-// Scene Environment Types
-type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
-type FloorTexture = 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
-
-// Photo position interface for cinematic camera
-interface PhotoPosition {
-  position: [number, number, number];
-  slotIndex: number;
-  id: string;
-}
-
-// FIXED: Extended settings with cinematic camera height and distance controls
-interface ExtendedSceneSettings extends SceneSettings {
-  sceneEnvironment?: SceneEnvironment;
-  floorTexture?: FloorTexture;
-  customFloorTextureUrl?: string;
-  environmentIntensity?: number;
-  cubeTextureUrl?: string;
-  sphereTextureUrl?: string;
-  wallHeight?: number;
-  wallThickness?: number;
-  wallColor?: string;
-  ceilingEnabled?: boolean;
-  ceilingHeight?: number;
-  roomDepth?: number;
-  
-  // FIXED: Enhanced Cinematic Camera Animation Settings with fine-tuning controls
-  cameraAnimation?: {
-    enabled?: boolean;
-    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
-    speed: number;
-    focusDistance: number;
-    heightOffset: number;
-    transitionTime: number;
-    pauseTime: number;
-    randomization: number;
-    // NEW: Fine-tuning controls
-    baseHeight?: number;        // Base camera height for all animations
-    baseDistance?: number;      // Base distance from center for all animations
-    heightVariation?: number;   // How much height varies during animation
-    distanceVariation?: number; // How much distance varies during animation
-  };
-  
-  // Auto-Rotate Camera Settings
-  cameraAutoRotateSpeed?: number;
-  cameraAutoRotateRadius?: number;
-  cameraAutoRotateHeight?: number;
-  cameraAutoRotateElevationMin?: number;
-  cameraAutoRotateElevationMax?: number;
-  cameraAutoRotateElevationSpeed?: number;
-  cameraAutoRotateDistanceVariation?: number;
-  cameraAutoRotateDistanceSpeed?: number;
-  cameraAutoRotateVerticalDrift?: number;
-  cameraAutoRotateVerticalDriftSpeed?: number;
-  cameraAutoRotateFocusOffset?: [number, number, number];
-  cameraAutoRotatePauseOnInteraction?: number;
-}
-
-// SIMPLE AUTO-ROTATE CAMERA - Actually works with all settings
-const AutoRotateCamera: React.FC<{
-  settings: ExtendedSceneSettings;
-}> = ({ settings }) => {
-  const { camera } = useThree();
-  const timeRef = useRef(0);
-  const heightTimeRef = useRef(0);
-  const distanceTimeRef = useRef(0);
-  const verticalDriftTimeRef = useRef(0);
-
-  useFrame((state, delta) => {
-    // Only run if auto-rotate is enabled AND cinematic is disabled
-    const cinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
-    
-    if (!settings.cameraRotationEnabled || cinematicActive) {
-      return;
-    }
-
-    // Update all time counters
-    const speed = settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5;
-    timeRef.current += delta * speed;
-    heightTimeRef.current += delta * (settings.cameraAutoRotateElevationSpeed || 0.3);
-    distanceTimeRef.current += delta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
-    verticalDriftTimeRef.current += delta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
-    
-    // Base settings
-    const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
-    const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 8;
-    
-    // Distance variation
-    const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
-    const radius = baseRadius + Math.sin(distanceTimeRef.current) * radiusVariation;
-    
-    // Height oscillation between min and max elevation
-    const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6);
-    const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3);
-    const elevationRange = elevationMax - elevationMin;
-    const elevationOscillation = (Math.sin(heightTimeRef.current) + 1) / 2; // 0 to 1
-    const phi = elevationMin + (elevationOscillation * elevationRange);
-    
-    // Calculate spherical position
-    const x = radius * Math.sin(phi) * Math.cos(timeRef.current);
-    const y = baseHeight + Math.cos(phi) * radius * 0.2;
-    const z = radius * Math.sin(phi) * Math.sin(timeRef.current);
-    
-    // Vertical drift
-    const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
-    const driftOffset = Math.sin(verticalDriftTimeRef.current) * verticalDrift;
-    
-    // Focus offset
-    const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
-    const focusPoint = new THREE.Vector3(
-      focusOffset[0],
-      focusOffset[1] + driftOffset,
-      focusOffset[2]
-    );
-    
-    // Set camera position and look at focus point
-    camera.position.set(x + focusPoint.x, y + focusPoint.y, z + focusPoint.z);
-    camera.lookAt(focusPoint.x, focusPoint.y, focusPoint.z);
-  });
-
-  return null;
-};
-
-// FIXED: Enhanced Cinematic Camera with Fine-tuning Controls
-const CinematicCamera: React.FC<{
-  config?: {
-    enabled?: boolean;
-    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
-    speed: number;
-    focusDistance: number;
-    heightOffset: number;
-    transitionTime: number;
-    pauseTime: number;
-    randomization: number;
-    // NEW: Fine-tuning controls
-    baseHeight?: number;
-    baseDistance?: number;
-    heightVariation?: number;
-    distanceVariation?: number;
-  };
-  photoPositions: PhotoPosition[];
-  settings: ExtendedSceneSettings;
-}> = ({ config, photoPositions, settings }) => {
-  const { camera } = useThree();
-  const timeRef = useRef(0);
-  const userInteractingRef = useRef(false);
-  const lastInteractionRef = useRef(0);
-
-  // User interaction detection (only on canvas, not UI)
-  useEffect(() => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return;
-
-    const handleMouseDown = (e: MouseEvent) => {
-      if (e.target === canvas) {
-        userInteractingRef.current = true;
-        lastInteractionRef.current = Date.now();
-      }
-    };
-
-    const handleMouseUp = (e: MouseEvent) => {
-      if (e.target === canvas) {
-        userInteractingRef.current = false;
-        lastInteractionRef.current = Date.now();
-      }
-    };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.target === canvas) {
-        userInteractingRef.current = true;
-        lastInteractionRef.current = Date.now();
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (e.target === canvas) {
-        userInteractingRef.current = false;
-        lastInteractionRef.current = Date.now();
-      }
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.target === canvas) {
-        lastInteractionRef.current = Date.now();
-      }
-    };
-
-    canvas.addEventListener('mousedown', handleMouseDown);
-    canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('touchstart', handleTouchStart);
-    canvas.addEventListener('touchend', handleTouchEnd);
-    canvas.addEventListener('wheel', handleWheel);
-
-    return () => {
-      canvas.removeEventListener('mousedown', handleMouseDown);
-      canvas.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('touchstart', handleTouchStart);
-      canvas.removeEventListener('touchend', handleTouchEnd);
-      canvas.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
-
-  useFrame((state, delta) => {
-    if (!config?.enabled || config.type === 'none' || !photoPositions.length) {
-      return;
-    }
-
-    // Check for user interaction pause
-    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const pauseDuration = (config.pauseTime || 2) * 1000;
-
-    if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
-      return;
-    }
-
-    const validPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-'));
-    if (!validPhotos.length) return;
-
-    const speed = (config.speed || 1.0) * 0.2;
-    timeRef.current += delta * speed;
-
-    // FIXED: Use fine-tuning controls for height and distance
-    const photoSize = settings.photoSize || 4;
-    const floorHeight = -12;
-    
-    // NEW: Fine-tuning controls with defaults
-    const baseHeight = config.baseHeight !== undefined ? config.baseHeight : Math.max(settings.cameraHeight || 5, floorHeight + photoSize * 2);
-    const baseDistance = config.baseDistance !== undefined ? config.baseDistance : Math.max(settings.cameraDistance || 25, photoSize * 6);
-    const heightVariation = config.heightVariation !== undefined ? config.heightVariation : photoSize * 0.4;
-    const distanceVariation = config.distanceVariation !== undefined ? config.distanceVariation : baseDistance * 0.3;
-    
-    const photoDisplayHeight = floorHeight + photoSize; // Where photos are displayed
-    
-    // Get photo bounds for centered tours
-    const centerX = validPhotos.reduce((sum, p) => sum + p.position[0], 0) / validPhotos.length;
-    const centerZ = validPhotos.reduce((sum, p) => sum + p.position[2], 0) / validPhotos.length;
-    const maxDistance = Math.max(...validPhotos.map(p => 
-      Math.sqrt((p.position[0] - centerX) ** 2 + (p.position[2] - centerZ) ** 2)
-    ));
-
-    let x, y, z, lookX, lookY, lookZ;
-
-    switch (config.type) {
-      case 'showcase':
-        // FIXED: Elegant figure-8 with fine-tuning controls
-        const fig8Time = timeRef.current * 0.4;
-        const fig8Radius = baseDistance + Math.sin(fig8Time * 0.7) * distanceVariation;
-        
-        x = centerX + Math.sin(fig8Time) * fig8Radius;
-        y = baseHeight + Math.sin(fig8Time * 1.5) * heightVariation;
-        z = centerZ + Math.sin(fig8Time * 2) * fig8Radius * 0.6;
-        
-        lookX = centerX + Math.sin(fig8Time + 0.5) * fig8Radius * 0.2;
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ;
-        break;
-
-      case 'gallery_walk':
-        // FIXED: More graceful rectangular walk with fine-tuning
-        const walkTime = (timeRef.current * 0.25) % 4;
-        const walkMargin = baseDistance + Math.sin(timeRef.current * 0.3) * (distanceVariation * 0.5);
-        
-        if (walkTime < 1) {
-          x = centerX - walkMargin + (walkTime * walkMargin * 2);
-          z = centerZ + walkMargin;
-        } else if (walkTime < 2) {
-          x = centerX + walkMargin;
-          z = centerZ + walkMargin - ((walkTime - 1) * walkMargin * 2);
-        } else if (walkTime < 3) {
-          x = centerX + walkMargin - ((walkTime - 2) * walkMargin * 2);
-          z = centerZ - walkMargin;
-        } else {
-          x = centerX - walkMargin;
-          z = centerZ - walkMargin + ((walkTime - 3) * walkMargin * 2);
-        }
-        
-        y = baseHeight + Math.sin(timeRef.current * 0.3) * heightVariation;
-        
-        lookX = centerX;
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ;
-        break;
-
-      case 'spiral_tour':
-        // FIXED: Smooth orbital motion with fine-tuning
-        const orbitalTime = timeRef.current * 0.6;
-        const orbitalRadius = baseDistance + Math.sin(orbitalTime * 0.15) * distanceVariation;
-        
-        x = centerX + Math.cos(orbitalTime) * orbitalRadius;
-        y = baseHeight + Math.sin(orbitalTime * 0.2) * heightVariation;
-        z = centerZ + Math.sin(orbitalTime) * orbitalRadius * 0.8;
-        
-        lookX = centerX;
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ;
-        break;
-
-      case 'wave_follow':
-        // FIXED: Smoother wave motion with fine-tuning
-        const waveTime = timeRef.current * 0.35;
-        const waveAmplitude = baseDistance + Math.sin(waveTime * 0.5) * (distanceVariation * 0.7);
-        
-        x = centerX + Math.sin(waveTime) * waveAmplitude;
-        y = baseHeight + Math.sin(waveTime * 1.7) * heightVariation;
-        z = centerZ + Math.cos(waveTime * 0.6) * waveAmplitude * 0.7;
-        
-        const lookAheadTime = waveTime + 0.4;
-        lookX = centerX + Math.sin(lookAheadTime) * waveAmplitude * 0.3;
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ + Math.cos(lookAheadTime * 0.6) * waveAmplitude * 0.3;
-        break;
-
-      case 'grid_sweep':
-        // FIXED: Smoother lawnmower pattern with fine-tuning
-        const sweepTime = (timeRef.current * 0.2) % 8;
-        const sweepWidth = baseDistance + Math.sin(timeRef.current * 0.4) * (distanceVariation * 0.5);
-        const rows = 4;
-        
-        const currentRow = Math.floor(sweepTime / 2);
-        const rowProgress = (sweepTime % 2);
-        const isEvenRow = currentRow % 2 === 0;
-        
-        const smoothProgress = 0.5 - 0.5 * Math.cos(rowProgress * Math.PI);
-        
-        x = centerX + (isEvenRow ? 
-          -sweepWidth + smoothProgress * sweepWidth * 2 : 
-          sweepWidth - smoothProgress * sweepWidth * 2);
-        y = baseHeight - (currentRow * heightVariation * 0.3);
-        z = centerZ - sweepWidth + (currentRow / (rows - 1)) * sweepWidth * 2;
-        
-        lookX = x + (isEvenRow ? photoSize * 2 : -photoSize * 2);
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = z;
-        break;
-
-      case 'photo_focus':
-        // FIXED: Elegant infinity symbol with fine-tuning
-        const focusTime = timeRef.current * 0.5;
-        const focusRadius = baseDistance + Math.sin(focusTime * 0.3) * (distanceVariation * 0.6);
-        
-        const denominator = 1 + Math.sin(focusTime) ** 2;
-        
-        x = centerX + (focusRadius * Math.cos(focusTime)) / denominator;
-        y = baseHeight + Math.sin(focusTime * 1.3) * heightVariation;
-        z = centerZ + (focusRadius * Math.sin(focusTime) * Math.cos(focusTime)) / denominator;
-        
-        lookX = centerX;
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ;
-        break;
-
-      default:
-        x = centerX + Math.cos(timeRef.current) * baseDistance;
-        y = baseHeight;
-        z = centerZ + Math.sin(timeRef.current) * baseDistance;
-        lookX = centerX;
-        lookY = photoDisplayHeight + photoSize * 0.5;
-        lookZ = centerZ;
-    }
-
-    // FIXED: Ensure camera never looks below photo level
-    lookY = Math.max(lookY, photoDisplayHeight);
-    y = Math.max(y, floorHeight + photoSize + 2);
-
-    // Smooth camera updates
-    camera.position.x = x;
-    camera.position.y = y;
-    camera.position.z = z;
-    
-    camera.lookAt(lookX, lookY, lookZ);
-
-    // Debug occasionally
-    if (Math.floor(timeRef.current * 5) % 50 === 0) {
-      console.log(`🎬 ${config.type}: H=${baseHeight.toFixed(1)} D=${baseDistance.toFixed(1)} Y=${y.toFixed(1)}`);
-    }
-  });
-
-  return null;
-};
-
-// SIMPLE CAMERA CONTROLS - With cinematic interaction support
-const CameraControls: React.FC<{ 
-  settings: ExtendedSceneSettings; 
-  photosWithPositions: PhotoWithPosition[];
-}> = ({ settings, photosWithPositions }) => {
-  const { camera } = useThree();
-  const controlsRef = useRef<any>();
-  
-  // Photo positions for cinematic camera
-  const photoPositions = useMemo(() => {
-    return photosWithPositions
-      .filter(photo => photo.id && !photo.id.startsWith('placeholder-'))
-      .map(photo => ({
-        position: photo.targetPosition,
-        slotIndex: photo.slotIndex,
-        id: photo.id
-      }));
-  }, [photosWithPositions]);
-  
-  const isCinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
-  
-  // Initialize camera
-  useEffect(() => {
-    if (camera && !isCinematicActive && controlsRef.current) {
-      const photoSize = settings.photoSize || 4;
-      const distance = Math.max(settings.cameraDistance || 25, photoSize * 3);
-      const height = Math.max(settings.cameraHeight || 5, photoSize + 2);
-      
-      camera.position.set(distance * 0.7, height, distance * 0.7);
-      controlsRef.current.target.set(0, 0, 0);
-      controlsRef.current.update();
-      
-      console.log('📷 Camera initialized for manual control');
-    }
-  }, [camera, isCinematicActive]);
-
-  return (
-    <>
-      {/* OrbitControls - ALWAYS available for user interaction */}
-      <OrbitControls
-        ref={controlsRef}
-        enabled={settings.cameraEnabled !== false}
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
-        minDistance={Math.max(10, (settings.photoSize || 4) * 2)}
-        maxDistance={200}
-        enableDamping={true}
-        dampingFactor={0.05}
-      />
-      
-      {/* Auto-Rotate only when cinematic is OFF */}
-      {!isCinematicActive && (
-        <AutoRotateCamera settings={settings} />
-      )}
-      
-      {/* Cinematic Camera works alongside OrbitControls */}
-      {isCinematicActive && (
-        <CinematicCamera 
-          config={settings.cameraAnimation}
-          photoPositions={photoPositions}
-          settings={settings}
-        />
-      )}
-    </>
-  );
-};
-
-// Enhanced Cube Environment
-const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const wallSize = Math.max((settings.floorSize || 200) * 3, 600);
-  const wallHeight = Math.max(settings.wallHeight || 40, 300);
-  const wallThickness = settings.wallThickness || 2;
-  const wallColor = settings.wallColor || settings.floorColor || '#3A3A3A';
-
-  const wallMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: wallColor,
-      metalness: 0.1,
-      roughness: 0.8,
-      side: THREE.DoubleSide,
-    });
-  }, [wallColor]);
-
-  return (
-    <group>
-      <mesh position={[0, wallHeight / 2 - 50, -wallSize / 2]} receiveShadow>
-        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[-wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
-        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[wallSize / 2, wallHeight / 2 - 50, 0]} receiveShadow>
-        <boxGeometry args={[wallThickness, wallHeight, wallSize]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[0, wallHeight / 2 - 50, wallSize / 2]} receiveShadow>
-        <boxGeometry args={[wallSize, wallHeight, wallThickness]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      {settings.ceilingEnabled && (
-        <mesh position={[0, (settings.ceilingHeight || wallHeight) - 50, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[wallSize, wallSize]} />
-          <meshStandardMaterial color={wallColor} side={THREE.DoubleSide} />
-        </mesh>
-      )}
-    </group>
-  );
-};
-
-const SphereEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const sphereRadius = (settings.floorSize || 200) * 0.6;
-  const wallColor = settings.wallColor || settings.floorColor || '#1A1A2E';
-
-  const sphereMaterial = useMemo(() => {
-    if (settings.sphereTextureUrl) {
-      const texture = new THREE.TextureLoader().load(settings.sphereTextureUrl);
-      return new THREE.MeshStandardMaterial({
-        map: texture,
-        side: THREE.BackSide,
-        metalness: 0,
-        roughness: 0.8,
-      });
-    }
-    
-    return new THREE.MeshStandardMaterial({
-      color: wallColor,
-      side: THREE.BackSide,
-      metalness: 0.1,
-      roughness: 0.9,
-    });
-  }, [wallColor, settings.sphereTextureUrl]);
-
-  return (
-    <mesh position={[0, 0, 0]}>
-      <sphereGeometry args={[sphereRadius, 64, 32]} />
-      <primitive object={sphereMaterial} attach="material" />
-    </mesh>
-  );
-};
-
-const GalleryEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const roomWidth = Math.max(settings.floorSize || 200, 400) * 2;
-  const roomHeight = Math.max(settings.wallHeight || 50, 200);
-  const roomDepth = settings.roomDepth || roomWidth;
-  const wallColor = settings.wallColor || '#F5F5F5';
-
-  const wallMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: wallColor,
-      metalness: 0.0,
-      roughness: 0.9,
-      side: THREE.DoubleSide,
-    });
-  }, [wallColor]);
-
-  return (
-    <group>
-      <mesh position={[0, roomHeight / 2 - 50, -roomDepth / 2]} receiveShadow>
-        <planeGeometry args={[roomWidth, roomHeight]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[-roomWidth / 2, roomHeight / 2 - 50, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-        <planeGeometry args={[roomDepth, roomHeight]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[roomWidth / 2, roomHeight / 2 - 50, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
-        <planeGeometry args={[roomDepth, roomHeight]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[0, roomHeight / 2 - 50, roomDepth / 2]} receiveShadow>
-        <planeGeometry args={[roomWidth, roomHeight]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      <mesh position={[0, roomHeight - 50, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[roomWidth, roomDepth]} />
-        <primitive object={wallMaterial} attach="material" />
-      </mesh>
-      {Array.from({ length: 8 }, (_, i) => (
-        <group key={i}>
-          <mesh position={[(i - 3.5) * (roomWidth / 8), roomHeight - 55, 0]}>
-            <cylinderGeometry args={[1, 1.5, 3, 8]} />
-            <meshStandardMaterial color="#333333" metalness={0.8} roughness={0.2} />
-          </mesh>
-          <spotLight
-            position={[(i - 3.5) * (roomWidth / 8), roomHeight - 55, 0]}
-            target-position={[(i - 3.5) * (roomWidth / 8), -10, 0]}
-            angle={Math.PI / 6}
-            penumbra={0.3}
-            intensity={2}
-            color="#FFFFFF"
-            castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
-          />
-        </group>
-      ))}
-    </group>
-  );
-};
-
-const StudioEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const studioSize = Math.max(settings.floorSize || 200, 300) * 2;
-  const backdropColor = settings.wallColor || '#E8E8E8';
-
-  const backdropMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: backdropColor,
-      metalness: 0.0,
-      roughness: 0.9,
-      side: THREE.DoubleSide,
-    });
-  }, [backdropColor]);
-
-  const backdropGeometry = useMemo(() => {
-    const geometry = new THREE.CylinderGeometry(
-      studioSize,
-      studioSize,
-      studioSize * 1.2,
-      32,
-      1,
-      true,
-      0,
-      Math.PI
-    );
-    return geometry;
-  }, [studioSize]);
-
-  const lightPositions = useMemo(() => [
-    [studioSize * 0.3, studioSize * 0.4, studioSize * 0.5],
-    [-studioSize * 0.3, studioSize * 0.4, studioSize * 0.5],
-    [0, studioSize * 0.6, -studioSize * 0.3],
-    [studioSize * 0.2, studioSize * 0.8, 0],
-    [-studioSize * 0.2, studioSize * 0.8, 0],
-    [0, studioSize * 0.2, -studioSize * 0.8]
-  ], [studioSize]);
-
-  return (
-    <group>
-      <mesh 
-        geometry={backdropGeometry} 
-        material={backdropMaterial}
-        position={[0, studioSize * 0.2 - 50, -studioSize * 0.6]}
-        rotation={[0, 0, 0]}
-      />
-      <mesh position={[0, -50, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[studioSize * 2, studioSize * 2]} />
-        <primitive object={backdropMaterial} attach="material" />
-      </mesh>
-      <group position={[0, studioSize / 2, 0]}>
-        {lightPositions.map((pos, i) => (
-          <group key={i}>
-            <mesh position={pos as [number, number, number]}>
-              <cylinderGeometry args={[1, 2, 4, 8]} />
-              <meshStandardMaterial color="#222222" metalness={0.9} roughness={0.1} />
-            </mesh>
-            <spotLight
-              position={pos as [number, number, number]}
-              target-position={[0, -25, 0]}
-              angle={i < 2 ? Math.PI / 4 : Math.PI / 6}
-              penumbra={0.5}
-              intensity={i === 0 ? 3 : i === 1 ? 2 : 1.5}
-              color="#FFFFFF"
-              castShadow={i < 3}
-              shadow-mapSize-width={2048}
-              shadow-mapSize-height={2048}
-            />
-          </group>
-        ))}
-      </group>
-    </group>
-  );
-};
-
-const SceneEnvironmentManager: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const environment = settings.sceneEnvironment || 'default';
-
-  switch (environment) {
-    case 'cube':
-      return <CubeEnvironment settings={settings} />;
-    case 'sphere':
-      return <SphereEnvironment settings={settings} />;
-    case 'gallery':
-      return <GalleryEnvironment settings={settings} />;
-    case 'studio':
-      return <StudioEnvironment settings={settings} />;
-    case 'default':
-    default:
-      return null;
-  }
-};
-
-class ResourceManager {
-  private static instance: ResourceManager;
-  private texturePool = new Map<string, THREE.Texture>();
-  private materialPool = new Map<string, THREE.Material>();
-  private geometryPool = new Map<string, THREE.BufferGeometry>();
-  private maxCacheSize = 200;
-
-  static getInstance(): ResourceManager {
-    if (!ResourceManager.instance) {
-      ResourceManager.instance = new ResourceManager();
-    }
-    return ResourceManager.instance;
-  }
-
-  getTexture(url: string, loader: () => Promise<THREE.Texture>): Promise<THREE.Texture> {
-    if (this.texturePool.has(url)) {
-      return Promise.resolve(this.texturePool.get(url)!.clone());
-    }
-
-    return loader().then(texture => {
-      if (this.texturePool.size >= this.maxCacheSize) {
-        const firstKey = this.texturePool.keys().next().value;
-        const oldTexture = this.texturePool.get(firstKey);
-        oldTexture?.dispose();
-        this.texturePool.delete(firstKey);
-      }
-
-      this.texturePool.set(url, texture);
-      return texture.clone();
-    });
-  }
-
-  getGeometry(key: string, creator: () => THREE.BufferGeometry): THREE.BufferGeometry {
-    if (!this.geometryPool.has(key)) {
-      this.geometryPool.set(key, creator());
-    }
-    return this.geometryPool.get(key)!;
-  }
-
-  dispose(): void {
-    this.texturePool.forEach(texture => texture.dispose());
-    this.materialPool.forEach(material => material.dispose());
-    this.geometryPool.forEach(geometry => geometry.dispose());
-    this.texturePool.clear();
-    this.materialPool.clear();
-    this.geometryPool.clear();
-  }
-}
-
-class FloorTextureFactory {
-  static createTexture(type: FloorTexture, size: number = 512, customUrl?: string): THREE.Texture {
-    if (type === 'custom' && customUrl) {
-      const loader = new THREE.TextureLoader();
-      const texture = loader.load(customUrl);
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(8, 8);
-      return texture;
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
-    
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    switch (type) {
-      case 'marble':
-        const gradient = ctx.createLinearGradient(0, 0, size, size);
-        gradient.addColorStop(0, '#f8f8ff');
-        gradient.addColorStop(0.3, '#e6e6fa');
-        gradient.addColorStop(0.6, '#dda0dd');
-        gradient.addColorStop(1, '#d8bfd8');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, size, size);
-        
-        ctx.strokeStyle = '#c0c0c0';
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 20; i++) {
-          ctx.beginPath();
-          ctx.moveTo(Math.random() * size, Math.random() * size);
-          ctx.bezierCurveTo(
-            Math.random() * size, Math.random() * size,
-            Math.random() * size, Math.random() * size,
-            Math.random() * size, Math.random() * size
-          );
-          ctx.stroke();
-        }
-        break;
-
-      case 'wood':
-        const woodGradient = ctx.createLinearGradient(0, 0, 0, size);
-        woodGradient.addColorStop(0, '#8B4513');
-        woodGradient.addColorStop(0.3, '#A0522D');
-        woodGradient.addColorStop(0.7, '#CD853F');
-        woodGradient.addColorStop(1, '#DEB887');
-        ctx.fillStyle = woodGradient;
-        ctx.fillRect(0, 0, size, size);
-        
-        ctx.strokeStyle = '#654321';
-        ctx.lineWidth = 1;
-        for (let y = 0; y < size; y += 8) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(size, y + Math.sin(y * 0.1) * 4);
-          ctx.stroke();
-        }
-        break;
-
-      case 'concrete':
-        ctx.fillStyle = '#696969';
-        ctx.fillRect(0, 0, size, size);
-        
-        for (let i = 0; i < 1000; i++) {
-          ctx.fillStyle = Math.random() > 0.5 ? '#808080' : '#556B2F';
-          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
-        }
-        break;
-
-      case 'metal':
-        const metalGradient = ctx.createLinearGradient(0, 0, size, 0);
-        metalGradient.addColorStop(0, '#C0C0C0');
-        metalGradient.addColorStop(0.5, '#A9A9A9');
-        metalGradient.addColorStop(1, '#808080');
-        ctx.fillStyle = metalGradient;
-        ctx.fillRect(0, 0, size, size);
-        
-        ctx.strokeStyle = '#B8B8B8';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < size; x += 4) {
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, size);
-          ctx.stroke();
-        }
-        break;
-
-      case 'glass':
-        ctx.fillStyle = '#E0F6FF';
-        ctx.fillRect(0, 0, size, size);
-        
-        ctx.strokeStyle = '#FFFFFF80';
-        ctx.lineWidth = 3;
-        for (let i = 0; i < 10; i++) {
-          const x = (i * size) / 10;
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x + 50, size);
-          ctx.stroke();
-        }
-        break;
-
-      case 'checkerboard':
-        const tileSize = size / 16;
-        for (let x = 0; x < 16; x++) {
-          for (let y = 0; y < 16; y++) {
-            ctx.fillStyle = (x + y) % 2 === 0 ? '#FFFFFF' : '#000000';
-            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-          }
-        }
-        break;
-
-      default:
-        ctx.fillStyle = '#2C2C2C';
-        ctx.fillRect(0, 0, size, size);
-        break;
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(4, 4);
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = 16;
-    
-    return texture;
-  }
-}
-
-// FIXED: Enhanced Slot Manager with proper photo count handling up to 500
-class EnhancedSlotManager {
-  private slotAssignments = new Map<string, number>();
-  private occupiedSlots = new Set<number>();
-  private availableSlots: number[] = [];
-  private totalSlots = 0;
-  private photoAspectRatios = new Map<string, number>();
-
-  constructor(totalSlots: number) {
-    this.updateSlotCount(Math.min(Math.max(totalSlots, 1), 500)); // FIXED: Clamp to 1-500
-  }
-
-  updateSlotCount(newTotal: number) {
-    // FIXED: Ensure we can handle up to 500 photos
-    const clampedTotal = Math.min(Math.max(newTotal, 1), 500);
-    
-    if (clampedTotal === this.totalSlots) return;
-    
-    console.log(`📊 Updating slot count from ${this.totalSlots} to ${clampedTotal}`);
-    this.totalSlots = clampedTotal;
-    
-    // Clean up slots that are now out of range
-    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
-      if (slotIndex >= clampedTotal) {
-        this.slotAssignments.delete(photoId);
-        this.occupiedSlots.delete(slotIndex);
-        this.photoAspectRatios.delete(photoId);
-      }
-    }
-    
-    this.rebuildAvailableSlots();
-  }
-
-  private rebuildAvailableSlots() {
-    this.availableSlots = [];
-    for (let i = 0; i < this.totalSlots; i++) {
-      if (!this.occupiedSlots.has(i)) {
-        this.availableSlots.push(i);
-      }
-    }
-    this.availableSlots.sort((a, b) => a - b);
-  }
-
-  assignSlots(photos: Photo[]): Map<string, number> {
-    const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-    
-    // Track aspect ratios
-    safePhotos.forEach(photo => {
-      if (!this.photoAspectRatios.has(photo.id)) {
-        if (photo.width && photo.height) {
-          this.photoAspectRatios.set(photo.id, photo.width / photo.height);
-        }
-      }
-    });
-    
-    // Clean up slots for photos that no longer exist
-    const currentPhotoIds = new Set(safePhotos.map(p => p.id));
-    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
-      if (!currentPhotoIds.has(photoId)) {
-        this.slotAssignments.delete(photoId);
-        this.occupiedSlots.delete(slotIndex);
-        this.photoAspectRatios.delete(photoId);
-      }
-    }
-
-    this.rebuildAvailableSlots();
-
-    // Sort photos for consistent assignment
-    const sortedPhotos = [...safePhotos].sort((a, b) => {
-      if (a.created_at && b.created_at) {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      }
-      return a.id.localeCompare(b.id);
-    });
-
-    // Assign slots to new photos
-    for (const photo of sortedPhotos) {
-      if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
-        const newSlot = this.availableSlots.shift()!;
-        this.slotAssignments.set(photo.id, newSlot);
-        this.occupiedSlots.add(newSlot);
-      }
-    }
-
-    return new Map(this.slotAssignments);
-  }
-
-  getAspectRatio(photoId: string): number | null {
-    return this.photoAspectRatios.get(photoId) || null;
-  }
-}
-
-// FIXED WAVE PATTERN - Gentle flowing like water hovering over floor
-class FixedWavePattern {
-  constructor(private settings: any) {}
-
-  generatePositions(time: number) {
-    const positions: any[] = [];
-    const rotations: [number, number, number][] = [];
-
-    const photoCount = this.settings.patterns?.wave?.photoCount !== undefined 
-      ? this.settings.patterns.wave.photoCount 
-      : this.settings.photoCount;
-    
-    // FIXED: Much better spacing - wider spread, proper photo size consideration
-    const photoSize = this.settings.photoSize || 4;
-    const baseSpacing = Math.max(12, photoSize * 2.5); // Much wider base spacing
-    const spacingMultiplier = 1 + (this.settings.patterns?.wave?.spacing || 0.15);
-    const finalSpacing = baseSpacing * spacingMultiplier;
-    
-    // FIXED: Support up to 500 photos efficiently
-    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
-    
-    // Calculate grid dimensions
-    const columns = Math.ceil(Math.sqrt(totalPhotos));
-    const rows = Math.ceil(totalPhotos / columns);
-    
-    const speed = this.settings.animationSpeed / 50;
-    const wavePhase = time * speed * 1.0; // Even slower for gentle flow
-    
-    // FIXED: Higher hover height for gentle floating effect
-    const floorHeight = -12;
-    const minHoverHeight = 8; // Much higher minimum hover
-    const maxHoverHeight = 16; // Higher ceiling for wave motion
-    const baseHeight = floorHeight + photoSize + minHoverHeight; // Higher base
-    
-    for (let i = 0; i < totalPhotos; i++) {
-      const col = i % columns;
-      const row = Math.floor(i / columns);
-      
-      // FIXED: Base positions with much better spacing
-      let x = (col - columns / 2) * finalSpacing;
-      let z = (row - rows / 2) * finalSpacing;
-      
-      // GENTLE FLOATING WAVE: Much smoother amplitude that never gets too low
-      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 4, photoSize * 1.0); // Smaller, gentler waves
-      const frequency = this.settings.patterns?.wave?.frequency || 0.1; // Even lower frequency for broader, gentler waves
-      
-      let y = baseHeight; // Start from higher base
-      
-      if (this.settings.animationEnabled) {
-        // MAIN GENTLE WAVE: Soft rolling motion like floating on water
-        const mainWave = Math.sin(x * frequency - wavePhase) * amplitude;
-        
-        // PERPENDICULAR GENTLE WAVE: Soft crossing patterns
-        const crossWave = Math.sin(z * frequency * 0.7 + wavePhase * 0.6) * amplitude * 0.5;
-        
-        // FLOATING RIPPLES: Very gentle radial ripples
-        const distanceFromCenter = Math.sqrt(x * x + z * z);
-        const radialWave = Math.sin(distanceFromCenter * frequency * 0.2 - wavePhase * 0.4) * amplitude * 0.3;
-        
-        // GENTLE BREATHING: Soft overall rise and fall
-        const breathingWave = Math.sin(wavePhase * 0.25) * amplitude * 0.4;
-        
-        // Combine into very gentle water-like floating motion
-        const totalWaveHeight = mainWave + crossWave + radialWave + breathingWave;
-        
-        // ENSURE ALWAYS FLOATING: Never let photos get too close to floor
-        y += Math.max(totalWaveHeight, -amplitude * 0.5); // Clamp the minimum
-        
-        // Additional safety: ensure minimum hover height is maintained
-        y = Math.max(y, baseHeight - amplitude * 0.3);
-      }
-      
-      positions.push([x, y, z]);
-
-      if (this.settings.photoRotation) {
-        const angle = Math.atan2(x, z);
-        // Very gentle rotation that follows the gentle wave motion
-        const rotationX = Math.sin(wavePhase * 0.3 + x * frequency * 0.3) * 0.02;
-        const rotationY = angle + Math.sin(wavePhase * 0.2) * 0.015;
-        const rotationZ = Math.cos(wavePhase * 0.3 + z * frequency * 0.3) * 0.02;
-        rotations.push([rotationX, rotationY, rotationZ]);
-      } else {
-        rotations.push([0, 0, 0]);
-      }
-    }
-
-    return { positions, rotations };
-  }
-}
-
-// FIXED SPIRAL PATTERN - TALLER cyclone with better distribution and some randomness
-class FixedSpiralPattern {
-  constructor(private settings: any) {}
-
-  generatePositions(time: number) {
-    const positions: any[] = [];
-    const rotations: [number, number, number][] = [];
-
-    const photoCount = this.settings.patterns?.spiral?.photoCount !== undefined 
-      ? this.settings.patterns.spiral.photoCount 
-      : this.settings.photoCount;
-    
-    // FIXED: Support up to 500 photos efficiently
-    const totalPhotos = Math.min(Math.max(photoCount, 1), 500);
-    const speed = this.settings.animationSpeed / 50;
-    const animationTime = time * speed * 2;
-    
-    // FIXED: MUCH TALLER spiral parameters for better visibility
-    const photoSize = this.settings.photoSize || 4;
-    const baseRadius = Math.max(8, photoSize * 1.5); // Reasonable minimum radius
-    const maxRadius = Math.max(50, photoSize * 10); // Even wider spread
-    const maxHeight = Math.max(60, photoSize * 12); // MUCH TALLER - doubled the height
-    const rotationSpeed = 0.6;
-    const orbitalChance = 0.25; // Slightly more orbital photos for area filling
-    
-    // FIXED: Proper hover height - well above floor
-    const floorHeight = -12;
-    const hoverHeight = 5; // Slightly higher hover
-    const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
-    
-    // FIXED: BETTER vertical distribution - less bottom-heavy, more spread out
-    const verticalBias = 0.4; // MUCH less bias toward bottom (was 0.7)
-    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.8; // Taller steps between layers
-    
-    for (let i = 0; i < totalPhotos; i++) {
-      // Generate random but consistent values for each photo
-      const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
-      const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
-      const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
-      const randomSeed4 = Math.sin(i * 3.17) * 0.5 + 0.5; // Additional randomness
-      
-      // Determine if this photo is on the main funnel or an outer orbit
-      const isOrbital = randomSeed1 < orbitalChance;
-      
-      // FIXED: Better height distribution - more spread throughout the height
-      let normalizedHeight = Math.pow(randomSeed2, verticalBias);
-      
-      // ADD RANDOMNESS: Some photos get random height boosts for better filling
-      if (randomSeed4 > 0.7) {
-        normalizedHeight = Math.min(1.0, normalizedHeight + (randomSeed4 - 0.7) * 1.5); // Random height boost
-      }
-      
-      // Apply height step to create taller spiral layers
-      const y = baseHeight + normalizedHeight * maxHeight * heightStep;
-      
-      // Calculate radius at this height (funnel shape)
-      const funnelRadius = baseRadius + (maxRadius - baseRadius) * normalizedHeight;
-      
-      let radius: number;
-      let angleOffset: number;
-      let verticalWobble: number = 0;
-      
-      if (isOrbital) {
-        // Orbital photos - farther out with more randomness for area filling
-        const orbitalVariation = 1.3 + randomSeed3 * 1.0; // More variation (was 0.8)
-        radius = funnelRadius * orbitalVariation;
-        angleOffset = randomSeed3 * Math.PI * 2; // Random starting angle
-        
-        // ADD RANDOMNESS: Some orbital photos get random radius boosts
-        if (randomSeed4 > 0.6) {
-          radius *= (1.0 + (randomSeed4 - 0.6) * 1.5); // Random radius boost
-        }
-        
-        // Add vertical oscillation for orbital photos
-        if (this.settings.animationEnabled) {
-          verticalWobble = Math.sin(animationTime * 2 + i) * 4; // Slightly more wobble
-        }
-      } else {
-        // Main funnel photos with some randomness
-        const radiusVariation = 0.7 + randomSeed3 * 0.6; // More variation (was 0.8 to 1.2)
-        radius = funnelRadius * radiusVariation;
-        angleOffset = randomSeed4 * 0.5; // Small random angle offset
-        
-        // ADD RANDOMNESS: Some main photos get scattered for filling
-        if (randomSeed4 > 0.8) {
-          radius *= (1.0 + (randomSeed4 - 0.8) * 2.0); // Scatter some photos further
-        }
-      }
-      
-      // Calculate angle with height-based rotation speed
-      // Photos at the bottom rotate slower, creating a realistic vortex effect
-      const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
-      const angle = this.settings.animationEnabled ?
-        (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.05)) :
-        (angleOffset + (i * 0.1));
-      
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      const finalY = y + verticalWobble;
-      
-      positions.push([x, finalY, z]);
-      
-      // FIXED: Photos should face camera in spiral pattern for better visibility
-      if (this.settings.photoRotation) {
-        // Add subtle animation while letting camera-facing handle main orientation
-        const rotX = Math.sin(animationTime * 0.4 + i * 0.1) * 0.02;
-        const rotY = 0; // Let camera-facing handle Y rotation
-        const rotZ = Math.cos(animationTime * 0.4 + i * 0.1) * 0.02;
-        rotations.push([rotX, rotY, rotZ]);
-      } else {
-        rotations.push([0, 0, 0]); // No rotation - pure camera facing
-      }
-    }
-
-    return { positions, rotations };
-  }
-}
-
-const BackgroundRenderer: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
-  const { scene, gl } = useThree();
-  
-  useEffect(() => {
-    try {
-      if (settings.backgroundGradient) {
-        scene.background = null;
-        gl.setClearColor('#000000', 0);
+export default EnhancedCollageScene;
