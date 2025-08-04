@@ -73,7 +73,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotatePauseOnInteraction?: number;
 }
 
-// IMPROVED Camera Animation Controller with Better Photo Coverage
+// FIXED Camera Animation Controller with Proper Interaction Handling
 const CameraAnimationController: React.FC<{
   config?: {
     enabled?: boolean;
@@ -92,6 +92,7 @@ const CameraAnimationController: React.FC<{
   const userInteractingRef = useRef(false);
   const lastInteractionRef = useRef(0);
   const isActiveRef = useRef(false);
+  const pauseTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Calculate photo bounds for better camera coverage
   const photoBounds = useMemo(() => {
@@ -141,30 +142,65 @@ const CameraAnimationController: React.FC<{
     };
   }, [photosWithPositions]);
 
-  // Detect user interaction with controls
+  // Detect user interaction with controls - FIXED
   useEffect(() => {
     if (!controls) return;
 
     const handleStart = () => {
       userInteractingRef.current = true;
       lastInteractionRef.current = Date.now();
+      isActiveRef.current = false; // Stop animation immediately
+      
+      // Clear any existing pause timeout
+      if (pauseTimeoutRef.current) {
+        clearTimeout(pauseTimeoutRef.current);
+      }
     };
 
     const handleEnd = () => {
       userInteractingRef.current = false;
       lastInteractionRef.current = Date.now();
+      
+      // Store current camera position to resume from where user left off
+      if (camera && camera.position) {
+        const spherical = new THREE.Spherical();
+        const offset = new THREE.Vector3().copy(camera.position).sub(photoBounds.centerX, photoBounds.centerY, photoBounds.centerZ);
+        spherical.setFromVector3(offset);
+        
+        // Update time reference to current position to prevent jumps
+        timeRef.current = spherical.theta / (config?.speed || 1);
+      }
+      
+      // Pause animation for 2 seconds after user interaction ends
+      pauseTimeoutRef.current = setTimeout(() => {
+        if (!userInteractingRef.current) {
+          isActiveRef.current = true; // Resume animation from current position
+        }
+      }, 2000);
+    };
+
+    const handleChange = () => {
+      if (userInteractingRef.current) {
+        lastInteractionRef.current = Date.now();
+      }
     };
 
     if ('addEventListener' in controls) {
       controls.addEventListener('start', handleStart);
       controls.addEventListener('end', handleEnd);
+      controls.addEventListener('change', handleChange);
       
       return () => {
         controls.removeEventListener('start', handleStart);
         controls.removeEventListener('end', handleEnd);
+        controls.removeEventListener('change', handleChange);
+        
+        if (pauseTimeoutRef.current) {
+          clearTimeout(pauseTimeoutRef.current);
+        }
       };
     }
-  }, [controls]);
+  }, [controls, camera, config?.speed, photoBounds]);
 
   // IMPROVED Animation calculation functions with better photo coverage
   const getAnimationPosition = (time: number, config: any): THREE.Vector3 => {
@@ -263,38 +299,33 @@ const CameraAnimationController: React.FC<{
     }
   };
 
-  // Main animation frame update
+  // Main animation frame update - FIXED
   useFrame((state, delta) => {
     if (!config || !config.enabled || config.type === 'none') {
-      isActiveRef.current = false;
       return;
     }
 
-    // Check if user recently interacted (pause animation for 3 seconds after interaction)
-    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const pauseAfterInteraction = 3000;
-
-    if (userInteractingRef.current || timeSinceInteraction < pauseAfterInteraction) {
-      isActiveRef.current = false;
+    // Don't animate while user is interacting or during pause period
+    if (userInteractingRef.current || !isActiveRef.current) {
       return;
     }
 
-    // Resume animation
+    // Initialize animation if not active
     if (!isActiveRef.current) {
       isActiveRef.current = true;
-      timeRef.current = Date.now() * 0.001;
     }
 
-    // Update time
-    timeRef.current += delta;
+    // Update time smoothly
+    const smoothDelta = Math.min(delta, 0.016);
+    timeRef.current += smoothDelta;
 
     // Calculate new position
     const targetPosition = getAnimationPosition(timeRef.current, config);
     
-    // Smooth camera movement
-    camera.position.lerp(targetPosition, 0.02);
+    // Smooth camera movement - more gradual
+    camera.position.lerp(targetPosition, 0.015);
     
-    // Look at photo center (not origin) for better photo visibility
+    // Look at photo center for better photo visibility
     const lookAtTarget = new THREE.Vector3(
       photoBounds.centerX,
       photoBounds.centerY,
@@ -303,25 +334,22 @@ const CameraAnimationController: React.FC<{
     
     camera.lookAt(lookAtTarget);
     
-    // Update controls target if available
+    // Update controls target smoothly
     if (controls && 'target' in controls) {
-      (controls as any).target.lerp(lookAtTarget, 0.02);
+      (controls as any).target.lerp(lookAtTarget, 0.015);
       (controls as any).update();
     }
   });
 
-  // Debug logging
+  // Initialize animation state properly
   useEffect(() => {
     if (config?.enabled && config.type !== 'none') {
-      console.log('🎬 Camera Animation Started:', {
-        type: config.type,
-        speed: config.speed,
-        radius: config.radius,
-        height: config.height,
-        photoBounds
-      });
+      // Start animation in a ready state
+      setTimeout(() => {
+        isActiveRef.current = true;
+      }, 100);
     }
-  }, [config?.enabled, config?.type, photoBounds]);
+  }, [config?.enabled, config?.type]);
 
   return null;
 };
@@ -1198,7 +1226,7 @@ const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({
   );
 };
 
-// Enhanced Camera Controls with Fine-Tuning Auto-Rotate
+// Enhanced Camera Controls with FIXED Interaction Handling
 const EnhancedCameraControls: React.FC<{ 
   settings: ExtendedSceneSettings;
   photosWithPositions?: PhotoWithPosition[];
@@ -1257,7 +1285,7 @@ const EnhancedCameraControls: React.FC<{
     }
   }, [camera, settings.cameraDistance, settings.cameraHeight, focusPoint]);
 
-  // Handle user interaction detection
+  // Handle user interaction detection - SIMPLIFIED
   useEffect(() => {
     if (!controlsRef.current) return;
 
@@ -1267,10 +1295,8 @@ const EnhancedCameraControls: React.FC<{
     };
 
     const handleEnd = () => {
+      userInteractingRef.current = false;
       lastInteractionTimeRef.current = Date.now();
-      setTimeout(() => {
-        userInteractingRef.current = false;
-      }, settings.cameraAutoRotatePauseOnInteraction || 500);
     };
 
     const controls = controlsRef.current;
@@ -1281,67 +1307,39 @@ const EnhancedCameraControls: React.FC<{
       controls.removeEventListener('start', handleStart);
       controls.removeEventListener('end', handleEnd);
     };
-  }, [settings.cameraAutoRotatePauseOnInteraction]);
+  }, []);
 
-  // Enhanced auto rotation with fine controls - OPTIMIZED for performance
+  // SIMPLIFIED auto rotation - only when NOT interacting
   useFrame((state, delta) => {
-    if (!controlsRef.current) return;
-
-    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
-    if (settings.cameraRotationEnabled && !userInteractingRef.current) {
-      // FIXED: Smoother time updates to reduce jitter
-      const smoothDelta = Math.min(delta, 0.016); // Cap delta to 60fps equivalent
-      
-      // Update time references with smoothed delta
-      autoRotateTimeRef.current += smoothDelta * (settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5);
-      heightOscillationRef.current += smoothDelta * (settings.cameraAutoRotateElevationSpeed || 0.3);
-      distanceOscillationRef.current += smoothDelta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
-      verticalDriftRef.current += smoothDelta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
-
-      // Calculate base position from current camera position relative to focus point
-      const currentOffset = new THREE.Vector3().copy(camera.position).sub(focusPoint);
-      const currentSpherical = new THREE.Spherical().setFromVector3(currentOffset);
-
-      // Apply horizontal rotation
-      currentSpherical.theta = autoRotateTimeRef.current;
-
-      // Calculate dynamic radius with variation
-      const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
-      const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
-      const dynamicRadius = baseRadius + Math.sin(distanceOscillationRef.current) * radiusVariation;
-      currentSpherical.radius = dynamicRadius;
-
-      // Calculate dynamic elevation (phi angle)
-      const baseHeight = settings.cameraAutoRotateHeight || settings.cameraHeight || 5;
-      const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6); // 30 degrees
-      const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3); // 60 degrees
-      const elevationRange = elevationMax - elevationMin;
-      const elevationOscillation = (Math.sin(heightOscillationRef.current) + 1) / 2; // 0 to 1
-      currentSpherical.phi = elevationMin + (elevationOscillation * elevationRange);
-
-      // Calculate new camera position
-      const newPosition = new THREE.Vector3().setFromSpherical(currentSpherical);
-
-      // Apply vertical drift to the focus point
-      const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
-      const driftOffset = Math.sin(verticalDriftRef.current) * verticalDrift;
-      
-      // Calculate focus point with offset
-      const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
-      const currentFocusPoint = new THREE.Vector3(
-        focusPoint.x + focusOffset[0],
-        focusPoint.y + focusOffset[1] + driftOffset,
-        focusPoint.z + focusOffset[2]
-      );
-
-      // Add focus point to camera position
-      newPosition.add(currentFocusPoint);
-      
-      // FIXED: Smoother camera updates using lerp for reduced jitter
-      camera.position.lerp(newPosition, 0.05); // Smooth interpolation
-      controlsRef.current.target.lerp(currentFocusPoint, 0.05);
-      controlsRef.current.update();
+    if (!controlsRef.current || !settings.cameraRotationEnabled || userInteractingRef.current) {
+      return;
     }
+
+    // Simple pause after interaction
+    const timeSinceInteraction = Date.now() - lastInteractionTimeRef.current;
+    if (timeSinceInteraction < 1000) { // 1 second pause
+      return;
+    }
+
+    // Smooth delta for consistent animation
+    const smoothDelta = Math.min(delta, 0.016);
+    
+    // Simple orbital rotation around focus point
+    autoRotateTimeRef.current += smoothDelta * (settings.cameraRotationSpeed || 0.5);
+    
+    const currentOffset = new THREE.Vector3().copy(camera.position).sub(focusPoint);
+    const currentSpherical = new THREE.Spherical().setFromVector3(currentOffset);
+    
+    // Apply rotation
+    currentSpherical.theta = autoRotateTimeRef.current;
+    
+    // Calculate new position
+    const newPosition = new THREE.Vector3().setFromSpherical(currentSpherical).add(focusPoint);
+    
+    // Smooth movement
+    camera.position.lerp(newPosition, 0.03);
+    controlsRef.current.target.lerp(focusPoint, 0.03);
+    controlsRef.current.update();
   });
 
   return (
@@ -1356,9 +1354,9 @@ const EnhancedCameraControls: React.FC<{
       minPolarAngle={Math.PI / 6}
       maxPolarAngle={Math.PI - Math.PI / 6}
       enableDamping={true}
-      dampingFactor={0.05} // Increased damping for smoother movement
-      zoomSpeed={1.2} // Slightly reduced for smoother zoom
-      rotateSpeed={1.0} // Slightly reduced for smoother rotation
+      dampingFactor={0.05}
+      zoomSpeed={1.2}
+      rotateSpeed={1.0}
       panSpeed={1.0}
       touches={{
         ONE: THREE.TOUCH.ROTATE,
@@ -1426,13 +1424,13 @@ const EnhancedAnimationController: React.FC<{
               adjustedY = baseHeight + (y * heightScale) + heightProgression;
               
             } else if (settings.animationPattern === 'wave') {
-              // IMPROVED: Wave pattern with consistent spacing and better height management
-              const waveHeight = Math.max(3, photoSize * 0.4);
-              const baseWaveHeight = floorLevel + waveHeight;
+              // FIXED: Wave pattern stays well above floor with consistent height
+              const minWaveHeight = floorLevel + (photoSize * 1.2); // Start well above floor
+              const waveAmplitude = Math.max(2, photoSize * 0.3); // Controlled amplitude
               
-              // FIXED: Consistent wave oscillation regardless of photo size
-              const waveOscillation = Math.sin(time * 0.5 + index * 0.3) * waveHeight * 0.5;
-              adjustedY = baseWaveHeight + waveOscillation;
+              // Ensure wave never goes below minimum height
+              const waveOscillation = Math.sin(time * 0.5 + index * 0.2) * waveAmplitude;
+              adjustedY = Math.max(minWaveHeight + waveOscillation, minWaveHeight);
             }
             
             return [x, adjustedY, z];
