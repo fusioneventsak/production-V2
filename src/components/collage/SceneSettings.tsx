@@ -1,8 +1,9 @@
-// src/components/collage/SceneSettings.tsx - Enhanced with Environment Controls and Advanced Camera Settings
+// src/components/collage/SceneSettings.tsx - COMPLETE with Cinematic Camera Integration
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap } from 'lucide-react';
 import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
+import { getCinematicCameraTypeDescription } from '../../store/sceneStore';
 
 // Extended settings interface for new features
 interface ExtendedSceneSettings extends SceneSettings {
@@ -33,20 +34,16 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
   
-  // Enhanced Cinematic Camera Settings
+  // NEW: Cinematic Camera Settings
   cameraAnimation?: {
     enabled?: boolean;
-    type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
+    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
     speed: number;
-    radius: number;
-    height: number;
-    amplitude: number;
-    frequency: number;
-    // NEW: Advanced cinematic controls
-    verticalAmplitude?: number;
-    elevationSpeed?: number;
-    focusDrift?: number;
-    tiltAmount?: number;
+    focusDistance: number;
+    heightOffset: number;
+    transitionTime: number;
+    pauseTime: number;
+    randomization: number;
   };
 }
 
@@ -172,10 +169,6 @@ const EnhancedSceneSettings: React.FC<{
                   />
                 </div>
               )}
-              
-              <p className="text-xs text-gray-400">
-                💡 Walls automatically extend to floor edges with infinite height
-              </p>
             </div>
           )}
 
@@ -186,27 +179,12 @@ const EnhancedSceneSettings: React.FC<{
               
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Sphere Interior Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.wallColor || settings.floorColor || '#1A1A2E'}
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Space Presets</option>
-                    <option value="#000080">🌌 Navy Space</option>
-                    <option value="#191970">🌌 Midnight Blue</option>
-                    <option value="#4B0082">🌌 Indigo</option>
-                    <option value="#2E0854">🌌 Dark Purple</option>
-                    <option value="#1a1a2e">🌌 Deep Space</option>
-                    <option value="#16213e">🌌 Dark Blue</option>
-                    <option value="#0f3460">🌌 Ocean Deep</option>
-                  </select>
-                </div>
+                <input
+                  type="color"
+                  value={settings.wallColor || settings.floorColor || '#1A1A2E'}
+                  onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
               </div>
               
               <div>
@@ -218,12 +196,7 @@ const EnhancedSceneSettings: React.FC<{
                   placeholder="https://example.com/360-panorama.jpg"
                   className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
                 />
-                <p className="mt-1 text-xs text-gray-400">Optional: 360° panoramic image for immersive interior</p>
               </div>
-              
-              <p className="text-xs text-gray-400">
-                🌍 Photos are automatically contained within the sphere boundary
-              </p>
             </div>
           )}
 
@@ -234,28 +207,12 @@ const EnhancedSceneSettings: React.FC<{
               
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Gallery Wall Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.wallColor || '#F5F5F5'}
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Gallery Presets</option>
-                    <option value="#FFFFFF">⚪ Pure White</option>
-                    <option value="#F8F8FF">⚪ Ghost White</option>
-                    <option value="#F5F5F5">⚪ White Smoke</option>
-                    <option value="#DCDCDC">⚪ Gainsboro</option>
-                    <option value="#D3D3D3">⚪ Light Gray</option>
-                    <option value="#C0C0C0">⚪ Silver</option>
-                    <option value="#FFF8DC">🟡 Cornsilk</option>
-                    <option value="#FFFAF0">🟡 Floral White</option>
-                  </select>
-                </div>
+                <input
+                  type="color"
+                  value={settings.wallColor || '#F5F5F5'}
+                  onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
               </div>
               
               <div>
@@ -273,10 +230,6 @@ const EnhancedSceneSettings: React.FC<{
                   className="w-full bg-gray-800"
                 />
               </div>
-              
-              <p className="text-xs text-gray-400">
-                🖼️ Includes professional track lighting and infinite height walls
-              </p>
             </div>
           )}
 
@@ -287,32 +240,13 @@ const EnhancedSceneSettings: React.FC<{
               
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Backdrop Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.wallColor || '#E8E8E8'}
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Studio Presets</option>
-                    <option value="#FFFFFF">⚪ White Cyc</option>
-                    <option value="#E8E8E8">⚪ Light Gray</option>
-                    <option value="#D3D3D3">⚪ Silver Cyc</option>
-                    <option value="#000000">⚫ Black Cyc</option>
-                    <option value="#2F4F4F">⚫ Dark Slate</option>
-                    <option value="#008000">🟢 Green Screen</option>
-                    <option value="#0000FF">🔵 Blue Screen</option>
-                  </select>
-                </div>
+                <input
+                  type="color"
+                  value={settings.wallColor || '#E8E8E8'}
+                  onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
               </div>
-              
-              <p className="text-xs text-gray-400">
-                📸 Features curved backdrop and 6-point professional lighting rig
-              </p>
             </div>
           )}
         </div>
@@ -382,7 +316,138 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* Enhanced Camera Controls */}
+      {/* NEW: Cinematic Camera Controls - Priority Section */}
+      <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
+        <h4 className="flex items-center text-sm font-medium text-blue-200 mb-3">
+          <Video className="h-4 w-4 mr-2" />
+          🎬 Cinematic Camera (NEW!)
+        </h4>
+        
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.cameraAnimation?.enabled || false}
+              onChange={(e) => onSettingsChange({ 
+                cameraAnimation: { 
+                  ...settings.cameraAnimation, 
+                  enabled: e.target.checked 
+                }
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-blue-200">
+              Enable Smart Photo Showcase
+            </label>
+          </div>
+
+          {settings.cameraAnimation?.enabled && (
+            <>
+              <div>
+                <label className="block text-sm text-blue-300 mb-2">Camera Tour Type</label>
+                <select
+                  value={settings.cameraAnimation?.type || 'showcase'}
+                  onChange={(e) => onSettingsChange({ 
+                    cameraAnimation: { 
+                      ...settings.cameraAnimation, 
+                      type: e.target.value as any 
+                    }
+                  })}
+                  className="w-full bg-gray-800 border border-blue-700 rounded-md py-2 px-3 text-white"
+                >
+                  <option value="showcase">Smart Showcase (Recommended)</option>
+                  <option value="gallery_walk">Gallery Walk</option>
+                  <option value="grid_sweep">Grid Sweep</option>
+                  <option value="spiral_tour">Spiral Tour</option>
+                  <option value="wave_follow">Wave Follower</option>
+                  <option value="photo_focus">Photo Focus</option>
+                </select>
+                <p className="text-xs text-blue-400 mt-1">
+                  {getCinematicCameraTypeDescription(settings.cameraAnimation?.type || 'showcase')}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-blue-300 mb-1">
+                    <Zap className="h-3 w-3 inline mr-1" />
+                    Speed: {settings.cameraAnimation?.speed?.toFixed(1) || '1.0'}x
+                  </label>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="3.0"
+                    step="0.1"
+                    value={settings.cameraAnimation?.speed || 1.0}
+                    onChange={(e) => onSettingsChange({ 
+                      cameraAnimation: { 
+                        ...settings.cameraAnimation, 
+                        speed: parseFloat(e.target.value) 
+                      }
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-blue-300 mb-1">
+                    <Target className="h-3 w-3 inline mr-1" />
+                    Focus: {settings.cameraAnimation?.focusDistance?.toFixed(0) || '12'}
+                  </label>
+                  <input
+                    type="range"
+                    min="8"
+                    max="25"
+                    step="1"
+                    value={settings.cameraAnimation?.focusDistance || 12}
+                    onChange={(e) => onSettingsChange({ 
+                      cameraAnimation: { 
+                        ...settings.cameraAnimation, 
+                        focusDistance: parseFloat(e.target.value) 
+                      }
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-blue-300 mb-2">
+                  <Clock className="h-3 w-3 inline mr-1" />
+                  Pause Time: {settings.cameraAnimation?.pauseTime?.toFixed(1) || '1.5'}s
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="5.0"
+                  step="0.5"
+                  value={settings.cameraAnimation?.pauseTime || 1.5}
+                  onChange={(e) => onSettingsChange({ 
+                    cameraAnimation: { 
+                      ...settings.cameraAnimation, 
+                      pauseTime: parseFloat(e.target.value) 
+                    }
+                  })}
+                  className="w-full bg-gray-800"
+                />
+                <p className="text-xs text-blue-400 mt-1">
+                  Time to pause and showcase each photo group
+                </p>
+              </div>
+
+              <div className="bg-blue-800/30 p-3 rounded border border-blue-600/30">
+                <p className="text-xs text-blue-300 flex items-center">
+                  <Play className="h-3 w-3 mr-1" />
+                  <strong>How it works:</strong> Camera automatically tours your photos, pausing to showcase each one. 
+                  Take manual control anytime - the tour resumes after 2 seconds of inactivity.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Enhanced Camera Controls - Legacy/Manual */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <CameraIcon className="h-4 w-4 mr-2" />
@@ -404,29 +469,22 @@ const EnhancedSceneSettings: React.FC<{
             </label>
           </div>
 
-          {settings.cameraEnabled && (
+          {settings.cameraEnabled && !settings.cameraAnimation?.enabled && (
             <div className="space-y-4">
               {/* Camera Movement Type Selector */}
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Camera Movement Type</label>
                 <select
-                  value={settings.cameraRotationEnabled ? 'auto-rotate' : (settings.cameraAnimation?.enabled ? 'cinematic' : 'manual')}
+                  value={settings.cameraRotationEnabled ? 'auto-rotate' : 'manual'}
                   onChange={(e) => {
                     const value = e.target.value;
                     if (value === 'manual') {
                       onSettingsChange({ 
-                        cameraRotationEnabled: false,
-                        cameraAnimation: { ...settings.cameraAnimation, enabled: false }
+                        cameraRotationEnabled: false
                       });
                     } else if (value === 'auto-rotate') {
                       onSettingsChange({ 
-                        cameraRotationEnabled: true,
-                        cameraAnimation: { ...settings.cameraAnimation, enabled: false }
-                      });
-                    } else if (value === 'cinematic') {
-                      onSettingsChange({ 
-                        cameraRotationEnabled: false,
-                        cameraAnimation: { ...settings.cameraAnimation, enabled: true }
+                        cameraRotationEnabled: true
                       });
                     }
                   }}
@@ -434,13 +492,7 @@ const EnhancedSceneSettings: React.FC<{
                 >
                   <option value="manual">📱 Manual Control Only</option>
                   <option value="auto-rotate">🔄 Auto Rotate (Enhanced)</option>
-                  <option value="cinematic">🎬 Cinematic Animations</option>
                 </select>
-                <p className="mt-1 text-xs text-gray-400">
-                  {settings.cameraRotationEnabled ? 'Enhanced auto-rotation with fine controls' : 
-                   settings.cameraAnimation?.enabled ? 'Advanced cinematic camera movements' : 
-                   'Full manual control with mouse/touch only'}
-                </p>
               </div>
 
               {/* Enhanced Auto Rotate Settings */}
@@ -448,7 +500,6 @@ const EnhancedSceneSettings: React.FC<{
                 <div className="bg-blue-900/20 p-4 rounded-lg space-y-4">
                   <h5 className="text-sm font-medium text-blue-300">🔄 Enhanced Auto Rotate Settings</h5>
                   
-                  {/* Basic Controls */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-gray-300 mb-2">
@@ -463,7 +514,7 @@ const EnhancedSceneSettings: React.FC<{
                         value={settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5}
                         onChange={(e) => onSettingsChange({ 
                           cameraAutoRotateSpeed: parseFloat(e.target.value),
-                          cameraRotationSpeed: parseFloat(e.target.value) // Keep compatibility
+                          cameraRotationSpeed: parseFloat(e.target.value)
                         }, true)}
                         className="w-full bg-gray-800"
                       />
@@ -482,7 +533,7 @@ const EnhancedSceneSettings: React.FC<{
                         value={settings.cameraAutoRotateRadius || settings.cameraDistance || 25}
                         onChange={(e) => onSettingsChange({ 
                           cameraAutoRotateRadius: parseFloat(e.target.value),
-                          cameraDistance: parseFloat(e.target.value) // Keep compatibility
+                          cameraDistance: parseFloat(e.target.value)
                         }, true)}
                         className="w-full bg-gray-800"
                       />
@@ -502,7 +553,7 @@ const EnhancedSceneSettings: React.FC<{
                       value={settings.cameraAutoRotateHeight || settings.cameraHeight || 5}
                       onChange={(e) => onSettingsChange({ 
                         cameraAutoRotateHeight: parseFloat(e.target.value),
-                        cameraHeight: parseFloat(e.target.value) // Keep compatibility
+                        cameraHeight: parseFloat(e.target.value)
                       }, true)}
                       className="w-full bg-gray-800"
                     />
@@ -515,7 +566,7 @@ const EnhancedSceneSettings: React.FC<{
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-300 mb-2">
-                          Elevation Range Min
+                          Elevation Min
                           <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAutoRotateElevationMin || Math.PI/6) * 180 / Math.PI)}°</span>
                         </label>
                         <input
@@ -533,7 +584,7 @@ const EnhancedSceneSettings: React.FC<{
 
                       <div>
                         <label className="block text-sm text-gray-300 mb-2">
-                          Elevation Range Max
+                          Elevation Max
                           <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAutoRotateElevationMax || Math.PI/3) * 180 / Math.PI)}°</span>
                         </label>
                         <input
@@ -552,60 +603,20 @@ const EnhancedSceneSettings: React.FC<{
 
                     <div>
                       <label className="block text-sm text-gray-300 mb-2">
-                        Elevation Speed
-                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateElevationSpeed || 0.3).toFixed(1)}x</span>
+                        Distance Variation
+                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateDistanceVariation || 0).toFixed(0)} units</span>
                       </label>
                       <input
                         type="range"
-                        min="0.1"
-                        max="2.0"
-                        step="0.1"
-                        value={settings.cameraAutoRotateElevationSpeed || 0.3}
+                        min="0"
+                        max="20"
+                        step="1"
+                        value={settings.cameraAutoRotateDistanceVariation || 0}
                         onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotateElevationSpeed: parseFloat(e.target.value)
+                          cameraAutoRotateDistanceVariation: parseFloat(e.target.value)
                         }, true)}
                         className="w-full bg-gray-800"
                       />
-                      <p className="mt-1 text-xs text-gray-400">How fast the camera moves up and down</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Distance Variation
-                          <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateDistanceVariation || 0).toFixed(0)} units</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="20"
-                          step="1"
-                          value={settings.cameraAutoRotateDistanceVariation || 0}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAutoRotateDistanceVariation: parseFloat(e.target.value)
-                          }, true)}
-                          className="w-full bg-gray-800"
-                        />
-                        <p className="mt-1 text-xs text-gray-400">Breathing in/out effect</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Distance Speed
-                          <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateDistanceSpeed || 0.2).toFixed(1)}x</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="1.0"
-                          step="0.1"
-                          value={settings.cameraAutoRotateDistanceSpeed || 0.2}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAutoRotateDistanceSpeed: parseFloat(e.target.value)
-                          }, true)}
-                          className="w-full bg-gray-800"
-                        />
-                      </div>
                     </div>
 
                     <div>
@@ -624,265 +635,14 @@ const EnhancedSceneSettings: React.FC<{
                         }, true)}
                         className="w-full bg-gray-800"
                       />
-                      <p className="mt-1 text-xs text-gray-400">Vertical floating of focus point</p>
                     </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">
-                        Pause After Interaction
-                        <span className="ml-2 text-xs text-gray-400">{((settings.cameraAutoRotatePauseOnInteraction || 500) / 1000).toFixed(1)}s</span>
-                      </label>
-                      <input
-                        type="range"
-                        min="100"
-                        max="5000"
-                        step="100"
-                        value={settings.cameraAutoRotatePauseOnInteraction || 500}
-                        onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotatePauseOnInteraction: parseInt(e.target.value)
-                        }, true)}
-                        className="w-full bg-gray-800"
-                      />
-                      <p className="mt-1 text-xs text-gray-400">How long to pause after manual camera control</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-800/50 p-3 rounded text-xs text-gray-400">
-                    💡 <strong>Enhanced Auto-Rotate Features:</strong>
-                    <br />• Dynamic elevation changes (up/down movement)
-                    <br />• Distance breathing effect (in/out movement)
-                    <br />• Vertical focus drift for natural motion
-                    <br />• Configurable pause after user interaction
                   </div>
                 </div>
               )}
 
-              {/* Cinematic Camera Animation Settings */}
-              {settings.cameraAnimation?.enabled && (
-                <div className="bg-purple-900/20 p-3 rounded-lg space-y-3">
-                  <h5 className="text-xs font-medium text-purple-300">🎬 Cinematic Animation Settings</h5>
-                  
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">Animation Style</label>
-                    <select
-                      value={settings.cameraAnimation?.type || 'orbit'}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, type: e.target.value as any }
-                      })}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-                    >
-                      <option value="orbit">🌍 Orbit (Classic circular movement)</option>
-                      <option value="figure8">♾️ Figure-8 (Smooth infinity pattern)</option>
-                      <option value="centerRotate">🎯 Center Focus (Stay focused on center)</option>
-                      <option value="wave">🌊 Wave (Undulating motion)</option>
-                      <option value="spiral">🌀 Spiral (Ascending/descending spiral)</option>
-                    </select>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {settings.cameraAnimation?.type === 'figure8' && '♾️ Perfect for Float pattern - smooth infinity loops'}
-                      {settings.cameraAnimation?.type === 'orbit' && '🌍 Classic circular orbit around photos'}
-                      {settings.cameraAnimation?.type === 'centerRotate' && '🎯 Always keeps center in focus while rotating'}
-                      {settings.cameraAnimation?.type === 'wave' && '🌊 Gentle wave-like camera movement'}
-                      {settings.cameraAnimation?.type === 'spiral' && '🌀 Dynamic spiral ascending and descending'}
-                      {(!settings.cameraAnimation?.type || settings.cameraAnimation?.type === 'none') && '📱 Manual control only'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Animation Speed
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.speed?.toFixed(1) || '1.0'}x</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="3.0"
-                      step="0.1"
-                      value={settings.cameraAnimation?.speed || 1.0}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, speed: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Camera Distance
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.radius?.toFixed(0) || '30'} units</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="15"
-                      max="80"
-                      step="1"
-                      value={settings.cameraAnimation?.radius || 30}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, radius: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Camera Height
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.height?.toFixed(0) || '10'} units</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      step="2"
-                      value={settings.cameraAnimation?.height || 10}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraAnimation: { ...settings.cameraAnimation, height: parseFloat(e.target.value) }
-                      })}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  {(settings.cameraAnimation?.type === 'wave' || 
-                    settings.cameraAnimation?.type === 'figure8' || 
-                    settings.cameraAnimation?.type === 'spiral') && (
-                    <>
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Movement Intensity
-                          <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.amplitude?.toFixed(0) || '5'} units</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="1"
-                          max="50"
-                          step="1"
-                          value={settings.cameraAnimation?.amplitude || 5}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAnimation: { ...settings.cameraAnimation, amplitude: parseFloat(e.target.value) }
-                          })}
-                          className="w-full bg-gray-800"
-                        />
-                        <p className="mt-1 text-xs text-gray-400">
-                          Controls how dramatic the camera movement is
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Movement Frequency
-                          <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.frequency?.toFixed(1) || '0.5'}</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="3.0"
-                          step="0.1"
-                          value={settings.cameraAnimation?.frequency || 0.5}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAnimation: { ...settings.cameraAnimation, frequency: parseFloat(e.target.value) }
-                          })}
-                          className="w-full bg-gray-800"
-                        />
-                        <p className="mt-1 text-xs text-gray-400">
-                          How often the camera changes direction
-                        </p>
-                      </div>
-
-                      {/* NEW: Enhanced Cinematic Controls */}
-                      <div className="border-t border-gray-700 pt-3">
-                        <h6 className="text-xs font-medium text-purple-300 mb-3">🎬 Advanced Cinematic Controls</h6>
-                        
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-2">
-                            Vertical Look Amplitude (Up/Down)
-                            <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.verticalAmplitude?.toFixed(0) || '10'} units</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="50"
-                            step="1"
-                            value={settings.cameraAnimation?.verticalAmplitude || 10}
-                            onChange={(e) => onSettingsChange({ 
-                              cameraAnimation: { ...settings.cameraAnimation, verticalAmplitude: parseFloat(e.target.value) }
-                            })}
-                            className="w-full bg-gray-800"
-                          />
-                          <p className="mt-1 text-xs text-gray-400">How much the camera looks up and down</p>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-2">
-                            Elevation Change Speed
-                            <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.elevationSpeed?.toFixed(1) || '0.8'}x</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="0.1"
-                            max="3.0"
-                            step="0.1"
-                            value={settings.cameraAnimation?.elevationSpeed || 0.8}
-                            onChange={(e) => onSettingsChange({ 
-                              cameraAnimation: { ...settings.cameraAnimation, elevationSpeed: parseFloat(e.target.value) }
-                            })}
-                            className="w-full bg-gray-800"
-                          />
-                          <p className="mt-1 text-xs text-gray-400">Speed of looking up/down motions</p>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-2">
-                            Focus Drift Range
-                            <span className="ml-2 text-xs text-gray-400">{settings.cameraAnimation?.focusDrift?.toFixed(0) || '5'} units</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="25"
-                            step="1"
-                            value={settings.cameraAnimation?.focusDrift || 5}
-                            onChange={(e) => onSettingsChange({ 
-                              cameraAnimation: { ...settings.cameraAnimation, focusDrift: parseFloat(e.target.value) }
-                            })}
-                            className="w-full bg-gray-800"
-                          />
-                          <p className="mt-1 text-xs text-gray-400">How much the camera's focus point drifts</p>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-2">
-                            Banking/Tilt Amount
-                            <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAnimation?.tiltAmount || 0) * 180 / Math.PI)}°</span>
-                          </label>
-                          <input
-                            type="range"
-                            min="0"
-                            max={Math.PI / 6}
-                            step={Math.PI / 180}
-                            value={settings.cameraAnimation?.tiltAmount || 0}
-                            onChange={(e) => onSettingsChange({ 
-                              cameraAnimation: { ...settings.cameraAnimation, tiltAmount: parseFloat(e.target.value) }
-                            })}
-                            className="w-full bg-gray-800"
-                          />
-                          <p className="mt-1 text-xs text-gray-400">Camera roll/tilt for dynamic feel (0-30°)</p>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="bg-gray-800/50 p-2 rounded text-xs text-gray-400">
-                    💡 <strong>Tip:</strong> Combine different animation patterns with camera movements:
-                    <br />• Float + Figure-8 = Dreamy floating effect
-                    <br />• Grid + Orbit = Classic gallery walkthrough  
-                    <br />• Spiral + Spiral Camera = Dynamic spiral experience
-                  </div>
-                </div>
-              )}
-
-              {/* Manual Camera Settings (always available) */}
+              {/* Manual Camera Settings */}
               <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
                 <h5 className="text-xs font-medium text-gray-300">📱 Manual Control Settings</h5>
-                <p className="text-xs text-gray-400 mb-2">These settings apply to manual control and as base values for animations</p>
                 
                 <div>
                   <label className="block text-sm text-gray-300 mb-2">
@@ -947,9 +707,6 @@ const EnhancedSceneSettings: React.FC<{
               onChange={(e) => onSettingsChange({ photoCount: parseInt(e.target.value) })}
               className="w-full bg-gray-800"
             />
-            <p className="mt-1 text-xs text-gray-400">
-              Number of photos to display simultaneously
-            </p>
           </div>
 
           <div>
@@ -968,9 +725,6 @@ const EnhancedSceneSettings: React.FC<{
               }, true)}
               className="w-full bg-gray-800"
             />
-            <p className="mt-1 text-xs text-gray-400">
-              Photo size multiplier (1 = small, 20 = huge)
-            </p>
           </div>
 
           <div>
@@ -989,9 +743,6 @@ const EnhancedSceneSettings: React.FC<{
               }, true)}
               className="w-full bg-gray-800"
             />
-            <p className="mt-1 text-xs text-gray-400">
-              Adjust photo brightness independently (10% = very dark, 300% = very bright)
-            </p>
           </div>
 
           <div>
@@ -1006,6 +757,18 @@ const EnhancedSceneSettings: React.FC<{
               }, true)}
               className="w-full h-8 rounded cursor-pointer bg-gray-800"
             />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.photoRotation}
+              onChange={(e) => onSettingsChange({ 
+                photoRotation: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">Enable Photo Rotation</label>
           </div>
         </div>
       </div>
@@ -1054,65 +817,16 @@ const EnhancedSceneSettings: React.FC<{
                 </select>
               </div>
 
-              {settings.floorTexture === 'custom' && (
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">Custom Texture URL</label>
-                  <input
-                    type="url"
-                    value={settings.customFloorTextureUrl || ''}
-                    onChange={(e) => onSettingsChange({ customFloorTextureUrl: e.target.value }, true)}
-                    placeholder="https://example.com/floor-texture.jpg"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">URL to your custom floor texture image</p>
-                </div>
-              )}
-
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    value={settings.floorColor}
-                    onChange={(e) => onSettingsChange({ 
-                      floorColor: e.target.value 
-                    }, true)}
-                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                  />
-                  <select
-                    onChange={(e) => onSettingsChange({ floorColor: e.target.value }, true)}
-                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
-                  >
-                    <option value="">Earth Tone Presets</option>
-                    <option value="#8B4513">🟤 Saddle Brown</option>
-                    <option value="#A0522D">🟤 Sienna</option>
-                    <option value="#CD853F">🟤 Peru</option>
-                    <option value="#D2691E">🟠 Chocolate</option>
-                    <option value="#BC8F8F">🟤 Rosy Brown</option>
-                    <option value="#F4A460">🟤 Sandy Brown</option>
-                    <option value="#DEB887">🟤 Burlywood</option>
-                    <option value="#D2B48C">🟤 Tan</option>
-                    <option value="#DAA520">🟡 Goldenrod</option>
-                    <option value="#B8860B">🟡 Dark Goldenrod</option>
-                    <option value="#228B22">🟢 Forest Green</option>
-                    <option value="#6B8E23">🟢 Olive Drab</option>
-                    <option value="#9ACD32">🟢 Yellow Green</option>
-                    <option value="#8FBC8F">🟢 Dark Sea Green</option>
-                    <option value="#20B2AA">🔵 Light Sea Green</option>
-                    <option value="#5F9EA0">🔵 Cadet Blue</option>
-                    <option value="#708090">🔘 Slate Gray</option>
-                    <option value="#2F4F4F">🔘 Dark Slate Gray</option>
-                    <option value="#696969">🔘 Dim Gray</option>
-                    <option value="#778899">🔘 Light Slate Gray</option>
-                    <option value="#F5F5DC">🟡 Beige</option>
-                    <option value="#FFFAF0">🟡 Floral White</option>
-                    <option value="#FDF5E6">🟡 Old Lace</option>
-                    <option value="#FAEBD7">🟡 Antique White</option>
-                  </select>
-                </div>
-                <p className="mt-1 text-xs text-gray-400">
-                  {settings.floorTexture === 'solid' ? 'Main floor color' : 'Base color that influences the texture pattern'}
-                </p>
+                <input
+                  type="color"
+                  value={settings.floorColor}
+                  onChange={(e) => onSettingsChange({ 
+                    floorColor: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
               </div>
               
               <div>
@@ -1177,53 +891,36 @@ const EnhancedSceneSettings: React.FC<{
               }, true)}
               className="w-full bg-gray-800"
             />
-            <p className="mt-1 text-xs text-gray-400">
-              Global scene brightness (0% = pitch black, 1000% = very bright)
-            </p>
           </div>
-        </div>
-      </div>
 
-      {/* Spotlight Settings */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Sun className="h-4 w-4 mr-2" />
-          Spotlights
-        </h4>
-        
-        <div className="space-y-4">
-          <div className="bg-gray-800 p-3 rounded">
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Spotlight Color</label>
-                <input
-                  type="color"
-                  value={settings.spotlightColor}
-                  onChange={(e) => onSettingsChange({ 
-                    spotlightColor: e.target.value 
-                  }, true)}
-                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Number of Spotlights
-                  <span className="ml-2 text-xs text-gray-400">{settings.spotlightCount}</span>
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="6"
-                  step="1"
-                  value={settings.spotlightCount}
-                  onChange={(e) => onSettingsChange({ 
-                    spotlightCount: parseInt(e.target.value) 
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Spotlight Color</label>
+            <input
+              type="color"
+              value={settings.spotlightColor}
+              onChange={(e) => onSettingsChange({ 
+                spotlightColor: e.target.value 
+              }, true)}
+              className="w-full h-8 rounded cursor-pointer bg-gray-800"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Number of Spotlights
+              <span className="ml-2 text-xs text-gray-400">{settings.spotlightCount}</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="6"
+              step="1"
+              value={settings.spotlightCount}
+              onChange={(e) => onSettingsChange({ 
+                spotlightCount: parseInt(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
           </div>
 
           <div>
@@ -1398,37 +1095,6 @@ const EnhancedSceneSettings: React.FC<{
                   }, true)}
                   className="w-full bg-gray-800"
                 />
-              </div>
-
-              <div className="p-3 bg-gray-800 rounded-lg">
-                <div className="text-xs text-gray-400 mb-2">Preview Colors:</div>
-                <div className="flex space-x-2">
-                  {PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic')) && (
-                    <>
-                      <div 
-                        className="w-4 h-4 rounded-full border border-gray-600"
-                        style={{ 
-                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.primary 
-                        }}
-                        title="Primary"
-                      />
-                      <div 
-                        className="w-4 h-4 rounded-full border border-gray-600"
-                        style={{ 
-                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.secondary 
-                        }}
-                        title="Secondary"
-                      />
-                      <div 
-                        className="w-4 h-4 rounded-full border border-gray-600"
-                        style={{ 
-                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.accent 
-                        }}
-                        title="Accent"
-                      />
-                    </>
-                  )}
-                </div>
               </div>
             </div>
           )}
