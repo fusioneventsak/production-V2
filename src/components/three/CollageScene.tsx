@@ -326,9 +326,14 @@ const CameraAnimationController: React.FC<{
     camera.position.lerp(targetPosition, 0.015);
     
   // SIMPLIFIED Look-at system for smoother movement
-  const calculateLookAtTarget = (time: number, cameraPosition: THREE.Vector3): THREE.Vector3 => {
+  const calculateLookAtTarget = useCallback((time: number, cameraPosition: THREE.Vector3): THREE.Vector3 => {
     // Simple, smooth look-at that doesn't jump around
     const t = time * 0.05; // Very slow target changes
+    
+    // Safety check for photoBounds
+    if (!photoBounds || photoBounds.centerX === undefined) {
+      return new THREE.Vector3(0, 0, 0);
+    }
     
     // Gentle movement around the photo center
     const offset = new THREE.Vector3(
@@ -339,7 +344,7 @@ const CameraAnimationController: React.FC<{
     
     const baseTarget = new THREE.Vector3(photoBounds.centerX, photoBounds.centerY, photoBounds.centerZ);
     return baseTarget.add(offset);
-  };
+  }, [photoBounds]);
     
     camera.lookAt(lookAtTarget);
     
@@ -1705,11 +1710,13 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
           settings={safeSettings} 
           photosWithPositions={photosWithPositions}
         />
-        <CameraAnimationController 
-          config={safeSettings.cameraAnimation} 
-          photosWithPositions={photosWithPositions}
-          settings={safeSettings}
-        />
+        {safeSettings.cameraAnimation?.enabled && (
+          <CameraAnimationController 
+            config={safeSettings.cameraAnimation} 
+            photosWithPositions={photosWithPositions}
+            settings={safeSettings}
+          />
+        )}
         
         {/* Particle System with FIXED floating behavior */}
         {safeSettings.particles?.enabled && (
