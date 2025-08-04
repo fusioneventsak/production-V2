@@ -1,0 +1,441 @@
+// src/components/three/CinematicCameraController.tsx
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
+import * as THREE from 'three';
+
+interface PhotoPosition {
+  position: [number, number, number];
+  slotIndex: number;
+  id: string;
+}
+
+interface CinematicCameraConfig {
+  enabled?: boolean;
+  type: 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
+  speed: number;
+  focusDistance: number;
+  heightOffset: number;
+  transitionTime: number;
+  pauseTime: number;
+  randomization: number;
+}
+
+interface CinematicCameraControllerProps {
+  config?: CinematicCameraConfig;
+  photoPositions: PhotoPosition[];
+  animationPattern: string;
+  floorHeight: number;
+  settings: {
+    photoSize?: number;
+    floorSize?: number;
+    photoCount?: number;
+  };
+}
+
+// Photo visibility tracking system
+class PhotoVisibilityTracker {
+  private viewedPhotos = new Set<string>();
+  private photoLastViewed = new Map<string, number>();
+  private viewDistance: number;
+  
+  constructor(viewDistance: number = 8) {
+    this.viewDistance = viewDistance;
+  }
+
+  markPhotoViewed(photoId: string): void {
+    this.viewedPhotos.add(photoId);
+    this.photoLastViewed.set(photoId, Date.now());
+  }
+
+  getUnviewedPhotos(allPhotos: PhotoPosition[]): PhotoPosition[] {
+    return allPhotos.filter(photo => !this.viewedPhotos.has(photo.id));
+  }
+
+  getLeastRecentlyViewed(allPhotos: PhotoPosition[], count: number = 10): PhotoPosition[] {
+    const photosWithTime = allPhotos.map(photo => ({
+      photo,
+      lastViewed: this.photoLastViewed.get(photo.id) || 0
+    }));
+    
+    return photosWithTime
+      .sort((a, b) => a.lastViewed - b.lastViewed)
+      .slice(0, count)
+      .map(item => item.photo);
+  }
+
+  checkPhotoInView(cameraPos: THREE.Vector3, photoPos: THREE.Vector3, photoId: string): boolean {
+    const distance = cameraPos.distanceTo(photoPos);
+    if (distance <= this.viewDistance) {
+      this.markPhotoViewed(photoId);
+      return true;
+    }
+    return false;
+  }
+
+  getViewedCount(): number {
+    return this.viewedPhotos.size;
+  }
+
+  reset(): void {
+    this.viewedPhotos.clear();
+    this.photoLastViewed.clear();
+  }
+}
+
+// Smart waypoint generator based on photo positions and patterns
+class SmartWaypointGenerator {
+  private generateGridWaypoints(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
+    const waypoints: THREE.Vector3[] = [];
+    const photoSize = settings.photoSize || 4;
+    const optimalHeight = -4; // Just above floor particles
+    
+    // Group photos by rows
+    const photosByZ = new Map<number, PhotoPosition[]>();
+    photos.forEach(photo => {
+      const z = Math.round(photo.position[2] / photoSize) * photoSize;
+      if (!photosByZ.has(z)) photosByZ.set(z, []);
+      photosByZ.get(z)!.push(photo);
+    });
+
+    // Create serpentine path through grid
+    const sortedZRows = Array.from(photosByZ.keys()).sort((a, b) => b - a); // Start from back
+    
+    sortedZRows.forEach((z, rowIndex) => {
+      const rowPhotos = photosByZ.get(z)!.sort((a, b) => 
+        rowIndex % 2 === 0 ? a.position[0] - b.position[0] : b.position[0] - a.position[0]
+      );
+      
+      rowPhotos.forEach((photo, photoIndex) => {
+        // Add viewing position slightly in front and to the side
+        const offset = photoIndex % 2 === 0 ? -photoSize * 0.7 : photoSize * 0.7;
+        waypoints.push(new THREE.Vector3(
+          photo.position[0] + offset,
+          optimalHeight,
+          photo.position[2] + photoSize * 1.5
+        ));
+      });
+    });
+
+    return waypoints;
+  }
+
+  private generateFloatWaypoints(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
+    const waypoints: THREE.Vector3[] = [];
+    const photoSize = settings.photoSize || 4;
+    
+    // Sort photos by distance from center for spiral approach
+    const sortedPhotos = [...photos].sort((a, b) => {
+      const distA = Math.sqrt(a.position[0] ** 2 + a.position[2] ** 2);
+      const distB = Math.sqrt(b.position[0] ** 2 + b.position[2] ** 2);
+      return distA - distB;
+    });
+
+    sortedPhotos.forEach(photo => {
+      // Position camera to get good viewing angle
+      const photoVec = new THREE.Vector3(...photo.position);
+      const cameraDistance = photoSize * 2;
+      const angle = Math.atan2(photo.position[2], photo.position[0]);
+      
+      waypoints.push(new THREE.Vector3(
+        photo.position[0] - Math.cos(angle) * cameraDistance,
+        Math.max(photo.position[1] - 2, -4),
+        photo.position[2] - Math.sin(angle) * cameraDistance
+      ));
+    });
+
+    return waypoints;
+  }
+
+  private generateWaveWaypoints(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
+    const waypoints: THREE.Vector3[] = [];
+    const photoSize = settings.photoSize || 4;
+    
+    // Follow the wave pattern
+    const sortedPhotos = [...photos].sort((a, b) => a.position[0] - b.position[0]);
+    
+    sortedPhotos.forEach((photo, index) => {
+      const waveHeight = -2; // Slightly above the wave
+      const lookAheadDistance = photoSize * 1.8;
+      
+      waypoints.push(new THREE.Vector3(
+        photo.position[0],
+        waveHeight,
+        photo.position[2] - lookAheadDistance
+      ));
+    });
+
+    return waypoints;
+  }
+
+  private generateSpiralWaypoints(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
+    const waypoints: THREE.Vector3[] = [];
+    const photoSize = settings.photoSize || 4;
+    
+    // Sort by spiral order (distance from center, then by angle)
+    const sortedPhotos = [...photos].sort((a, b) => {
+      const distA = Math.sqrt(a.position[0] ** 2 + a.position[2] ** 2);
+      const distB = Math.sqrt(b.position[0] ** 2 + b.position[2] ** 2);
+      if (Math.abs(distA - distB) > photoSize) return distA - distB;
+      
+      const angleA = Math.atan2(a.position[2], a.position[0]);
+      const angleB = Math.atan2(b.position[2], b.position[0]);
+      return angleA - angleB;
+    });
+
+    sortedPhotos.forEach(photo => {
+      const radius = Math.sqrt(photo.position[0] ** 2 + photo.position[2] ** 2);
+      const angle = Math.atan2(photo.position[2], photo.position[0]);
+      const offsetRadius = Math.max(radius - photoSize * 1.5, photoSize);
+      
+      waypoints.push(new THREE.Vector3(
+        Math.cos(angle) * offsetRadius,
+        Math.max(photo.position[1] - 1, -4),
+        Math.sin(angle) * offsetRadius
+      ));
+    });
+
+    return waypoints;
+  }
+
+  generateWaypoints(photos: PhotoPosition[], pattern: string, settings: any): THREE.Vector3[] {
+    if (!photos.length) return [];
+
+    switch (pattern) {
+      case 'grid':
+        return this.generateGridWaypoints(photos, settings);
+      case 'float':
+        return this.generateFloatWaypoints(photos, settings);
+      case 'wave':
+        return this.generateWaveWaypoints(photos, settings);
+      case 'spiral':
+        return this.generateSpiralWaypoints(photos, settings);
+      default:
+        return this.generateGridWaypoints(photos, settings);
+    }
+  }
+}
+
+export const CinematicCameraController: React.FC<CinematicCameraControllerProps> = ({
+  config,
+  photoPositions,
+  animationPattern,
+  floorHeight = -12,
+  settings
+}) => {
+  const { camera, controls } = useThree();
+  
+  // Refs for animation state
+  const timeRef = useRef(0);
+  const waypointIndexRef = useRef(0);
+  const transitionProgressRef = useRef(0);
+  const pauseTimeRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const lastInteractionRef = useRef(0);
+  const isActiveRef = useRef(false);
+  
+  // Smart systems
+  const visibilityTrackerRef = useRef(new PhotoVisibilityTracker(settings.photoSize || 4));
+  const waypointGeneratorRef = useRef(new SmartWaypointGenerator());
+  
+  // Memoized waypoints - recalculate when photos or pattern changes
+  const waypoints = useMemo(() => {
+    if (!photoPositions.length || !config?.enabled) return [];
+    
+    const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
+    if (!validPhotos.length) return [];
+
+    console.log(`🎬 Generating ${config.type} waypoints for ${validPhotos.length} photos in ${animationPattern} pattern`);
+    
+    const points = waypointGeneratorRef.current.generateWaypoints(validPhotos, animationPattern, settings);
+    
+    // Reset visibility tracking when waypoints change
+    visibilityTrackerRef.current.reset();
+    waypointIndexRef.current = 0;
+    transitionProgressRef.current = 0;
+    
+    return points;
+  }, [photoPositions, animationPattern, config?.type, config?.enabled, settings]);
+
+  // User interaction detection
+  useEffect(() => {
+    if (!controls) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      userInteractingRef.current = false;
+      lastInteractionRef.current = Date.now();
+    };
+
+    if ('addEventListener' in controls) {
+      controls.addEventListener('start', handleStart);
+      controls.addEventListener('end', handleEnd);
+      
+      return () => {
+        controls.removeEventListener('start', handleStart);
+        controls.removeEventListener('end', handleEnd);
+      };
+    }
+  }, [controls]);
+
+  // Smart photo targeting system
+  const getNextTarget = useCallback((): THREE.Vector3 | null => {
+    if (!waypoints.length) return null;
+
+    const currentWaypoint = waypoints[waypointIndexRef.current];
+    
+    // Check which photos are currently in view
+    photoPositions.forEach(photo => {
+      if (!photo.id.startsWith('placeholder-')) {
+        const photoVec = new THREE.Vector3(...photo.position);
+        visibilityTrackerRef.current.checkPhotoInView(camera.position, photoVec, photo.id);
+      }
+    });
+
+    return currentWaypoint || null;
+  }, [waypoints, photoPositions, camera]);
+
+  // Smooth camera animation with photo-focused movement
+  useFrame((state, delta) => {
+    if (!config?.enabled || !waypoints.length || config.type === 'none') {
+      isActiveRef.current = false;
+      return;
+    }
+
+    // Pause animation during user interaction
+    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
+    const pauseDuration = 2000; // 2 second pause
+
+    if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
+      isActiveRef.current = false;
+      return;
+    }
+
+    // Activate animation
+    if (!isActiveRef.current) {
+      isActiveRef.current = true;
+      timeRef.current = 0;
+    }
+
+    timeRef.current += delta;
+
+    // Handle pausing at waypoints to showcase photos
+    if (pauseTimeRef.current > 0) {
+      pauseTimeRef.current -= delta;
+      
+      // During pause, do a subtle photo-focused adjustment
+      const target = getNextTarget();
+      if (target) {
+        // Find nearest photos to focus on
+        const nearbyPhotos = photoPositions
+          .filter(p => !p.id.startsWith('placeholder-'))
+          .map(p => ({
+            photo: p,
+            distance: camera.position.distanceTo(new THREE.Vector3(...p.position))
+          }))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 3);
+
+        if (nearbyPhotos.length > 0) {
+          const closestPhoto = nearbyPhotos[0].photo;
+          const photoVec = new THREE.Vector3(...closestPhoto.position);
+          
+          // Subtle look-at adjustment during pause
+          const lookTarget = photoVec.clone();
+          lookTarget.y = Math.max(lookTarget.y, floorHeight + 2);
+          
+          camera.lookAt(lookTarget);
+          
+          if (controls && 'target' in controls) {
+            (controls as any).target.lerp(lookTarget, 0.02);
+            (controls as any).update();
+          }
+        }
+      }
+      return;
+    }
+
+    // Move to next waypoint
+    const currentTarget = getNextTarget();
+    if (!currentTarget) return;
+
+    // Smooth movement with easing
+    const transitionSpeed = (config.speed || 1.0) * 0.5;
+    transitionProgressRef.current += delta * transitionSpeed;
+
+    // Smooth interpolation to waypoint
+    const lerpFactor = Math.min(transitionProgressRef.current, 1.0);
+    const easedProgress = 1 - Math.pow(1 - lerpFactor, 3); // Ease-out cubic
+    
+    camera.position.lerp(currentTarget, easedProgress * 0.05);
+
+    // Dynamic look-at targeting for photo showcase
+    const lookTarget = new THREE.Vector3();
+    
+    // Find photos to focus on based on current camera position
+    const photosInRange = photoPositions
+      .filter(p => !p.id.startsWith('placeholder-'))
+      .map(p => ({
+        photo: p,
+        distance: camera.position.distanceTo(new THREE.Vector3(...p.position))
+      }))
+      .filter(p => p.distance < (config.focusDistance || 15))
+      .sort((a, b) => a.distance - b.distance);
+
+    if (photosInRange.length > 0) {
+      // Focus on closest photo group
+      const avgPosition = photosInRange.slice(0, 3).reduce((acc, p) => {
+        acc.add(new THREE.Vector3(...p.photo.position));
+        return acc;
+      }, new THREE.Vector3()).divideScalar(Math.min(3, photosInRange.length));
+      
+      lookTarget.copy(avgPosition);
+      lookTarget.y = Math.max(lookTarget.y, floorHeight + 2);
+    } else {
+      // Look forward along path
+      lookTarget.copy(currentTarget);
+      lookTarget.y = Math.max(lookTarget.y, floorHeight + 1);
+    }
+
+    camera.lookAt(lookTarget);
+    
+    if (controls && 'target' in controls) {
+      (controls as any).target.lerp(lookTarget, 0.03);
+      (controls as any).update();
+    }
+
+    // Check if we've reached the current waypoint
+    if (camera.position.distanceTo(currentTarget) < 2.0 || transitionProgressRef.current >= 1.0) {
+      // Move to next waypoint
+      waypointIndexRef.current = (waypointIndexRef.current + 1) % waypoints.length;
+      transitionProgressRef.current = 0;
+      
+      // Add pause time to showcase photos
+      pauseTimeRef.current = config.pauseTime || 1.5;
+      
+      // Log progress for debugging
+      const viewedCount = visibilityTrackerRef.current.getViewedCount();
+      const totalPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
+      
+      if (waypointIndexRef.current % 10 === 0) {
+        console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPhotos} photos showcased (${Math.round(viewedCount/totalPhotos*100)}%)`);
+      }
+    }
+  });
+
+  // Debug info
+  useEffect(() => {
+    if (config?.enabled && waypoints.length > 0) {
+      console.log(`🎬 Cinematic Camera Active: ${config.type}`);
+      console.log(`📸 Generated ${waypoints.length} waypoints for ${photoPositions.length} photos`);
+      console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}`);
+    }
+  }, [config?.enabled, config?.type, waypoints.length, animationPattern]);
+
+  return null;
+};
+
+export default CinematicCameraController;
