@@ -987,7 +987,7 @@ class EnhancedSlotManager {
   }
 }
 
-// FIXED WAVE PATTERN - Better spacing and MORE DYNAMIC WAVE ACTION
+// FIXED WAVE PATTERN - GENTLE and SMOOTH wave action with proper hover
 class FixedWavePattern {
   constructor(private settings: any) {}
 
@@ -1012,11 +1012,12 @@ class FixedWavePattern {
     const rows = Math.ceil(totalPhotos / columns);
     
     const speed = this.settings.animationSpeed / 50;
-    const wavePhase = time * speed * 2;
+    const wavePhase = time * speed * 1.5; // Slower, more gentle
     
-    // FIXED: Much lower base height - closer to floor
+    // FIXED: Proper hover height - well above floor
     const floorHeight = -12;
-    const baseHeight = floorHeight + photoSize + 2; // Just above floor level
+    const hoverHeight = 3; // Hover distance above floor
+    const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
     
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
@@ -1026,46 +1027,42 @@ class FixedWavePattern {
       let x = (col - columns / 2) * finalSpacing;
       let z = (row - rows / 2) * finalSpacing;
       
-      // ENHANCED: Much more dynamic wave action with multiple wave sources
+      // GENTLE WAVE ACTION: Much smoother and more subtle
       const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 8, photoSize * 2);
-      const frequency = this.settings.patterns?.wave?.frequency || 0.3;
+      const amplitude = Math.min(this.settings.patterns?.wave?.amplitude || 6, photoSize * 1.5); // Gentler amplitude
+      const frequency = this.settings.patterns?.wave?.frequency || 0.2; // Lower frequency for smoother waves
       
-      let y = baseHeight; // Start from reasonable height
+      let y = baseHeight; // Start from proper hover height
       
       if (this.settings.animationEnabled) {
-        // PRIMARY WAVE: Ripples from center
+        // PRIMARY GENTLE WAVE: Smooth ripples from center
         const primaryWave = Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
         
-        // SECONDARY WAVE: Directional wave across the field
-        const directionalWave = Math.sin(x * frequency * 0.8 + wavePhase * 1.3) * amplitude * 0.6;
+        // SECONDARY GENTLE WAVE: Soft directional wave
+        const directionalWave = Math.sin(x * frequency * 0.5 + wavePhase * 0.8) * amplitude * 0.4;
         
-        // TERTIARY WAVE: Perpendicular wave for cross-patterns
-        const crossWave = Math.sin(z * frequency * 0.7 - wavePhase * 0.9) * amplitude * 0.4;
+        // SUBTLE CROSS WAVE: Very gentle perpendicular motion
+        const crossWave = Math.sin(z * frequency * 0.4 - wavePhase * 0.6) * amplitude * 0.3;
         
-        // ROTATING WAVE: Creates rotating wave patterns
-        const angle = Math.atan2(z, x);
-        const rotatingWave = Math.sin(angle * 3 + wavePhase * 2) * amplitude * 0.3;
+        // BREATHING EFFECT: Gentle overall pulsing
+        const breathingWave = Math.sin(wavePhase * 0.5) * amplitude * 0.2;
         
-        // DISTANCE-BASED OSCILLATION: Different areas pulse at different rates
-        const pulseWave = Math.sin(wavePhase * 1.5 + distanceFromCenter * 0.1) * amplitude * 0.5;
+        // Combine waves with smooth transitions
+        y += primaryWave * 0.7 + directionalWave + crossWave + breathingWave;
         
-        // Combine all waves for complex, dynamic motion
-        y += primaryWave + directionalWave + crossWave + rotatingWave + pulseWave;
-        
-        // Additional height variation based on grid position for more complexity
-        y += Math.sin(wavePhase * 0.7 + col * 0.5) * amplitude * 0.2;
-        y += Math.cos(wavePhase * 0.8 + row * 0.4) * amplitude * 0.2;
+        // Very subtle grid-based variation for extra smoothness
+        y += Math.sin(wavePhase * 0.4 + col * 0.2) * amplitude * 0.1;
+        y += Math.cos(wavePhase * 0.3 + row * 0.15) * amplitude * 0.1;
       }
       
       positions.push([x, y, z]);
 
       if (this.settings.photoRotation) {
         const angle = Math.atan2(x, z);
-        // Enhanced rotation with wave influence
-        const rotationX = Math.sin(wavePhase * 0.5 + distanceFromCenter * 0.1 + col * 0.3) * 0.1;
-        const rotationY = angle + Math.sin(wavePhase * 0.3) * 0.1;
-        const rotationZ = Math.cos(wavePhase * 0.5 + distanceFromCenter * 0.1 + row * 0.3) * 0.1;
+        // Very gentle rotation influenced by waves
+        const rotationX = Math.sin(wavePhase * 0.3 + distanceFromCenter * 0.05) * 0.05;
+        const rotationY = angle + Math.sin(wavePhase * 0.2) * 0.05;
+        const rotationZ = Math.cos(wavePhase * 0.3 + distanceFromCenter * 0.05) * 0.05;
         rotations.push([rotationX, rotationY, rotationZ]);
       } else {
         rotations.push([0, 0, 0]);
@@ -1076,7 +1073,7 @@ class FixedWavePattern {
   }
 }
 
-// FIXED SPIRAL PATTERN - No collisions and ALWAYS FACING CAMERA
+// RESTORED SPIRAL PATTERN - Back to original behavior with proper spacing
 class FixedSpiralPattern {
   constructor(private settings: any) {}
 
@@ -1092,76 +1089,67 @@ class FixedSpiralPattern {
     const speed = this.settings.animationSpeed / 50;
     const animationTime = time * speed * 2;
     
-    // FIXED: Much better spiral parameters with collision prevention
+    // RESTORED: Original spiral parameters with better spacing
     const photoSize = this.settings.photoSize || 4;
-    const baseRadius = Math.max(10, photoSize * 2); // Wider minimum radius to prevent collisions
-    const maxRadius = Math.max(50, photoSize * 10); // Even wider spread
+    const baseRadius = Math.max(8, photoSize * 1.5); // Reasonable minimum radius
+    const maxRadius = Math.max(40, photoSize * 8); // Much wider spread
     const maxHeight = Math.max(30, photoSize * 6); // Reasonable max height
-    const rotationSpeed = 0.4; // Slower rotation
-    const orbitalChance = 0.08; // Even fewer orbital photos for cleaner look
+    const rotationSpeed = 0.6;
+    const orbitalChance = 0.2; // 20% chance for orbital photos
     
-    // FIXED: Much lower base height - closer to floor
+    // FIXED: Proper hover height - well above floor
     const floorHeight = -12;
-    const baseHeight = floorHeight + photoSize + 1; // Just above floor
+    const hoverHeight = 3; // Hover distance above floor
+    const baseHeight = floorHeight + photoSize + hoverHeight; // Hover above floor
     
-    // FIXED: Better vertical distribution with collision prevention
-    const verticalBias = 0.5; // Less bias toward bottom
-    const minVerticalSpacing = Math.max(photoSize * 1.5, 8); // Wider vertical spacing to prevent collisions
-    
-    // Calculate minimum angular spacing to prevent collisions
-    const calculateMinAngularSpacing = (radius: number) => {
-      // Calculate minimum angle needed to prevent photos from overlapping
-      const photoWidth = photoSize * 1.2; // Add some buffer
-      return Math.max(0.15, (photoWidth / radius) * 1.2); // Minimum angular spacing
-    };
+    // RESTORED: Original vertical distribution
+    const verticalBias = 0.7; // Bias towards bottom
+    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.5; // Vertical spacing between spiral layers
     
     for (let i = 0; i < totalPhotos; i++) {
-      // Consistent random values for each photo
+      // Generate random but consistent values for each photo
       const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
       const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
       const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
       
+      // Determine if this photo is on the main funnel or an outer orbit
       const isOrbital = randomSeed1 < orbitalChance;
       
-      // FIXED: Better height distribution starting from reasonable base
+      // Height distribution - biased towards bottom for density
       let normalizedHeight = Math.pow(randomSeed2, verticalBias);
-      const layerIndex = Math.floor(normalizedHeight * 6); // Fewer layers, better spacing
-      const y = baseHeight + (layerIndex * minVerticalSpacing) + 
-                (randomSeed3 * minVerticalSpacing * 0.2); // Small random offset
+      // Apply height step to create more defined spiral layers
+      const y = baseHeight + normalizedHeight * maxHeight * heightStep;
       
-      // FIXED: Better radius calculation with wider spread and collision prevention
-      const heightFactor = normalizedHeight;
-      const funnelRadius = baseRadius + (maxRadius - baseRadius) * heightFactor;
+      // Calculate radius at this height (funnel shape)
+      const funnelRadius = baseRadius + (maxRadius - baseRadius) * normalizedHeight;
       
       let radius: number;
       let angleOffset: number;
       let verticalWobble: number = 0;
       
       if (isOrbital) {
-        // FIXED: Orbital photos with better spacing and collision prevention
-        radius = funnelRadius * (1.5 + randomSeed3 * 0.4); // Wider orbital distance
-        angleOffset = randomSeed3 * Math.PI * 2;
+        // Orbital photos - farther out with elliptical paths
+        radius = funnelRadius * (1.5 + randomSeed3 * 0.8); // 1.5x to 2.3x funnel radius
+        angleOffset = randomSeed3 * Math.PI * 2; // Random starting angle
         
+        // Add vertical oscillation for orbital photos
         if (this.settings.animationEnabled) {
-          verticalWobble = Math.sin(animationTime * 1.2 + i) * 1.5; // Gentle wobble
+          verticalWobble = Math.sin(animationTime * 2 + i) * 3;
         }
       } else {
-        // FIXED: Main spiral with collision prevention
-        const radiusVariation = 0.98 + randomSeed3 * 0.04; // Very tight variation for consistency
+        // Main funnel photos
+        // Add some variation within the funnel
+        const radiusVariation = 0.8 + randomSeed3 * 0.4; // 0.8 to 1.2
         radius = funnelRadius * radiusVariation;
-        
-        // FIXED: Better angular distribution to prevent collisions
-        const minAngleSpacing = calculateMinAngularSpacing(radius);
-        const photosAtThisRadius = Math.floor(totalPhotos * (1 - normalizedHeight * 0.7)); // More photos at wider radius
-        const angleSpacing = Math.max(minAngleSpacing, (Math.PI * 2) / Math.max(photosAtThisRadius, 8));
-        angleOffset = (i * angleSpacing) % (Math.PI * 2);
+        angleOffset = 0;
       }
       
-      // FIXED: Smoother angle calculation
-      const heightSpeedFactor = 0.3 + normalizedHeight * 0.4; // Gentler speed variation
+      // Calculate angle with height-based rotation speed
+      // Photos at the bottom rotate slower, creating a realistic vortex effect
+      const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
       const angle = this.settings.animationEnabled ?
         (animationTime * rotationSpeed * heightSpeedFactor + angleOffset + (i * 0.05)) :
-        (angleOffset + (i * 0.08));
+        (angleOffset + (i * 0.1));
       
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
@@ -1169,16 +1157,13 @@ class FixedSpiralPattern {
       
       positions.push([x, finalY, z]);
       
-      // FIXED: ALWAYS FACE CAMERA - Don't rotate photos, let them face camera naturally
       if (this.settings.photoRotation) {
-        // For spiral, we want photos to face outward from center, but still toward camera
-        // Let the photo mesh handle camera facing, just add subtle animation
-        const rotX = Math.sin(animationTime * 0.3 + i * 0.1) * 0.02; // Very subtle tilt
-        const rotY = 0; // Let camera facing handle Y rotation
-        const rotZ = Math.cos(animationTime * 0.3 + i * 0.1) * 0.02; // Very subtle roll
+        const rotY = angle + Math.PI / 2; // Face outward from spiral
+        const rotX = Math.sin(animationTime * 0.5 + i * 0.1) * 0.05;
+        const rotZ = Math.cos(animationTime * 0.5 + i * 0.1) * 0.05;
         rotations.push([rotX, rotY, rotZ]);
       } else {
-        rotations.push([0, 0, 0]); // No rotation - pure camera facing
+        rotations.push([0, 0, 0]);
       }
     }
 
@@ -1418,8 +1403,8 @@ const SimplePhotoRenderer: React.FC<{
   photosWithPositions: PhotoWithPosition[]; 
   settings: ExtendedSceneSettings;
 }> = ({ photosWithPositions, settings }) => {
-  // FIXED: Spiral pattern should always face camera for best visibility
-  const shouldFaceCamera = settings.animationPattern === 'float' || settings.animationPattern === 'spiral';
+  // RESTORED: Only float pattern faces camera, spiral uses its own rotation
+  const shouldFaceCamera = settings.animationPattern === 'float';
   
   return (
     <group>
@@ -1548,16 +1533,17 @@ const EnhancedAnimationController: React.FC<{
         
         const expectedSlots = settings.photoCount || 100;
         
-        // Apply floor level adjustments for spiral and wave - FIXED: Much lower heights
+        // Apply floor level adjustments - FIXED: Proper hover height above floor
         if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
           const floorLevel = -12;
           const photoSize = settings.photoSize || 4.0;
-          const minPhotoHeight = floorLevel + photoSize; // Just above floor
+          const hoverHeight = 3; // Consistent hover distance
+          const minPhotoHeight = floorLevel + photoSize + hoverHeight; // Hover above floor, never touch
           
           patternState.positions = patternState.positions.map((pos, index) => {
             const [x, y, z] = pos;
             
-            // FIXED: Keep photos much closer to floor - only ensure they don't clip through
+            // FIXED: Ensure photos hover above floor, never touch
             let adjustedY = Math.max(y, minPhotoHeight);
             
             return [x, adjustedY, z];
