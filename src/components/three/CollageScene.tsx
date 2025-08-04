@@ -496,6 +496,18 @@ const AutoRotateCamera: React.FC<{
   const distanceTimeRef = useRef(0);
   const verticalDriftTimeRef = useRef(0);
 
+  // FIXED: Initialize animation immediately when enabled
+  useEffect(() => {
+    if (settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none') {
+      // Force immediate start of animation when enabled
+      timeRef.current = 0;
+      wasActiveRef.current = false; // Reset to ensure proper startup
+      isResumingRef.current = false;
+      isPatternTransitioningRef.current = false;
+      console.log('🎬 Cinematic camera enabled - starting immediately');
+    }
+  }, [settings.cameraAnimation?.enabled, settings.cameraAnimation?.type]);
+
   useFrame((state, delta) => {
     // Only run if auto-rotate is enabled AND cinematic is disabled
     const cinematicActive = settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none';
@@ -632,7 +644,7 @@ const CinematicCamera: React.FC<{
         clearTimeout(interactionTimeout);
         
         // Shorter delay before resuming based on user setting
-        const pauseTime = Math.max((config?.pauseTime || 1) * 1000, 800);
+        const pauseTime = Math.max((config?.pauseTime || 1) * 1000, 500); // Reduced from 800ms to 500ms
         interactionTimeout = setTimeout(() => {
           // FIXED: Start smooth resumption process
           userInteractingRef.current = false;
@@ -655,14 +667,13 @@ const CinematicCamera: React.FC<{
       }
     };
 
-    // Listen to more interaction types for better detection
+    // Listen to interaction types but EXCLUDE mousemove to prevent hover pause
     canvas.addEventListener('mousedown', handleInteractionStart, { passive: true });
     canvas.addEventListener('touchstart', handleInteractionStart, { passive: true });
     canvas.addEventListener('wheel', handleInteractionStart, { passive: true });
     canvas.addEventListener('mouseup', handleInteractionEnd, { passive: true });
     canvas.addEventListener('touchend', handleInteractionEnd, { passive: true });
-    canvas.addEventListener('mousemove', handleInteractionStart, { passive: true }); // Added mouse move
-    canvas.addEventListener('touchmove', handleInteractionStart, { passive: true }); // Added touch move
+    canvas.addEventListener('touchmove', handleInteractionStart, { passive: true }); // Keep touch move
 
     // Also listen for keyboard interactions
     document.addEventListener('keydown', handleInteractionStart, { passive: true });
@@ -674,7 +685,6 @@ const CinematicCamera: React.FC<{
       canvas.removeEventListener('wheel', handleInteractionStart);
       canvas.removeEventListener('mouseup', handleInteractionEnd);
       canvas.removeEventListener('touchend', handleInteractionEnd);
-      canvas.removeEventListener('mousemove', handleInteractionStart);
       canvas.removeEventListener('touchmove', handleInteractionStart);
       document.removeEventListener('keydown', handleInteractionStart);
     };
@@ -716,13 +726,13 @@ const CinematicCamera: React.FC<{
     
     lastPatternRef.current = patternKey;
 
-    // FIXED: Better pause logic with smooth resumption
+    // FIXED: Better pause logic with smooth resumption and faster resume
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const resumeDelay = Math.max((config.pauseTime || 1) * 1000, 800);
+    const resumeDelay = Math.max((config.pauseTime || 1) * 1000, 500); // Reduced minimum delay
     const timeSinceResume = Date.now() - resumeTimeRef.current;
 
-    // Pause during interaction or right after
-    if (userInteractingRef.current || (timeSinceInteraction < resumeDelay && timeSinceResume < 300)) {
+    // Pause during interaction or right after (reduced pause window)
+    if (userInteractingRef.current || (timeSinceInteraction < resumeDelay && timeSinceResume < 200)) {
       if (wasActiveRef.current) {
         console.log('🎬 Cinematic camera paused for user interaction');
         wasActiveRef.current = false;
@@ -2281,8 +2291,12 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* FIXED: Scene Environment Manager - Full 3D environments */}
         <SceneEnvironmentManager settings={safeSettings} />
         
-        {/* FIXED Camera Controls - Actually Working */}
-        <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
+        {/* FIXED Camera Controls - Actually Working with proper key for re-rendering */}
+        <CameraControls 
+          key={cameraAnimationKey} 
+          settings={safeSettings} 
+          photosWithPositions={photosWithPositions} 
+        />
         
         {/* FIXED: Textured Floor - Always show unless sphere environment */}
         {safeSettings.sceneEnvironment !== 'sphere' && (
