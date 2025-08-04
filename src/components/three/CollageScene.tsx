@@ -1,4 +1,4 @@
-// Enhanced CollageScene with Smooth Cinematic Camera System (No Jump Cuts)
+// Enhanced CollageScene with Smooth Cinematic Camera System
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -51,7 +51,7 @@ interface PhotoPosition {
   id: string;
 }
 
-// Extended settings for scene environments + NEW CINEMATIC CAMERA
+// Extended settings for scene environments + Smooth Cinematic Camera
 interface ExtendedSceneSettings extends SceneSettings {
   sceneEnvironment?: SceneEnvironment;
   floorTexture?: FloorTexture;
@@ -66,7 +66,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingHeight?: number;
   roomDepth?: number;
   
-  // NEW: Enhanced Cinematic Camera Animation Settings
+  // NEW: Smooth Cinematic Camera Animation Settings
   cameraAnimation?: {
     enabled?: boolean;
     type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
@@ -92,351 +92,6 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
 }
-
-// NEW: Cinematic Camera Controller with Smart Photo Showcasing
-const CinematicCameraController: React.FC<{
-  config?: {
-    enabled?: boolean;
-    type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
-    speed: number;
-    focusDistance: number;
-    heightOffset: number;
-    transitionTime: number;
-    pauseTime: number;
-    randomization: number;
-  };
-  photoPositions: PhotoPosition[];
-  animationPattern: string;
-  floorHeight: number;
-  settings: {
-    photoSize?: number;
-    floorSize?: number;
-    photoCount?: number;
-  };
-}> = ({ config, photoPositions, animationPattern, floorHeight = -12, settings }) => {
-  const { camera, controls } = useThree();
-  
-  // Refs for animation state
-  const timeRef = useRef(0);
-  const waypointIndexRef = useRef(0);
-  const transitionProgressRef = useRef(0);
-  const pauseTimeRef = useRef(0);
-  const userInteractingRef = useRef(false);
-  const lastInteractionRef = useRef(0);
-  const isActiveRef = useRef(false);
-  
-  // Smart systems
-  const visibilityTrackerRef = useRef(new Set<string>());
-  const photoLastViewedRef = useRef(new Map<string, number>());
-  
-  // Memoized waypoints - recalculate when photos or pattern changes
-  const waypoints = useMemo(() => {
-    if (!photoPositions.length || !config?.enabled) return [];
-    
-    const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
-    if (!validPhotos.length) return [];
-
-    console.log(`🎬 Generating ${config.type} waypoints for ${validPhotos.length} photos in ${animationPattern} pattern`);
-    
-    const photoSize = settings.photoSize || 4;
-    const optimalHeight = floorHeight + photoSize + 2; // Just above floor particles
-    const points: THREE.Vector3[] = [];
-    
-    switch (config.type) {
-      case 'showcase':
-      case 'grid_sweep':
-        // Smart grid traversal - serpentine path through photos
-        const photosByZ = new Map<number, typeof validPhotos>();
-        validPhotos.forEach(photo => {
-          const z = Math.round(photo.position[2] / photoSize) * photoSize;
-          if (!photosByZ.has(z)) photosByZ.set(z, []);
-          photosByZ.get(z)!.push(photo);
-        });
-
-        const sortedZRows = Array.from(photosByZ.keys()).sort((a, b) => b - a); // Start from back
-        
-        sortedZRows.forEach((z, rowIndex) => {
-          const rowPhotos = photosByZ.get(z)!.sort((a, b) => 
-            rowIndex % 2 === 0 ? a.position[0] - b.position[0] : b.position[0] - a.position[0]
-          );
-          
-          rowPhotos.forEach((photo, photoIndex) => {
-            // Add viewing position slightly in front and to the side
-            const offset = photoIndex % 2 === 0 ? -photoSize * 0.7 : photoSize * 0.7;
-            points.push(new THREE.Vector3(
-              photo.position[0] + offset,
-              optimalHeight,
-              photo.position[2] + photoSize * 1.5
-            ));
-          });
-        });
-        break;
-
-      case 'gallery_walk':
-        // Traditional gallery walk - stay at consistent height, move systematically
-        const sortedByDistance = [...validPhotos].sort((a, b) => {
-          const distA = Math.sqrt(a.position[0] ** 2 + a.position[2] ** 2);
-          const distB = Math.sqrt(b.position[0] ** 2 + b.position[2] ** 2);
-          return distA - distB;
-        });
-
-        sortedByDistance.forEach(photo => {
-          const cameraDistance = photoSize * 2.5;
-          const angle = Math.atan2(photo.position[2], photo.position[0]);
-          
-          points.push(new THREE.Vector3(
-            photo.position[0] - Math.cos(angle) * cameraDistance,
-            optimalHeight,
-            photo.position[2] - Math.sin(angle) * cameraDistance
-          ));
-        });
-        break;
-
-      case 'spiral_tour':
-        // Follow spiral pattern with photo focus
-        const spiralSorted = [...validPhotos].sort((a, b) => {
-          const distA = Math.sqrt(a.position[0] ** 2 + a.position[2] ** 2);
-          const distB = Math.sqrt(b.position[0] ** 2 + b.position[2] ** 2);
-          if (Math.abs(distA - distB) > photoSize) return distA - distB;
-          
-          const angleA = Math.atan2(a.position[2], a.position[0]);
-          const angleB = Math.atan2(b.position[2], b.position[0]);
-          return angleA - angleB;
-        });
-
-        spiralSorted.forEach(photo => {
-          const radius = Math.sqrt(photo.position[0] ** 2 + photo.position[2] ** 2);
-          const angle = Math.atan2(photo.position[2], photo.position[0]);
-          const offsetRadius = Math.max(radius - photoSize * 1.5, photoSize);
-          
-          points.push(new THREE.Vector3(
-            Math.cos(angle) * offsetRadius,
-            Math.max(photo.position[1] - 1, optimalHeight),
-            Math.sin(angle) * offsetRadius
-          ));
-        });
-        break;
-
-      case 'wave_follow':
-        // Follow wave pattern
-        const waveSorted = [...validPhotos].sort((a, b) => a.position[0] - b.position[0]);
-        
-        waveSorted.forEach(photo => {
-          const lookAheadDistance = photoSize * 1.8;
-          
-          points.push(new THREE.Vector3(
-            photo.position[0],
-            optimalHeight,
-            photo.position[2] - lookAheadDistance
-          ));
-        });
-        break;
-
-      case 'photo_focus':
-        // Close-up focus on individual photos
-        validPhotos.forEach(photo => {
-          const focusDistance = photoSize * 1.2;
-          const angle = Math.random() * Math.PI * 2; // Random approach angle
-          
-          points.push(new THREE.Vector3(
-            photo.position[0] + Math.cos(angle) * focusDistance,
-            photo.position[1] + photoSize * 0.3,
-            photo.position[2] + Math.sin(angle) * focusDistance
-          ));
-        });
-        break;
-
-      default:
-        return [];
-    }
-    
-    // Reset visibility tracking when waypoints change
-    visibilityTrackerRef.current.clear();
-    photoLastViewedRef.current.clear();
-    waypointIndexRef.current = 0;
-    transitionProgressRef.current = 0;
-    
-    return points;
-  }, [photoPositions, animationPattern, config?.type, config?.enabled, settings, floorHeight]);
-
-  // User interaction detection
-  useEffect(() => {
-    if (!controls) return;
-
-    const handleStart = () => {
-      userInteractingRef.current = true;
-      lastInteractionRef.current = Date.now();
-    };
-
-    const handleEnd = () => {
-      userInteractingRef.current = false;
-      lastInteractionRef.current = Date.now();
-    };
-
-    if ('addEventListener' in controls) {
-      controls.addEventListener('start', handleStart);
-      controls.addEventListener('end', handleEnd);
-      
-      return () => {
-        controls.removeEventListener('start', handleStart);
-        controls.removeEventListener('end', handleEnd);
-      };
-    }
-  }, [controls]);
-
-  // Smart photo targeting system
-  const getNextTarget = useCallback((): THREE.Vector3 | null => {
-    if (!waypoints.length) return null;
-    return waypoints[waypointIndexRef.current] || null;
-  }, [waypoints]);
-
-  // Main animation frame update
-  useFrame((state, delta) => {
-    if (!config?.enabled || !waypoints.length || config.type === 'none') {
-      isActiveRef.current = false;
-      return;
-    }
-
-    // Pause animation during user interaction
-    const timeSinceInteraction = Date.now() - lastInteractionRef.current;
-    const pauseDuration = 2000; // 2 second pause
-
-    if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
-      isActiveRef.current = false;
-      return;
-    }
-
-    // Activate animation
-    if (!isActiveRef.current) {
-      isActiveRef.current = true;
-      timeRef.current = 0;
-    }
-
-    timeRef.current += delta;
-
-    // Handle pausing at waypoints to showcase photos
-    if (pauseTimeRef.current > 0) {
-      pauseTimeRef.current -= delta;
-      
-      // During pause, track which photos are in view
-      photoPositions.forEach(photo => {
-        if (!photo.id.startsWith('placeholder-')) {
-          const photoVec = new THREE.Vector3(...photo.position);
-          const distance = camera.position.distanceTo(photoVec);
-          if (distance <= (config.focusDistance || 12)) {
-            visibilityTrackerRef.current.add(photo.id);
-            photoLastViewedRef.current.set(photo.id, Date.now());
-          }
-        }
-      });
-
-      // Subtle photo-focused adjustment during pause
-      const nearbyPhotos = photoPositions
-        .filter(p => !p.id.startsWith('placeholder-'))
-        .map(p => ({
-          photo: p,
-          distance: camera.position.distanceTo(new THREE.Vector3(...p.position))
-        }))
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 3);
-
-      if (nearbyPhotos.length > 0) {
-        const closestPhoto = nearbyPhotos[0].photo;
-        const photoVec = new THREE.Vector3(...closestPhoto.position);
-        
-        // Subtle look-at adjustment during pause
-        const lookTarget = photoVec.clone();
-        lookTarget.y = Math.max(lookTarget.y, floorHeight + 2);
-        
-        camera.lookAt(lookTarget);
-        
-        if (controls && 'target' in controls) {
-          (controls as any).target.lerp(lookTarget, 0.02);
-          (controls as any).update();
-        }
-      }
-      return;
-    }
-
-    // Move to next waypoint
-    const currentTarget = getNextTarget();
-    if (!currentTarget) return;
-
-    // Smooth movement with easing
-    const transitionSpeed = (config.speed || 1.0) * 0.5;
-    transitionProgressRef.current += delta * transitionSpeed;
-
-    // Smooth interpolation to waypoint
-    const lerpFactor = Math.min(transitionProgressRef.current, 1.0);
-    const easedProgress = 1 - Math.pow(1 - lerpFactor, 3); // Ease-out cubic
-    
-    camera.position.lerp(currentTarget, easedProgress * 0.05);
-
-    // Dynamic look-at targeting for photo showcase
-    const lookTarget = new THREE.Vector3();
-    
-    // Find photos to focus on based on current camera position
-    const photosInRange = photoPositions
-      .filter(p => !p.id.startsWith('placeholder-'))
-      .map(p => ({
-        photo: p,
-        distance: camera.position.distanceTo(new THREE.Vector3(...p.position))
-      }))
-      .filter(p => p.distance < (config.focusDistance || 15))
-      .sort((a, b) => a.distance - b.distance);
-
-    if (photosInRange.length > 0) {
-      // Focus on closest photo group
-      const avgPosition = photosInRange.slice(0, 3).reduce((acc, p) => {
-        acc.add(new THREE.Vector3(...p.photo.position));
-        return acc;
-      }, new THREE.Vector3()).divideScalar(Math.min(3, photosInRange.length));
-      
-      lookTarget.copy(avgPosition);
-      lookTarget.y = Math.max(lookTarget.y, floorHeight + 2);
-    } else {
-      // Look forward along path
-      lookTarget.copy(currentTarget);
-      lookTarget.y = Math.max(lookTarget.y, floorHeight + 1);
-    }
-
-    camera.lookAt(lookTarget);
-    
-    if (controls && 'target' in controls) {
-      (controls as any).target.lerp(lookTarget, 0.03);
-      (controls as any).update();
-    }
-
-    // Check if we've reached the current waypoint
-    if (camera.position.distanceTo(currentTarget) < 2.0 || transitionProgressRef.current >= 1.0) {
-      // Move to next waypoint
-      waypointIndexRef.current = (waypointIndexRef.current + 1) % waypoints.length;
-      transitionProgressRef.current = 0;
-      
-      // Add pause time to showcase photos
-      pauseTimeRef.current = config.pauseTime || 1.5;
-      
-      // Log progress for debugging
-      const viewedCount = visibilityTrackerRef.current.size;
-      const totalPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
-      
-      if (waypointIndexRef.current % 10 === 0) {
-        console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPhotos} photos showcased (${Math.round(viewedCount/totalPhotos*100)}%)`);
-      }
-    }
-  });
-
-  // Debug info
-  useEffect(() => {
-    if (config?.enabled && waypoints.length > 0) {
-      console.log(`🎬 Cinematic Camera Active: ${config.type}`);
-      console.log(`📸 Generated ${waypoints.length} waypoints for ${photoPositions.length} photos`);
-      console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}`);
-    }
-  }, [config?.enabled, config?.type, waypoints.length, animationPattern]);
-
-  return null;
-};
 
 // Enhanced Cube Environment with Full Background Scale
 const CubeEnvironment: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
@@ -1310,8 +965,8 @@ const EnhancedLightingSystem: React.FC<{ settings: ExtendedSceneSettings }> = ({
   );
 };
 
-// UPDATED: Enhanced Camera Controls with Cinematic Integration
-const EnhancedCameraControls: React.FC<{ 
+// NEW: Simplified Camera Controls with Smooth Cinematic Integration
+const SimplifiedCameraControls: React.FC<{ 
   settings: ExtendedSceneSettings; 
   photosWithPositions: PhotoWithPosition[];
 }> = ({ settings, photosWithPositions }) => {
@@ -1319,10 +974,6 @@ const EnhancedCameraControls: React.FC<{
   const controlsRef = useRef<any>();
   const userInteractingRef = useRef(false);
   const lastInteractionTimeRef = useRef(0);
-  const autoRotateTimeRef = useRef(0);
-  const heightOscillationRef = useRef(0);
-  const distanceOscillationRef = useRef(0);
-  const verticalDriftRef = useRef(0);
   
   // Convert PhotoWithPosition to PhotoPosition for cinematic camera
   const photoPositions = useMemo(() => {
@@ -1410,79 +1061,6 @@ const EnhancedCameraControls: React.FC<{
     };
   }, [settings.cameraAutoRotatePauseOnInteraction]);
 
-  // Legacy auto-rotation with photo-aware height (fallback when cinematic is disabled)
-  useFrame((state, delta) => {
-    if (!controlsRef.current) return;
-    
-    // Skip if cinematic camera is active
-    if (settings.cameraAnimation?.enabled && settings.cameraAnimation.type !== 'none') {
-      return;
-    }
-
-    // Only auto-rotate if legacy rotation is enabled AND user isn't interacting
-    if (settings.cameraRotationEnabled && !userInteractingRef.current) {
-      const smoothDelta = Math.min(delta, 0.016);
-      
-      autoRotateTimeRef.current += smoothDelta * (settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5);
-      heightOscillationRef.current += smoothDelta * (settings.cameraAutoRotateElevationSpeed || 0.3);
-      distanceOscillationRef.current += smoothDelta * (settings.cameraAutoRotateDistanceSpeed || 0.2);
-      verticalDriftRef.current += smoothDelta * (settings.cameraAutoRotateVerticalDriftSpeed || 0.1);
-
-      const currentOffset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
-      const currentSpherical = new THREE.Spherical().setFromVector3(currentOffset);
-
-      currentSpherical.theta = autoRotateTimeRef.current;
-
-      const baseRadius = settings.cameraAutoRotateRadius || settings.cameraDistance || 25;
-      const radiusVariation = settings.cameraAutoRotateDistanceVariation || 0;
-      const dynamicRadius = baseRadius + Math.sin(distanceOscillationRef.current) * radiusVariation;
-      currentSpherical.radius = dynamicRadius;
-
-      // Adjust height for better photo viewing based on pattern
-      const photoSize = settings.photoSize || 4;
-      const floorHeight = -12;
-      let minHeight = floorHeight + photoSize + 2;
-      
-      // Pattern-specific height adjustments
-      switch (settings.animationPattern) {
-        case 'spiral':
-          minHeight = floorHeight + photoSize * 2;
-          break;
-        case 'wave':
-          minHeight = floorHeight + photoSize * 1.5;
-          break;
-        case 'float':
-          minHeight = floorHeight + photoSize * 2.5;
-          break;
-      }
-      
-      const baseHeight = Math.max(settings.cameraAutoRotateHeight || settings.cameraHeight || 5, minHeight);
-      const elevationMin = settings.cameraAutoRotateElevationMin || (Math.PI / 6);
-      const elevationMax = settings.cameraAutoRotateElevationMax || (Math.PI / 3);
-      const elevationRange = elevationMax - elevationMin;
-      const elevationOscillation = (Math.sin(heightOscillationRef.current) + 1) / 2;
-      currentSpherical.phi = elevationMin + (elevationOscillation * elevationRange);
-
-      const newPosition = new THREE.Vector3().setFromSpherical(currentSpherical);
-
-      const verticalDrift = settings.cameraAutoRotateVerticalDrift || 0;
-      const driftOffset = Math.sin(verticalDriftRef.current) * verticalDrift;
-      
-      const focusOffset = settings.cameraAutoRotateFocusOffset || [0, 0, 0];
-      const focusPoint = new THREE.Vector3(
-        focusOffset[0],
-        Math.max(focusOffset[1] + driftOffset, minHeight - photoSize),
-        focusOffset[2]
-      );
-
-      newPosition.add(focusPoint);
-      
-      camera.position.lerp(newPosition, 0.05);
-      controlsRef.current.target.lerp(focusPoint, 0.05);
-      controlsRef.current.update();
-    }
-  });
-
   return (
     <>
       {/* Main Orbit Controls */}
@@ -1512,7 +1090,7 @@ const EnhancedCameraControls: React.FC<{
         }}
       />
       
-      {/* NEW: Smooth Cinematic Camera Controller (No Jump Cuts) */}
+      {/* NEW: Smooth Cinematic Camera Controller */}
       <SmoothCinematicCameraController
         config={settings.cameraAnimation}
         photoPositions={photoPositions}
@@ -1543,49 +1121,41 @@ const EnhancedAnimationController: React.FC<{
       
       let patternState;
       try {
-        // FIXED: Pass the actual photoCount to pattern generation
         const pattern = PatternFactory.createPattern(
           settings.animationPattern || 'grid',
           {
             ...settings,
-            photoCount: settings.photoCount || 100 // Ensure pattern knows how many positions to generate
+            photoCount: settings.photoCount || 100
           },
           safePhotos
         );
         patternState = pattern.generatePositions(time);
         
-        // DEBUG: Check if pattern generated the right number of positions
         const expectedSlots = settings.photoCount || 100;
         console.log(`Pattern generated ${patternState.positions.length} positions for ${expectedSlots} expected slots`);
         
-        // FIXED: Adjust pattern heights to be just above floor level
-        // Floor is at Y=-12, so we want patterns to start around Y=-8 to Y=0
-        const floorLevel = -8; // Just above the floor at Y=-12
+        // Adjust pattern heights to be just above floor level
+        const floorLevel = -8;
         const photoSize = settings.photoSize || 4.0;
         
         if (settings.animationPattern === 'spiral' || settings.animationPattern === 'wave') {
-          // Lower the spiral and wave patterns significantly
           patternState.positions = patternState.positions.map((pos, index) => {
             const [x, y, z] = pos;
             let adjustedY = y;
             
             if (settings.animationPattern === 'spiral') {
-              // FIXED: For spiral - keep it grounded regardless of photo size
-              // Scale the height based on photo size to prevent collisions
-              const heightScale = Math.max(0.3, Math.min(1.0, photoSize / 8.0)); // Scale between 0.3-1.0
-              const baseHeight = floorLevel + (photoSize * 0.5); // Start higher for larger photos
+              const heightScale = Math.max(0.3, Math.min(1.0, photoSize / 8.0));
+              const baseHeight = floorLevel + (photoSize * 0.5);
               
-              adjustedY = baseHeight + (y * heightScale); // Reduced height scaling
+              adjustedY = baseHeight + (y * heightScale);
               
-              // Ensure minimum separation for larger photos
               if (photoSize > 6) {
-                adjustedY = baseHeight + (y * 0.4) + (index * photoSize * 0.1); // Extra spacing for large photos
+                adjustedY = baseHeight + (y * 0.4) + (index * photoSize * 0.1);
               }
               
             } else if (settings.animationPattern === 'wave') {
-              // FIXED: For wave - keep oscillation grounded with photo size consideration
-              const waveHeight = Math.max(2, photoSize * 0.3); // Wave height scales with photo size
-              adjustedY = floorLevel + waveHeight + (y * 0.2); // Minimal oscillation, stays low
+              const waveHeight = Math.max(2, photoSize * 0.3);
+              adjustedY = floorLevel + waveHeight + (y * 0.2);
             }
             
             return [x, adjustedY, z];
@@ -1594,7 +1164,6 @@ const EnhancedAnimationController: React.FC<{
         
       } catch (error) {
         console.error('Pattern generation error:', error);
-        // Create fallback pattern that generates the correct number of positions
         const positions = [];
         const rotations = [];
         const spacing = Math.max(6, (settings.photoSize || 4.0) * 1.5);
@@ -1603,7 +1172,7 @@ const EnhancedAnimationController: React.FC<{
         for (let i = 0; i < totalSlots; i++) {
           const x = (i % 10) * spacing - (spacing * 5);
           const z = Math.floor(i / 10) * spacing - (spacing * 5);
-          positions.push([x, -6, z]); // Position just above floor
+          positions.push([x, -6, z]);
           rotations.push([0, 0, 0]);
         }
         patternState = { positions, rotations };
@@ -1611,9 +1180,6 @@ const EnhancedAnimationController: React.FC<{
       
       const photosWithPositions: PhotoWithPosition[] = [];
       const totalSlots = settings.photoCount || 100;
-      
-      // FIXED: Only use positions that actually exist in the pattern
-      // Don't extend or create artificial positions
       const availablePositions = Math.min(patternState.positions.length, totalSlots);
       
       for (const photo of safePhotos) {
@@ -1639,7 +1205,6 @@ const EnhancedAnimationController: React.FC<{
         }
       }
       
-      // FIXED: Generate empty slots only for positions that exist in pattern
       for (let i = 0; i < availablePositions; i++) {
         const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
         if (!hasPhoto) {
@@ -1657,8 +1222,6 @@ const EnhancedAnimationController: React.FC<{
         }
       }
       
-      // FIXED: If we have fewer pattern positions than requested slots, 
-      // only show the slots that fit the pattern properly
       if (availablePositions < totalSlots) {
         console.log(`Pattern only supports ${availablePositions} positions, limiting display to match pattern`);
       }
@@ -1827,8 +1390,8 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* Background Management */}
         <BackgroundRenderer settings={safeSettings} />
         
-        {/* UPDATED: Camera Controls with Cinematic Integration */}
-        <EnhancedCameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
+        {/* NEW: Simplified Camera Controls with Smooth Cinematic Integration */}
+        <SimplifiedCameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
         
         {/* Particle System */}
         {safeSettings.particles?.enabled && (
