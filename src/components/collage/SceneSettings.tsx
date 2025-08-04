@@ -1,9 +1,8 @@
-// src/components/collage/SceneSettings.tsx - COMPLETE with Enhanced Grid Wall Settings
+// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
 import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
-import { getCinematicCameraTypeDescription } from '../../store/sceneStore';
 
 // Extended settings interface for new features
 interface ExtendedSceneSettings extends SceneSettings {
@@ -52,6 +51,19 @@ interface ExtendedSceneSettings extends SceneSettings {
   };
 }
 
+// Helper function for cinematic camera descriptions (fallback if not imported)
+const getCinematicCameraTypeDescription = (type: string): string => {
+  const descriptions: Record<string, string> = {
+    'showcase': 'Automatically showcases different photo groups with smooth transitions',
+    'gallery_walk': 'Simulates walking through a gallery space',
+    'grid_sweep': 'Sweeps across the grid in organized patterns',
+    'spiral_tour': 'Spirals around the scene for dynamic viewing',
+    'wave_follow': 'Follows wave patterns for fluid movement',
+    'photo_focus': 'Focuses on individual photos with artistic framing'
+  };
+  return descriptions[type] || 'Advanced camera movement for showcasing photos';
+};
+
 const EnhancedSceneSettings: React.FC<{
   settings: ExtendedSceneSettings;
   onSettingsChange: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
@@ -73,6 +85,204 @@ const EnhancedSceneSettings: React.FC<{
 
   return (
     <div className="space-y-6">
+      {/* Scene Environment Section */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Building className="h-4 w-4 mr-2" />
+          Scene Environment
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Environment Type</label>
+            <select
+              value={settings.sceneEnvironment || 'default'}
+              onChange={(e) => onSettingsChange({ 
+                sceneEnvironment: e.target.value as ExtendedSceneSettings['sceneEnvironment']
+              })}
+              className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+            >
+              <option value="default">🌌 Open Space (Default)</option>
+              <option value="cube">🏠 Cube Room</option>
+              <option value="sphere">🌍 Sphere Interior</option>
+              <option value="gallery">🖼️ Art Gallery</option>
+              <option value="studio">📸 Photo Studio</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              {settings.sceneEnvironment === 'cube' && "Enclosed room with walls and optional ceiling"}
+              {settings.sceneEnvironment === 'sphere' && "Immersive 360° spherical environment"}
+              {settings.sceneEnvironment === 'gallery' && "Professional gallery with track lighting"}
+              {settings.sceneEnvironment === 'studio' && "Photography studio with curved backdrop"}
+              {(!settings.sceneEnvironment || settings.sceneEnvironment === 'default') && "Open space with floor and optional grid"}
+            </p>
+          </div>
+
+          {/* Cube Environment Settings */}
+          {settings.sceneEnvironment === 'cube' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Cube Room Settings</h5>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Wall Color</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="color"
+                    value={settings.wallColor || settings.floorColor || '#3A3A3A'}
+                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                    className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                  />
+                  <select
+                    onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                    className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
+                  >
+                    <option value="">Presets</option>
+                    <option value="#8B4513">🟤 Saddle Brown</option>
+                    <option value="#A0522D">🟤 Sienna</option>
+                    <option value="#CD853F">🟤 Peru</option>
+                    <option value="#D2691E">🟠 Chocolate</option>
+                    <option value="#BC8F8F">🟤 Rosy Brown</option>
+                    <option value="#F4A460">🟤 Sandy Brown</option>
+                    <option value="#DEB887">🟤 Burlywood</option>
+                    <option value="#D2B48C">🟤 Tan</option>
+                    <option value="#8FBC8F">🟢 Dark Sea Green</option>
+                    <option value="#9ACD32">🟢 Yellow Green</option>
+                    <option value="#6B8E23">🟢 Olive Drab</option>
+                    <option value="#228B22">🟢 Forest Green</option>
+                    <option value="#2F4F4F">🔘 Dark Slate Gray</option>
+                    <option value="#696969">🔘 Dim Gray</option>
+                    <option value="#708090">🔘 Slate Gray</option>
+                    <option value="#F5F5DC">🟡 Beige</option>
+                    <option value="#FFFAF0">🟡 Floral White</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Wall Thickness
+                  <span className="ml-2 text-xs text-gray-400">{settings.wallThickness || 2} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value={settings.wallThickness || 2}
+                  onChange={(e) => onSettingsChange({ wallThickness: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={settings.ceilingEnabled || false}
+                  onChange={(e) => onSettingsChange({ ceilingEnabled: e.target.checked })}
+                  className="mr-2 bg-gray-800 border-gray-700"
+                />
+                <label className="text-sm text-gray-300">Add Ceiling</label>
+              </div>
+
+              {settings.ceilingEnabled && (
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Ceiling Height
+                    <span className="ml-2 text-xs text-gray-400">{settings.ceilingHeight || 100} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="30"
+                    max="150"
+                    step="5"
+                    value={settings.ceilingHeight || 100}
+                    onChange={(e) => onSettingsChange({ ceilingHeight: parseFloat(e.target.value) }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sphere Environment Settings */}
+          {settings.sceneEnvironment === 'sphere' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Sphere Settings</h5>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Sphere Interior Color</label>
+                <input
+                  type="color"
+                  value={settings.wallColor || settings.floorColor || '#1A1A2E'}
+                  onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Custom Sphere Texture URL</label>
+                <input
+                  type="url"
+                  value={settings.sphereTextureUrl || ''}
+                  onChange={(e) => onSettingsChange({ sphereTextureUrl: e.target.value }, true)}
+                  placeholder="https://example.com/360-panorama.jpg"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Gallery Environment Settings */}
+          {settings.sceneEnvironment === 'gallery' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Gallery Settings</h5>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Gallery Wall Color</label>
+                <input
+                  type="color"
+                  value={settings.wallColor || '#F5F5F5'}
+                  onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Room Depth
+                  <span className="ml-2 text-xs text-gray-400">{settings.roomDepth || settings.floorSize || 200} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="100"
+                  max="400"
+                  step="20"
+                  value={settings.roomDepth || settings.floorSize || 200}
+                  onChange={(e) => onSettingsChange({ roomDepth: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Studio Environment Settings */}
+          {settings.sceneEnvironment === 'studio' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Studio Settings</h5>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Backdrop Color</label>
+                <input
+                  type="color"
+                  value={settings.wallColor || '#E8E8E8'}
+                  onChange={(e) => onSettingsChange({ wallColor: e.target.value }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Animation Controls */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
@@ -1072,64 +1282,6 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* Basic Camera Controls */}
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Eye className="h-4 w-4 mr-2" />
-          Basic Camera Settings
-        </h4>
-        
-        <div className="space-y-4">
-          {!settings.cameraAnimation?.enabled && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Default Camera Distance
-                  <span className="ml-2 text-xs text-gray-400">{settings.cameraDistance} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="1"
-                  value={settings.cameraDistance}
-                  onChange={(e) => onSettingsChange({ 
-                    cameraDistance: parseFloat(e.target.value) 
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Default Camera Height
-                  <span className="ml-2 text-xs text-gray-400">{settings.cameraHeight} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="150"
-                  step="2"
-                  value={settings.cameraHeight}
-                  onChange={(e) => onSettingsChange({ 
-                    cameraHeight: parseFloat(e.target.value) 
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
-          )}
-          
-          {settings.cameraAnimation?.enabled && (
-            <div className="bg-blue-800/20 p-3 rounded border border-blue-600/30">
-              <p className="text-xs text-blue-300">
-                🎬 <strong>Cinematic Mode Active:</strong> Basic camera settings are managed by the cinematic camera system above.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Photo Display */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
@@ -1221,11 +1373,11 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* Floor Settings */}
+      {/* Floor Texture Section */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Layers className="h-4 w-4 mr-2" />
-          Floor
+          Floor Texture
         </h4>
         
         <div className="space-y-4">
@@ -1245,6 +1397,26 @@ const EnhancedSceneSettings: React.FC<{
 
           {settings.floorEnabled && (
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Texture Type</label>
+                <select
+                  value={settings.floorTexture || 'solid'}
+                  onChange={(e) => onSettingsChange({ 
+                    floorTexture: e.target.value as ExtendedSceneSettings['floorTexture']
+                  })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+                >
+                  <option value="solid">🎨 Solid Color</option>
+                  <option value="marble">⚪ Marble</option>
+                  <option value="wood">🪵 Wood</option>
+                  <option value="concrete">🏗️ Concrete</option>
+                  <option value="metal">⚙️ Metal</option>
+                  <option value="glass">💎 Glass</option>
+                  <option value="checkerboard">♟️ Checkerboard</option>
+                  <option value="custom">🖼️ Custom Image</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
                 <input
