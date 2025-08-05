@@ -2195,10 +2195,150 @@ const EnhancedAnimationController: React.FC<{
   return null;
 };
 
-// Helper function to get current particle theme
-const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
-  const themeName = settings.particles?.theme ?? 'Purple Magic';
-  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
+// Enhanced Scene Settings with Precise Arrow Controls for Fine-tuning
+import React from 'react';
+import { ChevronUp, ChevronDown, Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
+
+// Enhanced Slider Component with Arrow Controls
+const EnhancedSlider: React.FC<{
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+  onChangeComplete?: (value: number) => void;
+  suffix?: string;
+  description?: string;
+  formatValue?: (value: number) => string;
+  showArrows?: boolean;
+  arrowStep?: number;
+  fastStep?: number;
+}> = ({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  onChangeComplete,
+  suffix = '',
+  description,
+  formatValue,
+  showArrows = false,
+  arrowStep,
+  fastStep
+}) => {
+  const actualArrowStep = arrowStep || step;
+  const actualFastStep = fastStep || actualArrowStep * 10;
+  
+  const displayValue = formatValue ? formatValue(value) : value.toString();
+  
+  const handleArrowClick = (direction: 'up' | 'down', isFast = false) => {
+    const stepSize = isFast ? actualFastStep : actualArrowStep;
+    const newValue = direction === 'up' 
+      ? Math.min(value + stepSize, max)
+      : Math.max(value - stepSize, min);
+    
+    onChange(newValue);
+    onChangeComplete?.(newValue);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="block text-sm text-gray-300">
+          {label}
+          <span className="ml-2 text-xs text-gray-400">
+            {displayValue}{suffix}
+          </span>
+        </label>
+        
+        {showArrows && (
+          <div className="flex items-center space-x-1">
+            <button
+              type="button"
+              onClick={() => handleArrowClick('down')}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                let interval: NodeJS.Timeout;
+                let timeout: NodeJS.Timeout;
+                
+                timeout = setTimeout(() => {
+                  interval = setInterval(() => {
+                    handleArrowClick('down', true);
+                  }, 100);
+                }, 500);
+                
+                const cleanup = () => {
+                  clearTimeout(timeout);
+                  clearInterval(interval);
+                  document.removeEventListener('mouseup', cleanup);
+                  document.removeEventListener('mouseleave', cleanup);
+                };
+                
+                document.addEventListener('mouseup', cleanup);
+                document.addEventListener('mouseleave', cleanup);
+              }}
+              className="flex items-center justify-center w-6 h-6 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded text-gray-300 hover:text-white transition-colors"
+              title={`Decrease by ${actualArrowStep} (hold for fast)`}
+            >
+              <ChevronDown className="h-3 w-3" />
+            </button>
+            
+            <div className="w-12 text-center">
+              <span className="text-xs font-mono text-gray-300">{value}</span>
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => handleArrowClick('up')}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                let interval: NodeJS.Timeout;
+                let timeout: NodeJS.Timeout;
+                
+                timeout = setTimeout(() => {
+                  interval = setInterval(() => {
+                    handleArrowClick('up', true);
+                  }, 100);
+                }, 500);
+                
+                const cleanup = () => {
+                  clearTimeout(timeout);
+                  clearInterval(interval);
+                  document.removeEventListener('mouseup', cleanup);
+                  document.removeEventListener('mouseleave', cleanup);
+                };
+                
+                document.addEventListener('mouseup', cleanup);
+                document.addEventListener('mouseleave', cleanup);
+              }}
+              className="flex items-center justify-center w-6 h-6 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded text-gray-300 hover:text-white transition-colors"
+              title={`Increase by ${actualArrowStep} (hold for fast)`}
+            >
+              <ChevronUp className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+      
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onMouseUp={onChangeComplete ? (e) => onChangeComplete(parseFloat(e.target.value)) : undefined}
+        className="w-full bg-gray-800"
+      />
+      
+      {description && (
+        <p className="text-xs text-gray-400">{description}</p>
+      )}
+    </div>
+  );
 };
 
 // Main Enhanced CollageScene Component
