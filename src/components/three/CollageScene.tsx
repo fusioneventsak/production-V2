@@ -134,6 +134,12 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotatePauseOnInteraction?: number;
 }
 
+// Get current particle theme from settings
+const getCurrentParticleTheme = (settings: ExtendedSceneSettings) => {
+  const themeName = settings.particles?.theme || 'Purple Magic';
+  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
+};
+
 // ENHANCED GRID PATTERN - Perfect solid wall with no overlaps and smooth spacing control
 class EnhancedGridPattern {
   constructor(private settings: any) {}
