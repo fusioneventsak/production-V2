@@ -2196,7 +2196,6 @@ const EnhancedAnimationController: React.FC<{
 };
 
 // Enhanced Scene Settings with Precise Arrow Controls for Fine-tuning
-import React from 'react';
 import { ChevronUp, ChevronDown, Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Sphere, Gallery, Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
 
 // Enhanced Slider Component with Arrow Controls
