@@ -333,52 +333,78 @@ const EnhancedSceneSettings: React.FC<{
               <option value="spiral">Spiral</option>
             </select>
           </div>
+
+          {/* Animation Speed */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Animation Speed: {settings.animationSpeed || 50}%
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="100"
+              step="1"
+              value={settings.animationSpeed || 50}
+              onChange={(e) => onSettingsChange({ animationSpeed: parseInt(e.target.value) })}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>Slow (1%)</span>
+              <span>Fast (100%)</span>
+            </div>
+          </div>
+
+          {/* Photo Count */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              <div className="flex items-center justify-between">
+                <span>Default Photo Count</span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    min="5"
+                    max="500"
+                    value={settings.photoCount || 50}
+                    onChange={(e) => onSettingsChange({ photoCount: Math.min(500, Math.max(5, parseInt(e.target.value) || 5)) })}
+                    className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                  <span className="text-xs text-gray-400">photos</span>
+                  <button
+                    onClick={() => onSettingsChange({ photoCount: Math.max(5, (settings.photoCount || 50) - 1) })}
+                    className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
+                    title="Decrease by 1"
+                  >
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => onSettingsChange({ photoCount: Math.min(500, (settings.photoCount || 50) + 1) })}
+                    className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
+                    title="Increase by 1"
+                  >
+                    <ChevronUp className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </label>
+            <input
+              type="range"
+              min="5"
+              max="500"
+              step="1"
+              value={settings.photoCount || 50}
+              onChange={(e) => onSettingsChange({ photoCount: parseInt(e.target.value) })}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>5</span>
+              <span>500</span>
+            </div>
+          </div>
           
           {settings.animationEnabled && (
             <div>
               <label className="block text-sm text-gray-300 mb-2">
-                <div className="flex items-center justify-between">
-                  <span>Default Photo Count</span>
-                  <div className="flex items-center space-x-1">
-                    <input
-                      type="number"
-                      min="5"
-                      max="500"
-                      value={settings.photoCount || 50}
-                      onChange={(e) => onSettingsChange({ photoCount: Math.min(500, Math.max(5, parseInt(e.target.value) || 5)) })}
-                      className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-500"
-                    />
-                    <span className="text-xs text-gray-400">photos</span>
-                    <button
-                      onClick={() => onSettingsChange({ photoCount: Math.max(5, (settings.photoCount || 50) - 1) })}
-                      className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
-                      title="Decrease by 1"
-                    >
-                      <ChevronDown className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => onSettingsChange({ photoCount: Math.min(500, (settings.photoCount || 50) + 1) })}
-                      className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
-                      title="Increase by 1"
-                    >
-                      <ChevronUp className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
                 <span className="ml-2 text-xs text-gray-400">
-              <input
-                type="range"
-                min="5"
-                max="500"
-                step="1"
-                value={settings.photoCount || 50}
-                onChange={(e) => onSettingsChange({ photoCount: parseInt(e.target.value) })}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>5</span>
-                <span>500</span>
-              </div>
                   {settings.animationSpeed}%
                 </span>
               </label>
