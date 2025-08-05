@@ -337,7 +337,25 @@ const EnhancedSceneSettings: React.FC<{
           {settings.animationEnabled && (
             <div>
               <label className="block text-sm text-gray-300 mb-2">
-                Animation Speed
+                <div className="flex items-center justify-between">
+                  <span>Default Photo Count</span>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => onSettingsChange({ photoCount: Math.max(5, (settings.photoCount || 50) - 1) })}
+                      className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
+                      title="Decrease by 1"
+                    >
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => onSettingsChange({ photoCount: Math.min(500, (settings.photoCount || 50) + 1) })}
+                      className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
+                      title="Increase by 1"
+                    >
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
                 <span className="ml-2 text-xs text-gray-400">
                   {settings.animationSpeed}%
                 </span>
