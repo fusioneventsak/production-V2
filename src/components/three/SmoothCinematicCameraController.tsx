@@ -18,7 +18,7 @@ interface CinematicCameraConfig {
   transitionTime: number;
   pauseTime: number;
   randomization: number;
-  // FIXED: Enhanced interaction settings
+  // Enhanced interaction settings
   interactionSensitivity?: 'low' | 'medium' | 'high';
   ignoreMouseMovement?: boolean;
   mouseMoveThreshold?: number;
@@ -104,9 +104,26 @@ class SmoothCameraPath {
       .sort((a, b) => a.distance - b.distance);
 
     if (nearbyPhotos.length > 0) {
-      // Focus on the closest photo
-      const target = new THREE.Vector3(...nearbyPhotos[0].photo.position);
-      return target;
+      // Blend between multiple nearby photos for smoother transitions
+      const maxPhotosToBlend = 3;
+      const photosToBlend = nearbyPhotos.slice(0, maxPhotosToBlend);
+      
+      if (photosToBlend.length === 1) {
+        return new THREE.Vector3(...photosToBlend[0].photo.position);
+      }
+      
+      // Weighted average based on distance
+      const target = new THREE.Vector3();
+      let totalWeight = 0;
+      
+      photosToBlend.forEach(p => {
+        const weight = 1 / (p.distance + 0.1); // Avoid division by zero
+        const photoPos = new THREE.Vector3(...p.photo.position);
+        target.add(photoPos.multiplyScalar(weight));
+        totalWeight += weight;
+      });
+      
+      return target.divideScalar(totalWeight);
     } else {
       // Look ahead along the path
       const lookAheadT = (t + 0.1) % 1;
@@ -223,7 +240,7 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
-  // FIXED: Completely rewritten wave follow path generation
+  // COMPLETELY REWRITTEN: Wave follow path that creates beautiful cinematic loops
   static generateWaveFollowPath(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
     if (!photos.length) return [];
 
@@ -231,72 +248,91 @@ class CinematicPathGenerator {
     const waveAmplitude = settings.patterns?.wave?.amplitude || 15;
     const waveFrequency = settings.patterns?.wave?.frequency || 0.3;
     
-    console.log('🌊 FIXED: Generating wave follow path with amplitude:', waveAmplitude, 'frequency:', waveFrequency);
+    console.log('🌊 Generating cinematic wave follow path with amplitude:', waveAmplitude, 'frequency:', waveFrequency);
 
-    // Step 1: Sort photos to follow wave contours properly
-    const sortedPhotos = [...photos].sort((a, b) => {
-      // Primary sort by X position (wave direction)
-      const xDiff = a.position[0] - b.position[0];
-      if (Math.abs(xDiff) > photoSize * 0.5) return xDiff;
-      
-      // Secondary sort by Z position for photos at similar X
-      return a.position[2] - b.position[2];
-    });
+    // Find the bounds of all photos to understand the wave field
+    const bounds = this.getPhotoBounds(photos);
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+    const fieldRadius = Math.max(
+      Math.abs(bounds.maxX - centerX),
+      Math.abs(bounds.maxZ - centerZ)
+    ) + photoSize * 3;
 
     const waypoints: THREE.Vector3[] = [];
-    const baseHeight = -2; // Base camera height
-    const viewingDistance = photoSize * 2.2; // Distance from photos
-
-    // Step 2: Create serpentine waypoints that weave through the wave
-    sortedPhotos.forEach((photo, index) => {
-      // Calculate wave properties at this photo's position
-      const distanceFromCenter = Math.sqrt(photo.position[0] ** 2 + photo.position[2] ** 2);
-      const wavePhase = distanceFromCenter * waveFrequency;
+    
+    // Create multiple concentric paths at different radii for variety
+    const numRings = 3;
+    const pointsPerRing = 24;
+    
+    for (let ring = 0; ring < numRings; ring++) {
+      const ringProgress = ring / (numRings - 1);
+      const ringRadius = fieldRadius * (0.4 + ringProgress * 0.6);
       
-      // Dynamic height that follows the wave motion
-      const waveHeightOffset = Math.sin(wavePhase) * 3; // Camera follows wave vertically
-      const cameraHeight = baseHeight + waveHeightOffset;
-      
-      // Create serpentine approach pattern
-      const serpentinePhase = index * 0.4; // Controls how much the path weaves
-      const crossWaveOffset = Math.sin(serpentinePhase) * photoSize * 1.5;
-      const alongWaveOffset = Math.cos(serpentinePhase) * photoSize * 0.8;
-      
-      // Calculate approach angle (perpendicular to wave direction for good viewing)
-      const waveDirection = Math.atan2(photo.position[2], photo.position[0]);
-      const approachAngle = waveDirection + Math.PI * 0.3; // Slight offset for better angle
-      
-      // Position camera to get good viewing angle of the wave
-      const cameraX = photo.position[0] + Math.cos(approachAngle) * viewingDistance + crossWaveOffset;
-      const cameraZ = photo.position[2] + Math.sin(approachAngle) * viewingDistance + alongWaveOffset;
-      
-      waypoints.push(new THREE.Vector3(
-        cameraX,
-        cameraHeight,
-        cameraZ
-      ));
-      
-      // Add intermediate waypoints for smoother weaving (every 3rd photo)
-      if (index % 3 === 0 && index < sortedPhotos.length - 1) {
-        const nextPhoto = sortedPhotos[index + 1];
-        const midX = (photo.position[0] + nextPhoto.position[0]) / 2;
-        const midZ = (photo.position[2] + nextPhoto.position[2]) / 2;
-        const midDistance = Math.sqrt(midX ** 2 + midZ ** 2);
-        const midWavePhase = midDistance * waveFrequency;
-        const midHeight = baseHeight + Math.sin(midWavePhase) * 2;
+      for (let i = 0; i < pointsPerRing; i++) {
+        const angleProgress = i / pointsPerRing;
+        const angle = angleProgress * Math.PI * 2;
         
-        // Create weaving intermediate point
-        const weavingOffset = Math.sin((serpentinePhase + 0.2)) * photoSize * 1.8;
+        // Base position on the ring
+        const baseX = centerX + Math.cos(angle) * ringRadius;
+        const baseZ = centerZ + Math.sin(angle) * ringRadius;
         
-        waypoints.push(new THREE.Vector3(
-          midX + weavingOffset,
-          midHeight,
-          midZ - photoSize * 0.5
-        ));
+        // Calculate wave displacement at this position
+        const distanceFromCenter = Math.sqrt(
+          Math.pow(baseX - centerX, 2) + 
+          Math.pow(baseZ - centerZ, 2)
+        );
+        const wavePhase = distanceFromCenter * waveFrequency;
+        
+        // Add wave-following variations
+        const waveOffset = Math.sin(wavePhase + angle * 2) * waveAmplitude * 0.3;
+        const perpAngle = angle + Math.PI / 2;
+        
+        // Create undulating path that follows wave crests and troughs
+        const x = baseX + Math.cos(perpAngle) * waveOffset;
+        const z = baseZ + Math.sin(perpAngle) * waveOffset;
+        
+        // Dynamic height that follows the wave pattern
+        const baseHeight = -3;
+        const waveHeight = Math.sin(wavePhase) * 2;
+        const undulation = Math.sin(angleProgress * Math.PI * 4 + ring) * 1.5;
+        const y = baseHeight + waveHeight + undulation;
+        
+        waypoints.push(new THREE.Vector3(x, y, z));
+        
+        // Add intermediate swooping points for more dynamic movement
+        if (i % 3 === 0) {
+          const swoopAngle = angle + Math.PI / 8;
+          const swoopRadius = ringRadius * (0.9 + Math.sin(angleProgress * Math.PI * 6) * 0.2);
+          const swoopX = centerX + Math.cos(swoopAngle) * swoopRadius;
+          const swoopZ = centerZ + Math.sin(swoopAngle) * swoopRadius;
+          const swoopHeight = baseHeight + Math.sin(wavePhase + 0.5) * 3;
+          
+          waypoints.push(new THREE.Vector3(swoopX, swoopHeight, swoopZ));
+        }
       }
-    });
+    }
+    
+    // Add figure-8 pattern through the wave for extra cinematography
+    const figure8Points = 16;
+    for (let i = 0; i < figure8Points; i++) {
+      const t = i / figure8Points;
+      const figure8Angle = t * Math.PI * 4;
+      
+      // Figure-8 parametric equations
+      const scale = fieldRadius * 0.7;
+      const x = centerX + scale * Math.sin(figure8Angle);
+      const z = centerZ + scale * Math.sin(figure8Angle * 2) / 2;
+      
+      // Calculate wave height at this position
+      const dist = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(z - centerZ, 2));
+      const wavePhase = dist * waveFrequency;
+      const y = -2 + Math.sin(wavePhase) * 2.5 + Math.cos(figure8Angle * 3) * 1;
+      
+      waypoints.push(new THREE.Vector3(x, y, z));
+    }
 
-    console.log(`🌊 FIXED: Generated ${waypoints.length} waypoints for wave pattern (was creating straight line, now weaves through)`);
+    console.log(`🌊 Generated ${waypoints.length} cinematic waypoints for wave pattern`);
     
     return waypoints;
   }
@@ -390,13 +426,13 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   const currentPathRef = useRef<SmoothCameraPath | null>(null);
   const visibilityTrackerRef = useRef(new Set<string>());
   
-  // FIXED: Enhanced interaction tracking
+  // Enhanced interaction tracking
   const lastUserPositionRef = useRef<THREE.Vector3>();
   const lastUserTargetRef = useRef<THREE.Vector3>();
   const resumeBlendRef = useRef(0);
   const isResuming = useRef(false);
 
-  // FIXED: Add automatic config change detection
+  // Add automatic config change detection
   const lastConfigRef = useRef<string>('');
   const isConfigTransitioningRef = useRef(false);
   const configTransitionStartRef = useRef(0);
@@ -456,7 +492,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     currentPathRef.current = cameraPath;
   }, [cameraPath]);
 
-  // FIXED: Enhanced user interaction detection - COMPLETELY NO MOUSE HOVER
+  // Enhanced user interaction detection - NO MOUSE HOVER
   useEffect(() => {
     const canvas = document.querySelector('canvas');
     if (!canvas || !config?.enabled) return;
@@ -468,7 +504,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     const handleInteractionStart = (e: Event) => {
       const eventType = e.type;
       
-      // FIXED: Only detect clicks, touches, and wheel - NEVER mouse movement
+      // Only detect clicks, touches, and wheel - NEVER mouse movement
       if (eventType === 'mousedown' || eventType === 'touchstart') {
         console.log('🎮 Camera Animation: User interaction started -', eventType);
         userInteractingRef.current = true;
@@ -509,14 +545,12 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       }
     };
 
-    // FIXED: Only listen to actual interaction events - NO MOUSE MOVEMENT AT ALL
+    // Only listen to actual interaction events - NO MOUSE MOVEMENT AT ALL
     canvas.addEventListener('mousedown', handleInteractionStart);
     canvas.addEventListener('touchstart', handleInteractionStart);
     canvas.addEventListener('wheel', handleInteractionStart);
     canvas.addEventListener('mouseup', handleInteractionEnd);
     canvas.addEventListener('touchend', handleInteractionEnd);
-
-    // FIXED: Completely removed mousemove listener - no mouse hover detection
 
     return () => {
       canvas.removeEventListener('mousedown', handleInteractionStart);
@@ -527,7 +561,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     };
   }, [config, camera, controls]);
 
-  // FIXED: Also listen to OrbitControls events for better integration
+  // Also listen to OrbitControls events for better integration
   useEffect(() => {
     if (!controls || !config?.enabled) return;
 
@@ -559,14 +593,14 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     }
   }, [controls, config]);
 
-  // FIXED: Enhanced animation loop with automatic config change detection and smooth resume
+  // Enhanced animation loop with automatic config change detection and smooth resume
   useFrame((state, delta) => {
     if (!config?.enabled || !currentPathRef.current || config.type === 'none') {
       isActiveRef.current = false;
       return;
     }
 
-    // FIXED: Automatic config change detection
+    // Automatic config change detection
     const currentConfigKey = `${config.type}-${config.speed}-${animationPattern}-${config.enabled}`;
     
     if (lastConfigRef.current !== '' && lastConfigRef.current !== currentConfigKey) {
@@ -604,7 +638,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return;
     }
 
-    // FIXED: Smooth resume with blending
+    // Smooth resume with blending
     if (!isActiveRef.current) {
       isActiveRef.current = true;
       isResuming.current = true;
@@ -620,14 +654,14 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     // Get smooth camera position
     const targetPosition = currentPathRef.current.getPositionAt(pathProgressRef.current);
     
-    // Get smooth look-at target
+    // Get smooth look-at target with better blending
     const lookAtTarget = currentPathRef.current.getLookAtTarget(
       pathProgressRef.current, 
       photoPositions, 
       config.focusDistance || 12
     );
 
-    // FIXED: Handle automatic config transitions (takes priority)
+    // Handle automatic config transitions (takes priority)
     const configTransitionTime = 2500; // 2.5 seconds for config transitions
     const timeSinceConfigChange = Date.now() - configTransitionStartRef.current;
     
@@ -654,7 +688,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return; // Skip other logic during config transition
     }
 
-    // FIXED: Smooth blending when resuming from user interaction
+    // Smooth blending when resuming from user interaction
     let lerpFactor = 0.03; // Default smooth lerping
     
     if (isResuming.current) {
@@ -673,11 +707,17 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
 
     // Apply smooth camera movement
     camera.position.lerp(targetPosition, lerpFactor);
-    camera.lookAt(lookAtTarget);
+    
+    // Smooth look-at with easing
+    const currentLookAt = new THREE.Vector3();
+    camera.getWorldDirection(currentLookAt);
+    currentLookAt.multiplyScalar(50).add(camera.position);
+    currentLookAt.lerp(lookAtTarget, lerpFactor * 0.7);
+    camera.lookAt(currentLookAt);
 
     // Update controls
     if (controls && 'target' in controls) {
-      (controls as any).target.lerp(lookAtTarget, lerpFactor * 0.7);
+      (controls as any).target.lerp(lookAtTarget, lerpFactor * 0.5);
       (controls as any).update();
     }
 
@@ -706,13 +746,13 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log(`🎬 FULLY FIXED Smooth Cinematic Camera Active: ${config.type}`);
-      console.log(`🌊 WAVE PATTERN FIXED: Camera now weaves through wave instead of staying on edge!`);
-      console.log(`🚫 Mouse hover completely ignored: ${config.ignoreMouseMovement !== false}`);
+      console.log(`🎬 Cinematic Camera Active: ${config.type}`);
+      console.log(`🌊 WAVE PATTERN FIXED: Beautiful looping paths through wave field!`);
+      console.log(`🚫 Mouse hover ignored: ${config.ignoreMouseMovement !== false}`);
       console.log(`🔄 Auto config change detection: ENABLED`);
       console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
       console.log(`🎮 Manual control: ${config.enableManualControl !== false ? 'enabled' : 'disabled'}`);
-      console.log(`📹 Continuous path generated - perfect for video recording!`);
+      console.log(`📹 Continuous cinematic loops - perfect for video recording!`);
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}, Focus: ${config.focusDistance}`);
     }
   }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.ignoreMouseMovement, config?.resumeDelay, config?.enableManualControl]);
