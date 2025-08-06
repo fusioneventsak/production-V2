@@ -1,13 +1,13 @@
-// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features - RESTORED GRID SETTINGS & AUTO ROTATE DEFAULT
+// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features & NEW FLOOR TEXTURES
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { ChevronUp, ChevronDown, Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Cherry as Sphere, GalleryVertical as Gallery, BookAudio as Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
 import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
 
-// Extended settings interface for new features
+// Extended settings interface for new features - UPDATED WITH ALL FLOOR TEXTURES
 interface ExtendedSceneSettings extends SceneSettings {
   sceneEnvironment?: 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
-  floorTexture?: 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+  floorTexture?: 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom' | 'checker' | 'gradient' | 'noise' | 'stripes' | 'circles' | 'grid' | 'hexagon' | 'triangles' | 'waves' | 'diamonds' | 'circuit';
   customFloorTextureUrl?: string;
   environmentIntensity?: number;
   cubeTextureUrl?: string;
@@ -1192,86 +1192,7 @@ const EnhancedSceneSettings: React.FC<{
                     />
                   </div>
 
-                  {/* Advanced Controls */}
-                  <div className="border-t border-gray-700 pt-4">
-                    <h6 className="text-xs font-medium text-gray-300 mb-3">⚙️ Advanced Movement Controls</h6>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Elevation Min
-                          <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAutoRotateElevationMin || Math.PI/6) * 180 / Math.PI)}°</span>
-                        </label>
-                        <input
-                          type="range"
-                          min={Math.PI/12}
-                          max={Math.PI/2}
-                          step={Math.PI/180}
-                          value={settings.cameraAutoRotateElevationMin || Math.PI/6}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAutoRotateElevationMin: parseFloat(e.target.value)
-                          }, true)}
-                          className="w-full bg-gray-800"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-300 mb-2">
-                          Elevation Max
-                          <span className="ml-2 text-xs text-gray-400">{Math.round((settings.cameraAutoRotateElevationMax || Math.PI/3) * 180 / Math.PI)}°</span>
-                        </label>
-                        <input
-                          type="range"
-                          min={Math.PI/6}
-                          max={Math.PI/1.5}
-                          step={Math.PI/180}
-                          value={settings.cameraAutoRotateElevationMax || Math.PI/3}
-                          onChange={(e) => onSettingsChange({ 
-                            cameraAutoRotateElevationMax: parseFloat(e.target.value)
-                          }, true)}
-                          className="w-full bg-gray-800"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">
-                        Distance Variation
-                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateDistanceVariation || 0).toFixed(0)} units</span>
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="20"
-                        step="1"
-                        value={settings.cameraAutoRotateDistanceVariation || 0}
-                        onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotateDistanceVariation: parseFloat(e.target.value)
-                        }, true)}
-                        className="w-full bg-gray-800"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">
-                        Vertical Drift
-                        <span className="ml-2 text-xs text-gray-400">{(settings.cameraAutoRotateVerticalDrift || 0).toFixed(1)} units</span>
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        step="0.5"
-                        value={settings.cameraAutoRotateVerticalDrift || 0}
-                        onChange={(e) => onSettingsChange({ 
-                          cameraAutoRotateVerticalDrift: parseFloat(e.target.value)
-                        }, true)}
-                        className="w-full bg-gray-800"
-                      />
-                    </div>
-                  </div>
-
-                  {/* ENHANCED DYNAMIC CONTROLS - ADD THIS SECTION */}
+                  {/* ENHANCED DYNAMIC CONTROLS */}
                   <div className="border-t border-blue-600/30 pt-4 mt-4">
                     <h6 className="text-xs font-medium text-blue-300 mb-3">🌊 Dynamic Movement Effects</h6>
                     
@@ -1528,7 +1449,7 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* Floor & Grid Settings - RESTORED */}
+      {/* Floor & Grid Settings - ENHANCED WITH ALL NEW TEXTURES */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Layers className="h-4 w-4 mr-2" />
@@ -1570,10 +1491,60 @@ const EnhancedSceneSettings: React.FC<{
                   <option value="concrete">🏗️ Concrete</option>
                   <option value="metal">⚙️ Metal</option>
                   <option value="glass">💎 Glass</option>
-                  <option value="checkerboard">♟️ Checkerboard</option>
+                  <option value="checkerboard">♟️ Checkerboard (B&W)</option>
+                  <option value="checker">🔲 Checker (Gray)</option>
+                  <option value="gradient">🌈 Rainbow Gradient</option>
+                  <option value="noise">📺 Digital Noise</option>
+                  <option value="stripes">🌈 Colorful Stripes</option>
+                  <option value="circles">⚪ White Circles</option>
+                  <option value="grid">🟢 Neon Grid</option>
+                  <option value="hexagon">⬡ Hexagon Pattern</option>
+                  <option value="triangles">🔺 Triangle Pattern</option>
+                  <option value="waves">🌊 Wave Lines</option>
+                  <option value="diamonds">💎 Diamond Pattern</option>
+                  <option value="circuit">🔌 Circuit Board</option>
                   <option value="custom">🖼️ Custom Image</option>
                 </select>
+                <p className="mt-1 text-xs text-gray-400">
+                  {settings.floorTexture === 'solid' && "Solid color floor using the Floor Color setting below"}
+                  {settings.floorTexture === 'marble' && "Elegant marble texture with veining patterns"}
+                  {settings.floorTexture === 'wood' && "Natural wood grain with warm brown tones"}
+                  {settings.floorTexture === 'concrete' && "Industrial concrete with speckled texture"}
+                  {settings.floorTexture === 'metal' && "Brushed metal surface with reflective properties"}
+                  {settings.floorTexture === 'glass' && "Translucent glass with light streaks"}
+                  {settings.floorTexture === 'checkerboard' && "Classic black and white checkered pattern"}
+                  {settings.floorTexture === 'checker' && "Gray and white checker pattern, softer contrast"}
+                  {settings.floorTexture === 'gradient' && "Vibrant rainbow gradient from corner to corner"}
+                  {settings.floorTexture === 'noise' && "Digital noise pattern with colorful static effect"}
+                  {settings.floorTexture === 'stripes' && "Bold colorful horizontal stripes"}
+                  {settings.floorTexture === 'circles' && "Regular grid of white circles on dark background"}
+                  {settings.floorTexture === 'grid' && "Glowing green grid lines on dark background"}
+                  {settings.floorTexture === 'hexagon' && "Modern hexagonal honeycomb pattern"}
+                  {settings.floorTexture === 'triangles' && "Geometric triangle pattern in dark blue tones"}
+                  {settings.floorTexture === 'waves' && "Flowing wave lines in ocean blue colors"}
+                  {settings.floorTexture === 'diamonds' && "Diamond pattern in warm brown tones"}
+                  {settings.floorTexture === 'circuit' && "High-tech circuit board with glowing green traces"}
+                  {settings.floorTexture === 'custom' && "Use your own custom texture image from a URL"}
+                  {(!settings.floorTexture || settings.floorTexture === 'solid') && "Solid color floor using the Floor Color setting below"}
+                </p>
               </div>
+
+              {/* Custom Texture URL input */}
+              {settings.floorTexture === 'custom' && (
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">Custom Floor Texture URL</label>
+                  <input
+                    type="url"
+                    value={settings.customFloorTextureUrl || ''}
+                    onChange={(e) => onSettingsChange({ customFloorTextureUrl: e.target.value }, true)}
+                    placeholder="https://example.com/texture.jpg"
+                    className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white text-sm"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Enter a URL for a custom floor texture image. Image will be tiled across the floor.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
