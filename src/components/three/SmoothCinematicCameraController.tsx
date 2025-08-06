@@ -235,7 +235,7 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
-  // COMPLETELY REWRITTEN: Wave follow that actually visits photos
+  // COMPLETELY REWRITTEN: Wave follow with center start and maximum photo visibility
   static generateWaveFollowPath(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
     if (!photos.length) return [];
 
@@ -243,109 +243,188 @@ class CinematicPathGenerator {
     const waveAmplitude = settings.patterns?.wave?.amplitude || 15;
     const waveFrequency = settings.patterns?.wave?.frequency || 0.3;
     
-    console.log('🌊 FIXED: Generating wave follow path that visits ALL photos');
-    console.log(`📸 Total photos to visit: ${photos.length}`);
+    console.log('🌊 Generating wave follow path - CENTER START with maximum photo visibility');
+    console.log(`📸 Total photos to capture: ${photos.length}`);
 
-    // Step 1: Analyze the actual photo layout
+    // Analyze the actual photo layout
     const bounds = this.getPhotoBounds(photos);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+    const fieldWidth = bounds.maxX - bounds.minX;
+    const fieldDepth = bounds.maxZ - bounds.minZ;
+    const fieldRadius = Math.max(fieldWidth, fieldDepth) / 2;
     
-    console.log('📍 Photo field bounds:', {
-      x: `${bounds.minX.toFixed(1)} to ${bounds.maxX.toFixed(1)}`,
-      z: `${bounds.minZ.toFixed(1)} to ${bounds.maxZ.toFixed(1)}`,
-      center: `(${centerX.toFixed(1)}, ${centerZ.toFixed(1)})`
+    console.log('📍 Wave field analysis:', {
+      center: `(${centerX.toFixed(1)}, ${centerZ.toFixed(1)})`,
+      size: `${fieldWidth.toFixed(1)} x ${fieldDepth.toFixed(1)}`,
+      photoCount: photos.length
     });
 
-    // Step 2: Group photos by their angular position (for radial traversal)
-    const photosByAngle = [...photos].map(photo => {
-      const dx = photo.position[0] - centerX;
-      const dz = photo.position[2] - centerZ;
-      const angle = Math.atan2(dz, dx);
-      const radius = Math.sqrt(dx * dx + dz * dz);
-      return { photo, angle, radius };
-    }).sort((a, b) => a.angle - b.angle);
-
-    // Step 3: Create waypoints that spiral through all photos
     const waypoints: THREE.Vector3[] = [];
-    const viewDistance = photoSize * 2.5;
-    const baseHeight = -3;
+    
+    // Calculate optimal viewing distance based on photo density
+    const photoDensity = photos.length / (fieldWidth * fieldDepth);
+    const optimalDistance = photoSize * (photoDensity > 0.05 ? 3 : 4); // Closer for dense layouts
+    const maxDistance = fieldRadius + photoSize * 2; // Never go too far from photos
+    
+    // START FROM CENTER - Dramatic entrance
+    const startHeight = 5; // Start high
+    waypoints.push(new THREE.Vector3(centerX, startHeight, centerZ));
+    
+    // Descend into the wave pattern
+    for (let i = 1; i <= 3; i++) {
+      const t = i / 3;
+      const height = startHeight * (1 - t) + (-2) * t; // Smooth descent
+      waypoints.push(new THREE.Vector3(
+        centerX + Math.sin(t * Math.PI) * photoSize,
+        height,
+        centerZ + Math.cos(t * Math.PI) * photoSize
+      ));
+    }
 
-    // First pass: Create a spiral that visits each photo
-    photosByAngle.forEach((item, index) => {
-      const { photo, angle, radius } = item;
-      
-      // Calculate viewing position for this photo
-      // Position camera at a good angle to see the photo
-      const viewAngle = angle - Math.PI * 0.15; // Slight offset for better viewing
-      const viewRadius = radius + viewDistance;
+    // MAIN PATHS: Multiple cinematic flythrough patterns
+    
+    // Path 1: Spiral outward from center (expanding view)
+    const spiralPoints = Math.min(photos.length, 30);
+    for (let i = 0; i < spiralPoints; i++) {
+      const t = i / spiralPoints;
+      const angle = t * Math.PI * 4; // 2 full rotations
+      const radius = t * fieldRadius * 0.8; // Expand outward but stay close
       
       // Calculate wave height at this position
       const wavePhase = radius * waveFrequency;
       const waveHeight = Math.sin(wavePhase) * 2;
       
-      // Add main viewing waypoint
-      const x = centerX + Math.cos(viewAngle) * viewRadius;
-      const z = centerZ + Math.sin(viewAngle) * viewRadius;
-      const y = baseHeight + waveHeight + Math.sin(index * 0.1) * 1.5;
+      // Position with wave following
+      const x = centerX + Math.cos(angle) * radius;
+      const z = centerZ + Math.sin(angle) * radius;
+      const y = -2 + waveHeight + Math.sin(t * Math.PI * 2) * 1;
       
       waypoints.push(new THREE.Vector3(x, y, z));
+    }
+
+    // Path 2: Cross-wave sweeps (perpendicular to wave crests)
+    const sweepLines = 4;
+    for (let sweep = 0; sweep < sweepLines; sweep++) {
+      const sweepProgress = sweep / (sweepLines - 1);
+      const sweepZ = bounds.minZ + sweepProgress * fieldDepth;
       
-      // Add intermediate waypoint for smoother movement (every 2nd photo)
-      if (index % 2 === 1 && index < photosByAngle.length - 1) {
-        const nextItem = photosByAngle[index + 1];
-        const midAngle = (angle + nextItem.angle) / 2;
-        const midRadius = (radius + nextItem.radius) / 2 + viewDistance;
-        const midWavePhase = midRadius * waveFrequency;
+      // Zigzag across the width
+      const pointsPerSweep = 5;
+      for (let i = 0; i < pointsPerSweep; i++) {
+        const t = i / (pointsPerSweep - 1);
+        const zigzag = sweep % 2 === 0 ? t : 1 - t; // Alternate direction
         
-        const midX = centerX + Math.cos(midAngle) * midRadius;
-        const midZ = centerZ + Math.sin(midAngle) * midRadius;
-        const midY = baseHeight + Math.sin(midWavePhase) * 2.5;
+        const x = bounds.minX + zigzag * fieldWidth;
+        const distFromCenter = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(sweepZ - centerZ, 2));
+        const wavePhase = distFromCenter * waveFrequency;
+        const y = -3 + Math.sin(wavePhase) * 2.5 + Math.cos(i * 0.5) * 1;
         
-        waypoints.push(new THREE.Vector3(midX, midY, midZ));
+        // Stay at optimal distance to see multiple photos
+        const viewX = x;
+        const viewZ = sweepZ + (sweep % 2 === 0 ? optimalDistance : -optimalDistance);
+        
+        waypoints.push(new THREE.Vector3(viewX, y, viewZ));
+      }
+    }
+
+    // Path 3: Wave crest following (ride along the wave peaks)
+    const waveRings = 3;
+    for (let ring = 0; ring < waveRings; ring++) {
+      const targetRadius = fieldRadius * (0.3 + ring * 0.3); // Different wave crests
+      const pointsPerRing = 16;
+      
+      for (let i = 0; i < pointsPerRing; i++) {
+        const angle = (i / pointsPerRing) * Math.PI * 2;
+        
+        // Follow the wave crest at this radius
+        const wavePhase = targetRadius * waveFrequency;
+        const crestHeight = Math.sin(wavePhase) * 3;
+        
+        // Undulate around the crest
+        const x = centerX + Math.cos(angle) * targetRadius;
+        const z = centerZ + Math.sin(angle) * targetRadius;
+        const y = -2 + crestHeight + Math.sin(angle * 4) * 1;
+        
+        waypoints.push(new THREE.Vector3(x, y, z));
+      }
+    }
+
+    // Path 4: Focus sweeps through photo clusters
+    // Group photos by proximity to identify clusters
+    const clusterCenters: THREE.Vector3[] = [];
+    const visited = new Set<number>();
+    
+    photos.forEach((photo, idx) => {
+      if (visited.has(idx)) return;
+      
+      // Find nearby photos
+      const cluster: PhotoPosition[] = [photo];
+      visited.add(idx);
+      
+      photos.forEach((other, otherIdx) => {
+        if (visited.has(otherIdx)) return;
+        const dist = Math.sqrt(
+          Math.pow(photo.position[0] - other.position[0], 2) +
+          Math.pow(photo.position[2] - other.position[2], 2)
+        );
+        if (dist < photoSize * 3) {
+          cluster.push(other);
+          visited.add(otherIdx);
+        }
+      });
+      
+      // Calculate cluster center
+      if (cluster.length > 2) {
+        const cx = cluster.reduce((sum, p) => sum + p.position[0], 0) / cluster.length;
+        const cz = cluster.reduce((sum, p) => sum + p.position[2], 0) / cluster.length;
+        clusterCenters.push(new THREE.Vector3(cx, 0, cz));
       }
     });
 
-    // Step 4: Add a second orbital pass at different height/distance for variety
-    const secondPassPoints = Math.min(photos.length, 20);
-    const selectedPhotos = [];
-    const step = Math.max(1, Math.floor(photos.length / secondPassPoints));
-    
-    for (let i = 0; i < photos.length; i += step) {
-      selectedPhotos.push(photosByAngle[i]);
-    }
-    
-    selectedPhotos.forEach((item, index) => {
-      const { photo, angle, radius } = item;
+    // Fly through clusters
+    clusterCenters.forEach((cluster, idx) => {
+      const angle = Math.atan2(cluster.z - centerZ, cluster.x - centerX);
       
-      // Different viewing angle and distance for variety
-      const viewAngle = angle + Math.PI * 0.1;
-      const viewRadius = radius + viewDistance * 1.3;
-      const wavePhase = radius * waveFrequency + Math.PI;
+      // Approach from optimal angle to see multiple photos
+      const approachDist = optimalDistance;
+      const viewX = cluster.x - Math.cos(angle) * approachDist;
+      const viewZ = cluster.z - Math.sin(angle) * approachDist;
       
-      const x = centerX + Math.cos(viewAngle) * viewRadius;
-      const z = centerZ + Math.sin(viewAngle) * viewRadius;
-      const y = baseHeight - 1 + Math.sin(wavePhase) * 1.5;
+      // Wave height at cluster
+      const distFromCenter = Math.sqrt(Math.pow(cluster.x - centerX, 2) + Math.pow(cluster.z - centerZ, 2));
+      const wavePhase = distFromCenter * waveFrequency;
+      const y = -2 + Math.sin(wavePhase) * 2;
       
-      waypoints.push(new THREE.Vector3(x, y, z));
+      waypoints.push(new THREE.Vector3(viewX, y, viewZ));
+      
+      // Sweep across the cluster
+      const sweepAngle = angle + Math.PI / 2;
+      waypoints.push(new THREE.Vector3(
+        cluster.x + Math.cos(sweepAngle) * photoSize * 2,
+        y + 1,
+        cluster.z + Math.sin(sweepAngle) * photoSize * 2
+      ));
     });
 
-    // Step 5: Add connecting sweep to ensure smooth loop
-    const sweepPoints = 8;
-    for (let i = 0; i < sweepPoints; i++) {
-      const t = i / sweepPoints;
-      const sweepAngle = t * Math.PI * 2;
-      const sweepRadius = (bounds.maxX - centerX + bounds.maxZ - centerZ) / 2 + viewDistance * 1.5;
+    // Path 5: Return to center with ascending spiral (cinematic ending)
+    const returnPoints = 8;
+    for (let i = 0; i < returnPoints; i++) {
+      const t = i / returnPoints;
+      const angle = Math.PI * 2 * (1 - t); // Spiral inward
+      const radius = fieldRadius * 0.5 * (1 - t); // Contract to center
+      const height = -2 + t * 4; // Ascend
       
-      const x = centerX + Math.cos(sweepAngle) * sweepRadius * (1 + Math.sin(t * Math.PI * 3) * 0.2);
-      const z = centerZ + Math.sin(sweepAngle) * sweepRadius * (1 + Math.cos(t * Math.PI * 3) * 0.2);
-      const y = baseHeight + Math.sin(t * Math.PI * 4) * 3;
-      
-      waypoints.push(new THREE.Vector3(x, y, z));
+      waypoints.push(new THREE.Vector3(
+        centerX + Math.cos(angle) * radius,
+        height,
+        centerZ + Math.sin(angle) * radius
+      ));
     }
 
-    console.log(`🌊 Generated ${waypoints.length} waypoints visiting all ${photos.length} photos`);
-    console.log('✅ Path includes: main viewing angles, intermediate points, second pass, and connecting sweeps');
+    console.log(`🌊 Generated ${waypoints.length} waypoints for maximum photo visibility`);
+    console.log('✅ Path: CENTER START → Spiral out → Cross sweeps → Wave crests → Clusters → Return');
+    console.log(`📸 Optimal viewing distance: ${optimalDistance.toFixed(1)} units (based on ${photos.length} photos)`);
     
     return waypoints;
   }
