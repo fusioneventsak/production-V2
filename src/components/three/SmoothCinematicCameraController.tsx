@@ -140,20 +140,25 @@ class SmoothCameraPath {
     const loopT = ((t % 1) + 1) % 1;
     const currentPos = this.getPositionAt(t);
     
+    // The focus distance now affects how the camera behaves
+    const effectiveFocusDistance = focusDistance || 12;
+    
     // GRACEFUL LOOK: Natural forward-looking with gentle vertical limits
     if (pathType === 'showcase' || pathType === 'grid_sweep') {
-      // Look ahead in movement direction with natural gaze
-      const lookAheadT = (loopT + 0.03) % 1;
+      // Look ahead in movement direction with focus-based distance
+      const lookAheadT = (loopT + (0.01 + (25 - effectiveFocusDistance) * 0.001)) % 1;
       const lookAheadPos = this.getPositionAt(lookAheadT);
       
       // Create natural look direction
       const lookDirection = lookAheadPos.clone().sub(currentPos);
       
-      // Gentle vertical constraint - allow some natural up/down but not extreme
+      // Focus affects how far we look - smaller focus = look closer, larger = look farther
+      const lookMultiplier = effectiveFocusDistance / 12; // Normalized to default
+      
+      // Gentle vertical constraint
       const horizontalDistance = Math.sqrt(lookDirection.x * lookDirection.x + lookDirection.z * lookDirection.z);
       const verticalAngle = Math.atan2(lookDirection.y, horizontalDistance);
       
-      // Limit vertical angle to +/- 15 degrees (0.26 radians)
       const maxVerticalAngle = 0.26;
       if (Math.abs(verticalAngle) > maxVerticalAngle) {
         const clampedAngle = Math.sign(verticalAngle) * maxVerticalAngle;
@@ -162,70 +167,119 @@ class SmoothCameraPath {
       
       lookDirection.normalize();
       
-      // Look ahead with natural distance
+      // Focus distance affects how far ahead we look
       const lookTarget = currentPos.clone();
-      lookTarget.x += lookDirection.x * focusDistance * 1.5;
-      lookTarget.y += lookDirection.y * focusDistance * 1.5; // Natural slight vertical
-      lookTarget.z += lookDirection.z * focusDistance * 1.5;
+      lookTarget.x += lookDirection.x * effectiveFocusDistance;
+      lookTarget.y += lookDirection.y * effectiveFocusDistance * 0.5;
+      lookTarget.z += lookDirection.z * effectiveFocusDistance;
+      
+      // With smaller focus, look for nearby photos to focus on
+      if (effectiveFocusDistance < 15) {
+        const nearbyPhotos = photoPositions
+          .filter(p => !p.id.startsWith('placeholder-'))
+          .map(p => ({
+            photo: p,
+            distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
+          }))
+          .filter(p => p.distance <= effectiveFocusDistance)
+          .sort((a, b) => a.distance - b.distance);
+
+        if (nearbyPhotos.length > 0) {
+          const photoTarget = new THREE.Vector3(...nearbyPhotos[0].photo.position);
+          // Stronger blend with smaller focus distance
+          const blendFactor = Math.min(1.0, (16 - effectiveFocusDistance) / 8);
+          lookTarget.lerp(photoTarget, blendFactor);
+        }
+      }
       
       return lookTarget;
     }
     
-    // Special handling for photo_focus path - graceful photo viewing
+    // Special handling for photo_focus path
     if (pathType === 'photo_focus') {
-      // Find the nearest photo to focus on
+      // Focus distance strongly affects photo detection range
+      const detectionRange = effectiveFocusDistance * 1.5;
+      
       const nearbyPhotos = photoPositions
         .filter(p => !p.id.startsWith('placeholder-'))
         .map(p => ({
           photo: p,
           distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
         }))
+        .filter(p => p.distance <= detectionRange)
         .sort((a, b) => a.distance - b.distance);
 
-      if (nearbyPhotos.length > 0 && nearbyPhotos[0].distance <= focusDistance * 2) {
+      if (nearbyPhotos.length > 0) {
         const photoTarget = new THREE.Vector3(...nearbyPhotos[0].photo.position);
         
-        // Graceful viewing angle - limit how steep we look
+        // Graceful viewing angle
         const toPhoto = photoTarget.clone().sub(currentPos);
         const horizontalDist = Math.sqrt(toPhoto.x * toPhoto.x + toPhoto.z * toPhoto.z);
-        const currentAngle = Math.atan2(-toPhoto.y, horizontalDist); // Negative because looking down is negative
+        const currentAngle = Math.atan2(-toPhoto.y, horizontalDist);
         
-        // If angle is too steep (more than 30 degrees down), adjust gracefully
-        const maxDownAngle = 0.52; // 30 degrees in radians
+        const maxDownAngle = 0.52;
         if (currentAngle > maxDownAngle) {
-          // Adjust the target to maintain a comfortable viewing angle
           const adjustedY = currentPos.y - Math.tan(maxDownAngle) * horizontalDist;
           photoTarget.y = adjustedY;
         }
         
         return photoTarget;
       }
+      
+      // If no photos in range, look ahead based on focus distance
+      const lookAheadT = (loopT + 0.05) % 1;
+      const lookAheadPos = this.getPositionAt(lookAheadT);
+      const direction = lookAheadPos.clone().sub(currentPos);
+      direction.normalize();
+      return currentPos.clone().add(direction.multiplyScalar(effectiveFocusDistance));
     }
     
-    // Default: use the look-at curve with gentle constraints
+    // For other paths, use focus distance to determine look behavior
     if (!this.lookAtCurve) {
       const lookAheadT = (t + 0.05) % 1;
       const lookAheadPos = this.getPositionAt(lookAheadT);
       
       const direction = lookAheadPos.clone().sub(currentPos);
-      // Allow natural vertical movement, just not extreme
       if (direction.y < -2) direction.y = -2;
       if (direction.y > 2) direction.y = 2;
       direction.normalize();
       
-      const target = currentPos.clone().add(direction.multiplyScalar(focusDistance));
+      const target = currentPos.clone().add(direction.multiplyScalar(effectiveFocusDistance));
       return target;
     }
     
     const baseLookAt = this.lookAtCurve.getPointAt(loopT);
     
-    // Gentle constraint: don't look too steeply up or down
+    // Focus distance affects how we blend with nearby photos
+    const nearbyPhotos = photoPositions
+      .filter(p => !p.id.startsWith('placeholder-'))
+      .map(p => ({
+        photo: p,
+        distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
+      }))
+      .filter(p => p.distance <= effectiveFocusDistance)
+      .sort((a, b) => a.distance - b.distance);
+
+    if (nearbyPhotos.length > 0) {
+      const photoTarget = new THREE.Vector3(...nearbyPhotos[0].photo.position);
+      // Stronger blend with closer focus distance
+      const blendFactor = Math.min(0.8, effectiveFocusDistance / nearbyPhotos[0].distance);
+      
+      // Ensure we don't look down too steeply
+      const heightDiff = currentPos.y - photoTarget.y;
+      if (heightDiff > 3) {
+        photoTarget.y = currentPos.y - 2;
+      }
+      
+      return baseLookAt.lerp(photoTarget, blendFactor);
+    }
+    
+    // Gentle constraint on base look-at
     const toLookAt = baseLookAt.clone().sub(currentPos);
     const horizontalDist = Math.sqrt(toLookAt.x * toLookAt.x + toLookAt.z * toLookAt.z);
     const verticalAngle = Math.atan2(toLookAt.y, horizontalDist);
     
-    // Limit to comfortable viewing angles (+/- 25 degrees)
-    const maxAngle = 0.44; // 25 degrees in radians
+    const maxAngle = 0.44;
     if (Math.abs(verticalAngle) > maxAngle) {
       const clampedAngle = Math.sign(verticalAngle) * maxAngle;
       baseLookAt.y = currentPos.y + Math.tan(clampedAngle) * horizontalDist;
