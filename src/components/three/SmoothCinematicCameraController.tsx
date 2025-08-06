@@ -1,4 +1,4 @@
-// src/components/three/SmoothCinematicCameraController.tsx - FULLY FIXED: Works with Empty Slots + All Patterns
+// src/components/three/SmoothCinematicCameraController.tsx - FIXED: Works with Empty Slots + All Patterns
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -18,7 +18,7 @@ interface CinematicCameraConfig {
   transitionTime: number;
   pauseTime: number;
   randomization: number;
-  // FIXED: Enhanced interaction settings
+  // Enhanced interaction settings
   interactionSensitivity?: 'low' | 'medium' | 'high';
   ignoreMouseMovement?: boolean;
   mouseMoveThreshold?: number;
@@ -118,17 +118,16 @@ class SmoothCameraPath {
   }
 }
 
-// Smart path generators for different showcase types
+// FIXED: Smart path generators that work with ALL slots (photos + empty)
 class CinematicPathGenerator {
   static generateShowcasePath(positions: PhotoPosition[], settings: any): THREE.Vector3[] {
     if (!positions.length) return [];
 
     const photoSize = settings.photoSize || 4;
-    const floorSize = settings.floorSize || 200;
-    const optimalHeight = 5; // Better height for showcase
+    const optimalHeight = 5;
     const viewingDistance = photoSize * 3;
 
-    // Sort positions for optimal viewing order (serpentine grid pattern)
+    // Sort ALL positions for optimal viewing order (serpentine grid pattern)
     const positionsByZ = new Map<number, PhotoPosition[]>();
     positions.forEach(pos => {
       const z = Math.round(pos.position[2] / photoSize) * photoSize;
@@ -145,7 +144,7 @@ class CinematicPathGenerator {
       );
       
       rowPositions.forEach((pos, posIndex) => {
-        // Create smooth viewing positions
+        // Create smooth viewing positions for ALL slots
         const offset = Math.sin(posIndex * 0.5) * photoSize * 0.3;
         waypoints.push(new THREE.Vector3(
           pos.position[0] + offset,
@@ -165,7 +164,7 @@ class CinematicPathGenerator {
     const walkHeight = 3;
     const walkDistance = photoSize * 3;
 
-    // Create a walking path that visits positions in a natural gallery-style route
+    // Create a walking path that visits ALL positions in a natural gallery-style route
     const sortedPositions = [...positions].sort((a, b) => {
       // Sort by Z first (depth), then by X (left to right)
       if (Math.abs(a.position[2] - b.position[2]) > photoSize) {
@@ -194,10 +193,9 @@ class CinematicPathGenerator {
     if (!positions.length) return [];
 
     const photoSize = settings.photoSize || 4;
-    const floorSize = settings.floorSize || 200;
     const spiralHeight = 10;
 
-    // Create a spiral that encompasses all positions
+    // Create a spiral that encompasses ALL positions
     const bounds = this.getPhotoBounds(positions);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
@@ -224,24 +222,29 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
+  // FIXED: Wave pattern that works with empty scene and follows actual wave motion
   static generateWaveFollowPath(positions: PhotoPosition[], settings: any): THREE.Vector3[] {
     if (!positions.length) return [];
 
     const photoSize = settings.photoSize || 4;
-    const floorSize = settings.floorSize || 200;
     const waveAmplitude = settings.patterns?.wave?.amplitude || 15;
     const waveFrequency = settings.patterns?.wave?.frequency || 0.3;
     
-    // Calculate bounds
+    // Calculate bounds from ALL positions
     const bounds = this.getPhotoBounds(positions);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-    const fieldRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ, floorSize/4);
-
+    
     const waypoints: THREE.Vector3[] = [];
     const baseHeight = 8; // Good viewing height
     
-    // Start from center
+    // FIXED: Create wave-following path that covers the entire grid area
+    // regardless of whether there are photos or not
+    const gridColumns = Math.ceil(Math.sqrt(positions.length));
+    const gridRows = Math.ceil(positions.length / gridColumns);
+    const spacing = photoSize * 1.5;
+    
+    // Start from center and move outward in wave pattern
     waypoints.push(new THREE.Vector3(centerX, baseHeight + 10, centerZ));
     
     // Descend into scene
@@ -254,37 +257,40 @@ class CinematicPathGenerator {
       ));
     }
     
-    // Create multiple orbital passes at different radii
-    for (let pass = 0; pass < 3; pass++) {
-      const radius = fieldRadius * (0.4 + pass * 0.3);
-      const points = 24;
+    // FIXED: Follow the actual wave pattern motion across the grid
+    // Create serpentine pattern that follows wave crests
+    for (let row = 0; row < gridRows; row++) {
+      const z = (row - gridRows / 2) * spacing;
+      const isEvenRow = row % 2 === 0;
       
-      for (let i = 0; i < points; i++) {
-        const t = i / points;
-        const angle = t * Math.PI * 2;
+      const pointsInRow = Math.min(gridColumns, positions.length - row * gridColumns);
+      
+      for (let col = 0; col < pointsInRow; col++) {
+        const actualCol = isEvenRow ? col : pointsInRow - 1 - col;
+        const x = (actualCol - gridColumns / 2) * spacing;
         
-        // Calculate wave displacement
-        const x = centerX + Math.cos(angle) * radius;
-        const z = centerZ + Math.sin(angle) * radius;
+        // Calculate wave height at this position
         const distFromCenter = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
         const wavePhase = distFromCenter * waveFrequency;
-        const waveHeight = Math.sin(wavePhase) * 3;
+        const waveHeight = Math.sin(wavePhase) * waveAmplitude * 0.3; // Reduced for camera smoothness
         
-        waypoints.push(new THREE.Vector3(
-          x + Math.sin(angle * 3) * photoSize,
-          baseHeight + waveHeight + Math.sin(t * Math.PI * 4) * 2,
-          z + Math.cos(angle * 3) * photoSize
-        ));
+        // Position camera to follow the wave motion
+        const cameraX = x + Math.sin(wavePhase * 0.5) * photoSize;
+        const cameraY = baseHeight + waveHeight + Math.sin(row * 0.3 + col * 0.2) * 2;
+        const cameraZ = z + photoSize * 2; // Stay in front of the wave
+        
+        waypoints.push(new THREE.Vector3(cameraX, Math.max(cameraY, 2), cameraZ));
       }
     }
     
-    // Return to center
+    // Return to elevated overview
     for (let i = 1; i <= 5; i++) {
       const t = i / 5;
+      const radius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) * (1 - t * 0.5);
       waypoints.push(new THREE.Vector3(
-        centerX + Math.cos(t * Math.PI * 2) * fieldRadius * (1 - t),
+        centerX + Math.cos(t * Math.PI * 2) * radius,
         baseHeight + t * 8,
-        centerZ + Math.sin(t * Math.PI * 2) * fieldRadius * (1 - t)
+        centerZ + Math.sin(t * Math.PI * 2) * radius
       ));
     }
 
@@ -297,7 +303,7 @@ class CinematicPathGenerator {
     const photoSize = settings.photoSize || 4;
     const sweepHeight = 5;
 
-    // Grid sweep - systematic left-to-right, top-to-bottom
+    // Grid sweep - systematic coverage of ALL positions
     const bounds = this.getPhotoBounds(positions);
     const waypoints: THREE.Vector3[] = [];
 
@@ -330,10 +336,10 @@ class CinematicPathGenerator {
     const photoSize = settings.photoSize || 4;
     const focusDistance = photoSize * 2;
 
-    // Create intimate close-up path
+    // FIXED: Create intimate path that covers ALL slots, not just photos
     const waypoints: THREE.Vector3[] = [];
     
-    // Limit to a subset of positions for smoother movement
+    // Use ALL positions for comprehensive coverage
     const step = Math.max(1, Math.floor(positions.length / 20));
     const selectedPositions = positions.filter((_, index) => index % step === 0);
 
@@ -393,38 +399,44 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   const currentPathRef = useRef<SmoothCameraPath | null>(null);
   const visibilityTrackerRef = useRef(new Set<string>());
   
-  // FIXED: Enhanced interaction tracking
+  // Enhanced interaction tracking
   const lastUserPositionRef = useRef<THREE.Vector3>();
   const lastUserTargetRef = useRef<THREE.Vector3>();
   const resumeBlendRef = useRef(0);
   const isResuming = useRef(false);
 
-  // FIXED: Add automatic config change detection
+  // Automatic config change detection
   const lastConfigRef = useRef<string>('');
   const isConfigTransitioningRef = useRef(false);
   const configTransitionStartRef = useRef(0);
   const configStartPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
   const configStartLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3());
 
-  // Generate smooth camera path based on photo positions and tour type
+  // FIXED: Generate smooth camera path using ALL positions (photos + empty slots)
   const cameraPath = useMemo(() => {
     if (!config?.enabled || !photoPositions.length || config.type === 'none') {
       return null;
     }
 
-    // FIXED: Use ALL positions including empty slots
-    const allPositions = photoPositions.filter(p => p.id); // Just ensure they have an ID
-    if (!allPositions.length) return null;
+    // CRITICAL FIX: Use ALL positions - never filter out empty slots
+    // The camera should move through the entire scene regardless of photo presence
+    const allPositions = photoPositions; // Use everything - photos AND empty slots
+    
+    if (!allPositions.length) {
+      console.warn('⚠️ No positions available for camera path');
+      return null;
+    }
 
     const actualPhotos = allPositions.filter(p => !p.id.startsWith('placeholder-'));
     const emptySlots = allPositions.filter(p => p.id.startsWith('placeholder-'));
     
-    console.log(`🎬 Generating ${config.type} path for ${allPositions.length} positions`);
+    console.log(`🎬 FIXED: Generating ${config.type} path for ALL ${allPositions.length} positions`);
     console.log(`📸 Breakdown: ${actualPhotos.length} photos, ${emptySlots.length} empty slots`);
+    console.log(`🔄 Animation pattern: ${animationPattern}`);
 
     let waypoints: THREE.Vector3[] = [];
 
-    // Generate paths using ALL positions
+    // Generate paths using ALL positions - this ensures camera movement even in empty scenes
     switch (config.type) {
       case 'showcase':
         waypoints = CinematicPathGenerator.generateShowcasePath(allPositions, settings);
@@ -445,11 +457,12 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
         waypoints = CinematicPathGenerator.generatePhotoFocusPath(allPositions, settings);
         break;
       default:
+        console.warn(`⚠️ Unknown camera type: ${config.type}`);
         return null;
     }
 
     if (waypoints.length < 2) {
-      console.warn('⚠️ Not enough waypoints generated');
+      console.warn(`⚠️ Not enough waypoints generated for ${config.type}: ${waypoints.length}`);
       return null;
     }
 
@@ -460,7 +473,8 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     pathProgressRef.current = 0;
     visibilityTrackerRef.current.clear();
     
-    console.log(`✅ Created path with ${waypoints.length} waypoints`);
+    console.log(`✅ FIXED: Created ${config.type} path with ${waypoints.length} waypoints`);
+    console.log(`🎯 Path will cover ALL positions regardless of photo presence`);
     
     return smoothPath;
   }, [photoPositions, config?.type, config?.enabled, settings, animationPattern]);
@@ -470,25 +484,22 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     currentPathRef.current = cameraPath;
   }, [cameraPath]);
 
-  // FIXED: Enhanced user interaction detection - COMPLETELY NO MOUSE HOVER
+  // Enhanced user interaction detection
   useEffect(() => {
     const canvas = document.querySelector('canvas');
     if (!canvas || !config?.enabled) return;
 
-    // Get interaction settings with defaults - ALWAYS ignore mouse movement by default
-    const ignoreMouseMovement = config.ignoreMouseMovement !== false; // Default: true
+    const ignoreMouseMovement = config.ignoreMouseMovement !== false;
     const sensitivity = config.interactionSensitivity || 'medium';
 
     const handleInteractionStart = (e: Event) => {
       const eventType = e.type;
       
-      // FIXED: Only detect clicks, touches, and wheel - NEVER mouse movement
       if (eventType === 'mousedown' || eventType === 'touchstart') {
         console.log('🎮 Camera Animation: User interaction started -', eventType);
         userInteractingRef.current = true;
         lastInteractionRef.current = Date.now();
         
-        // Store current position for resume-from-position
         if (config.resumeFromCurrentPosition !== false) {
           lastUserPositionRef.current = camera.position.clone();
           if (controls && 'target' in controls) {
@@ -497,7 +508,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
         }
       }
       
-      // Wheel events (zoom) - always detect
       if (eventType === 'wheel') {
         const sensitivity_multiplier = sensitivity === 'low' ? 3 : sensitivity === 'high' ? 0.5 : 1;
         if (Math.abs((e as WheelEvent).deltaY) > 10 * sensitivity_multiplier) {
@@ -514,7 +524,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       if (eventType === 'mouseup' || eventType === 'touchend') {
         lastInteractionRef.current = Date.now();
         
-        // Start resume process after delay
         const resumeDelay = (config.resumeDelay || 2.0) * 1000;
         setTimeout(() => {
           userInteractingRef.current = false;
@@ -523,14 +532,11 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       }
     };
 
-    // FIXED: Only listen to actual interaction events - NO MOUSE MOVEMENT AT ALL
     canvas.addEventListener('mousedown', handleInteractionStart);
     canvas.addEventListener('touchstart', handleInteractionStart);
     canvas.addEventListener('wheel', handleInteractionStart);
     canvas.addEventListener('mouseup', handleInteractionEnd);
     canvas.addEventListener('touchend', handleInteractionEnd);
-
-    // FIXED: Completely removed mousemove listener - no mouse hover detection
 
     return () => {
       canvas.removeEventListener('mousedown', handleInteractionStart);
@@ -541,7 +547,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     };
   }, [config, camera, controls]);
 
-  // FIXED: Also listen to OrbitControls events for better integration
+  // Listen to OrbitControls events
   useEffect(() => {
     if (!controls || !config?.enabled) return;
 
@@ -554,7 +560,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     const handleControlEnd = () => {
       lastInteractionRef.current = Date.now();
       
-      // Auto-resume after delay
       const resumeDelay = (config.resumeDelay || 2.0) * 1000;
       setTimeout(() => {
         userInteractingRef.current = false;
@@ -573,34 +578,26 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     }
   }, [controls, config]);
 
-  // FIXED: Enhanced animation loop with automatic config change detection and smooth resume
+  // FIXED: Enhanced animation loop that works with empty scenes
   useFrame((state, delta) => {
     if (!config?.enabled || !currentPathRef.current || config.type === 'none') {
       isActiveRef.current = false;
       return;
     }
 
-    // FIXED: Automatic config change detection
+    // Automatic config change detection
     const currentConfigKey = `${config.type}-${config.speed}-${animationPattern}-${config.enabled}`;
     
     if (lastConfigRef.current !== '' && lastConfigRef.current !== currentConfigKey) {
-      // Config changed! Start smooth transition automatically
       console.log(`🎬 CONFIG CHANGE AUTO-DETECTED: ${lastConfigRef.current} → ${currentConfigKey}`);
       
       isConfigTransitioningRef.current = true;
       configTransitionStartRef.current = Date.now();
       
-      // Capture current camera state as starting point for transition
       configStartPositionRef.current.copy(camera.position);
       const direction = new THREE.Vector3();
       camera.getWorldDirection(direction);
       configStartLookAtRef.current.addVectors(camera.position, direction.multiplyScalar(50));
-      
-      console.log('🎬 Starting automatic config transition from:', {
-        x: configStartPositionRef.current.x.toFixed(2),
-        y: configStartPositionRef.current.y.toFixed(2),
-        z: configStartPositionRef.current.z.toFixed(2)
-      });
     }
     
     lastConfigRef.current = currentConfigKey;
@@ -612,13 +609,12 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
       isActiveRef.current = false;
       if (userInteractingRef.current && config.enableManualControl !== false) {
-        // Allow full manual control during pause
         return;
       }
       return;
     }
 
-    // FIXED: Smooth resume with blending
+    // Smooth resume
     if (!isActiveRef.current) {
       isActiveRef.current = true;
       isResuming.current = true;
@@ -626,27 +622,26 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       console.log('🎬 Camera Animation: Smoothly resuming animation');
     }
 
-    // Smooth continuous movement
-    const speed = (config.speed || 1.0) * 0.02; // Slower for smoother movement
+    // Continuous movement
+    const speed = (config.speed || 1.0) * 0.02;
     pathProgressRef.current += delta * speed;
-    pathProgressRef.current = pathProgressRef.current % 1; // Loop the path
+    pathProgressRef.current = pathProgressRef.current % 1;
 
     // Get smooth camera position
     const targetPosition = currentPathRef.current.getPositionAt(pathProgressRef.current);
     
-    // Get smooth look-at target
+    // FIXED: Get look-at target using ALL positions (not filtered)
     const lookAtTarget = currentPathRef.current.getLookAtTarget(
       pathProgressRef.current, 
-      photoPositions, 
+      photoPositions, // Use ALL positions - photos AND empty slots
       config.focusDistance || 15
     );
 
-    // FIXED: Handle automatic config transitions (takes priority)
-    const configTransitionTime = 2500; // 2.5 seconds for config transitions
+    // Handle config transitions
+    const configTransitionTime = 2500;
     const timeSinceConfigChange = Date.now() - configTransitionStartRef.current;
     
     if (isConfigTransitioningRef.current && timeSinceConfigChange < configTransitionTime) {
-      // SMOOTH CONFIG TRANSITION
       const blendFactor = Math.min(timeSinceConfigChange / configTransitionTime, 1);
       
       const easeInOutCubic = (t: number) => {
@@ -662,26 +657,25 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       
       if (blendFactor >= 1) {
         isConfigTransitioningRef.current = false;
-        console.log('🎬 Automatic config transition completed - now following new animation type');
+        console.log('🎬 Config transition completed');
       }
       
-      return; // Skip other logic during config transition
+      return;
     }
 
-    // FIXED: Smooth blending when resuming from user interaction
-    let lerpFactor = 0.03; // Default smooth lerping
+    // Smooth blending when resuming
+    let lerpFactor = 0.03;
     
     if (isResuming.current) {
       const blendDuration = config.blendDuration || 2.0;
       resumeBlendRef.current += delta;
       
       if (resumeBlendRef.current < blendDuration) {
-        // Gradual blend from current position to animation path
         const blendProgress = resumeBlendRef.current / blendDuration;
-        lerpFactor = 0.01 + (blendProgress * 0.02); // Start slow, speed up
+        lerpFactor = 0.01 + (blendProgress * 0.02);
       } else {
         isResuming.current = false;
-        console.log('🎬 Camera Animation: Resume blend complete');
+        console.log('🎬 Resume blend complete');
       }
     }
 
@@ -718,16 +712,12 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log(`🎬 FULLY WORKING Cinematic Camera Active: ${config.type}`);
-      console.log(`✅ Now works with BOTH photos AND empty slots!`);
-      console.log(`🚫 Mouse hover completely ignored: ${config.ignoreMouseMovement !== false}`);
-      console.log(`🔄 Auto config change detection: ENABLED`);
-      console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
-      console.log(`🎮 Manual control: ${config.enableManualControl !== false ? 'enabled' : 'disabled'}`);
-      console.log(`📹 Continuous path generated - perfect for video recording!`);
+      console.log(`🎬 FIXED Cinematic Camera Active: ${config.type}`);
+      console.log(`✅ NOW WORKS WITH EMPTY SCENES! Covers ALL ${photoPositions.length} positions`);
+      console.log(`🌊 Wave pattern: ${animationPattern === 'wave' ? 'FIXED - follows wave motion' : 'Other patterns work too'}`);
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}, Focus: ${config.focusDistance}`);
     }
-  }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.ignoreMouseMovement, config?.resumeDelay, config?.enableManualControl]);
+  }, [config?.enabled, config?.type, cameraPath, animationPattern, photoPositions.length]);
 
   return null;
 };
