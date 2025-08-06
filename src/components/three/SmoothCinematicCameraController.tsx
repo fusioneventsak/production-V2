@@ -247,14 +247,14 @@ class CinematicPathGenerator {
         centerZ + Math.sin(orbitAngle) * orbitRadius
       );
       
-      // NEVER LOOK DOWN: Always look forward/outward along orbit direction
-      const lookAheadAngle = orbitAngle + 0.4; // Look ahead in orbit
-      const horizonDistance = orbitRadius * 2; // Look toward horizon
+      // ALWAYS LOOK FORWARD: Look tangentially along the orbit (forward direction)
+      const forwardAngle = orbitAngle + Math.PI / 2; // 90 degrees ahead = tangent direction
+      const forwardDistance = orbitRadius * 1.5; // Look ahead along orbit
       
       const lookTarget = new THREE.Vector3(
-        centerX + Math.cos(lookAheadAngle) * horizonDistance,
-        cameraPos.y + 3, // ALWAYS look upward - never down at photos
-        centerZ + Math.sin(lookAheadAngle) * horizonDistance
+        centerX + Math.cos(forwardAngle) * forwardDistance,
+        cameraPos.y + 1, // Slight upward angle - never down
+        centerZ + Math.sin(forwardAngle) * forwardDistance
       );
       
       positions.push(cameraPos);
