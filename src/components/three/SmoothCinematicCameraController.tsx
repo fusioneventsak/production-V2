@@ -140,27 +140,38 @@ class SmoothCameraPath {
     const loopT = ((t % 1) + 1) % 1;
     const currentPos = this.getPositionAt(t);
     
-    // AGGRESSIVE FIX: Always look forward/horizontally, NEVER down
+    // GRACEFUL LOOK: Natural forward-looking with gentle vertical limits
     if (pathType === 'showcase' || pathType === 'grid_sweep') {
-      // For showcase and grid sweep, ALWAYS look straight ahead in movement direction
-      const lookAheadT = (loopT + 0.02) % 1; // Small look-ahead
+      // Look ahead in movement direction with natural gaze
+      const lookAheadT = (loopT + 0.03) % 1;
       const lookAheadPos = this.getPositionAt(lookAheadT);
       
-      // Create horizontal look direction
+      // Create natural look direction
       const lookDirection = lookAheadPos.clone().sub(currentPos);
-      lookDirection.y = 0; // FORCE horizontal - no vertical component
+      
+      // Gentle vertical constraint - allow some natural up/down but not extreme
+      const horizontalDistance = Math.sqrt(lookDirection.x * lookDirection.x + lookDirection.z * lookDirection.z);
+      const verticalAngle = Math.atan2(lookDirection.y, horizontalDistance);
+      
+      // Limit vertical angle to +/- 15 degrees (0.26 radians)
+      const maxVerticalAngle = 0.26;
+      if (Math.abs(verticalAngle) > maxVerticalAngle) {
+        const clampedAngle = Math.sign(verticalAngle) * maxVerticalAngle;
+        lookDirection.y = Math.tan(clampedAngle) * horizontalDistance;
+      }
+      
       lookDirection.normalize();
       
-      // Look far ahead horizontally
+      // Look ahead with natural distance
       const lookTarget = currentPos.clone();
-      lookTarget.x += lookDirection.x * focusDistance * 2;
-      lookTarget.z += lookDirection.z * focusDistance * 2;
-      lookTarget.y = currentPos.y + 1; // Look slightly UP, never down
+      lookTarget.x += lookDirection.x * focusDistance * 1.5;
+      lookTarget.y += lookDirection.y * focusDistance * 1.5; // Natural slight vertical
+      lookTarget.z += lookDirection.z * focusDistance * 1.5;
       
       return lookTarget;
     }
     
-    // Special handling for photo_focus path - look at actual photos but not down
+    // Special handling for photo_focus path - graceful photo viewing
     if (pathType === 'photo_focus') {
       // Find the nearest photo to focus on
       const nearbyPhotos = photoPositions
@@ -172,41 +183,52 @@ class SmoothCameraPath {
         .sort((a, b) => a.distance - b.distance);
 
       if (nearbyPhotos.length > 0 && nearbyPhotos[0].distance <= focusDistance * 2) {
-        // Focus on the nearest photo
         const photoTarget = new THREE.Vector3(...nearbyPhotos[0].photo.position);
         
-        // NEVER look down at photos - adjust target height
-        if (photoTarget.y < currentPos.y - 1) {
-          // If photo is below us, look forward instead of down
-          const direction = photoTarget.clone().sub(currentPos);
-          direction.y = 0; // Remove downward component
-          direction.normalize();
-          return currentPos.clone().add(direction.multiplyScalar(focusDistance));
+        // Graceful viewing angle - limit how steep we look
+        const toPhoto = photoTarget.clone().sub(currentPos);
+        const horizontalDist = Math.sqrt(toPhoto.x * toPhoto.x + toPhoto.z * toPhoto.z);
+        const currentAngle = Math.atan2(-toPhoto.y, horizontalDist); // Negative because looking down is negative
+        
+        // If angle is too steep (more than 30 degrees down), adjust gracefully
+        const maxDownAngle = 0.52; // 30 degrees in radians
+        if (currentAngle > maxDownAngle) {
+          // Adjust the target to maintain a comfortable viewing angle
+          const adjustedY = currentPos.y - Math.tan(maxDownAngle) * horizontalDist;
+          photoTarget.y = adjustedY;
         }
         
         return photoTarget;
       }
     }
     
-    // Default: look ahead horizontally
+    // Default: use the look-at curve with gentle constraints
     if (!this.lookAtCurve) {
       const lookAheadT = (t + 0.05) % 1;
       const lookAheadPos = this.getPositionAt(lookAheadT);
       
       const direction = lookAheadPos.clone().sub(currentPos);
-      direction.y = 0; // Force horizontal
+      // Allow natural vertical movement, just not extreme
+      if (direction.y < -2) direction.y = -2;
+      if (direction.y > 2) direction.y = 2;
       direction.normalize();
       
       const target = currentPos.clone().add(direction.multiplyScalar(focusDistance));
-      target.y = currentPos.y; // Same height
       return target;
     }
     
     const baseLookAt = this.lookAtCurve.getPointAt(loopT);
     
-    // FORCE: Never look down
-    if (baseLookAt.y < currentPos.y - 1) {
-      baseLookAt.y = currentPos.y;
+    // Gentle constraint: don't look too steeply up or down
+    const toLookAt = baseLookAt.clone().sub(currentPos);
+    const horizontalDist = Math.sqrt(toLookAt.x * toLookAt.x + toLookAt.z * toLookAt.z);
+    const verticalAngle = Math.atan2(toLookAt.y, horizontalDist);
+    
+    // Limit to comfortable viewing angles (+/- 25 degrees)
+    const maxAngle = 0.44; // 25 degrees in radians
+    if (Math.abs(verticalAngle) > maxAngle) {
+      const clampedAngle = Math.sign(verticalAngle) * maxAngle;
+      baseLookAt.y = currentPos.y + Math.tan(clampedAngle) * horizontalDist;
     }
     
     return baseLookAt;
@@ -231,7 +253,7 @@ class CinematicPathGenerator {
     if (!photos.length) return { positions: [], lookAts: [] };
 
     const photoSize = settings.photoSize || 4;
-    const showcaseHeight = 2; // ELEVATED - eye level above photos
+    const showcaseHeight = 0; // Eye level height
     const orbitRadius = photoSize * 4;
 
     // Find collection center
@@ -248,21 +270,21 @@ class CinematicPathGenerator {
       const progress = i / totalPoints;
       const orbitAngle = progress * Math.PI * 2;
       
-      // Camera position on smooth circular orbit at eye level
+      // Camera position on smooth circular orbit
       const cameraPos = new THREE.Vector3(
         centerX + Math.cos(orbitAngle) * orbitRadius,
-        showcaseHeight + Math.sin(progress * Math.PI * 4) * 0.3, // Very gentle height variation
+        showcaseHeight + Math.sin(progress * Math.PI * 4) * 0.5, // Gentle wave
         centerZ + Math.sin(orbitAngle) * orbitRadius
       );
       
-      // FORCE HORIZONTAL LOOKING - look outward from the circle
-      const lookAngle = orbitAngle; // Look in the same direction we're facing
-      const lookDistance = orbitRadius * 3; // Look far into the distance
+      // Look slightly ahead and inward with natural angle
+      const lookAngle = orbitAngle + 0.15; // Look slightly ahead
+      const lookRadius = orbitRadius * 0.7; // Look somewhat inward
       
       const lookTarget = new THREE.Vector3(
-        centerX + Math.cos(lookAngle) * lookDistance,
-        showcaseHeight + 2, // Always look slightly UP into the horizon
-        centerZ + Math.sin(lookAngle) * lookDistance
+        centerX + Math.cos(lookAngle) * lookRadius,
+        showcaseHeight, // Look at same height for natural view
+        centerZ + Math.sin(lookAngle) * lookRadius
       );
       
       positions.push(cameraPos);
@@ -402,7 +424,7 @@ class CinematicPathGenerator {
     if (!photos.length) return { positions: [], lookAts: [] };
 
     const photoSize = settings.photoSize || 4;
-    const sweepHeight = 1; // Higher up to ensure we're above photos
+    const sweepHeight = 0; // Eye level for natural viewing
 
     const bounds = this.getPhotoBounds(photos);
     const positions: THREE.Vector3[] = [];
@@ -413,37 +435,31 @@ class CinematicPathGenerator {
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
     const radius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + photoSize * 2.5;
 
-    const totalPoints = 24; // Fewer points for smoother interpolation
+    const totalPoints = 24; // Smooth circle for perfect loop
     
     for (let i = 0; i < totalPoints; i++) {
       const progress = i / totalPoints;
       const angle = progress * Math.PI * 2;
       
-      // Perfect circular motion with minimal height variation
+      // Circular motion with gentle height variation
       const position = new THREE.Vector3(
         centerX + Math.cos(angle) * radius,
-        sweepHeight, // Constant height - no variation for perfect loop
+        sweepHeight + Math.sin(progress * Math.PI * 2) * 0.3, // Very subtle wave
         centerZ + Math.sin(angle) * radius
       );
       
-      // Look straight ahead tangent to the circle - NEVER inward or down
-      const lookAngle = angle + Math.PI / 2; // Look perpendicular to radius (tangent to circle)
-      const lookDistance = radius * 2;
+      // Look ahead in the direction of movement with slight inward bias
+      const lookAngle = angle + 0.1; // Slightly ahead
+      const lookRadius = radius * 0.8; // Look somewhat inward
       
       const lookTarget = new THREE.Vector3(
-        position.x + Math.cos(lookAngle) * lookDistance,
-        sweepHeight + 1, // Look slightly up, creating a horizon view
-        position.z + Math.sin(lookAngle) * lookDistance
+        centerX + Math.cos(lookAngle) * lookRadius,
+        sweepHeight, // Natural horizontal gaze
+        centerZ + Math.sin(lookAngle) * lookRadius
       );
       
       positions.push(position);
       lookAts.push(lookTarget);
-    }
-
-    // CRITICAL: Ensure the path closes perfectly by making sure first and last points match
-    if (positions.length > 0) {
-      // The CatmullRomCurve3 with closed=true will handle the interpolation
-      // But we ensure our points form a perfect circle
     }
 
     return { positions, lookAts };
@@ -453,7 +469,7 @@ class CinematicPathGenerator {
     if (!photos.length) return { positions: [], lookAts: [] };
 
     const photoSize = settings.photoSize || 4;
-    const focusHeight = 2; // Elevated height - looking at photos from above at an angle
+    const focusHeight = 0; // Eye level viewing
     const viewRadius = photoSize * 3;
 
     const positions: THREE.Vector3[] = [];
@@ -465,26 +481,26 @@ class CinematicPathGenerator {
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
     const tourRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + viewRadius;
 
-    // Create a smooth circular path that gives good views of photos
+    // Create a smooth path that gives natural views toward photos
     const totalPoints = 36;
     
     for (let i = 0; i < totalPoints; i++) {
       const progress = i / totalPoints;
       const angle = progress * Math.PI * 2;
       
-      // Circular path around the photos
+      // Circular path with gentle height variation
       const cameraPos = new THREE.Vector3(
         centerX + Math.cos(angle) * tourRadius,
-        focusHeight + Math.sin(progress * Math.PI * 4) * 0.3, // Very gentle bobbing
+        focusHeight + Math.sin(progress * Math.PI * 4) * 0.4, // Gentle bobbing
         centerZ + Math.sin(angle) * tourRadius
       );
       
-      // Look toward center area where photos are, but HORIZONTALLY
-      const inwardDistance = tourRadius * 0.5;
+      // Look inward toward photo area with natural angle
+      const inwardDistance = tourRadius * 0.4;
       const lookTarget = new THREE.Vector3(
-        centerX + Math.cos(angle) * inwardDistance * 0.3,
-        focusHeight, // Look at same height - HORIZONTAL view
-        centerZ + Math.sin(angle) * inwardDistance * 0.3
+        centerX + Math.cos(angle) * inwardDistance,
+        focusHeight - 0.5, // Look slightly below eye level for natural viewing
+        centerZ + Math.sin(angle) * inwardDistance
       );
       
       positions.push(cameraPos);
@@ -806,17 +822,22 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     camera.position.lerp(targetPosition, lerpFactor);
     camera.lookAt(lookAtTarget);
 
-    // Update controls but OVERRIDE their target completely for certain modes
+    // Update controls with smooth, graceful transitions
     if (controls && 'target' in controls) {
+      const currentTarget = (controls as any).target.clone();
+      const targetDiff = lookAtTarget.clone().sub(currentTarget);
+      
+      // For problematic modes, use stronger but still smooth control
       if (pathTypeRef.current === 'showcase' || pathTypeRef.current === 'grid_sweep' || pathTypeRef.current === 'photo_focus') {
-        // For these modes, completely override OrbitControls target
-        (controls as any).target.copy(lookAtTarget);
-        (controls as any).update();
+        // Stronger influence but still smooth
+        const strongLerpFactor = Math.min(lerpFactor * 2, 0.08); // Faster but capped
+        (controls as any).target.lerp(lookAtTarget, strongLerpFactor);
       } else {
-        // For other modes, use smooth lerping
+        // Normal smooth lerping for other modes
         (controls as any).target.lerp(lookAtTarget, lerpFactor * 0.7);
-        (controls as any).update();
       }
+      
+      (controls as any).update();
     }
 
     // Track visibility
