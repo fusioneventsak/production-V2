@@ -987,7 +987,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="5"
-                          max="80"
+                          max="150"
                           step="2"
                           value={settings.cameraAnimation?.baseHeight || 25}
                           onChange={(e) => onSettingsChange({ 
@@ -1008,8 +1008,8 @@ const EnhancedSceneSettings: React.FC<{
                         </label>
                         <input
                           type="range"
-                          min="15"
-                          max="100"
+                          min="10"
+                          max="200"
                           step="2"
                           value={settings.cameraAnimation?.baseDistance || 35}
                           onChange={(e) => onSettingsChange({ 
@@ -1033,7 +1033,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0"
-                          max="20"
+                          max="50"
                           step="1"
                           value={settings.cameraAnimation?.heightVariation || 8}
                           onChange={(e) => onSettingsChange({ 
@@ -1055,7 +1055,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0"
-                          max="25"
+                          max="75"
                           step="1"
                           value={settings.cameraAnimation?.distanceVariation || 10}
                           onChange={(e) => onSettingsChange({ 
@@ -1077,6 +1077,16 @@ const EnhancedSceneSettings: React.FC<{
                         <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances, 
                         <strong>Float</strong> gets moderate settings for optimal viewing.
                       </p>
+                      <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-600/30 rounded">
+                        <p className="text-xs text-yellow-300 font-medium">⚠️ Wave Pattern Camera Issue:</p>
+                        <p className="text-xs text-yellow-400/90">
+                          <strong>Known Issue:</strong> Wave pattern camera stays on outer edge instead of weaving through photos.
+                          <br />
+                          <strong>Workaround:</strong> Try "Grid Sweep" or "Showcase" tour types for better wave pattern coverage.
+                          <br />
+                          <strong>Manual Settings:</strong> Base Height: 15-25, Base Distance: 25-35, Focus Distance: 10-15
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -1379,6 +1389,9 @@ const EnhancedSceneSettings: React.FC<{
               }, true)}
               className="w-full bg-gray-800"
             />
+            <p className="mt-1 text-xs text-gray-400">
+              Size of individual photos in the collage (Note: Backend validation may limit this to 15 units)
+            </p>
           </div>
 
           <div>
