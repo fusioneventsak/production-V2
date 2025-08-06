@@ -87,6 +87,11 @@ class SmoothCameraPath {
   getLookAtTarget(t: number, photoPositions: PhotoPosition[], focusDistance: number): THREE.Vector3 {
     const currentPos = this.getPositionAt(t);
     
+    // If no photos, look at scene center
+    if (!photoPositions.length) {
+      return new THREE.Vector3(0, 0, 0);
+    }
+    
     // Find photos within focus distance
     const nearbyPhotos = photoPositions
       .filter(p => !p.id.startsWith('placeholder-'))
@@ -362,7 +367,37 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     }
 
     const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
-    if (!validPhotos.length) return null;
+    
+    // FIXED: Generate fallback path when no photos are present
+    if (!validPhotos.length) {
+      console.log('🎬 CAMERA PATH: No photos found - generating fallback circular path');
+      
+      // Create a circular path around the scene center
+      const radius = settings.cameraDistance || 25;
+      const height = settings.cameraHeight || 10;
+      const waypoints: THREE.Vector3[] = [];
+      
+      // Generate 8 waypoints in a circle for smooth movement
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = height + Math.sin(angle * 2) * 2; // Slight height variation
+        
+        waypoints.push(new THREE.Vector3(x, y, z));
+      }
+      
+      console.log(`🎬 CAMERA PATH: Generated fallback path with ${waypoints.length} waypoints`);
+      
+      // Create smooth continuous path
+      const smoothPath = new SmoothCameraPath(waypoints, true);
+      
+      // Reset progress and visibility tracking
+      pathProgressRef.current = 0;
+      visibilityTrackerRef.current.clear();
+      
+      return smoothPath;
+    }
 
     console.log(`🎬 CAMERA PATH: Generating smooth ${config.type} path for ${validPhotos.length} photos`);
     console.log(`🎬 CAMERA PATH: Animation pattern: ${animationPattern}`);
@@ -689,12 +724,13 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log(`🎬 FULLY FIXED Smooth Cinematic Camera Active: ${config.type}`);
+      const photoCount = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
+      console.log(`🎬 FULLY FIXED Smooth Cinematic Camera Active: ${config.type} (${photoCount} photos)`);
       console.log(`🚫 Mouse hover completely ignored: ${config.ignoreMouseMovement !== false}`);
       console.log(`🔄 Auto config change detection: ENABLED`);
       console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
       console.log(`🎮 Manual control: ${config.enableManualControl !== false ? 'enabled' : 'disabled'}`);
-      console.log(`📹 Continuous path generated - perfect for video recording!`);
+      console.log(`📹 Continuous path generated - ${photoCount > 0 ? 'photo-focused' : 'fallback circular'} - perfect for video recording!`);
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}, Focus: ${config.focusDistance}`);
     }
   }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.ignoreMouseMovement, config?.resumeDelay, config?.enableManualControl]);
