@@ -93,29 +93,34 @@ class SmoothCameraPath {
   getLookAtTarget(t: number, photoPositions: PhotoPosition[], focusDistance: number): THREE.Vector3 {
     const currentPos = this.getPositionAt(t);
     
-    // Find photos within focus distance
-    const nearbyPhotos = photoPositions
-      .filter(p => !p.id.startsWith('placeholder-'))
+    // Find ALL positions within focus distance (including empty slots)
+    const nearbyPositions = photoPositions
       .map(p => ({
-        photo: p,
-        distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
+        position: p,
+        distance: currentPos.distanceTo(new THREE.Vector3(...p.position)),
+        isPhoto: !p.id.startsWith('placeholder-')
       }))
-      .filter(p => p.distance <= focusDistance * 1.5) // Slightly larger range
-      .sort((a, b) => a.distance - b.distance);
+      .filter(p => p.distance <= focusDistance * 1.5)
+      .sort((a, b) => {
+        // Prefer actual photos over empty slots
+        if (a.isPhoto && !b.isPhoto) return -1;
+        if (!a.isPhoto && b.isPhoto) return 1;
+        return a.distance - b.distance;
+      });
 
-    if (nearbyPhotos.length > 0) {
-      // Focus on closest photos with smooth blending
-      const maxBlend = Math.min(nearbyPhotos.length, 2);
+    if (nearbyPositions.length > 0) {
+      // Focus on closest positions with preference for actual photos
+      const maxBlend = Math.min(nearbyPositions.length, 2);
       if (maxBlend === 1) {
-        return new THREE.Vector3(...nearbyPhotos[0].photo.position);
+        return new THREE.Vector3(...nearbyPositions[0].position.position);
       }
       
       // Blend between two closest for smoother transitions
       const target = new THREE.Vector3();
       let totalWeight = 0;
       for (let i = 0; i < maxBlend; i++) {
-        const weight = 1 / (nearbyPhotos[i].distance + 1);
-        target.add(new THREE.Vector3(...nearbyPhotos[i].photo.position).multiplyScalar(weight));
+        const weight = 1 / (nearbyPositions[i].distance + 1);
+        target.add(new THREE.Vector3(...nearbyPositions[i].position.position).multiplyScalar(weight));
         totalWeight += weight;
       }
       return target.divideScalar(totalWeight);
@@ -236,18 +241,23 @@ class CinematicPathGenerator {
   }
 
   // COMPLETELY REWRITTEN: Wave follow with center start and maximum photo visibility
-  static generateWaveFollowPath(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
-    if (!photos.length) return [];
+  static generateWaveFollowPath(positions: PhotoPosition[], settings: any): THREE.Vector3[] {
+    if (!positions.length) return [];
 
     const photoSize = settings.photoSize || 4;
     const waveAmplitude = settings.patterns?.wave?.amplitude || 15;
     const waveFrequency = settings.patterns?.wave?.frequency || 0.3;
     
-    console.log('🌊 Generating wave follow path - CENTER START with maximum photo visibility');
-    console.log(`📸 Total photos to capture: ${photos.length}`);
+    // Count actual photos vs empty slots
+    const actualPhotos = positions.filter(p => !p.id.startsWith('placeholder-'));
+    const emptySlots = positions.filter(p => p.id.startsWith('placeholder-'));
+    
+    console.log('🌊 Generating wave follow path - CENTER START with maximum visibility');
+    console.log(`📸 Total positions: ${positions.length} (${actualPhotos.length} photos, ${emptySlots.length} empty slots)`);
+    console.log('✅ Camera will tour ALL positions including empty slots!');
 
-    // Analyze the actual photo layout
-    const bounds = this.getPhotoBounds(photos);
+    // Analyze the actual layout (including empty slots)
+    const bounds = this.getPhotoBounds(positions);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
     const fieldWidth = bounds.maxX - bounds.minX;
@@ -257,24 +267,24 @@ class CinematicPathGenerator {
     console.log('📍 Wave field analysis:', {
       center: `(${centerX.toFixed(1)}, ${centerZ.toFixed(1)})`,
       size: `${fieldWidth.toFixed(1)} x ${fieldDepth.toFixed(1)}`,
-      photoCount: photos.length
+      totalPositions: positions.length
     });
 
     const waypoints: THREE.Vector3[] = [];
     
-    // Calculate optimal viewing distance based on photo density
-    const photoDensity = photos.length / (fieldWidth * fieldDepth);
-    const optimalDistance = photoSize * (photoDensity > 0.05 ? 3 : 4); // Closer for dense layouts
-    const maxDistance = fieldRadius + photoSize * 2; // Never go too far from photos
+    // Calculate optimal viewing distance based on position density
+    const positionDensity = positions.length / (fieldWidth * fieldDepth);
+    const optimalDistance = photoSize * (positionDensity > 0.05 ? 3 : 4);
+    const maxDistance = fieldRadius + photoSize * 2;
     
     // START FROM CENTER - Dramatic entrance
-    const startHeight = 5; // Start high
+    const startHeight = 5;
     waypoints.push(new THREE.Vector3(centerX, startHeight, centerZ));
     
     // Descend into the wave pattern
     for (let i = 1; i <= 3; i++) {
       const t = i / 3;
-      const height = startHeight * (1 - t) + (-2) * t; // Smooth descent
+      const height = startHeight * (1 - t) + (-2) * t;
       waypoints.push(new THREE.Vector3(
         centerX + Math.sin(t * Math.PI) * photoSize,
         height,
@@ -285,17 +295,15 @@ class CinematicPathGenerator {
     // MAIN PATHS: Multiple cinematic flythrough patterns
     
     // Path 1: Spiral outward from center (expanding view)
-    const spiralPoints = Math.min(photos.length, 30);
+    const spiralPoints = Math.min(positions.length * 2, 40); // More points for empty slots
     for (let i = 0; i < spiralPoints; i++) {
       const t = i / spiralPoints;
-      const angle = t * Math.PI * 4; // 2 full rotations
-      const radius = t * fieldRadius * 0.8; // Expand outward but stay close
+      const angle = t * Math.PI * 4;
+      const radius = t * fieldRadius * 0.8;
       
-      // Calculate wave height at this position
       const wavePhase = radius * waveFrequency;
       const waveHeight = Math.sin(wavePhase) * 2;
       
-      // Position with wave following
       const x = centerX + Math.cos(angle) * radius;
       const z = centerZ + Math.sin(angle) * radius;
       const y = -2 + waveHeight + Math.sin(t * Math.PI * 2) * 1;
@@ -304,23 +312,21 @@ class CinematicPathGenerator {
     }
 
     // Path 2: Cross-wave sweeps (perpendicular to wave crests)
-    const sweepLines = 4;
+    const sweepLines = 5;
     for (let sweep = 0; sweep < sweepLines; sweep++) {
       const sweepProgress = sweep / (sweepLines - 1);
       const sweepZ = bounds.minZ + sweepProgress * fieldDepth;
       
-      // Zigzag across the width
-      const pointsPerSweep = 5;
+      const pointsPerSweep = 6;
       for (let i = 0; i < pointsPerSweep; i++) {
         const t = i / (pointsPerSweep - 1);
-        const zigzag = sweep % 2 === 0 ? t : 1 - t; // Alternate direction
+        const zigzag = sweep % 2 === 0 ? t : 1 - t;
         
         const x = bounds.minX + zigzag * fieldWidth;
         const distFromCenter = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(sweepZ - centerZ, 2));
         const wavePhase = distFromCenter * waveFrequency;
         const y = -3 + Math.sin(wavePhase) * 2.5 + Math.cos(i * 0.5) * 1;
         
-        // Stay at optimal distance to see multiple photos
         const viewX = x;
         const viewZ = sweepZ + (sweep % 2 === 0 ? optimalDistance : -optimalDistance);
         
@@ -331,17 +337,15 @@ class CinematicPathGenerator {
     // Path 3: Wave crest following (ride along the wave peaks)
     const waveRings = 3;
     for (let ring = 0; ring < waveRings; ring++) {
-      const targetRadius = fieldRadius * (0.3 + ring * 0.3); // Different wave crests
-      const pointsPerRing = 16;
+      const targetRadius = fieldRadius * (0.3 + ring * 0.3);
+      const pointsPerRing = 20;
       
       for (let i = 0; i < pointsPerRing; i++) {
         const angle = (i / pointsPerRing) * Math.PI * 2;
         
-        // Follow the wave crest at this radius
         const wavePhase = targetRadius * waveFrequency;
         const crestHeight = Math.sin(wavePhase) * 3;
         
-        // Undulate around the crest
         const x = centerX + Math.cos(angle) * targetRadius;
         const z = centerZ + Math.sin(angle) * targetRadius;
         const y = -2 + crestHeight + Math.sin(angle * 4) * 1;
@@ -350,23 +354,22 @@ class CinematicPathGenerator {
       }
     }
 
-    // Path 4: Focus sweeps through photo clusters
-    // Group photos by proximity to identify clusters
-    const clusterCenters: THREE.Vector3[] = [];
+    // Path 4: Position-based sweeps (visit all positions systematically)
+    // Group positions by proximity
+    const clusters: PhotoPosition[][] = [];
     const visited = new Set<number>();
     
-    photos.forEach((photo, idx) => {
+    positions.forEach((pos, idx) => {
       if (visited.has(idx)) return;
       
-      // Find nearby photos
-      const cluster: PhotoPosition[] = [photo];
+      const cluster: PhotoPosition[] = [pos];
       visited.add(idx);
       
-      photos.forEach((other, otherIdx) => {
+      positions.forEach((other, otherIdx) => {
         if (visited.has(otherIdx)) return;
         const dist = Math.sqrt(
-          Math.pow(photo.position[0] - other.position[0], 2) +
-          Math.pow(photo.position[2] - other.position[2], 2)
+          Math.pow(pos.position[0] - other.position[0], 2) +
+          Math.pow(pos.position[2] - other.position[2], 2)
         );
         if (dist < photoSize * 3) {
           cluster.push(other);
@@ -374,25 +377,22 @@ class CinematicPathGenerator {
         }
       });
       
-      // Calculate cluster center
-      if (cluster.length > 2) {
-        const cx = cluster.reduce((sum, p) => sum + p.position[0], 0) / cluster.length;
-        const cz = cluster.reduce((sum, p) => sum + p.position[2], 0) / cluster.length;
-        clusterCenters.push(new THREE.Vector3(cx, 0, cz));
+      if (cluster.length > 0) {
+        clusters.push(cluster);
       }
     });
 
-    // Fly through clusters
-    clusterCenters.forEach((cluster, idx) => {
-      const angle = Math.atan2(cluster.z - centerZ, cluster.x - centerX);
+    // Visit each cluster
+    clusters.forEach((cluster, idx) => {
+      const cx = cluster.reduce((sum, p) => sum + p.position[0], 0) / cluster.length;
+      const cz = cluster.reduce((sum, p) => sum + p.position[2], 0) / cluster.length;
       
-      // Approach from optimal angle to see multiple photos
+      const angle = Math.atan2(cz - centerZ, cx - centerX);
       const approachDist = optimalDistance;
-      const viewX = cluster.x - Math.cos(angle) * approachDist;
-      const viewZ = cluster.z - Math.sin(angle) * approachDist;
+      const viewX = cx - Math.cos(angle) * approachDist;
+      const viewZ = cz - Math.sin(angle) * approachDist;
       
-      // Wave height at cluster
-      const distFromCenter = Math.sqrt(Math.pow(cluster.x - centerX, 2) + Math.pow(cluster.z - centerZ, 2));
+      const distFromCenter = Math.sqrt(Math.pow(cx - centerX, 2) + Math.pow(cz - centerZ, 2));
       const wavePhase = distFromCenter * waveFrequency;
       const y = -2 + Math.sin(wavePhase) * 2;
       
@@ -401,19 +401,19 @@ class CinematicPathGenerator {
       // Sweep across the cluster
       const sweepAngle = angle + Math.PI / 2;
       waypoints.push(new THREE.Vector3(
-        cluster.x + Math.cos(sweepAngle) * photoSize * 2,
+        cx + Math.cos(sweepAngle) * photoSize * 2,
         y + 1,
-        cluster.z + Math.sin(sweepAngle) * photoSize * 2
+        cz + Math.sin(sweepAngle) * photoSize * 2
       ));
     });
 
-    // Path 5: Return to center with ascending spiral (cinematic ending)
+    // Path 5: Return to center with ascending spiral
     const returnPoints = 8;
     for (let i = 0; i < returnPoints; i++) {
       const t = i / returnPoints;
-      const angle = Math.PI * 2 * (1 - t); // Spiral inward
-      const radius = fieldRadius * 0.5 * (1 - t); // Contract to center
-      const height = -2 + t * 4; // Ascend
+      const angle = Math.PI * 2 * (1 - t);
+      const radius = fieldRadius * 0.5 * (1 - t);
+      const height = -2 + t * 4;
       
       waypoints.push(new THREE.Vector3(
         centerX + Math.cos(angle) * radius,
@@ -422,9 +422,9 @@ class CinematicPathGenerator {
       ));
     }
 
-    console.log(`🌊 Generated ${waypoints.length} waypoints for maximum photo visibility`);
-    console.log('✅ Path: CENTER START → Spiral out → Cross sweeps → Wave crests → Clusters → Return');
-    console.log(`📸 Optimal viewing distance: ${optimalDistance.toFixed(1)} units (based on ${photos.length} photos)`);
+    console.log(`🌊 Generated ${waypoints.length} waypoints for complete wave pattern tour`);
+    console.log('✅ Path covers ALL positions (photos AND empty slots)');
+    console.log(`📸 Optimal viewing distance: ${optimalDistance.toFixed(1)} units`);
     
     return waypoints;
   }
@@ -537,31 +537,34 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return null;
     }
 
-    const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
-    if (!validPhotos.length) return null;
+    // FIXED: Include ALL positions (photos AND empty slots) for proper wave pattern touring
+    const allPositions = photoPositions.filter(p => p.id); // Just ensure they have an id
+    if (!allPositions.length) return null;
 
-    console.log(`🎬 Generating smooth ${config.type} path for ${validPhotos.length} photos`);
+    const actualPhotos = allPositions.filter(p => !p.id.startsWith('placeholder-'));
+    console.log(`🎬 Generating smooth ${config.type} path for ${allPositions.length} positions (${actualPhotos.length} photos, ${allPositions.length - actualPhotos.length} empty slots)`);
 
     let waypoints: THREE.Vector3[] = [];
 
     switch (config.type) {
       case 'showcase':
-        waypoints = CinematicPathGenerator.generateShowcasePath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateShowcasePath(allPositions, settings);
         break;
       case 'gallery_walk':
-        waypoints = CinematicPathGenerator.generateGalleryWalkPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateGalleryWalkPath(allPositions, settings);
         break;
       case 'spiral_tour':
-        waypoints = CinematicPathGenerator.generateSpiralTourPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateSpiralTourPath(allPositions, settings);
         break;
       case 'wave_follow':
-        waypoints = CinematicPathGenerator.generateWaveFollowPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateWaveFollowPath(allPositions, settings);
         break;
       case 'grid_sweep':
-        waypoints = CinematicPathGenerator.generateGridSweepPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateGridSweepPath(allPositions, settings);
         break;
       case 'photo_focus':
-        waypoints = CinematicPathGenerator.generatePhotoFocusPath(validPhotos, settings);
+        // Photo focus should only look at actual photos
+        waypoints = CinematicPathGenerator.generatePhotoFocusPath(actualPhotos.length > 0 ? actualPhotos : allPositions, settings);
         break;
       default:
         return null;
