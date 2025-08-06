@@ -1077,6 +1077,12 @@ const EnhancedSceneSettings: React.FC<{
                         <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances, 
                         <strong>Float</strong> gets moderate settings for optimal viewing.
                       </p>
+                      <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-600/30 rounded">
+                        <p className="text-xs text-yellow-300 font-medium">⚠️ Wave Pattern Camera Focus:</p>
+                        <p className="text-xs text-yellow-400/90">
+                          For better center focusing with wave patterns, try: Base Height: 15-25, Base Distance: 25-35, Focus Distance: 10-15
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -1379,6 +1385,9 @@ const EnhancedSceneSettings: React.FC<{
               }, true)}
               className="w-full bg-gray-800"
             />
+            <p className="mt-1 text-xs text-gray-400">
+              Size of individual photos in the collage (Note: Backend validation may limit this to 15 units)
+            </p>
           </div>
 
           <div>
