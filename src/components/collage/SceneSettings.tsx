@@ -987,7 +987,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="5"
-                          max="150"
+                          max="80"
                           step="2"
                           value={settings.cameraAnimation?.baseHeight || 25}
                           onChange={(e) => onSettingsChange({ 
@@ -1008,8 +1008,8 @@ const EnhancedSceneSettings: React.FC<{
                         </label>
                         <input
                           type="range"
-                          min="10"
-                          max="200"
+                          min="15"
+                          max="100"
                           step="2"
                           value={settings.cameraAnimation?.baseDistance || 35}
                           onChange={(e) => onSettingsChange({ 
@@ -1033,7 +1033,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0"
-                          max="50"
+                          max="20"
                           step="1"
                           value={settings.cameraAnimation?.heightVariation || 8}
                           onChange={(e) => onSettingsChange({ 
@@ -1055,7 +1055,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0"
-                          max="75"
+                          max="25"
                           step="1"
                           value={settings.cameraAnimation?.distanceVariation || 10}
                           onChange={(e) => onSettingsChange({ 
@@ -1077,12 +1077,6 @@ const EnhancedSceneSettings: React.FC<{
                         <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances, 
                         <strong>Float</strong> gets moderate settings for optimal viewing.
                       </p>
-                      <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-600/30 rounded">
-                        <p className="text-xs text-yellow-300 font-medium">⚠️ Wave Pattern Camera Focus:</p>
-                        <p className="text-xs text-yellow-400/90">
-                          For better center focusing with wave patterns, try: Base Height: 15-25, Base Distance: 25-35, Focus Distance: 10-15
-                        </p>
-                      </div>
                     </div>
                   </div>
 
@@ -1385,9 +1379,6 @@ const EnhancedSceneSettings: React.FC<{
               }, true)}
               className="w-full bg-gray-800"
             />
-            <p className="mt-1 text-xs text-gray-400">
-              Size of individual photos in the collage (Note: Backend validation may limit this to 15 units)
-            </p>
           </div>
 
           <div>
