@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -17,12 +17,10 @@ interface CinematicCameraConfig {
   transitionTime: number;
   pauseTime: number;
   randomization: number;
-  // Fine-tuning controls from SceneSettings
   baseHeight?: number;
   baseDistance?: number;
   heightVariation?: number;
   distanceVariation?: number;
-  // Interaction settings
   interactionSensitivity?: 'low' | 'medium' | 'high';
   ignoreMouseMovement?: boolean;
   mouseMoveThreshold?: number;
@@ -44,23 +42,10 @@ interface SmoothCinematicCameraControllerProps {
     floorSize?: number;
     photoCount?: number;
     patterns?: {
-      wave?: {
-        amplitude?: number;
-        frequency?: number;
-      };
-      grid?: {
-        wallHeight?: number;
-        aspectRatio?: number;
-        spacing?: number;
-      };
-      float?: {
-        height?: number;
-        spread?: number;
-      };
-      spiral?: {
-        radius?: number;
-        heightStep?: number;
-      };
+      wave?: { amplitude?: number; frequency?: number };
+      grid?: { wallHeight?: number; aspectRatio?: number; spacing?: number };
+      float?: { height?: number; spread?: number };
+      spiral?: { radius?: number; heightStep?: number };
     };
     sceneEnvironment?: 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
     wallHeight?: number;
@@ -68,7 +53,6 @@ interface SmoothCinematicCameraControllerProps {
   };
 }
 
-// Smooth curve generator for continuous camera paths
 class SmoothCameraPath {
   private points: THREE.Vector3[] = [];
   private curve: THREE.CatmullRomCurve3 | null = null;
@@ -102,20 +86,24 @@ class SmoothCameraPath {
     return this.curve.getPointAt(t % 1);
   }
 
-  getLookAtTarget(t: number, photoPositions: PhotoPosition[], focusDistance: number): THREE.Vector3 {
+  getLookAtTarget(t: number, photoPositions: PhotoPosition[], focusDistance: number, cameraY: number): THREE.Vector3 {
     const currentPos = this.getPositionAt(t);
     const nearbyPositions = photoPositions
       .map(p => ({
         position: p,
         distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
       }))
-      .filter(p => p.distance <= focusDistance)
+      .filter(p => p.distance <= focusDistance && p.position.position[1] >= cameraY - 0.5) // Prevent looking down
       .sort((a, b) => a.distance - b.distance);
+
     if (nearbyPositions.length > 0) {
       return new THREE.Vector3(...nearbyPositions[0].position.position);
     } else {
+      // Look at a position at the same height or slightly above
       const lookAheadT = (t + 0.1) % 1;
-      return this.getPositionAt(lookAheadT);
+      const lookAheadPos = this.getPositionAt(lookAheadT);
+      lookAheadPos.y = Math.max(lookAheadPos.y, cameraY + 0.5);
+      return lookAheadPos;
     }
   }
 
@@ -124,7 +112,6 @@ class SmoothCameraPath {
   }
 }
 
-// Smart path generators for different showcase types
 class CinematicPathGenerator {
   static generateShowcasePath(positions: PhotoPosition[], settings: any, config: CinematicCameraConfig): THREE.Vector3[] {
     if (!positions.length) return [];
@@ -136,9 +123,7 @@ class CinematicPathGenerator {
 
     const positionsByZ = new Map<number, PhotoPosition[]>();
     positions.forEach(pos => {
-      const z _
-
-System: _ = Math.round(pos.position[2] / photoSize) * photoSize;
+      const z = Math.round(pos.position[2] / photoSize) * photoSize;
       if (!positionsByZ.has(z)) positionsByZ.set(z, []);
       positionsByZ.get(z)!.push(pos);
     });
@@ -238,7 +223,9 @@ System: _ = Math.round(pos.position[2] / photoSize) * photoSize;
     const bounds = this.getPhotoBounds(positions);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-    const fieldRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ, baseDistance);
+    const field України
+
+System: Radius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ, baseDistance);
 
     const waypoints: THREE.Vector3[] = [];
     waypoints.push(new THREE.Vector3(centerX, baseHeight + 10, centerZ));
@@ -296,14 +283,17 @@ System: _ = Math.round(pos.position[2] / photoSize) * photoSize;
     const waypoints: THREE.Vector3[] = [];
     const rows = 5;
     const cols = 6;
+    const xRange = bounds.maxX - bounds.minX + 20;
+    const zRange = bounds.maxZ - bounds.minZ + 20;
 
+    // Serpentine pattern for a smooth loop
     for (let row = 0; row < rows; row++) {
-      const z = bounds.minZ - 10 + (row / (rows - 1)) * (bounds.maxZ - bounds.minZ + 20);
+      const z = bounds.minZ - 10 + (row / (rows - 1)) * zRange;
       const isEvenRow = row % 2 === 0;
 
       for (let col = 0; col < cols; col++) {
         const colIndex = isEvenRow ? col : cols - 1 - col;
-        const x = bounds.minX - 10 + (colIndex / (cols - 1)) * (bounds.maxX - bounds.minX + 20);
+        const x = bounds.minX - 10 + (colIndex / (cols - 1)) * xRange;
         waypoints.push(new THREE.Vector3(
           x + distanceVariation * Math.sin(row * 0.3),
           baseHeight + heightVariation * Math.sin(row * 0.3 + col * 0.2),
@@ -311,6 +301,18 @@ System: _ = Math.round(pos.position[2] / photoSize) * photoSize;
         ));
       }
     }
+
+    // Add return path to create a perfect loop
+    const lastWaypoint = waypoints[waypoints.length - 1];
+    const firstWaypoint = waypoints[0];
+    const returnPoints = 5;
+    for (let i = 1; i <= returnPoints; i++) {
+      const t = i / returnPoints;
+      const intermediate = new THREE.Vector3().lerpVectors(lastWaypoint, firstWaypoint, t);
+      intermediate.y = baseHeight + heightVariation * Math.sin(t * Math.PI); // Smooth height transition
+      waypoints.push(intermediate);
+    }
+
     return waypoints;
   }
 
@@ -342,12 +344,7 @@ System: _ = Math.round(pos.position[2] / photoSize) * photoSize;
 
   private static getPhotoBounds(positions: PhotoPosition[]) {
     if (!positions.length) {
-      return {
-        minX: -50,
-        maxX: 50,
-        minZ: -50,
-        maxZ: 50
-      };
+      return { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
     }
 
     const posArray = positions.map(p => p.position);
@@ -369,7 +366,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
 }) => {
   const { camera, controls } = useThree();
 
-  // Animation state
   const pathProgressRef = useRef(0);
   const userInteractingRef = useRef(false);
   const lastInteractionRef = useRef(0);
@@ -385,8 +381,8 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   const configTransitionStartRef = useRef(0);
   const configStartPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
   const configStartLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const reverseDirectionRef = useRef(false);
 
-  // Generate smooth camera path with environment constraints
   const cameraPath = useMemo(() => {
     if (!config?.enabled || !photoPositions.length || config.type === 'none') {
       return null;
@@ -404,7 +400,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     let waypoints: THREE.Vector3[] = [];
     const environment = settings.sceneEnvironment || 'default';
 
-    // Adjust waypoints based on environment
     switch (config.type) {
       case 'showcase':
         waypoints = CinematicPathGenerator.generateShowcasePath(allPositions, settings, config);
@@ -428,7 +423,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
         return null;
     }
 
-    // Apply environment constraints
     if (environment === 'cube' || environment === 'gallery') {
       const wallHeight = settings.wallHeight || 100;
       const roomDepth = settings.roomDepth || settings.floorSize || 200;
@@ -592,21 +586,37 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       isActiveRef.current = true;
       isResuming.current = true;
       resumeBlendRef.current = 0;
+      reverseDirectionRef.current = false;
       console.log('🎬 Camera Animation: Smoothly resuming animation');
     }
 
     const speed = (config.speed || 1.0) * 0.02;
-    pathProgressRef.current += delta * speed;
-    pathProgressRef.current = pathProgressRef.current % 1;
+    if (reverseDirectionRef.current) {
+      pathProgressRef.current -= delta * speed;
+      if (pathProgressRef.current < 0) pathProgressRef.current += 1;
+    } else {
+      pathProgressRef.current += delta * speed;
+      pathProgressRef.current = pathProgressRef.current % 1;
+    }
 
     const targetPosition = currentPathRef.current.getPositionAt(pathProgressRef.current);
     const lookAtTarget = currentPathRef.current.getLookAtTarget(
       pathProgressRef.current,
       photoPositions,
-      config.focusDistance || 15
+      config.focusDistance || 15,
+      camera.position.y
     );
 
-    // Pause at photos based on pauseTime
+    // Check if look-at target is below camera and reverse if necessary
+    if (lookAtTarget.y < camera.position.y - 0.5 && !reverseDirectionRef.current) {
+      console.log('🔄 Camera would look down, reversing direction');
+      reverseDirectionRef.current = true;
+      pathProgressRef.current -= delta * speed * 2; // Smoothly reverse
+    } else if (lookAtTarget.y >= camera.position.y - 0.5 && reverseDirectionRef.current) {
+      reverseDirectionRef.current = false;
+      console.log('🎬 Resuming forward direction');
+    }
+
     const pauseTime = config.pauseTime || 1.5;
     const normalizedProgress = pathProgressRef.current % 1;
     const shouldPause = normalizedProgress % (1 / photoPositions.length) < 0.01 && pauseTime > 0;
@@ -648,7 +658,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       }
     }
 
-    // Preserve user distance and height if specified
     if (config.preserveUserDistance && lastUserPositionRef.current) {
       const currentDist = camera.position.distanceTo(lookAtTarget);
       const userDist = lastUserPositionRef.current.distanceTo(lastUserTargetRef.current || lookAtTarget);
@@ -697,6 +706,8 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}, Focus: ${config.focusDistance}`);
       console.log(`🖼️ Environment: ${settings.sceneEnvironment || 'default'}`);
       console.log(`🔧 Fine-tuning - Base Height: ${config.baseHeight || 'Auto'}, Base Distance: ${config.baseDistance || 'Auto'}, Height Variation: ${config.heightVariation || 'Auto'}, Distance Variation: ${config.distanceVariation || 'Auto'}`);
+      console.log(`🔄 Grid sweep forms perfect loop: ${config.type === 'grid_sweep' ? 'ENABLED' : 'N/A'}`);
+      console.log(`🚫 Camera looking down prevention: ENABLED with reverse direction`);
     }
   }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.ignoreMouseMovement, config?.resumeDelay, config?.enableManualControl, settings.sceneEnvironment, config?.baseHeight, config?.baseDistance, config?.heightVariation, config?.distanceVariation]);
 
