@@ -93,23 +93,17 @@ class SmoothCameraPath {
   getLookAtTarget(t: number, photoPositions: PhotoPosition[], focusDistance: number): THREE.Vector3 {
     const currentPos = this.getPositionAt(t);
     
-    // Find ALL positions within focus distance (including empty slots)
+    // FIXED: Look at ALL positions equally (photos AND empty slots)
     const nearbyPositions = photoPositions
       .map(p => ({
         position: p,
-        distance: currentPos.distanceTo(new THREE.Vector3(...p.position)),
-        isPhoto: !p.id.startsWith('placeholder-')
+        distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
       }))
       .filter(p => p.distance <= focusDistance * 1.5)
-      .sort((a, b) => {
-        // Prefer actual photos over empty slots
-        if (a.isPhoto && !b.isPhoto) return -1;
-        if (!a.isPhoto && b.isPhoto) return 1;
-        return a.distance - b.distance;
-      });
+      .sort((a, b) => a.distance - b.distance);
 
     if (nearbyPositions.length > 0) {
-      // Focus on closest positions with preference for actual photos
+      // Focus on closest positions (whether photo or empty slot)
       const maxBlend = Math.min(nearbyPositions.length, 2);
       if (maxBlend === 1) {
         return new THREE.Vector3(...nearbyPositions[0].position.position);
@@ -240,180 +234,144 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
-  // COMPLETELY REWRITTEN: Wave follow with center start and maximum photo visibility
+  // COMPLETELY REWRITTEN: Wave follow that treats ALL positions equally
   static generateWaveFollowPath(positions: PhotoPosition[], settings: any): THREE.Vector3[] {
-    if (!positions.length) return [];
+    if (!positions.length) {
+      console.warn('⚠️ No positions provided for wave follow path');
+      return [];
+    }
 
     const photoSize = settings.photoSize || 4;
     const waveAmplitude = settings.patterns?.wave?.amplitude || 15;
     const waveFrequency = settings.patterns?.wave?.frequency || 0.3;
     
-    // Count actual photos vs empty slots
+    // Count actual photos vs empty slots for logging only
     const actualPhotos = positions.filter(p => !p.id.startsWith('placeholder-'));
     const emptySlots = positions.filter(p => p.id.startsWith('placeholder-'));
     
-    console.log('🌊 Generating wave follow path - CENTER START with maximum visibility');
+    console.log('🌊 Generating wave follow path - treating ALL positions EQUALLY');
     console.log(`📸 Total positions: ${positions.length} (${actualPhotos.length} photos, ${emptySlots.length} empty slots)`);
-    console.log('✅ Camera will tour ALL positions including empty slots!');
+    console.log('✅ Camera will showcase the ENTIRE wave pattern!');
 
-    // Analyze the actual layout (including empty slots)
+    // Analyze the complete layout
     const bounds = this.getPhotoBounds(positions);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
     const fieldWidth = bounds.maxX - bounds.minX;
     const fieldDepth = bounds.maxZ - bounds.minZ;
-    const fieldRadius = Math.max(fieldWidth, fieldDepth) / 2;
+    const fieldRadius = Math.sqrt(fieldWidth * fieldWidth + fieldDepth * fieldDepth) / 2;
     
-    console.log('📍 Wave field analysis:', {
+    console.log('📍 Wave field bounds:', {
       center: `(${centerX.toFixed(1)}, ${centerZ.toFixed(1)})`,
       size: `${fieldWidth.toFixed(1)} x ${fieldDepth.toFixed(1)}`,
-      totalPositions: positions.length
+      radius: fieldRadius.toFixed(1)
     });
 
     const waypoints: THREE.Vector3[] = [];
     
-    // Calculate optimal viewing distance based on position density
-    const positionDensity = positions.length / (fieldWidth * fieldDepth);
-    const optimalDistance = photoSize * (positionDensity > 0.05 ? 3 : 4);
-    const maxDistance = fieldRadius + photoSize * 2;
+    // Calculate optimal viewing distance
+    const optimalDistance = photoSize * 3.5;
     
     // START FROM CENTER - Dramatic entrance
-    const startHeight = 5;
+    const startHeight = 8;
     waypoints.push(new THREE.Vector3(centerX, startHeight, centerZ));
     
-    // Descend into the wave pattern
-    for (let i = 1; i <= 3; i++) {
-      const t = i / 3;
-      const height = startHeight * (1 - t) + (-2) * t;
+    // Dramatic descent into the scene
+    for (let i = 1; i <= 4; i++) {
+      const t = i / 4;
+      const height = startHeight * (1 - t) + (-1) * t;
+      const spiralAngle = t * Math.PI;
       waypoints.push(new THREE.Vector3(
-        centerX + Math.sin(t * Math.PI) * photoSize,
+        centerX + Math.sin(spiralAngle) * photoSize * 2,
         height,
-        centerZ + Math.cos(t * Math.PI) * photoSize
+        centerZ + Math.cos(spiralAngle) * photoSize * 2
       ));
     }
 
-    // MAIN PATHS: Multiple cinematic flythrough patterns
-    
-    // Path 1: Spiral outward from center (expanding view)
-    const spiralPoints = Math.min(positions.length * 2, 40); // More points for empty slots
+    // PATH 1: Expanding spiral to see ALL positions
+    const spiralTurns = 2.5;
+    const spiralPoints = 40;
     for (let i = 0; i < spiralPoints; i++) {
       const t = i / spiralPoints;
-      const angle = t * Math.PI * 4;
-      const radius = t * fieldRadius * 0.8;
+      const angle = t * spiralTurns * Math.PI * 2;
+      const radius = photoSize * 2 + (t * fieldRadius * 0.9);
       
       const wavePhase = radius * waveFrequency;
-      const waveHeight = Math.sin(wavePhase) * 2;
+      const waveHeight = Math.sin(wavePhase) * 2.5;
       
       const x = centerX + Math.cos(angle) * radius;
       const z = centerZ + Math.sin(angle) * radius;
-      const y = -2 + waveHeight + Math.sin(t * Math.PI * 2) * 1;
+      const y = -2 + waveHeight + Math.sin(t * Math.PI * 3) * 1.5;
       
       waypoints.push(new THREE.Vector3(x, y, z));
     }
 
-    // Path 2: Cross-wave sweeps (perpendicular to wave crests)
-    const sweepLines = 5;
-    for (let sweep = 0; sweep < sweepLines; sweep++) {
-      const sweepProgress = sweep / (sweepLines - 1);
-      const sweepZ = bounds.minZ + sweepProgress * fieldDepth;
+    // PATH 2: Grid sweep to ensure we see EVERY position
+    const gridRows = 5;
+    const gridCols = 5;
+    for (let row = 0; row < gridRows; row++) {
+      const rowT = row / (gridRows - 1);
+      const z = bounds.minZ - optimalDistance + rowT * (fieldDepth + optimalDistance * 2);
       
-      const pointsPerSweep = 6;
-      for (let i = 0; i < pointsPerSweep; i++) {
-        const t = i / (pointsPerSweep - 1);
-        const zigzag = sweep % 2 === 0 ? t : 1 - t;
+      for (let col = 0; col < gridCols; col++) {
+        const colT = col / (gridCols - 1);
+        // Zigzag pattern
+        const actualColT = row % 2 === 0 ? colT : 1 - colT;
+        const x = bounds.minX - optimalDistance/2 + actualColT * (fieldWidth + optimalDistance);
         
-        const x = bounds.minX + zigzag * fieldWidth;
-        const distFromCenter = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(sweepZ - centerZ, 2));
+        const distFromCenter = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
         const wavePhase = distFromCenter * waveFrequency;
-        const y = -3 + Math.sin(wavePhase) * 2.5 + Math.cos(i * 0.5) * 1;
-        
-        const viewX = x;
-        const viewZ = sweepZ + (sweep % 2 === 0 ? optimalDistance : -optimalDistance);
-        
-        waypoints.push(new THREE.Vector3(viewX, y, viewZ));
-      }
-    }
-
-    // Path 3: Wave crest following (ride along the wave peaks)
-    const waveRings = 3;
-    for (let ring = 0; ring < waveRings; ring++) {
-      const targetRadius = fieldRadius * (0.3 + ring * 0.3);
-      const pointsPerRing = 20;
-      
-      for (let i = 0; i < pointsPerRing; i++) {
-        const angle = (i / pointsPerRing) * Math.PI * 2;
-        
-        const wavePhase = targetRadius * waveFrequency;
-        const crestHeight = Math.sin(wavePhase) * 3;
-        
-        const x = centerX + Math.cos(angle) * targetRadius;
-        const z = centerZ + Math.sin(angle) * targetRadius;
-        const y = -2 + crestHeight + Math.sin(angle * 4) * 1;
+        const y = -3 + Math.sin(wavePhase) * 3 + Math.cos(row * col * 0.3) * 1;
         
         waypoints.push(new THREE.Vector3(x, y, z));
       }
     }
 
-    // Path 4: Position-based sweeps (visit all positions systematically)
-    // Group positions by proximity
-    const clusters: PhotoPosition[][] = [];
-    const visited = new Set<number>();
-    
-    positions.forEach((pos, idx) => {
-      if (visited.has(idx)) return;
+    // PATH 3: Circular orbits at different heights
+    const orbitCount = 3;
+    for (let orbit = 0; orbit < orbitCount; orbit++) {
+      const orbitRadius = fieldRadius * (0.5 + orbit * 0.25);
+      const orbitHeight = -4 + orbit * 2;
+      const pointsPerOrbit = 24;
       
-      const cluster: PhotoPosition[] = [pos];
-      visited.add(idx);
-      
-      positions.forEach((other, otherIdx) => {
-        if (visited.has(otherIdx)) return;
-        const dist = Math.sqrt(
-          Math.pow(pos.position[0] - other.position[0], 2) +
-          Math.pow(pos.position[2] - other.position[2], 2)
-        );
-        if (dist < photoSize * 3) {
-          cluster.push(other);
-          visited.add(otherIdx);
-        }
-      });
-      
-      if (cluster.length > 0) {
-        clusters.push(cluster);
+      for (let i = 0; i < pointsPerOrbit; i++) {
+        const angle = (i / pointsPerOrbit) * Math.PI * 2;
+        
+        const wavePhase = orbitRadius * waveFrequency + orbit;
+        const waveModulation = Math.sin(wavePhase) * 2;
+        
+        const x = centerX + Math.cos(angle) * orbitRadius;
+        const z = centerZ + Math.sin(angle) * orbitRadius;
+        const y = orbitHeight + waveModulation + Math.sin(angle * 3) * 1;
+        
+        waypoints.push(new THREE.Vector3(x, y, z));
       }
-    });
+    }
 
-    // Visit each cluster
-    clusters.forEach((cluster, idx) => {
-      const cx = cluster.reduce((sum, p) => sum + p.position[0], 0) / cluster.length;
-      const cz = cluster.reduce((sum, p) => sum + p.position[2], 0) / cluster.length;
+    // PATH 4: Direct position visits - ensure we get close to ALL positions
+    const visitStep = Math.max(1, Math.floor(positions.length / 20)); // Visit up to 20 positions directly
+    for (let i = 0; i < positions.length; i += visitStep) {
+      const pos = positions[i];
+      const angle = Math.atan2(pos.position[2] - centerZ, pos.position[0] - centerX);
       
-      const angle = Math.atan2(cz - centerZ, cx - centerX);
-      const approachDist = optimalDistance;
-      const viewX = cx - Math.cos(angle) * approachDist;
-      const viewZ = cz - Math.sin(angle) * approachDist;
+      // Approach position from a good viewing angle
+      const viewX = pos.position[0] - Math.cos(angle) * optimalDistance;
+      const viewZ = pos.position[2] - Math.sin(angle) * optimalDistance;
       
-      const distFromCenter = Math.sqrt(Math.pow(cx - centerX, 2) + Math.pow(cz - centerZ, 2));
-      const wavePhase = distFromCenter * waveFrequency;
-      const y = -2 + Math.sin(wavePhase) * 2;
+      const dist = Math.sqrt((pos.position[0] - centerX) ** 2 + (pos.position[2] - centerZ) ** 2);
+      const wavePhase = dist * waveFrequency;
+      const viewY = -2 + Math.sin(wavePhase) * 2;
       
-      waypoints.push(new THREE.Vector3(viewX, y, viewZ));
-      
-      // Sweep across the cluster
-      const sweepAngle = angle + Math.PI / 2;
-      waypoints.push(new THREE.Vector3(
-        cx + Math.cos(sweepAngle) * photoSize * 2,
-        y + 1,
-        cz + Math.sin(sweepAngle) * photoSize * 2
-      ));
-    });
+      waypoints.push(new THREE.Vector3(viewX, viewY, viewZ));
+    }
 
-    // Path 5: Return to center with ascending spiral
-    const returnPoints = 8;
+    // PATH 5: Return sweep with ascent
+    const returnPoints = 10;
     for (let i = 0; i < returnPoints; i++) {
       const t = i / returnPoints;
-      const angle = Math.PI * 2 * (1 - t);
-      const radius = fieldRadius * 0.5 * (1 - t);
-      const height = -2 + t * 4;
+      const angle = Math.PI * 2 * (1 - t * 0.5);
+      const radius = fieldRadius * (0.7 - t * 0.4);
+      const height = -2 + t * 6;
       
       waypoints.push(new THREE.Vector3(
         centerX + Math.cos(angle) * radius,
@@ -422,9 +380,9 @@ class CinematicPathGenerator {
       ));
     }
 
-    console.log(`🌊 Generated ${waypoints.length} waypoints for complete wave pattern tour`);
-    console.log('✅ Path covers ALL positions (photos AND empty slots)');
-    console.log(`📸 Optimal viewing distance: ${optimalDistance.toFixed(1)} units`);
+    console.log(`🌊 Successfully generated ${waypoints.length} waypoints`);
+    console.log('✅ Path will showcase ALL positions in the wave pattern');
+    console.log('📹 Ready for cinematic animation!');
     
     return waypoints;
   }
@@ -537,15 +495,19 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return null;
     }
 
-    // FIXED: Include ALL positions (photos AND empty slots) for proper wave pattern touring
-    const allPositions = photoPositions.filter(p => p.id); // Just ensure they have an id
-    if (!allPositions.length) return null;
-
+    // FIXED: Use ALL positions equally - no filtering!
+    const allPositions = photoPositions; // Use everything as-is
+    
     const actualPhotos = allPositions.filter(p => !p.id.startsWith('placeholder-'));
-    console.log(`🎬 Generating smooth ${config.type} path for ${allPositions.length} positions (${actualPhotos.length} photos, ${allPositions.length - actualPhotos.length} empty slots)`);
+    const emptySlots = allPositions.filter(p => p.id.startsWith('placeholder-'));
+    
+    console.log(`🎬 Generating ${config.type} path for ALL ${allPositions.length} positions`);
+    console.log(`📸 Breakdown: ${actualPhotos.length} photos, ${emptySlots.length} empty slots`);
+    console.log('✅ Camera will treat photos and empty slots EQUALLY!');
 
     let waypoints: THREE.Vector3[] = [];
 
+    // All path types use ALL positions
     switch (config.type) {
       case 'showcase':
         waypoints = CinematicPathGenerator.generateShowcasePath(allPositions, settings);
@@ -563,8 +525,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
         waypoints = CinematicPathGenerator.generateGridSweepPath(allPositions, settings);
         break;
       case 'photo_focus':
-        // Photo focus should only look at actual photos
-        waypoints = CinematicPathGenerator.generatePhotoFocusPath(actualPhotos.length > 0 ? actualPhotos : allPositions, settings);
+        waypoints = CinematicPathGenerator.generatePhotoFocusPath(allPositions, settings);
         break;
       default:
         return null;
@@ -821,26 +782,23 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       (controls as any).update();
     }
 
-    // Track photo visibility for progress
-    photoPositions.forEach(photo => {
-      if (!photo.id.startsWith('placeholder-')) {
-        const photoVec = new THREE.Vector3(...photo.position);
-        const distance = camera.position.distanceTo(photoVec);
-        if (distance <= (config.focusDistance || 15)) {
-          visibilityTrackerRef.current.add(photo.id);
-        }
+    // Track visibility for ALL positions (photos AND empty slots)
+    photoPositions.forEach(position => {
+      const posVec = new THREE.Vector3(...position.position);
+      const distance = camera.position.distanceTo(posVec);
+      if (distance <= (config.focusDistance || 15)) {
+        visibilityTrackerRef.current.add(position.id);
       }
     });
 
     // Log progress occasionally
     if (Math.floor(pathProgressRef.current * 100) % 20 === 0 && Math.floor(pathProgressRef.current * 100) !== 0) {
       const viewedCount = visibilityTrackerRef.current.size;
-      const totalPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
+      const totalPositions = photoPositions.length;
+      const actualPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
       
-      if (viewedCount > 0) {
-        console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPhotos} photos viewed (${Math.round(viewedCount/totalPhotos*100)}%)`);
-        console.log(`📍 Current position: (${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)})`);
-      }
+      console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPositions} positions viewed (${actualPhotos} photos, ${totalPositions - actualPhotos} empty slots)`);
+      console.log(`📍 Current position: (${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)})`);
     }
   });
 
