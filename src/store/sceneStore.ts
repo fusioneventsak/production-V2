@@ -343,9 +343,7 @@ export const useSceneStore = create<SceneState>()((set, get) => {
     // SPECIAL HANDLING: When cinematic camera is enabled, disable legacy rotation
     if (newSettings.cameraAnimation?.enabled === true) {
       newSettings.cameraRotationEnabled = false;
-      console.log('🎬 STORE: Cinematic camera enabled - disabling legacy rotation');
-      console.log('🎬 STORE: New cameraAnimation config:', newSettings.cameraAnimation);
-      console.log('🎬 STORE: Legacy rotation disabled:', newSettings.cameraRotationEnabled);
+      console.log('🎬 Cinematic camera enabled - disabling legacy rotation');
     }
 
     // SPECIAL HANDLING: When legacy rotation is enabled, disable cinematic camera
@@ -354,19 +352,15 @@ export const useSceneStore = create<SceneState>()((set, get) => {
         ...currentSettings.cameraAnimation,
         enabled: false
       };
-      console.log('📷 STORE: Legacy rotation enabled - disabling cinematic camera');
-      console.log('📷 STORE: Cinematic camera disabled:', newSettings.cameraAnimation);
-      console.log('📷 STORE: Legacy rotation enabled:', newSettings.cameraRotationEnabled);
+      console.log('📷 Legacy rotation enabled - disabling cinematic camera');
     }
 
     // Deep merge the new settings
     const updatedSettings = deepMerge(currentSettings, newSettings);
     
-    console.log('🎨 STORE: Final settings updated:', {
+    console.log('🎨 STORE: Settings updated:', {
       oldCinematic: currentSettings.cameraAnimation,
       newCinematic: updatedSettings.cameraAnimation,
-      oldLegacyRotation: currentSettings.cameraRotationEnabled,
-      newLegacyRotation: updatedSettings.cameraRotationEnabled,
       changes: newSettings
     });
     
