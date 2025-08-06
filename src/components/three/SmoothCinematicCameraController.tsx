@@ -59,7 +59,23 @@ class SmoothCameraPath {
   }
 
   private generateSmoothPath(waypoints: THREE.Vector3[], closed: boolean) {
-    if (waypoints.length < 2) return;
+    if (!waypoints || waypoints.length < 2) {
+      console.warn('⚠️ Not enough waypoints for smooth path');
+      // Create a simple circular path as fallback
+      const fallbackPoints = [];
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        fallbackPoints.push(new THREE.Vector3(
+          Math.cos(angle) * 20,
+          0,
+          Math.sin(angle) * 20
+        ));
+      }
+      this.points = fallbackPoints;
+      this.curve = new THREE.CatmullRomCurve3(fallbackPoints, true);
+      this.totalLength = 100;
+      return;
+    }
 
     // Add intermediate points between waypoints for smoother curves
     const smoothPoints: THREE.Vector3[] = [];
@@ -448,13 +464,43 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
-  private static getPhotoBounds(photos: PhotoPosition[]) {
-    const positions = photos.map(p => p.position);
+  private static getPhotoBounds(positions: PhotoPosition[]) {
+    if (!positions || positions.length === 0) {
+      console.warn('⚠️ No positions to calculate bounds');
+      return {
+        minX: -50,
+        maxX: 50,
+        minZ: -50,
+        maxZ: 50
+      };
+    }
+    
+    const validPositions = positions.filter(p => 
+      p && p.position && 
+      typeof p.position[0] === 'number' && 
+      typeof p.position[2] === 'number' &&
+      !isNaN(p.position[0]) && 
+      !isNaN(p.position[2])
+    );
+    
+    if (validPositions.length === 0) {
+      console.warn('⚠️ No valid positions found, using default bounds');
+      return {
+        minX: -50,
+        maxX: 50,
+        minZ: -50,
+        maxZ: 50
+      };
+    }
+    
+    const xValues = validPositions.map(p => p.position[0]);
+    const zValues = validPositions.map(p => p.position[2]);
+    
     return {
-      minX: Math.min(...positions.map(p => p[0])),
-      maxX: Math.max(...positions.map(p => p[0])),
-      minZ: Math.min(...positions.map(p => p[2])),
-      maxZ: Math.max(...positions.map(p => p[2]))
+      minX: Math.min(...xValues),
+      maxX: Math.max(...xValues),
+      minZ: Math.min(...zValues),
+      maxZ: Math.max(...zValues)
     };
   }
 }
@@ -495,19 +541,22 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return null;
     }
 
-    // FIXED: Use ALL positions equally - no filtering!
-    const allPositions = photoPositions; // Use everything as-is
+    // Use ALL positions - no filtering
+    const allPositions = [...photoPositions]; // Create a copy
+    if (!allPositions.length) {
+      console.warn('⚠️ No positions available for camera path');
+      return null;
+    }
     
-    const actualPhotos = allPositions.filter(p => !p.id.startsWith('placeholder-'));
-    const emptySlots = allPositions.filter(p => p.id.startsWith('placeholder-'));
+    const actualPhotos = allPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
+    const emptySlots = allPositions.filter(p => p.id && p.id.startsWith('placeholder-'));
     
-    console.log(`🎬 Generating ${config.type} path for ALL ${allPositions.length} positions`);
+    console.log(`🎬 Generating ${config.type} path for ${allPositions.length} positions`);
     console.log(`📸 Breakdown: ${actualPhotos.length} photos, ${emptySlots.length} empty slots`);
-    console.log('✅ Camera will treat photos and empty slots EQUALLY!');
 
     let waypoints: THREE.Vector3[] = [];
 
-    // All path types use ALL positions
+    // Generate waypoints based on type
     switch (config.type) {
       case 'showcase':
         waypoints = CinematicPathGenerator.generateShowcasePath(allPositions, settings);
@@ -528,8 +577,25 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
         waypoints = CinematicPathGenerator.generatePhotoFocusPath(allPositions, settings);
         break;
       default:
+        console.warn(`⚠️ Unknown camera type: ${config.type}`);
         return null;
     }
+
+    if (!waypoints || waypoints.length < 2) {
+      console.warn(`⚠️ Not enough waypoints generated (${waypoints?.length || 0}). Need at least 2.`);
+      return null;
+    }
+
+    // Create smooth continuous path
+    const smoothPath = new SmoothCameraPath(waypoints, true);
+    
+    // Reset progress and visibility tracking
+    pathProgressRef.current = 0;
+    visibilityTrackerRef.current.clear();
+    
+    console.log(`✅ Camera path created with ${waypoints.length} waypoints`);
+    
+    return smoothPath;
 
     if (waypoints.length < 2) {
       console.warn(`⚠️ Not enough waypoints generated (${waypoints.length}). Need at least 2.`);
