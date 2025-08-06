@@ -1,4 +1,4 @@
-// src/components/three/SmoothCinematicCameraController.tsx - FIXED WAVE PATTERN CAMERA
+// src/components/three/SmoothCinematicCameraController.tsx - FULLY FIXED: No Mouse Hover + Auto Config Changes
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -18,7 +18,7 @@ interface CinematicCameraConfig {
   transitionTime: number;
   pauseTime: number;
   randomization: number;
-  // Enhanced interaction settings
+  // FIXED: Enhanced interaction settings
   interactionSensitivity?: 'low' | 'medium' | 'high';
   ignoreMouseMovement?: boolean;
   mouseMoveThreshold?: number;
@@ -39,12 +39,6 @@ interface SmoothCinematicCameraControllerProps {
     photoSize?: number;
     floorSize?: number;
     photoCount?: number;
-    patterns?: {
-      wave?: {
-        amplitude?: number;
-        frequency?: number;
-      };
-    };
   };
 }
 
@@ -59,23 +53,7 @@ class SmoothCameraPath {
   }
 
   private generateSmoothPath(waypoints: THREE.Vector3[], closed: boolean) {
-    if (!waypoints || waypoints.length < 2) {
-      console.warn('⚠️ Not enough waypoints for smooth path');
-      // Create a simple circular path as fallback
-      const fallbackPoints = [];
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        fallbackPoints.push(new THREE.Vector3(
-          Math.cos(angle) * 20,
-          0,
-          Math.sin(angle) * 20
-        ));
-      }
-      this.points = fallbackPoints;
-      this.curve = new THREE.CatmullRomCurve3(fallbackPoints, true);
-      this.totalLength = 100;
-      return;
-    }
+    if (waypoints.length < 2) return;
 
     // Add intermediate points between waypoints for smoother curves
     const smoothPoints: THREE.Vector3[] = [];
@@ -109,34 +87,23 @@ class SmoothCameraPath {
   getLookAtTarget(t: number, photoPositions: PhotoPosition[], focusDistance: number): THREE.Vector3 {
     const currentPos = this.getPositionAt(t);
     
-    // FIXED: Look at ALL positions equally (photos AND empty slots)
-    const nearbyPositions = photoPositions
+    // Find photos within focus distance
+    const nearbyPhotos = photoPositions
+      .filter(p => !p.id.startsWith('placeholder-'))
       .map(p => ({
-        position: p,
+        photo: p,
         distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
       }))
-      .filter(p => p.distance <= focusDistance * 1.5)
+      .filter(p => p.distance <= focusDistance)
       .sort((a, b) => a.distance - b.distance);
 
-    if (nearbyPositions.length > 0) {
-      // Focus on closest positions (whether photo or empty slot)
-      const maxBlend = Math.min(nearbyPositions.length, 2);
-      if (maxBlend === 1) {
-        return new THREE.Vector3(...nearbyPositions[0].position.position);
-      }
-      
-      // Blend between two closest for smoother transitions
-      const target = new THREE.Vector3();
-      let totalWeight = 0;
-      for (let i = 0; i < maxBlend; i++) {
-        const weight = 1 / (nearbyPositions[i].distance + 1);
-        target.add(new THREE.Vector3(...nearbyPositions[i].position.position).multiplyScalar(weight));
-        totalWeight += weight;
-      }
-      return target.divideScalar(totalWeight);
+    if (nearbyPhotos.length > 0) {
+      // Focus on the closest photo
+      const target = new THREE.Vector3(...nearbyPhotos[0].photo.position);
+      return target;
     } else {
       // Look ahead along the path
-      const lookAheadT = (t + 0.05) % 1;
+      const lookAheadT = (t + 0.1) % 1;
       return this.getPositionAt(lookAheadT);
     }
   }
@@ -250,156 +217,27 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
-  // COMPLETELY REWRITTEN: Wave follow that treats ALL positions equally
-  static generateWaveFollowPath(positions: PhotoPosition[], settings: any): THREE.Vector3[] {
-    if (!positions.length) {
-      console.warn('⚠️ No positions provided for wave follow path');
-      return [];
-    }
+  static generateWaveFollowPath(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
+    if (!photos.length) return [];
 
     const photoSize = settings.photoSize || 4;
-    const waveAmplitude = settings.patterns?.wave?.amplitude || 15;
-    const waveFrequency = settings.patterns?.wave?.frequency || 0.3;
-    
-    // Count actual photos vs empty slots for logging only
-    const actualPhotos = positions.filter(p => !p.id.startsWith('placeholder-'));
-    const emptySlots = positions.filter(p => p.id.startsWith('placeholder-'));
-    
-    console.log('🌊 Generating wave follow path - treating ALL positions EQUALLY');
-    console.log(`📸 Total positions: ${positions.length} (${actualPhotos.length} photos, ${emptySlots.length} empty slots)`);
-    console.log('✅ Camera will showcase the ENTIRE wave pattern!');
+    const waveHeight = -2;
 
-    // Analyze the complete layout
-    const bounds = this.getPhotoBounds(positions);
-    const centerX = (bounds.minX + bounds.maxX) / 2;
-    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-    const fieldWidth = bounds.maxX - bounds.minX;
-    const fieldDepth = bounds.maxZ - bounds.minZ;
-    const fieldRadius = Math.sqrt(fieldWidth * fieldWidth + fieldDepth * fieldDepth) / 2;
-    
-    console.log('📍 Wave field bounds:', {
-      center: `(${centerX.toFixed(1)}, ${centerZ.toFixed(1)})`,
-      size: `${fieldWidth.toFixed(1)} x ${fieldDepth.toFixed(1)}`,
-      radius: fieldRadius.toFixed(1)
+    // Sort photos by X position to follow wave
+    const sortedPhotos = [...photos].sort((a, b) => a.position[0] - b.position[0]);
+    const waypoints: THREE.Vector3[] = [];
+
+    sortedPhotos.forEach((photo, index) => {
+      const waveOffset = Math.sin(index * 0.2) * photoSize;
+      const heightVariation = Math.sin(index * 0.1) * 2;
+      
+      waypoints.push(new THREE.Vector3(
+        photo.position[0],
+        waveHeight + heightVariation,
+        photo.position[2] - photoSize * 1.8 + waveOffset
+      ));
     });
 
-    const waypoints: THREE.Vector3[] = [];
-    
-    // Calculate optimal viewing distance
-    const optimalDistance = photoSize * 3.5;
-    
-    // START FROM CENTER - Dramatic entrance
-    const startHeight = 8;
-    waypoints.push(new THREE.Vector3(centerX, startHeight, centerZ));
-    
-    // Dramatic descent into the scene
-    for (let i = 1; i <= 4; i++) {
-      const t = i / 4;
-      const height = startHeight * (1 - t) + (-1) * t;
-      const spiralAngle = t * Math.PI;
-      waypoints.push(new THREE.Vector3(
-        centerX + Math.sin(spiralAngle) * photoSize * 2,
-        height,
-        centerZ + Math.cos(spiralAngle) * photoSize * 2
-      ));
-    }
-
-    // PATH 1: Expanding spiral to see ALL positions
-    const spiralTurns = 2.5;
-    const spiralPoints = 40;
-    for (let i = 0; i < spiralPoints; i++) {
-      const t = i / spiralPoints;
-      const angle = t * spiralTurns * Math.PI * 2;
-      const radius = photoSize * 2 + (t * fieldRadius * 0.9);
-      
-      const wavePhase = radius * waveFrequency;
-      const waveHeight = Math.sin(wavePhase) * 2.5;
-      
-      const x = centerX + Math.cos(angle) * radius;
-      const z = centerZ + Math.sin(angle) * radius;
-      const y = -2 + waveHeight + Math.sin(t * Math.PI * 3) * 1.5;
-      
-      waypoints.push(new THREE.Vector3(x, y, z));
-    }
-
-    // PATH 2: Grid sweep to ensure we see EVERY position
-    const gridRows = 5;
-    const gridCols = 5;
-    for (let row = 0; row < gridRows; row++) {
-      const rowT = row / (gridRows - 1);
-      const z = bounds.minZ - optimalDistance + rowT * (fieldDepth + optimalDistance * 2);
-      
-      for (let col = 0; col < gridCols; col++) {
-        const colT = col / (gridCols - 1);
-        // Zigzag pattern
-        const actualColT = row % 2 === 0 ? colT : 1 - colT;
-        const x = bounds.minX - optimalDistance/2 + actualColT * (fieldWidth + optimalDistance);
-        
-        const distFromCenter = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
-        const wavePhase = distFromCenter * waveFrequency;
-        const y = -3 + Math.sin(wavePhase) * 3 + Math.cos(row * col * 0.3) * 1;
-        
-        waypoints.push(new THREE.Vector3(x, y, z));
-      }
-    }
-
-    // PATH 3: Circular orbits at different heights
-    const orbitCount = 3;
-    for (let orbit = 0; orbit < orbitCount; orbit++) {
-      const orbitRadius = fieldRadius * (0.5 + orbit * 0.25);
-      const orbitHeight = -4 + orbit * 2;
-      const pointsPerOrbit = 24;
-      
-      for (let i = 0; i < pointsPerOrbit; i++) {
-        const angle = (i / pointsPerOrbit) * Math.PI * 2;
-        
-        const wavePhase = orbitRadius * waveFrequency + orbit;
-        const waveModulation = Math.sin(wavePhase) * 2;
-        
-        const x = centerX + Math.cos(angle) * orbitRadius;
-        const z = centerZ + Math.sin(angle) * orbitRadius;
-        const y = orbitHeight + waveModulation + Math.sin(angle * 3) * 1;
-        
-        waypoints.push(new THREE.Vector3(x, y, z));
-      }
-    }
-
-    // PATH 4: Direct position visits - ensure we get close to ALL positions
-    const visitStep = Math.max(1, Math.floor(positions.length / 20)); // Visit up to 20 positions directly
-    for (let i = 0; i < positions.length; i += visitStep) {
-      const pos = positions[i];
-      const angle = Math.atan2(pos.position[2] - centerZ, pos.position[0] - centerX);
-      
-      // Approach position from a good viewing angle
-      const viewX = pos.position[0] - Math.cos(angle) * optimalDistance;
-      const viewZ = pos.position[2] - Math.sin(angle) * optimalDistance;
-      
-      const dist = Math.sqrt((pos.position[0] - centerX) ** 2 + (pos.position[2] - centerZ) ** 2);
-      const wavePhase = dist * waveFrequency;
-      const viewY = -2 + Math.sin(wavePhase) * 2;
-      
-      waypoints.push(new THREE.Vector3(viewX, viewY, viewZ));
-    }
-
-    // PATH 5: Return sweep with ascent
-    const returnPoints = 10;
-    for (let i = 0; i < returnPoints; i++) {
-      const t = i / returnPoints;
-      const angle = Math.PI * 2 * (1 - t * 0.5);
-      const radius = fieldRadius * (0.7 - t * 0.4);
-      const height = -2 + t * 6;
-      
-      waypoints.push(new THREE.Vector3(
-        centerX + Math.cos(angle) * radius,
-        height,
-        centerZ + Math.sin(angle) * radius
-      ));
-    }
-
-    console.log(`🌊 Successfully generated ${waypoints.length} waypoints`);
-    console.log('✅ Path will showcase ALL positions in the wave pattern');
-    console.log('📹 Ready for cinematic animation!');
-    
     return waypoints;
   }
 
@@ -464,43 +302,13 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
-  private static getPhotoBounds(positions: PhotoPosition[]) {
-    if (!positions || positions.length === 0) {
-      console.warn('⚠️ No positions to calculate bounds');
-      return {
-        minX: -50,
-        maxX: 50,
-        minZ: -50,
-        maxZ: 50
-      };
-    }
-    
-    const validPositions = positions.filter(p => 
-      p && p.position && 
-      typeof p.position[0] === 'number' && 
-      typeof p.position[2] === 'number' &&
-      !isNaN(p.position[0]) && 
-      !isNaN(p.position[2])
-    );
-    
-    if (validPositions.length === 0) {
-      console.warn('⚠️ No valid positions found, using default bounds');
-      return {
-        minX: -50,
-        maxX: 50,
-        minZ: -50,
-        maxZ: 50
-      };
-    }
-    
-    const xValues = validPositions.map(p => p.position[0]);
-    const zValues = validPositions.map(p => p.position[2]);
-    
+  private static getPhotoBounds(photos: PhotoPosition[]) {
+    const positions = photos.map(p => p.position);
     return {
-      minX: Math.min(...xValues),
-      maxX: Math.max(...xValues),
-      minZ: Math.min(...zValues),
-      maxZ: Math.max(...zValues)
+      minX: Math.min(...positions.map(p => p[0])),
+      maxX: Math.max(...positions.map(p => p[0])),
+      minZ: Math.min(...positions.map(p => p[2])),
+      maxZ: Math.max(...positions.map(p => p[2]))
     };
   }
 }
@@ -522,13 +330,13 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   const currentPathRef = useRef<SmoothCameraPath | null>(null);
   const visibilityTrackerRef = useRef(new Set<string>());
   
-  // Enhanced interaction tracking
+  // FIXED: Enhanced interaction tracking
   const lastUserPositionRef = useRef<THREE.Vector3>();
   const lastUserTargetRef = useRef<THREE.Vector3>();
   const resumeBlendRef = useRef(0);
   const isResuming = useRef(false);
 
-  // Add automatic config change detection
+  // FIXED: Add automatic config change detection
   const lastConfigRef = useRef<string>('');
   const isConfigTransitioningRef = useRef(false);
   const configTransitionStartRef = useRef(0);
@@ -541,50 +349,37 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return null;
     }
 
-    // Use ALL positions - no filtering
-    const allPositions = [...photoPositions]; // Create a copy
-    if (!allPositions.length) {
-      console.warn('⚠️ No positions available for camera path');
-      return null;
-    }
-    
-    const actualPhotos = allPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
-    const emptySlots = allPositions.filter(p => p.id && p.id.startsWith('placeholder-'));
-    
-    console.log(`🎬 Generating ${config.type} path for ${allPositions.length} positions`);
-    console.log(`📸 Breakdown: ${actualPhotos.length} photos, ${emptySlots.length} empty slots`);
+    const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
+    if (!validPhotos.length) return null;
+
+    console.log(`🎬 Generating smooth ${config.type} path for ${validPhotos.length} photos`);
 
     let waypoints: THREE.Vector3[] = [];
 
-    // Generate waypoints based on type
     switch (config.type) {
       case 'showcase':
-        waypoints = CinematicPathGenerator.generateShowcasePath(allPositions, settings);
+        waypoints = CinematicPathGenerator.generateShowcasePath(validPhotos, settings);
         break;
       case 'gallery_walk':
-        waypoints = CinematicPathGenerator.generateGalleryWalkPath(allPositions, settings);
+        waypoints = CinematicPathGenerator.generateGalleryWalkPath(validPhotos, settings);
         break;
       case 'spiral_tour':
-        waypoints = CinematicPathGenerator.generateSpiralTourPath(allPositions, settings);
+        waypoints = CinematicPathGenerator.generateSpiralTourPath(validPhotos, settings);
         break;
       case 'wave_follow':
-        waypoints = CinematicPathGenerator.generateWaveFollowPath(allPositions, settings);
+        waypoints = CinematicPathGenerator.generateWaveFollowPath(validPhotos, settings);
         break;
       case 'grid_sweep':
-        waypoints = CinematicPathGenerator.generateGridSweepPath(allPositions, settings);
+        waypoints = CinematicPathGenerator.generateGridSweepPath(validPhotos, settings);
         break;
       case 'photo_focus':
-        waypoints = CinematicPathGenerator.generatePhotoFocusPath(allPositions, settings);
+        waypoints = CinematicPathGenerator.generatePhotoFocusPath(validPhotos, settings);
         break;
       default:
-        console.warn(`⚠️ Unknown camera type: ${config.type}`);
         return null;
     }
 
-    if (!waypoints || waypoints.length < 2) {
-      console.warn(`⚠️ Not enough waypoints generated (${waypoints?.length || 0}). Need at least 2.`);
-      return null;
-    }
+    if (waypoints.length < 2) return null;
 
     // Create smooth continuous path
     const smoothPath = new SmoothCameraPath(waypoints, true);
@@ -592,24 +387,6 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     // Reset progress and visibility tracking
     pathProgressRef.current = 0;
     visibilityTrackerRef.current.clear();
-    
-    console.log(`✅ Camera path created with ${waypoints.length} waypoints`);
-    
-    return smoothPath;
-
-    if (waypoints.length < 2) {
-      console.warn(`⚠️ Not enough waypoints generated (${waypoints.length}). Need at least 2.`);
-      return null;
-    }
-
-    // Create smooth continuous path
-    const smoothPath = new SmoothCameraPath(waypoints, true);
-    
-    // Reset progress and visibility tracking
-    pathProgressRef.current = 0;
-    visibilityTrackerRef.current.clear();
-    
-    console.log(`✅ Camera path created with ${waypoints.length} waypoints`);
     
     return smoothPath;
   }, [photoPositions, config?.type, config?.enabled, settings, animationPattern]);
@@ -619,7 +396,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     currentPathRef.current = cameraPath;
   }, [cameraPath]);
 
-  // Enhanced user interaction detection - NO MOUSE HOVER
+  // FIXED: Enhanced user interaction detection - COMPLETELY NO MOUSE HOVER
   useEffect(() => {
     const canvas = document.querySelector('canvas');
     if (!canvas || !config?.enabled) return;
@@ -631,7 +408,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     const handleInteractionStart = (e: Event) => {
       const eventType = e.type;
       
-      // Only detect clicks, touches, and wheel - NEVER mouse movement
+      // FIXED: Only detect clicks, touches, and wheel - NEVER mouse movement
       if (eventType === 'mousedown' || eventType === 'touchstart') {
         console.log('🎮 Camera Animation: User interaction started -', eventType);
         userInteractingRef.current = true;
@@ -672,12 +449,14 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       }
     };
 
-    // Only listen to actual interaction events - NO MOUSE MOVEMENT AT ALL
+    // FIXED: Only listen to actual interaction events - NO MOUSE MOVEMENT AT ALL
     canvas.addEventListener('mousedown', handleInteractionStart);
     canvas.addEventListener('touchstart', handleInteractionStart);
     canvas.addEventListener('wheel', handleInteractionStart);
     canvas.addEventListener('mouseup', handleInteractionEnd);
     canvas.addEventListener('touchend', handleInteractionEnd);
+
+    // FIXED: Completely removed mousemove listener - no mouse hover detection
 
     return () => {
       canvas.removeEventListener('mousedown', handleInteractionStart);
@@ -688,7 +467,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     };
   }, [config, camera, controls]);
 
-  // Also listen to OrbitControls events for better integration
+  // FIXED: Also listen to OrbitControls events for better integration
   useEffect(() => {
     if (!controls || !config?.enabled) return;
 
@@ -720,14 +499,14 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     }
   }, [controls, config]);
 
-  // Enhanced animation loop with automatic config change detection and smooth resume
+  // FIXED: Enhanced animation loop with automatic config change detection and smooth resume
   useFrame((state, delta) => {
     if (!config?.enabled || !currentPathRef.current || config.type === 'none') {
       isActiveRef.current = false;
       return;
     }
 
-    // Automatic config change detection
+    // FIXED: Automatic config change detection
     const currentConfigKey = `${config.type}-${config.speed}-${animationPattern}-${config.enabled}`;
     
     if (lastConfigRef.current !== '' && lastConfigRef.current !== currentConfigKey) {
@@ -765,7 +544,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return;
     }
 
-    // Smooth resume with blending
+    // FIXED: Smooth resume with blending
     if (!isActiveRef.current) {
       isActiveRef.current = true;
       isResuming.current = true;
@@ -774,21 +553,21 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     }
 
     // Smooth continuous movement
-    const speed = (config.speed || 1.0) * 0.015; // Slightly slower for smoother movement
+    const speed = (config.speed || 1.0) * 0.02; // Slower for smoother movement
     pathProgressRef.current += delta * speed;
     pathProgressRef.current = pathProgressRef.current % 1; // Loop the path
 
     // Get smooth camera position
     const targetPosition = currentPathRef.current.getPositionAt(pathProgressRef.current);
     
-    // Get smooth look-at target with better blending
+    // Get smooth look-at target
     const lookAtTarget = currentPathRef.current.getLookAtTarget(
       pathProgressRef.current, 
       photoPositions, 
-      config.focusDistance || 15
+      config.focusDistance || 12
     );
 
-    // Handle automatic config transitions (takes priority)
+    // FIXED: Handle automatic config transitions (takes priority)
     const configTransitionTime = 2500; // 2.5 seconds for config transitions
     const timeSinceConfigChange = Date.now() - configTransitionStartRef.current;
     
@@ -815,8 +594,8 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return; // Skip other logic during config transition
     }
 
-    // Smooth blending when resuming from user interaction
-    let lerpFactor = 0.025; // Slightly slower for smoother movement
+    // FIXED: Smooth blending when resuming from user interaction
+    let lerpFactor = 0.03; // Default smooth lerping
     
     if (isResuming.current) {
       const blendDuration = config.blendDuration || 2.0;
@@ -825,7 +604,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       if (resumeBlendRef.current < blendDuration) {
         // Gradual blend from current position to animation path
         const blendProgress = resumeBlendRef.current / blendDuration;
-        lerpFactor = 0.008 + (blendProgress * 0.017); // Start very slow, speed up gradually
+        lerpFactor = 0.01 + (blendProgress * 0.02); // Start slow, speed up
       } else {
         isResuming.current = false;
         console.log('🎬 Camera Animation: Resume blend complete');
@@ -834,51 +613,45 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
 
     // Apply smooth camera movement
     camera.position.lerp(targetPosition, lerpFactor);
-    
-    // Smooth look-at with easing
-    const currentLookAt = new THREE.Vector3();
-    camera.getWorldDirection(currentLookAt);
-    currentLookAt.multiplyScalar(50).add(camera.position);
-    currentLookAt.lerp(lookAtTarget, lerpFactor * 0.6);
-    camera.lookAt(currentLookAt);
+    camera.lookAt(lookAtTarget);
 
     // Update controls
     if (controls && 'target' in controls) {
-      (controls as any).target.lerp(lookAtTarget, lerpFactor * 0.4);
+      (controls as any).target.lerp(lookAtTarget, lerpFactor * 0.7);
       (controls as any).update();
     }
 
-    // Track visibility for ALL positions (photos AND empty slots)
-    photoPositions.forEach(position => {
-      const posVec = new THREE.Vector3(...position.position);
-      const distance = camera.position.distanceTo(posVec);
-      if (distance <= (config.focusDistance || 15)) {
-        visibilityTrackerRef.current.add(position.id);
+    // Track photo visibility for progress
+    photoPositions.forEach(photo => {
+      if (!photo.id.startsWith('placeholder-')) {
+        const photoVec = new THREE.Vector3(...photo.position);
+        const distance = camera.position.distanceTo(photoVec);
+        if (distance <= (config.focusDistance || 12)) {
+          visibilityTrackerRef.current.add(photo.id);
+        }
       }
     });
 
     // Log progress occasionally
-    if (Math.floor(pathProgressRef.current * 100) % 20 === 0 && Math.floor(pathProgressRef.current * 100) !== 0) {
+    if (Math.floor(pathProgressRef.current * 100) % 25 === 0 && Math.floor(pathProgressRef.current * 100) !== 0) {
       const viewedCount = visibilityTrackerRef.current.size;
-      const totalPositions = photoPositions.length;
-      const actualPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
+      const totalPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
       
-      console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPositions} positions viewed (${actualPhotos} photos, ${totalPositions - actualPhotos} empty slots)`);
-      console.log(`📍 Current position: (${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)})`);
+      if (viewedCount > 0) {
+        console.log(`🎬 Smooth camera tour: ${viewedCount}/${totalPhotos} photos showcased (${Math.round(viewedCount/totalPhotos*100)}%)`);
+      }
     }
   });
 
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log(`🎬 FIXED Cinematic Camera Active: ${config.type}`);
-      console.log(`🌊 Wave pattern: Now visits ALL photos in spiral pattern!`);
-      console.log(`📸 Photos will be viewed from multiple angles`);
-      console.log(`🚫 Mouse hover ignored: ${config.ignoreMouseMovement !== false}`);
+      console.log(`🎬 FULLY FIXED Smooth Cinematic Camera Active: ${config.type}`);
+      console.log(`🚫 Mouse hover completely ignored: ${config.ignoreMouseMovement !== false}`);
       console.log(`🔄 Auto config change detection: ENABLED`);
       console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
       console.log(`🎮 Manual control: ${config.enableManualControl !== false ? 'enabled' : 'disabled'}`);
-      console.log(`📹 Smooth continuous loops - perfect for video recording!`);
+      console.log(`📹 Continuous path generated - perfect for video recording!`);
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}, Focus: ${config.focusDistance}`);
     }
   }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.ignoreMouseMovement, config?.resumeDelay, config?.enableManualControl]);
