@@ -87,30 +87,15 @@ class SmoothCameraPath {
   getLookAtTarget(t: number, photoPositions: PhotoPosition[], focusDistance: number): THREE.Vector3 {
     const currentPos = this.getPositionAt(t);
     
-    // If no photos, look at scene center
-    if (!photoPositions.length) {
-      return new THREE.Vector3(0, 0, 0);
-    }
+    // SIMPLIFIED: Always look ahead along the path for smooth scene coverage
+    // This prioritizes seeing the overall scene layout rather than focusing on individual photos
+    const lookAheadT = (t + 0.15) % 1; // Look further ahead for better scene coverage
+    const lookAheadPos = this.getPositionAt(lookAheadT);
     
-    // Find photos within focus distance
-    const nearbyPhotos = photoPositions
-      .filter(p => !p.id.startsWith('placeholder-'))
-      .map(p => ({
-        photo: p,
-        distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
-      }))
-      .filter(p => p.distance <= focusDistance)
-      .sort((a, b) => a.distance - b.distance);
-
-    if (nearbyPhotos.length > 0) {
-      // Focus on the closest photo
-      const target = new THREE.Vector3(...nearbyPhotos[0].photo.position);
-      return target;
-    } else {
-      // Look ahead along the path
-      const lookAheadT = (t + 0.1) % 1;
-      return this.getPositionAt(lookAheadT);
-    }
+    // Adjust look-at height to be slightly above the scene center for better overview
+    lookAheadPos.y = Math.max(lookAheadPos.y, 0); // Ensure we're looking at or above scene level
+    
+    return lookAheadPos;
   }
 
   getTotalLength(): number {
@@ -366,40 +351,8 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       return null;
     }
 
-    const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
-    
-    // FIXED: Generate fallback path when no photos are present
-    if (!validPhotos.length) {
-      console.log('🎬 CAMERA PATH: No photos found - generating fallback circular path');
-      
-      // Create a circular path around the scene center
-      const radius = settings.cameraDistance || 25;
-      const height = settings.cameraHeight || 10;
-      const waypoints: THREE.Vector3[] = [];
-      
-      // Generate 8 waypoints in a circle for smooth movement
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
-        const y = height + Math.sin(angle * 2) * 2; // Slight height variation
-        
-        waypoints.push(new THREE.Vector3(x, y, z));
-      }
-      
-      console.log(`🎬 CAMERA PATH: Generated fallback path with ${waypoints.length} waypoints`);
-      
-      // Create smooth continuous path
-      const smoothPath = new SmoothCameraPath(waypoints, true);
-      
-      // Reset progress and visibility tracking
-      pathProgressRef.current = 0;
-      visibilityTrackerRef.current.clear();
-      
-      return smoothPath;
-    }
 
-    console.log(`🎬 CAMERA PATH: Generating smooth ${config.type} path for ${validPhotos.length} photos`);
+    console.log(`🎬 CAMERA PATH: Generating smooth ${config.type} path for ${photoPositions.length} positions (including placeholders)`);
     console.log(`🎬 CAMERA PATH: Animation pattern: ${animationPattern}`);
     console.log(`🎬 CAMERA PATH: Config details:`, config);
 
@@ -407,28 +360,49 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
 
     switch (config.type) {
       case 'showcase':
-        waypoints = CinematicPathGenerator.generateShowcasePath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateShowcasePath(photoPositions, settings);
         break;
       case 'gallery_walk':
-        waypoints = CinematicPathGenerator.generateGalleryWalkPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateGalleryWalkPath(photoPositions, settings);
         break;
       case 'spiral_tour':
-        waypoints = CinematicPathGenerator.generateSpiralTourPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateSpiralTourPath(photoPositions, settings);
         break;
       case 'wave_follow':
-        waypoints = CinematicPathGenerator.generateWaveFollowPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateWaveFollowPath(photoPositions, settings);
         break;
       case 'grid_sweep':
-        waypoints = CinematicPathGenerator.generateGridSweepPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generateGridSweepPath(photoPositions, settings);
         break;
       case 'photo_focus':
-        waypoints = CinematicPathGenerator.generatePhotoFocusPath(validPhotos, settings);
+        waypoints = CinematicPathGenerator.generatePhotoFocusPath(photoPositions, settings);
         break;
       default:
-        return null;
+        // Generate a default circular path for unknown types
+        const radius = settings.cameraDistance || 25;
+        const height = settings.cameraHeight || 10;
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const y = height + Math.sin(angle * 2) * 2;
+          waypoints.push(new THREE.Vector3(x, y, z));
+        }
     }
 
-    if (waypoints.length < 2) return null;
+    // Generate fallback circular path if no waypoints were created
+    if (waypoints.length < 2) {
+      console.log('🎬 CAMERA PATH: No waypoints generated, creating fallback circular path');
+      const radius = settings.cameraDistance || 25;
+      const height = settings.cameraHeight || 10;
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = height + Math.sin(angle * 2) * 2;
+        waypoints.push(new THREE.Vector3(x, y, z));
+      }
+    }
 
     // Create smooth continuous path
     const smoothPath = new SmoothCameraPath(waypoints, true);
@@ -550,23 +524,28 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
 
   // FIXED: Enhanced animation loop with automatic config change detection and smooth resume
   useFrame((state, delta) => {
-    // Debug log at start of frame (only every 60 frames to avoid spam)
+    // Enhanced debug log at start of frame (every 60 frames)
     const frameCount = Math.floor(state.clock.elapsedTime * 60);
     if (frameCount % 60 === 0) {
       console.log('🎬 FRAME DEBUG:', {
         configEnabled: config?.enabled,
         configType: config?.type,
         hasPath: !!currentPathRef.current,
-        photoCount: photoPositions.length,
+        positionCount: photoPositions.length,
         userInteracting: userInteractingRef.current,
-        isActive: isActiveRef.current
+        isActive: isActiveRef.current,
+        timeSinceInteraction: Date.now() - lastInteractionRef.current
       });
     }
     
     if (!config?.enabled || !currentPathRef.current || config.type === 'none') {
       isActiveRef.current = false;
       if (frameCount % 120 === 0) {
-        console.log('🎬 FRAME: Animation disabled - config or path missing');
+        console.log('🎬 FRAME: Animation disabled - reason:', {
+          configEnabled: config?.enabled,
+          hasPath: !!currentPathRef.current,
+          configType: config?.type
+        });
       }
       return;
     }
@@ -701,22 +680,20 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
 
     // Track photo visibility for progress
     photoPositions.forEach(photo => {
-      if (!photo.id.startsWith('placeholder-')) {
-        const photoVec = new THREE.Vector3(...photo.position);
-        const distance = camera.position.distanceTo(photoVec);
-        if (distance <= (config.focusDistance || 12)) {
-          visibilityTrackerRef.current.add(photo.id);
-        }
+      const photoVec = new THREE.Vector3(...photo.position);
+      const distance = camera.position.distanceTo(photoVec);
+      if (distance <= (config.focusDistance || 12)) {
+        visibilityTrackerRef.current.add(photo.id);
       }
     });
 
     // Log progress occasionally
     if (Math.floor(pathProgressRef.current * 100) % 25 === 0 && Math.floor(pathProgressRef.current * 100) !== 0) {
       const viewedCount = visibilityTrackerRef.current.size;
-      const totalPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
+      const totalPositions = photoPositions.length;
       
       if (viewedCount > 0) {
-        console.log(`🎬 Smooth camera tour: ${viewedCount}/${totalPhotos} photos showcased (${Math.round(viewedCount/totalPhotos*100)}%)`);
+        console.log(`🎬 Smooth camera tour: ${viewedCount}/${totalPositions} positions visited (${Math.round(viewedCount/totalPositions*100)}%)`);
       }
     }
   });
@@ -724,13 +701,12 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      const photoCount = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
-      console.log(`🎬 FULLY FIXED Smooth Cinematic Camera Active: ${config.type} (${photoCount} photos)`);
+      console.log(`🎬 FULLY FIXED Smooth Cinematic Camera Active: ${config.type} (${photoPositions.length} positions)`);
       console.log(`🚫 Mouse hover completely ignored: ${config.ignoreMouseMovement !== false}`);
       console.log(`🔄 Auto config change detection: ENABLED`);
       console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
       console.log(`🎮 Manual control: ${config.enableManualControl !== false ? 'enabled' : 'disabled'}`);
-      console.log(`📹 Continuous path generated - ${photoCount > 0 ? 'photo-focused' : 'fallback circular'} - perfect for video recording!`);
+      console.log(`📹 Continuous path generated - covering all ${photoPositions.length} positions - perfect for video recording!`);
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}, Focus: ${config.focusDistance}`);
     }
   }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.ignoreMouseMovement, config?.resumeDelay, config?.enableManualControl]);
