@@ -221,8 +221,8 @@ class CinematicPathGenerator {
     if (!photos.length) return { positions: [], lookAts: [] };
 
     const photoSize = settings.photoSize || 4;
-    const optimalHeight = -4;
-    const orbitRadius = photoSize * 3.5; // Larger radius for better perspective
+    const showcaseHeight = -2; // Elevated above photos
+    const orbitRadius = photoSize * 4;
 
     // Find collection center
     const bounds = this.getPhotoBounds(photos);
@@ -232,30 +232,31 @@ class CinematicPathGenerator {
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
     
-    const totalPoints = 24; // Smooth circular showcase
+    const totalPoints = 32; // Perfect loop division
     
     for (let i = 0; i < totalPoints; i++) {
       const progress = i / totalPoints;
       const orbitAngle = progress * Math.PI * 2;
       
-      // Smooth circular orbit around photo collection
-      const heightVariation = Math.sin(progress * Math.PI * 3) * 2;
-      
+      // Camera position on smooth circular orbit
       const cameraPos = new THREE.Vector3(
         centerX + Math.cos(orbitAngle) * orbitRadius,
-        optimalHeight + heightVariation,
+        showcaseHeight + Math.sin(progress * Math.PI * 4) * 1.5,
         centerZ + Math.sin(orbitAngle) * orbitRadius
       );
       
-      // ALWAYS LOOK FORWARD: Look tangentially along the orbit (forward direction)
-      const forwardAngle = orbitAngle + Math.PI / 2; // 90 degrees ahead = tangent direction
-      const forwardDistance = orbitRadius * 1.5; // Look ahead along orbit
-      
-      const lookTarget = new THREE.Vector3(
-        centerX + Math.cos(forwardAngle) * forwardDistance,
-        cameraPos.y + 1, // Slight upward angle - never down
-        centerZ + Math.sin(forwardAngle) * forwardDistance
+      // LOOK STRAIGHT AHEAD IN MOVEMENT DIRECTION - NEVER DOWN
+      const nextProgress = ((i + 1) % totalPoints) / totalPoints;
+      const nextAngle = nextProgress * Math.PI * 2;
+      const nextPos = new THREE.Vector3(
+        centerX + Math.cos(nextAngle) * orbitRadius,
+        showcaseHeight + Math.sin(nextProgress * Math.PI * 4) * 1.5,
+        centerZ + Math.sin(nextAngle) * orbitRadius
       );
+      
+      // Look target is simply ahead in the movement direction at same height level
+      const lookTarget = nextPos.clone();
+      lookTarget.y = cameraPos.y + 2; // Always look slightly UP, never down
       
       positions.push(cameraPos);
       lookAts.push(lookTarget);
