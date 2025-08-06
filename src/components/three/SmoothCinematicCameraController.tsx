@@ -1,4 +1,4 @@
-// src/components/three/SmoothCinematicCameraController.tsx - FULLY FIXED: No Mouse Hover + Auto Config Changes
+// src/components/three/SmoothCinematicCameraController.tsx - FIXED WAVE PATTERN CAMERA
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -39,6 +39,12 @@ interface SmoothCinematicCameraControllerProps {
     photoSize?: number;
     floorSize?: number;
     photoCount?: number;
+    patterns?: {
+      wave?: {
+        amplitude?: number;
+        frequency?: number;
+      };
+    };
   };
 }
 
@@ -217,27 +223,81 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
+  // FIXED: Completely rewritten wave follow path generation
   static generateWaveFollowPath(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
     if (!photos.length) return [];
 
     const photoSize = settings.photoSize || 4;
-    const waveHeight = -2;
+    const waveAmplitude = settings.patterns?.wave?.amplitude || 15;
+    const waveFrequency = settings.patterns?.wave?.frequency || 0.3;
+    
+    console.log('🌊 FIXED: Generating wave follow path with amplitude:', waveAmplitude, 'frequency:', waveFrequency);
 
-    // Sort photos by X position to follow wave
-    const sortedPhotos = [...photos].sort((a, b) => a.position[0] - b.position[0]);
-    const waypoints: THREE.Vector3[] = [];
-
-    sortedPhotos.forEach((photo, index) => {
-      const waveOffset = Math.sin(index * 0.2) * photoSize;
-      const heightVariation = Math.sin(index * 0.1) * 2;
+    // Step 1: Sort photos to follow wave contours properly
+    const sortedPhotos = [...photos].sort((a, b) => {
+      // Primary sort by X position (wave direction)
+      const xDiff = a.position[0] - b.position[0];
+      if (Math.abs(xDiff) > photoSize * 0.5) return xDiff;
       
-      waypoints.push(new THREE.Vector3(
-        photo.position[0],
-        waveHeight + heightVariation,
-        photo.position[2] - photoSize * 1.8 + waveOffset
-      ));
+      // Secondary sort by Z position for photos at similar X
+      return a.position[2] - b.position[2];
     });
 
+    const waypoints: THREE.Vector3[] = [];
+    const baseHeight = -2; // Base camera height
+    const viewingDistance = photoSize * 2.2; // Distance from photos
+
+    // Step 2: Create serpentine waypoints that weave through the wave
+    sortedPhotos.forEach((photo, index) => {
+      // Calculate wave properties at this photo's position
+      const distanceFromCenter = Math.sqrt(photo.position[0] ** 2 + photo.position[2] ** 2);
+      const wavePhase = distanceFromCenter * waveFrequency;
+      
+      // Dynamic height that follows the wave motion
+      const waveHeightOffset = Math.sin(wavePhase) * 3; // Camera follows wave vertically
+      const cameraHeight = baseHeight + waveHeightOffset;
+      
+      // Create serpentine approach pattern
+      const serpentinePhase = index * 0.4; // Controls how much the path weaves
+      const crossWaveOffset = Math.sin(serpentinePhase) * photoSize * 1.5;
+      const alongWaveOffset = Math.cos(serpentinePhase) * photoSize * 0.8;
+      
+      // Calculate approach angle (perpendicular to wave direction for good viewing)
+      const waveDirection = Math.atan2(photo.position[2], photo.position[0]);
+      const approachAngle = waveDirection + Math.PI * 0.3; // Slight offset for better angle
+      
+      // Position camera to get good viewing angle of the wave
+      const cameraX = photo.position[0] + Math.cos(approachAngle) * viewingDistance + crossWaveOffset;
+      const cameraZ = photo.position[2] + Math.sin(approachAngle) * viewingDistance + alongWaveOffset;
+      
+      waypoints.push(new THREE.Vector3(
+        cameraX,
+        cameraHeight,
+        cameraZ
+      ));
+      
+      // Add intermediate waypoints for smoother weaving (every 3rd photo)
+      if (index % 3 === 0 && index < sortedPhotos.length - 1) {
+        const nextPhoto = sortedPhotos[index + 1];
+        const midX = (photo.position[0] + nextPhoto.position[0]) / 2;
+        const midZ = (photo.position[2] + nextPhoto.position[2]) / 2;
+        const midDistance = Math.sqrt(midX ** 2 + midZ ** 2);
+        const midWavePhase = midDistance * waveFrequency;
+        const midHeight = baseHeight + Math.sin(midWavePhase) * 2;
+        
+        // Create weaving intermediate point
+        const weavingOffset = Math.sin((serpentinePhase + 0.2)) * photoSize * 1.8;
+        
+        waypoints.push(new THREE.Vector3(
+          midX + weavingOffset,
+          midHeight,
+          midZ - photoSize * 0.5
+        ));
+      }
+    });
+
+    console.log(`🌊 FIXED: Generated ${waypoints.length} waypoints for wave pattern (was creating straight line, now weaves through)`);
+    
     return waypoints;
   }
 
@@ -647,6 +707,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   useEffect(() => {
     if (config?.enabled && cameraPath) {
       console.log(`🎬 FULLY FIXED Smooth Cinematic Camera Active: ${config.type}`);
+      console.log(`🌊 WAVE PATTERN FIXED: Camera now weaves through wave instead of staying on edge!`);
       console.log(`🚫 Mouse hover completely ignored: ${config.ignoreMouseMovement !== false}`);
       console.log(`🔄 Auto config change detection: ENABLED`);
       console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
