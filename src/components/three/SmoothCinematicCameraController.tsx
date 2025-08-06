@@ -885,18 +885,32 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     let targetPosition = basePosition.clone();
     let lookAtTarget = baseLookAt.clone();
     
-    // Add vertical drift if specified (works like the auto-rotate version)
+    // ENHANCED VERTICAL DRIFT - Much more dramatic effect
     const verticalDrift = config.verticalDrift ?? 0;
     if (verticalDrift > 0) {
-      const driftAmount = Math.sin(dynamicVariationRef.current * 0.3) * verticalDrift;
-      targetPosition.y += driftAmount;
-      // Keep look target relatively stable
-      lookAtTarget.y += driftAmount * 0.3;
+      // Multiple wave frequencies for complex movement
+      const primaryWave = Math.sin(dynamicVariationRef.current * 0.3) * verticalDrift * 2.0; // Doubled amplitude
+      const secondaryWave = Math.sin(dynamicVariationRef.current * 0.7) * verticalDrift * 0.5;
+      const tertiaryWave = Math.cos(dynamicVariationRef.current * 1.1) * verticalDrift * 0.3;
+      
+      // Combine waves for organic movement
+      const totalDrift = primaryWave + secondaryWave + tertiaryWave;
+      
+      targetPosition.y += totalDrift;
+      
+      // Make look target drift too for more dramatic effect
+      lookAtTarget.y += totalDrift * 0.5;
+      
+      // Add slight position wobble for extreme drift values
+      if (verticalDrift > 5) {
+        targetPosition.x += Math.sin(dynamicVariationRef.current * 0.4) * verticalDrift * 0.1;
+        targetPosition.z += Math.cos(dynamicVariationRef.current * 0.4) * verticalDrift * 0.1;
+      }
     }
     
-    // Add distance variation if specified (breathing in/out from center)
+    // ENHANCED DISTANCE VARIATION - Much more dramatic breathing effect
     const dynamicDistanceVar = config.dynamicDistanceVariation ?? 0;
-    if (dynamicDistanceVar > 0 && (pathTypeRef.current === 'showcase' || pathTypeRef.current === 'grid_sweep')) {
+    if (dynamicDistanceVar > 0) {
       const bounds = photoPositions.length > 0 ? 
         photoPositions.reduce((acc, p) => {
           acc.centerX += p.position[0];
@@ -919,11 +933,39 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       if (dirFromCenter.length() > 0.1) {
         dirFromCenter.normalize();
         
-        // Breathing effect - move in and out
-        const breathAmount = Math.sin(dynamicVariationRef.current * 0.4) * dynamicDistanceVar;
-        targetPosition.x += dirFromCenter.x * breathAmount;
-        targetPosition.z += dirFromCenter.z * breathAmount;
+        // DRAMATIC breathing effect with multiple frequencies
+        const primaryBreath = Math.sin(dynamicVariationRef.current * 0.25) * dynamicDistanceVar * 1.5; // Main breathing
+        const secondaryBreath = Math.sin(dynamicVariationRef.current * 0.6) * dynamicDistanceVar * 0.5; // Faster pulse
+        const heartbeat = Math.sin(dynamicVariationRef.current * 2.0) * dynamicDistanceVar * 0.2; // Quick heartbeat
+        
+        const totalBreath = primaryBreath + secondaryBreath + heartbeat;
+        
+        // Apply dramatic in/out movement
+        targetPosition.x += dirFromCenter.x * totalBreath;
+        targetPosition.z += dirFromCenter.z * totalBreath;
+        
+        // For extreme values, also affect height for swooping effect
+        if (dynamicDistanceVar > 10) {
+          const swoopAmount = Math.sin(dynamicVariationRef.current * 0.3 + Math.PI/2) * dynamicDistanceVar * 0.3;
+          targetPosition.y += swoopAmount;
+        }
+        
+        // Make look target breathe too for more immersive effect
+        if (dynamicDistanceVar > 5) {
+          const lookBreath = totalBreath * 0.3;
+          lookAtTarget.x += dirFromCenter.x * lookBreath;
+          lookAtTarget.z += dirFromCenter.z * lookBreath;
+        }
       }
+    }
+    
+    // COMBINED EFFECT AMPLIFIER - When both are active, create swirling motion
+    if (verticalDrift > 3 && dynamicDistanceVar > 5) {
+      const swirlAngle = dynamicVariationRef.current * 0.5;
+      const swirlRadius = Math.min(verticalDrift, dynamicDistanceVar) * 0.2;
+      
+      targetPosition.x += Math.cos(swirlAngle) * swirlRadius;
+      targetPosition.z += Math.sin(swirlAngle) * swirlRadius;
     }
     
     // Apply ELEVATION CONSTRAINTS if specified
