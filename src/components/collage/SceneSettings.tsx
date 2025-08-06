@@ -987,7 +987,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="5"
-                          max="80"
+                          max="150"
                           step="2"
                           value={settings.cameraAnimation?.baseHeight || 25}
                           onChange={(e) => onSettingsChange({ 
@@ -1008,8 +1008,8 @@ const EnhancedSceneSettings: React.FC<{
                         </label>
                         <input
                           type="range"
-                          min="15"
-                          max="100"
+                          min="10"
+                          max="200"
                           step="2"
                           value={settings.cameraAnimation?.baseDistance || 35}
                           onChange={(e) => onSettingsChange({ 
@@ -1033,7 +1033,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0"
-                          max="20"
+                          max="50"
                           step="1"
                           value={settings.cameraAnimation?.heightVariation || 8}
                           onChange={(e) => onSettingsChange({ 
@@ -1055,7 +1055,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0"
-                          max="25"
+                          max="75"
                           step="1"
                           value={settings.cameraAnimation?.distanceVariation || 10}
                           onChange={(e) => onSettingsChange({ 
