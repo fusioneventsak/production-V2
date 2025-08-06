@@ -1,3 +1,4 @@
+// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features - RESTORED GRID SETTINGS & AUTO ROTATE DEFAULT
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { ChevronUp, ChevronDown, Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Cherry as Sphere, GalleryVertical as Gallery, BookAudio as Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
@@ -6,7 +7,7 @@ import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
 // Extended settings interface for new features
 interface ExtendedSceneSettings extends SceneSettings {
   sceneEnvironment?: 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
-  floorTexture?: 'grid' | 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+  floorTexture?: 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
   customFloorTextureUrl?: string;
   environmentIntensity?: number;
   cubeTextureUrl?: string;
@@ -17,7 +18,14 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingEnabled?: boolean;
   ceilingHeight?: number;
   roomDepth?: number;
- 
+  
+  // Grid Settings
+  gridEnabled?: boolean;
+  gridSize?: number;
+  gridDivisions?: number;
+  gridColor?: string;
+  gridOpacity?: number;
+  
   // Enhanced Auto-Rotate Camera Settings
   cameraAutoRotateSpeed?: number;
   cameraAutoRotateRadius?: number;
@@ -31,7 +39,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateVerticalDriftSpeed?: number;
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
- 
+  
   // ENHANCED: Cinematic Camera Settings with Fine-Tuning Controls
   cameraAnimation?: {
     enabled?: boolean;
@@ -50,7 +58,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   };
 }
 
-// Helper function for cinematic camera descriptions
+// Helper function for cinematic camera descriptions (fallback if not imported)
 const getCinematicCameraTypeDescription = (type: string): string => {
   const descriptions: Record<string, string> = {
     'showcase': 'Automatically showcases different photo groups with smooth transitions',
@@ -68,7 +76,7 @@ const EnhancedSceneSettings: React.FC<{
   onSettingsChange: (settings: Partial<ExtendedSceneSettings>, debounce?: boolean) => void;
   onReset: () => void;
 }> = ({ settings, onSettingsChange, onReset }) => {
- 
+  
   // Helper function to update grid pattern settings
   const updateGridSettings = (gridUpdates: Partial<ExtendedSceneSettings['patterns']['grid']>) => {
     onSettingsChange({
@@ -90,13 +98,13 @@ const EnhancedSceneSettings: React.FC<{
           <Building className="h-4 w-4 mr-2" />
           Scene Environment
         </h4>
-       
+        
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-gray-300 mb-2">Environment Type</label>
             <select
               value={settings.sceneEnvironment || 'default'}
-              onChange={(e) => onSettingsChange({
+              onChange={(e) => onSettingsChange({ 
                 sceneEnvironment: e.target.value as ExtendedSceneSettings['sceneEnvironment']
               })}
               className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
@@ -115,11 +123,12 @@ const EnhancedSceneSettings: React.FC<{
               {(!settings.sceneEnvironment || settings.sceneEnvironment === 'default') && "Open space with floor and optional grid"}
             </p>
           </div>
+
           {/* Cube Environment Settings */}
           {settings.sceneEnvironment === 'cube' && (
             <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
               <h5 className="text-xs font-medium text-gray-300">Cube Room Settings</h5>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Wall Color</label>
                 <div className="flex space-x-2">
@@ -154,6 +163,7 @@ const EnhancedSceneSettings: React.FC<{
                   </select>
                 </div>
               </div>
+
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
                   Wall Thickness
@@ -169,6 +179,7 @@ const EnhancedSceneSettings: React.FC<{
                   className="w-full bg-gray-800"
                 />
               </div>
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -178,6 +189,7 @@ const EnhancedSceneSettings: React.FC<{
                 />
                 <label className="text-sm text-gray-300">Add Ceiling</label>
               </div>
+
               {settings.ceilingEnabled && (
                 <div>
                   <label className="block text-sm text-gray-300 mb-2">
@@ -197,11 +209,12 @@ const EnhancedSceneSettings: React.FC<{
               )}
             </div>
           )}
+
           {/* Sphere Environment Settings */}
           {settings.sceneEnvironment === 'sphere' && (
             <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
               <h5 className="text-xs font-medium text-gray-300">Sphere Settings</h5>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Sphere Interior Color</label>
                 <input
@@ -211,7 +224,7 @@ const EnhancedSceneSettings: React.FC<{
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
                 />
               </div>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Custom Sphere Texture URL</label>
                 <input
@@ -224,11 +237,12 @@ const EnhancedSceneSettings: React.FC<{
               </div>
             </div>
           )}
+
           {/* Gallery Environment Settings */}
           {settings.sceneEnvironment === 'gallery' && (
             <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
               <h5 className="text-xs font-medium text-gray-300">Gallery Settings</h5>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Gallery Wall Color</label>
                 <input
@@ -238,7 +252,7 @@ const EnhancedSceneSettings: React.FC<{
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
                 />
               </div>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
                   Room Depth
@@ -256,11 +270,12 @@ const EnhancedSceneSettings: React.FC<{
               </div>
             </div>
           )}
+
           {/* Studio Environment Settings */}
           {settings.sceneEnvironment === 'studio' && (
             <div className="bg-gray-800/50 p-3 rounded-lg space-y-3">
               <h5 className="text-xs font-medium text-gray-300">Studio Settings</h5>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Backdrop Color</label>
                 <input
@@ -274,20 +289,21 @@ const EnhancedSceneSettings: React.FC<{
           )}
         </div>
       </div>
+
       {/* Animation Controls */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Move className="h-4 w-4 mr-2" />
           Animation
         </h4>
-       
+        
         <div className="space-y-4">
           <div className="flex items-center">
             <input
               type="checkbox"
               checked={settings.animationEnabled}
-              onChange={(e) => onSettingsChange({
-                animationEnabled: e.target.checked
+              onChange={(e) => onSettingsChange({ 
+                animationEnabled: e.target.checked 
               })}
               className="mr-2 bg-gray-800 border-gray-700"
             />
@@ -295,14 +311,15 @@ const EnhancedSceneSettings: React.FC<{
               Enable Animations
             </label>
           </div>
+
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Animation Pattern
             </label>
             <select
               value={settings.animationPattern}
-              onChange={(e) => onSettingsChange({
-                animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid'
+              onChange={(e) => onSettingsChange({ 
+                animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid' 
               })}
               className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
             >
@@ -312,6 +329,7 @@ const EnhancedSceneSettings: React.FC<{
               <option value="spiral">Spiral</option>
             </select>
           </div>
+
           {/* Animation Speed */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">
@@ -331,6 +349,7 @@ const EnhancedSceneSettings: React.FC<{
               <span>Fast (100%)</span>
             </div>
           </div>
+
           {/* Photo Count */}
           <div>
             <label className="block text-sm text-gray-300 mb-2">
@@ -377,29 +396,9 @@ const EnhancedSceneSettings: React.FC<{
               <span>500</span>
             </div>
           </div>
-         
-          {settings.animationEnabled && (
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">
-                <span className="ml-2 text-xs text-gray-400">
-                  {settings.animationSpeed}%
-                </span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value={settings.animationSpeed}
-                onChange={(e) => onSettingsChange({
-                  animationSpeed: parseFloat(e.target.value)
-                }, true)}
-                className="w-full bg-gray-800"
-              />
-            </div>
-          )}
         </div>
       </div>
+
       {/* ENHANCED: Grid Wall Specific Settings */}
       {settings.animationPattern === 'grid' && (
         <div className="bg-gradient-to-br from-green-900/20 to-blue-900/20 border border-green-700/50 rounded-lg p-4">
@@ -407,7 +406,7 @@ const EnhancedSceneSettings: React.FC<{
             <Grid className="h-4 w-4 mr-2" />
             🧱 Grid Wall Settings
           </h4>
-         
+          
           <div className="space-y-5">
             {/* Photo Count for Grid */}
             <div>
@@ -429,6 +428,7 @@ const EnhancedSceneSettings: React.FC<{
                 Number of photos displayed in the grid wall pattern
               </p>
             </div>
+
             {/* Wall Height */}
             <div>
               <label className="block text-sm text-green-300 mb-2">
@@ -449,6 +449,7 @@ const EnhancedSceneSettings: React.FC<{
                 Vertical position of the photo wall (negative = below ground, positive = above ground)
               </p>
             </div>
+
             {/* Aspect Ratio */}
             <div>
               <label className="block text-sm text-green-300 mb-2">
@@ -515,14 +516,15 @@ const EnhancedSceneSettings: React.FC<{
                 Controls grid layout: higher values = wider walls, lower values = taller walls
               </p>
             </div>
+
             {/* Photo Spacing */}
             <div>
               <label className="block text-sm text-green-300 mb-2">
                 <Ruler className="h-3 w-3 inline mr-1" />
                 Photo Spacing
                 <span className="ml-2 text-xs text-green-400">
-                  {(settings.patterns?.grid?.spacing || 0) === 0
-                    ? 'Solid Wall'
+                  {(settings.patterns?.grid?.spacing || 0) === 0 
+                    ? 'Solid Wall' 
                     : `${((settings.patterns?.grid?.spacing || 0) * 200).toFixed(0)}% gaps`
                   }
                 </span>
@@ -550,6 +552,7 @@ const EnhancedSceneSettings: React.FC<{
                 )}
               </div>
             </div>
+
             {/* Grid Pattern Summary */}
             <div className="bg-green-800/20 p-3 rounded border border-green-600/30">
               <p className="text-xs text-green-300 font-medium mb-1">📊 Grid Layout Preview</p>
@@ -563,6 +566,7 @@ const EnhancedSceneSettings: React.FC<{
           </div>
         </div>
       )}
+
       {/* Pattern-Specific Settings for Other Patterns */}
       {settings.animationPattern === 'float' && (
         <div className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-700/50 rounded-lg p-4">
@@ -570,7 +574,7 @@ const EnhancedSceneSettings: React.FC<{
             <Square className="h-4 w-4 mr-2" />
             🎈 Float Pattern Settings
           </h4>
-         
+          
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-purple-300 mb-2">
@@ -595,6 +599,7 @@ const EnhancedSceneSettings: React.FC<{
                 className="w-full bg-gray-800"
               />
             </div>
+
             <div>
               <label className="block text-sm text-purple-300 mb-2">
                 Float Height
@@ -621,7 +626,7 @@ const EnhancedSceneSettings: React.FC<{
                 Maximum height photos will float to before recycling
               </p>
             </div>
-           
+            
             <div>
               <label className="block text-sm text-purple-300 mb-2">
                 Spread Distance
@@ -651,13 +656,14 @@ const EnhancedSceneSettings: React.FC<{
           </div>
         </div>
       )}
+
       {settings.animationPattern === 'wave' && (
         <div className="bg-gradient-to-br from-blue-900/20 to-cyan-900/20 border border-blue-700/50 rounded-lg p-4">
           <h4 className="flex items-center text-sm font-medium text-blue-200 mb-3">
             <Move className="h-4 w-4 mr-2" />
             🌊 Wave Pattern Settings
           </h4>
-         
+          
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-blue-300 mb-2">
@@ -682,6 +688,7 @@ const EnhancedSceneSettings: React.FC<{
                 className="w-full bg-gray-800"
               />
             </div>
+
             <div>
               <label className="block text-sm text-blue-300 mb-2">
                 Wave Amplitude
@@ -708,6 +715,7 @@ const EnhancedSceneSettings: React.FC<{
                 Height of the wave motion
               </p>
             </div>
+
             <div>
               <label className="block text-sm text-blue-300 mb-2">
                 Wave Frequency
@@ -737,13 +745,14 @@ const EnhancedSceneSettings: React.FC<{
           </div>
         </div>
       )}
+
       {settings.animationPattern === 'spiral' && (
         <div className="bg-gradient-to-br from-orange-900/20 to-red-900/20 border border-orange-700/50 rounded-lg p-4">
           <h4 className="flex items-center text-sm font-medium text-orange-200 mb-3">
             <RotateCw className="h-4 w-4 mr-2" />
             🌀 Spiral Pattern Settings
           </h4>
-         
+          
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-orange-300 mb-2">
@@ -768,6 +777,7 @@ const EnhancedSceneSettings: React.FC<{
                 className="w-full bg-gray-800"
               />
             </div>
+
             <div>
               <label className="block text-sm text-orange-300 mb-2">
                 Spiral Radius
@@ -794,6 +804,7 @@ const EnhancedSceneSettings: React.FC<{
                 Base radius of the spiral
               </p>
             </div>
+
             <div>
               <label className="block text-sm text-orange-300 mb-2">
                 Height Step
@@ -823,21 +834,22 @@ const EnhancedSceneSettings: React.FC<{
           </div>
         </div>
       )}
+
       {/* ENHANCED: Cinematic Camera Controls */}
       <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
         <h4 className="flex items-center text-sm font-medium text-blue-200 mb-3">
           <Video className="h-4 w-4 mr-2" />
-          🎬 Cinematic Camera (Enhanced)
+          🎬 Cinematic Camera
         </h4>
-       
+        
         <div className="space-y-4">
           {/* First ensure basic camera is enabled */}
           <div className="flex items-center">
             <input
               type="checkbox"
               checked={settings.cameraEnabled !== false}
-              onChange={(e) => onSettingsChange({
-                cameraEnabled: e.target.checked
+              onChange={(e) => onSettingsChange({ 
+                cameraEnabled: e.target.checked 
               })}
               className="mr-2 bg-gray-800 border-gray-700"
             />
@@ -845,16 +857,17 @@ const EnhancedSceneSettings: React.FC<{
               Enable Camera Controls
             </label>
           </div>
+
           {settings.cameraEnabled !== false && (
             <>
               <div className="flex items-center">
                 <input
                   type="checkbox"
                   checked={settings.cameraAnimation?.enabled || false}
-                  onChange={(e) => onSettingsChange({
-                    cameraAnimation: {
-                      ...settings.cameraAnimation,
-                      enabled: e.target.checked
+                  onChange={(e) => onSettingsChange({ 
+                    cameraAnimation: { 
+                      ...settings.cameraAnimation, 
+                      enabled: e.target.checked 
                     }
                   })}
                   className="mr-2 bg-gray-800 border-gray-700"
@@ -863,16 +876,17 @@ const EnhancedSceneSettings: React.FC<{
                   Enable Smart Photo Showcase
                 </label>
               </div>
+
               {settings.cameraAnimation?.enabled && (
                 <>
                   <div>
                     <label className="block text-sm text-blue-300 mb-2">Camera Tour Type</label>
                     <select
                       value={settings.cameraAnimation?.type || 'showcase'}
-                      onChange={(e) => onSettingsChange({
-                        cameraAnimation: {
-                          ...settings.cameraAnimation,
-                          type: e.target.value as any
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { 
+                          ...settings.cameraAnimation, 
+                          type: e.target.value as any 
                         }
                       })}
                       className="w-full bg-gray-800 border border-blue-700 rounded-md py-2 px-3 text-white"
@@ -888,6 +902,7 @@ const EnhancedSceneSettings: React.FC<{
                       {getCinematicCameraTypeDescription(settings.cameraAnimation?.type || 'showcase')}
                     </p>
                   </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm text-blue-300 mb-1">
@@ -900,15 +915,16 @@ const EnhancedSceneSettings: React.FC<{
                         max="3.0"
                         step="0.1"
                         value={settings.cameraAnimation?.speed || 1.0}
-                        onChange={(e) => onSettingsChange({
-                          cameraAnimation: {
-                            ...settings.cameraAnimation,
-                            speed: parseFloat(e.target.value)
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAnimation: { 
+                            ...settings.cameraAnimation, 
+                            speed: parseFloat(e.target.value) 
                           }
                         })}
                         className="w-full bg-gray-800"
                       />
                     </div>
+
                     <div>
                       <label className="block text-sm text-blue-300 mb-1">
                         <Target className="h-3 w-3 inline mr-1" />
@@ -920,16 +936,17 @@ const EnhancedSceneSettings: React.FC<{
                         max="25"
                         step="1"
                         value={settings.cameraAnimation?.focusDistance || 12}
-                        onChange={(e) => onSettingsChange({
-                          cameraAnimation: {
-                            ...settings.cameraAnimation,
-                            focusDistance: parseFloat(e.target.value)
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAnimation: { 
+                            ...settings.cameraAnimation, 
+                            focusDistance: parseFloat(e.target.value) 
                           }
                         })}
                         className="w-full bg-gray-800"
                       />
                     </div>
                   </div>
+
                   <div>
                     <label className="block text-sm text-blue-300 mb-2">
                       <Clock className="h-3 w-3 inline mr-1" />
@@ -941,10 +958,10 @@ const EnhancedSceneSettings: React.FC<{
                       max="5.0"
                       step="0.5"
                       value={settings.cameraAnimation?.pauseTime || 1.5}
-                      onChange={(e) => onSettingsChange({
-                        cameraAnimation: {
-                          ...settings.cameraAnimation,
-                          pauseTime: parseFloat(e.target.value)
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { 
+                          ...settings.cameraAnimation, 
+                          pauseTime: parseFloat(e.target.value) 
                         }
                       })}
                       className="w-full bg-gray-800"
@@ -953,13 +970,14 @@ const EnhancedSceneSettings: React.FC<{
                       Time to pause and showcase each photo group
                     </p>
                   </div>
+
                   {/* Fine-Tuning Controls Section */}
                   <div className="bg-blue-800/30 border border-blue-600/30 rounded-lg p-4 space-y-4">
                     <div className="flex items-center text-sm font-medium text-blue-200 mb-2">
                       <Settings className="h-4 w-4 mr-2" />
                       🎛️ Fine-Tuning Controls
                     </div>
-                   
+                    
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm text-blue-300 mb-1">
@@ -972,16 +990,17 @@ const EnhancedSceneSettings: React.FC<{
                           max="80"
                           step="2"
                           value={settings.cameraAnimation?.baseHeight || 25}
-                          onChange={(e) => onSettingsChange({
-                            cameraAnimation: {
-                              ...settings.cameraAnimation,
-                              baseHeight: parseFloat(e.target.value)
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              baseHeight: parseFloat(e.target.value) 
                             }
                           })}
                           className="w-full bg-gray-800"
                         />
                         <p className="text-xs text-blue-400/80 mt-1">Base camera height for all movements</p>
                       </div>
+
                       <div>
                         <label className="block text-sm text-blue-300 mb-1">
                           <ArrowRight className="h-3 w-3 inline mr-1" />
@@ -993,10 +1012,10 @@ const EnhancedSceneSettings: React.FC<{
                           max="100"
                           step="2"
                           value={settings.cameraAnimation?.baseDistance || 35}
-                          onChange={(e) => onSettingsChange({
-                            cameraAnimation: {
-                              ...settings.cameraAnimation,
-                              baseDistance: parseFloat(e.target.value)
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              baseDistance: parseFloat(e.target.value) 
                             }
                           })}
                           className="w-full bg-gray-800"
@@ -1004,6 +1023,7 @@ const EnhancedSceneSettings: React.FC<{
                         <p className="text-xs text-blue-400/80 mt-1">Base distance from photo center</p>
                       </div>
                     </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm text-blue-300 mb-1">
@@ -1016,16 +1036,17 @@ const EnhancedSceneSettings: React.FC<{
                           max="20"
                           step="1"
                           value={settings.cameraAnimation?.heightVariation || 8}
-                          onChange={(e) => onSettingsChange({
-                            cameraAnimation: {
-                              ...settings.cameraAnimation,
-                              heightVariation: parseFloat(e.target.value)
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              heightVariation: parseFloat(e.target.value) 
                             }
                           })}
                           className="w-full bg-gray-800"
                         />
                         <p className="text-xs text-blue-400/80 mt-1">How much height varies during animation</p>
                       </div>
+
                       <div>
                         <label className="block text-sm text-blue-300 mb-1">
                           <Maximize className="h-3 w-3 inline mr-1" />
@@ -1037,10 +1058,10 @@ const EnhancedSceneSettings: React.FC<{
                           max="25"
                           step="1"
                           value={settings.cameraAnimation?.distanceVariation || 10}
-                          onChange={(e) => onSettingsChange({
-                            cameraAnimation: {
-                              ...settings.cameraAnimation,
-                              distanceVariation: parseFloat(e.target.value)
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              distanceVariation: parseFloat(e.target.value) 
                             }
                           })}
                           className="w-full bg-gray-800"
@@ -1048,19 +1069,21 @@ const EnhancedSceneSettings: React.FC<{
                         <p className="text-xs text-blue-400/80 mt-1">How much distance varies during animation</p>
                       </div>
                     </div>
+
                     <div className="bg-blue-700/20 p-3 rounded border border-blue-500/20">
                       <p className="text-xs text-blue-300 font-medium mb-1">💡 Pattern-Aware Defaults</p>
                       <p className="text-xs text-blue-400/90">
-                        Leave controls at "Auto" for smart defaults that adapt to your animation pattern.
-                        <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances,
+                        Leave controls at "Auto" for smart defaults that adapt to your animation pattern. 
+                        <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances, 
                         <strong>Float</strong> gets moderate settings for optimal viewing.
                       </p>
                     </div>
                   </div>
+
                   <div className="bg-blue-800/30 p-3 rounded border border-blue-600/30">
                     <p className="text-xs text-blue-300 flex items-center">
                       <Play className="h-3 w-3 mr-1" />
-                      <strong>How it works:</strong> Camera automatically tours your photos with smooth transitions between patterns.
+                      <strong>How it works:</strong> Camera automatically tours your photos with smooth transitions between patterns. 
                       Take manual control anytime - the tour resumes gracefully after user interaction.
                     </p>
                   </div>
@@ -1070,44 +1093,46 @@ const EnhancedSceneSettings: React.FC<{
           )}
         </div>
       </div>
-      {/* Enhanced Camera Controls - Legacy/Manual */}
+
+      {/* Manual Camera Controls - DEFAULT TO AUTO ROTATE */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <CameraIcon className="h-4 w-4 mr-2" />
           Manual Camera Controls
         </h4>
-       
+        
         <div className="space-y-4">
-          {settings.cameraEnabled !== false && (
+          {settings.cameraEnabled !== false && !settings.cameraAnimation?.enabled && (
             <div className="space-y-4">
-              {/* Camera Movement Type Selector */}
+              {/* Camera Movement Type Selector - DEFAULT TO AUTO ROTATE */}
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Camera Movement Type</label>
                 <select
-                  value={settings.cameraRotationEnabled ? 'auto-rotate' : 'manual'}
+                  value={settings.cameraRotationEnabled !== false ? 'auto-rotate' : 'manual'}
                   onChange={(e) => {
                     const value = e.target.value;
                     if (value === 'manual') {
-                      onSettingsChange({
+                      onSettingsChange({ 
                         cameraRotationEnabled: false
                       });
                     } else if (value === 'auto-rotate') {
-                      onSettingsChange({
+                      onSettingsChange({ 
                         cameraRotationEnabled: true
                       });
                     }
                   }}
                   className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
                 >
+                  <option value="auto-rotate">🔄 Auto Rotate (Enhanced) - Default</option>
                   <option value="manual">📱 Manual Control Only</option>
-                  <option value="auto-rotate" selected>🔄 Auto Rotate (Enhanced)</option>
                 </select>
               </div>
-              {/* Enhanced Auto Rotate Settings */}
-              {settings.cameraRotationEnabled && (
+
+              {/* Enhanced Auto Rotate Settings - DEFAULT ENABLED */}
+              {settings.cameraRotationEnabled !== false && (
                 <div className="bg-blue-900/20 p-4 rounded-lg space-y-4">
                   <h5 className="text-sm font-medium text-blue-300">🔄 Enhanced Auto Rotate Settings</h5>
-                 
+                  
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-gray-300 mb-2">
@@ -1120,13 +1145,14 @@ const EnhancedSceneSettings: React.FC<{
                         max="3.0"
                         step="0.1"
                         value={settings.cameraAutoRotateSpeed || settings.cameraRotationSpeed || 0.5}
-                        onChange={(e) => onSettingsChange({
+                        onChange={(e) => onSettingsChange({ 
                           cameraAutoRotateSpeed: parseFloat(e.target.value),
                           cameraRotationSpeed: parseFloat(e.target.value)
                         }, true)}
                         className="w-full bg-gray-800"
                       />
                     </div>
+
                     <div>
                       <label className="block text-sm text-gray-300 mb-2">
                         Distance
@@ -1138,7 +1164,7 @@ const EnhancedSceneSettings: React.FC<{
                         max="100"
                         step="1"
                         value={settings.cameraAutoRotateRadius || settings.cameraDistance || 25}
-                        onChange={(e) => onSettingsChange({
+                        onChange={(e) => onSettingsChange({ 
                           cameraAutoRotateRadius: parseFloat(e.target.value),
                           cameraDistance: parseFloat(e.target.value)
                         }, true)}
@@ -1146,6 +1172,7 @@ const EnhancedSceneSettings: React.FC<{
                       />
                     </div>
                   </div>
+
                   <div>
                     <label className="block text-sm text-gray-300 mb-2">
                       Height
@@ -1157,17 +1184,18 @@ const EnhancedSceneSettings: React.FC<{
                       max="150"
                       step="2"
                       value={settings.cameraAutoRotateHeight || settings.cameraHeight || 5}
-                      onChange={(e) => onSettingsChange({
+                      onChange={(e) => onSettingsChange({ 
                         cameraAutoRotateHeight: parseFloat(e.target.value),
                         cameraHeight: parseFloat(e.target.value)
                       }, true)}
                       className="w-full bg-gray-800"
                     />
                   </div>
+
                   {/* Advanced Controls */}
                   <div className="border-t border-gray-700 pt-4">
                     <h6 className="text-xs font-medium text-gray-300 mb-3">⚙️ Advanced Movement Controls</h6>
-                   
+                    
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-300 mb-2">
@@ -1180,12 +1208,13 @@ const EnhancedSceneSettings: React.FC<{
                           max={Math.PI/2}
                           step={Math.PI/180}
                           value={settings.cameraAutoRotateElevationMin || Math.PI/6}
-                          onChange={(e) => onSettingsChange({
+                          onChange={(e) => onSettingsChange({ 
                             cameraAutoRotateElevationMin: parseFloat(e.target.value)
                           }, true)}
                           className="w-full bg-gray-800"
                         />
                       </div>
+
                       <div>
                         <label className="block text-sm text-gray-300 mb-2">
                           Elevation Max
@@ -1197,13 +1226,14 @@ const EnhancedSceneSettings: React.FC<{
                           max={Math.PI/1.5}
                           step={Math.PI/180}
                           value={settings.cameraAutoRotateElevationMax || Math.PI/3}
-                          onChange={(e) => onSettingsChange({
+                          onChange={(e) => onSettingsChange({ 
                             cameraAutoRotateElevationMax: parseFloat(e.target.value)
                           }, true)}
                           className="w-full bg-gray-800"
                         />
                       </div>
                     </div>
+
                     <div>
                       <label className="block text-sm text-gray-300 mb-2">
                         Distance Variation
@@ -1215,12 +1245,13 @@ const EnhancedSceneSettings: React.FC<{
                         max="20"
                         step="1"
                         value={settings.cameraAutoRotateDistanceVariation || 0}
-                        onChange={(e) => onSettingsChange({
+                        onChange={(e) => onSettingsChange({ 
                           cameraAutoRotateDistanceVariation: parseFloat(e.target.value)
                         }, true)}
                         className="w-full bg-gray-800"
                       />
                     </div>
+
                     <div>
                       <label className="block text-sm text-gray-300 mb-2">
                         Vertical Drift
@@ -1232,7 +1263,7 @@ const EnhancedSceneSettings: React.FC<{
                         max="10"
                         step="0.5"
                         value={settings.cameraAutoRotateVerticalDrift || 0}
-                        onChange={(e) => onSettingsChange({
+                        onChange={(e) => onSettingsChange({ 
                           cameraAutoRotateVerticalDrift: parseFloat(e.target.value)
                         }, true)}
                         className="w-full bg-gray-800"
@@ -1241,48 +1272,52 @@ const EnhancedSceneSettings: React.FC<{
                   </div>
                 </div>
               )}
+
               {/* Manual Camera Settings */}
-              <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
-                <h5 className="text-xs font-medium text-gray-300">📱 Manual Control Settings</h5>
-               
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Default Camera Distance
-                    <span className="ml-2 text-xs text-gray-400">{settings.cameraDistance} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    step="1"
-                    value={settings.cameraDistance}
-                    onChange={(e) => onSettingsChange({
-                      cameraDistance: parseFloat(e.target.value)
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
+              {settings.cameraRotationEnabled === false && (
+                <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
+                  <h5 className="text-xs font-medium text-gray-300">📱 Manual Control Settings</h5>
+                  
+                  <div>
+                    <label className="block text-sm text-gray-300 mb-2">
+                      Default Camera Distance
+                      <span className="ml-2 text-xs text-gray-400">{settings.cameraDistance} units</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      step="1"
+                      value={settings.cameraDistance}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraDistance: parseFloat(e.target.value) 
+                      }, true)}
+                      className="w-full bg-gray-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-300 mb-2">
+                      Default Camera Height
+                      <span className="ml-2 text-xs text-gray-400">{settings.cameraHeight} units</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="150"
+                      step="2"
+                      value={settings.cameraHeight}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraHeight: parseFloat(e.target.value) 
+                      }, true)}
+                      className="w-full bg-gray-800"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Default Camera Height
-                    <span className="ml-2 text-xs text-gray-400">{settings.cameraHeight} units</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="150"
-                    step="2"
-                    value={settings.cameraHeight}
-                    onChange={(e) => onSettingsChange({
-                      cameraHeight: parseFloat(e.target.value)
-                    }, true)}
-                    className="w-full bg-gray-800"
-                  />
-                </div>
-              </div>
+              )}
             </div>
           )}
-         
+          
           {settings.cameraEnabled === false && (
             <div className="bg-gray-800/20 p-3 rounded border border-gray-600/30">
               <p className="text-xs text-gray-400">
@@ -1290,7 +1325,7 @@ const EnhancedSceneSettings: React.FC<{
               </p>
             </div>
           )}
-         
+          
           {settings.cameraAnimation?.enabled && (
             <div className="bg-blue-800/20 p-3 rounded border border-blue-600/30">
               <p className="text-xs text-blue-300">
@@ -1300,13 +1335,14 @@ const EnhancedSceneSettings: React.FC<{
           )}
         </div>
       </div>
+
       {/* Photo Display */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <ImageIcon className="h-4 w-4 mr-2" />
           Photo Display
         </h4>
-       
+        
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-gray-300 mb-2">
@@ -1326,6 +1362,7 @@ const EnhancedSceneSettings: React.FC<{
               Default photo count for patterns that don't specify their own count
             </p>
           </div>
+
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Photo Size
@@ -1337,12 +1374,13 @@ const EnhancedSceneSettings: React.FC<{
               max="20"
               step="0.5"
               value={settings.photoSize}
-              onChange={(e) => onSettingsChange({
-                photoSize: parseFloat(e.target.value)
+              onChange={(e) => onSettingsChange({ 
+                photoSize: parseFloat(e.target.value) 
               }, true)}
               className="w-full bg-gray-800"
             />
           </div>
+
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Photo Brightness
@@ -1354,12 +1392,13 @@ const EnhancedSceneSettings: React.FC<{
               max="3"
               step="0.1"
               value={settings.photoBrightness}
-              onChange={(e) => onSettingsChange({
-                photoBrightness: parseFloat(e.target.value)
+              onChange={(e) => onSettingsChange({ 
+                photoBrightness: parseFloat(e.target.value) 
               }, true)}
               className="w-full bg-gray-800"
             />
           </div>
+
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Empty Slot Color
@@ -1367,18 +1406,19 @@ const EnhancedSceneSettings: React.FC<{
             <input
               type="color"
               value={settings.emptySlotColor}
-              onChange={(e) => onSettingsChange({
-                emptySlotColor: e.target.value
+              onChange={(e) => onSettingsChange({ 
+                emptySlotColor: e.target.value 
               }, true)}
               className="w-full h-8 rounded cursor-pointer bg-gray-800"
             />
           </div>
+
           <div className="flex items-center">
             <input
               type="checkbox"
               checked={settings.photoRotation}
-              onChange={(e) => onSettingsChange({
-                photoRotation: e.target.checked
+              onChange={(e) => onSettingsChange({ 
+                photoRotation: e.target.checked 
               })}
               className="mr-2 bg-gray-800 border-gray-700"
             />
@@ -1386,20 +1426,22 @@ const EnhancedSceneSettings: React.FC<{
           </div>
         </div>
       </div>
-      {/* Floor Texture Section */}
+
+      {/* Floor & Grid Settings - RESTORED */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Layers className="h-4 w-4 mr-2" />
-          Floor Texture
+          Floor & Grid
         </h4>
-       
+        
         <div className="space-y-4">
+          {/* Floor Settings */}
           <div className="flex items-center">
             <input
               type="checkbox"
               checked={settings.floorEnabled}
-              onChange={(e) => onSettingsChange({
-                floorEnabled: e.target.checked
+              onChange={(e) => onSettingsChange({ 
+                floorEnabled: e.target.checked 
               })}
               className="mr-2 bg-gray-800 border-gray-700"
             />
@@ -1407,18 +1449,20 @@ const EnhancedSceneSettings: React.FC<{
               Show Floor
             </label>
           </div>
+
           {settings.floorEnabled && (
-            <div className="space-y-4">
+            <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Floor Settings</h5>
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Texture Type</label>
                 <select
-                  value={settings.floorTexture || 'grid'}
-                  onChange={(e) => onSettingsChange({
+                  value={settings.floorTexture || 'solid'}
+                  onChange={(e) => onSettingsChange({ 
                     floorTexture: e.target.value as ExtendedSceneSettings['floorTexture']
                   })}
                   className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
                 >
-                  <option value="grid">♟️ Grid</option>
                   <option value="solid">🎨 Solid Color</option>
                   <option value="marble">⚪ Marble</option>
                   <option value="wood">🪵 Wood</option>
@@ -1429,18 +1473,19 @@ const EnhancedSceneSettings: React.FC<{
                   <option value="custom">🖼️ Custom Image</option>
                 </select>
               </div>
+
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
                 <input
                   type="color"
                   value={settings.floorColor}
-                  onChange={(e) => onSettingsChange({
-                    floorColor: e.target.value
+                  onChange={(e) => onSettingsChange({ 
+                    floorColor: e.target.value 
                   }, true)}
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
                 />
               </div>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
                   Floor Size
@@ -1456,6 +1501,7 @@ const EnhancedSceneSettings: React.FC<{
                   className="w-full bg-gray-800"
                 />
               </div>
+
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
                   Floor Opacity
@@ -1475,15 +1521,99 @@ const EnhancedSceneSettings: React.FC<{
               </div>
             </div>
           )}
+
+          {/* Grid Settings - RESTORED */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.gridEnabled !== false}
+              onChange={(e) => onSettingsChange({ 
+                gridEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Show Grid Lines
+            </label>
+          </div>
+
+          {settings.gridEnabled !== false && (
+            <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
+              <h5 className="text-xs font-medium text-gray-300">Grid Settings</h5>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Size
+                  <span className="ml-2 text-xs text-gray-400">{settings.gridSize || 200} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="400"
+                  step="10"
+                  value={settings.gridSize || 200}
+                  onChange={(e) => onSettingsChange({ gridSize: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Divisions
+                  <span className="ml-2 text-xs text-gray-400">{settings.gridDivisions || 30} lines</span>
+                </label>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={settings.gridDivisions || 30}
+                  onChange={(e) => onSettingsChange({ gridDivisions: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Grid Color</label>
+                <input
+                  type="color"
+                  value={settings.gridColor || '#444444'}
+                  onChange={(e) => onSettingsChange({ 
+                    gridColor: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Opacity
+                  <span className="ml-2 text-xs text-gray-400">{Math.round((settings.gridOpacity || 1.0) * 100)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.gridOpacity || 1.0}
+                  onChange={(e) => onSettingsChange({
+                    gridOpacity: parseFloat(e.target.value)
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
       {/* Lighting Settings */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Lightbulb className="h-4 w-4 mr-2" />
           Lighting
         </h4>
-       
+        
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-gray-300 mb-2">
@@ -1496,24 +1626,25 @@ const EnhancedSceneSettings: React.FC<{
               max="10"
               step="0.2"
               value={settings.ambientLightIntensity}
-              onChange={(e) => onSettingsChange({
-                ambientLightIntensity: parseFloat(e.target.value)
+              onChange={(e) => onSettingsChange({ 
+                ambientLightIntensity: parseFloat(e.target.value) 
               }, true)}
               className="w-full bg-gray-800"
             />
           </div>
+
           <div>
             <label className="block text-sm text-gray-300 mb-2">Spotlight Color</label>
             <input
               type="color"
               value={settings.spotlightColor}
-              onChange={(e) => onSettingsChange({
-                spotlightColor: e.target.value
+              onChange={(e) => onSettingsChange({ 
+                spotlightColor: e.target.value 
               }, true)}
               className="w-full h-8 rounded cursor-pointer bg-gray-800"
             />
           </div>
-         
+          
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Number of Spotlights
@@ -1525,12 +1656,13 @@ const EnhancedSceneSettings: React.FC<{
               max="6"
               step="1"
               value={settings.spotlightCount}
-              onChange={(e) => onSettingsChange({
-                spotlightCount: parseInt(e.target.value)
+              onChange={(e) => onSettingsChange({ 
+                spotlightCount: parseInt(e.target.value) 
               }, true)}
               className="w-full bg-gray-800"
             />
           </div>
+
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Spotlight Intensity
@@ -1542,28 +1674,29 @@ const EnhancedSceneSettings: React.FC<{
               max="300"
               step="1"
               value={settings.spotlightIntensity}
-              onChange={(e) => onSettingsChange({
-                spotlightIntensity: parseFloat(e.target.value)
+              onChange={(e) => onSettingsChange({ 
+                spotlightIntensity: parseFloat(e.target.value) 
               }, true)}
               className="w-full bg-gray-800"
             />
           </div>
         </div>
       </div>
+
       {/* Background Settings */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Palette className="h-4 w-4 mr-2" />
           Background
         </h4>
-       
+        
         <div className="space-y-4">
           <div className="flex items-center">
             <input
               type="checkbox"
               checked={settings.backgroundGradient}
-              onChange={(e) => onSettingsChange({
-                backgroundGradient: e.target.checked
+              onChange={(e) => onSettingsChange({ 
+                backgroundGradient: e.target.checked 
               })}
               className="mr-2 bg-gray-800 border-gray-700"
             />
@@ -1571,14 +1704,15 @@ const EnhancedSceneSettings: React.FC<{
               Use Gradient Background
             </label>
           </div>
+
           {!settings.backgroundGradient ? (
             <div>
               <label className="block text-sm text-gray-300 mb-2">Background Color</label>
               <input
                 type="color"
                 value={settings.backgroundColor}
-                onChange={(e) => onSettingsChange({
-                  backgroundColor: e.target.value
+                onChange={(e) => onSettingsChange({ 
+                  backgroundColor: e.target.value 
                 }, true)}
                 className="w-full h-8 rounded cursor-pointer bg-gray-800"
               />
@@ -1590,25 +1724,25 @@ const EnhancedSceneSettings: React.FC<{
                 <input
                   type="color"
                   value={settings.backgroundGradientStart}
-                  onChange={(e) => onSettingsChange({
-                    backgroundGradientStart: e.target.value
+                  onChange={(e) => onSettingsChange({ 
+                    backgroundGradientStart: e.target.value 
                   }, true)}
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
                 />
               </div>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Gradient End</label>
                 <input
                   type="color"
                   value={settings.backgroundGradientEnd}
-                  onChange={(e) => onSettingsChange({
-                    backgroundGradientEnd: e.target.value
+                  onChange={(e) => onSettingsChange({ 
+                    backgroundGradientEnd: e.target.value 
                   }, true)}
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
                 />
               </div>
-             
+              
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
                   Gradient Angle
@@ -1620,8 +1754,8 @@ const EnhancedSceneSettings: React.FC<{
                   max="360"
                   step="15"
                   value={settings.backgroundGradientAngle}
-                  onChange={(e) => onSettingsChange({
-                    backgroundGradientAngle: parseInt(e.target.value)
+                  onChange={(e) => onSettingsChange({ 
+                    backgroundGradientAngle: parseInt(e.target.value) 
                   }, true)}
                   className="w-full bg-gray-800"
                 />
@@ -1630,13 +1764,14 @@ const EnhancedSceneSettings: React.FC<{
           )}
         </div>
       </div>
+
       {/* Particle System Settings */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Sparkles className="h-4 w-4 mr-2" />
           Particle Effects
         </h4>
-       
+        
         <div className="space-y-4">
           <div className="flex items-center">
             <input
@@ -1654,6 +1789,7 @@ const EnhancedSceneSettings: React.FC<{
               Enable Particle Effects
             </label>
           </div>
+
           {settings.particles?.enabled && (
             <div className="space-y-4">
               <div>
@@ -1677,6 +1813,7 @@ const EnhancedSceneSettings: React.FC<{
                   ))}
                 </select>
               </div>
+
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
                   Particle Intensity
@@ -1703,6 +1840,7 @@ const EnhancedSceneSettings: React.FC<{
           )}
         </div>
       </div>
+
       {/* Reset Button */}
       <div className="pt-4 border-t border-gray-700">
         <button
