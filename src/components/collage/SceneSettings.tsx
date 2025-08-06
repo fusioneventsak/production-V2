@@ -1,4 +1,4 @@
-// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features - RESTORED GRID SETTINGS & AUTO ROTATE DEFAULT
+// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features - FIXED MOUSE MOVEMENT ISSUE
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { ChevronUp, ChevronDown, Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Cherry as Sphere, GalleryVertical as Gallery, BookAudio as Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
@@ -19,13 +19,6 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingHeight?: number;
   roomDepth?: number;
   
-  // Grid Settings
-  gridEnabled?: boolean;
-  gridSize?: number;
-  gridDivisions?: number;
-  gridColor?: string;
-  gridOpacity?: number;
-  
   // Enhanced Auto-Rotate Camera Settings
   cameraAutoRotateSpeed?: number;
   cameraAutoRotateRadius?: number;
@@ -40,7 +33,7 @@ interface ExtendedSceneSettings extends SceneSettings {
   cameraAutoRotateFocusOffset?: [number, number, number];
   cameraAutoRotatePauseOnInteraction?: number;
   
-  // ENHANCED: Cinematic Camera Settings with Fine-Tuning Controls
+  // ENHANCED: Cinematic Camera Settings with Fine-Tuning Controls + FIXED INTERACTION DETECTION + SMOOTH RESUME
   cameraAnimation?: {
     enabled?: boolean;
     type: 'none' | 'showcase' | 'gallery_walk' | 'spiral_tour' | 'wave_follow' | 'grid_sweep' | 'photo_focus';
@@ -50,11 +43,22 @@ interface ExtendedSceneSettings extends SceneSettings {
     transitionTime: number;
     pauseTime: number;
     randomization: number;
-    // Fine-tuning controls
-    baseHeight?: number;
-    baseDistance?: number;
-    heightVariation?: number;
-    distanceVariation?: number;
+    // FIXED: Interaction detection settings
+    interactionSensitivity?: 'low' | 'medium' | 'high'; // How sensitive to user interactions
+    ignoreMouseMovement?: boolean; // NEW: Ignore pure mouse movement without clicks
+    mouseMoveThreshold?: number; // Pixels of movement before considering interaction
+    resumeDelay?: number; // How long to wait after interaction before resuming
+    // NEW: Smooth resume behavior
+    enableManualControl?: boolean; // Allow full manual control during pause
+    resumeFromCurrentPosition?: boolean; // Resume animation from where user left the camera
+    blendDuration?: number; // How long to smoothly transition back to animation
+    preserveUserDistance?: boolean; // Keep user's zoom level when resuming
+    preserveUserHeight?: boolean; // Keep user's height when resuming
+    // NEW: Fine-tuning controls
+    baseHeight?: number;        // Base camera height for all animations
+    baseDistance?: number;      // Base distance from center for all animations
+    heightVariation?: number;   // How much height varies during animation
+    distanceVariation?: number; // How much distance varies during animation
   };
 }
 
@@ -396,6 +400,27 @@ const EnhancedSceneSettings: React.FC<{
               <span>500</span>
             </div>
           </div>
+          
+          {settings.animationEnabled && (
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">
+                <span className="ml-2 text-xs text-gray-400">
+                  {settings.animationSpeed}%
+                </span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={settings.animationSpeed}
+                onChange={(e) => onSettingsChange({ 
+                  animationSpeed: parseFloat(e.target.value) 
+                }, true)}
+                className="w-full bg-gray-800"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -835,11 +860,11 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       )}
 
-      {/* ENHANCED: Cinematic Camera Controls */}
+      {/* ENHANCED: Cinematic Camera Controls with FIXED INTERACTION DETECTION */}
       <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
         <h4 className="flex items-center text-sm font-medium text-blue-200 mb-3">
           <Video className="h-4 w-4 mr-2" />
-          🎬 Cinematic Camera
+          🎬 Cinematic Camera (Enhanced + Fixed!)
         </h4>
         
         <div className="space-y-4">
@@ -971,6 +996,220 @@ const EnhancedSceneSettings: React.FC<{
                     </p>
                   </div>
 
+                  {/* ENHANCED: Interaction Detection & Manual Control */}
+                  <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center text-sm font-medium text-red-200 mb-2">
+                      <Settings className="h-4 w-4 mr-2" />
+                      🎮 Manual Control & Interaction Settings (ENHANCED!)
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={settings.cameraAnimation?.enableManualControl !== false}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              enableManualControl: e.target.checked 
+                            }
+                          })}
+                          className="mr-2 bg-gray-800 border-gray-700"
+                        />
+                        <label className="text-sm text-red-200">
+                          🎯 Enable Full Manual Control During Pause
+                        </label>
+                      </div>
+                      <p className="text-xs text-red-300/80 ml-6">
+                        When enabled, you can rotate, zoom, and move the camera freely when animation pauses
+                      </p>
+
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={settings.cameraAnimation?.resumeFromCurrentPosition !== false}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              resumeFromCurrentPosition: e.target.checked 
+                            }
+                          })}
+                          className="mr-2 bg-gray-800 border-gray-700"
+                        />
+                        <label className="text-sm text-red-200">
+                          📍 Resume Animation From Current Position (Recommended ✅)
+                        </label>
+                      </div>
+                      <p className="text-xs text-red-300/80 ml-6">
+                        Animation smoothly continues from where you moved the camera, instead of jumping back to original path
+                      </p>
+
+                      <div>
+                        <label className="block text-sm text-red-300 mb-2">
+                          Smooth Transition Duration: {settings.cameraAnimation?.blendDuration?.toFixed(1) || '2.0'}s
+                        </label>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="5.0"
+                          step="0.5"
+                          value={settings.cameraAnimation?.blendDuration || 2.0}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              blendDuration: parseFloat(e.target.value) 
+                            }
+                          })}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-red-300/80 mt-1">
+                          How long it takes to smoothly blend from your position back to the animation path
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={settings.cameraAnimation?.preserveUserDistance !== false}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { 
+                                ...settings.cameraAnimation, 
+                                preserveUserDistance: e.target.checked 
+                              }
+                            })}
+                            className="mr-2 bg-gray-800 border-gray-700"
+                          />
+                          <label className="text-xs text-red-200">
+                            🔍 Keep Zoom Level
+                          </label>
+                        </div>
+
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={settings.cameraAnimation?.preserveUserHeight !== false}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { 
+                                ...settings.cameraAnimation, 
+                                preserveUserHeight: e.target.checked 
+                              }
+                            })}
+                            className="mr-2 bg-gray-800 border-gray-700"
+                          />
+                          <label className="text-xs text-red-200">
+                            📏 Keep Height Level
+                          </label>
+                        </div>
+                      </div>
+                      <p className="text-xs text-red-300/70">
+                        These options preserve your manual adjustments when animation resumes
+                      </p>
+
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={settings.cameraAnimation?.ignoreMouseMovement !== false}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              ignoreMouseMovement: e.target.checked 
+                            }
+                          })}
+                          className="mr-2 bg-gray-800 border-gray-700"
+                        />
+                        <label className="text-sm text-red-200">
+                          🚫 Ignore Mouse Movement (Recommended ✅)
+                        </label>
+                      </div>
+                      <p className="text-xs text-red-300/80 ml-6">
+                        Only clicks/drags pause the camera - mouse movement over the scene won't interrupt
+                      </p>
+
+                      <div>
+                        <label className="block text-sm text-red-300 mb-2">
+                          Interaction Sensitivity
+                        </label>
+                        <select
+                          value={settings.cameraAnimation?.interactionSensitivity || 'medium'}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              interactionSensitivity: e.target.value as 'low' | 'medium' | 'high'
+                            }
+                          })}
+                          className="w-full bg-gray-800 border border-red-700 rounded-md py-2 px-3 text-white"
+                        >
+                          <option value="low">🐌 Low - Only major interactions pause</option>
+                          <option value="medium">⚖️ Medium - Standard sensitivity</option>
+                          <option value="high">⚡ High - Any touch pauses</option>
+                        </select>
+                        <p className="text-xs text-red-300/80 mt-1">
+                          Controls how much user input is needed to pause the cinematic camera
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-red-300 mb-2">
+                          <Clock className="h-3 w-3 inline mr-1" />
+                          Resume Delay: {settings.cameraAnimation?.resumeDelay?.toFixed(1) || '2.0'}s
+                        </label>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="10.0"
+                          step="0.5"
+                          value={settings.cameraAnimation?.resumeDelay || 2.0}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAnimation: { 
+                              ...settings.cameraAnimation, 
+                              resumeDelay: parseFloat(e.target.value) 
+                            }
+                          })}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-red-300/80 mt-1">
+                          How long to wait after interaction ends before resuming cinematic camera
+                        </p>
+                      </div>
+
+                      {!settings.cameraAnimation?.ignoreMouseMovement && (
+                        <div>
+                          <label className="block text-sm text-red-300 mb-2">
+                            Mouse Move Threshold: {settings.cameraAnimation?.mouseMoveThreshold || 50}px
+                          </label>
+                          <input
+                            type="range"
+                            min="10"
+                            max="200"
+                            step="10"
+                            value={settings.cameraAnimation?.mouseMoveThreshold || 50}
+                            onChange={(e) => onSettingsChange({ 
+                              cameraAnimation: { 
+                                ...settings.cameraAnimation, 
+                                mouseMoveThreshold: parseFloat(e.target.value) 
+                              }
+                            }, true)}
+                            className="w-full bg-gray-800"
+                          />
+                          <p className="text-xs text-red-300/80 mt-1">
+                            How much mouse movement triggers interaction detection (when not ignored)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-green-800/20 p-3 rounded border border-green-600/30">
+                      <p className="text-xs text-green-300 font-medium mb-1">🎯 PERFECT MANUAL CONTROL:</p>
+                      <p className="text-xs text-green-400/90">
+                        With these settings, you can <strong>interact freely</strong> with the scene during cinematic mode. 
+                        The camera will pause, let you explore, then <strong>smoothly resume</strong> from your new position!
+                        <br />
+                        <strong>✨ Best Experience:</strong> Enable all recommended settings above for seamless control.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Fine-Tuning Controls Section */}
                   <div className="bg-blue-800/30 border border-blue-600/30 rounded-lg p-4 space-y-4">
                     <div className="flex items-center text-sm font-medium text-blue-200 mb-2">
@@ -987,7 +1226,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="5"
-                          max="150"
+                          max="80"
                           step="2"
                           value={settings.cameraAnimation?.baseHeight || 25}
                           onChange={(e) => onSettingsChange({ 
@@ -1008,8 +1247,8 @@ const EnhancedSceneSettings: React.FC<{
                         </label>
                         <input
                           type="range"
-                          min="10"
-                          max="200"
+                          min="15"
+                          max="100"
                           step="2"
                           value={settings.cameraAnimation?.baseDistance || 35}
                           onChange={(e) => onSettingsChange({ 
@@ -1033,7 +1272,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0"
-                          max="50"
+                          max="20"
                           step="1"
                           value={settings.cameraAnimation?.heightVariation || 8}
                           onChange={(e) => onSettingsChange({ 
@@ -1055,7 +1294,7 @@ const EnhancedSceneSettings: React.FC<{
                         <input
                           type="range"
                           min="0"
-                          max="75"
+                          max="25"
                           step="1"
                           value={settings.cameraAnimation?.distanceVariation || 10}
                           onChange={(e) => onSettingsChange({ 
@@ -1077,16 +1316,6 @@ const EnhancedSceneSettings: React.FC<{
                         <strong>Wave</strong> gets lower heights, <strong>Spiral</strong> gets higher heights and distances, 
                         <strong>Float</strong> gets moderate settings for optimal viewing.
                       </p>
-                      <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-600/30 rounded">
-                        <p className="text-xs text-yellow-300 font-medium">⚠️ Wave Pattern Camera Issue:</p>
-                        <p className="text-xs text-yellow-400/90">
-                          <strong>Known Issue:</strong> Wave pattern camera stays on outer edge instead of weaving through photos.
-                          <br />
-                          <strong>Workaround:</strong> Try "Grid Sweep" or "Showcase" tour types for better wave pattern coverage.
-                          <br />
-                          <strong>Manual Settings:</strong> Base Height: 15-25, Base Distance: 25-35, Focus Distance: 10-15
-                        </p>
-                      </div>
                     </div>
                   </div>
 
@@ -1104,7 +1333,7 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* Manual Camera Controls - DEFAULT TO AUTO ROTATE */}
+      {/* Enhanced Camera Controls - Legacy/Manual */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <CameraIcon className="h-4 w-4 mr-2" />
@@ -1114,11 +1343,11 @@ const EnhancedSceneSettings: React.FC<{
         <div className="space-y-4">
           {settings.cameraEnabled !== false && !settings.cameraAnimation?.enabled && (
             <div className="space-y-4">
-              {/* Camera Movement Type Selector - DEFAULT TO AUTO ROTATE */}
+              {/* Camera Movement Type Selector */}
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Camera Movement Type</label>
                 <select
-                  value={settings.cameraRotationEnabled !== false ? 'auto-rotate' : 'manual'}
+                  value={settings.cameraRotationEnabled ? 'auto-rotate' : 'manual'}
                   onChange={(e) => {
                     const value = e.target.value;
                     if (value === 'manual') {
@@ -1133,13 +1362,13 @@ const EnhancedSceneSettings: React.FC<{
                   }}
                   className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
                 >
-                  <option value="auto-rotate">🔄 Auto Rotate (Enhanced) - Default</option>
                   <option value="manual">📱 Manual Control Only</option>
+                  <option value="auto-rotate">🔄 Auto Rotate (Enhanced)</option>
                 </select>
               </div>
 
-              {/* Enhanced Auto Rotate Settings - DEFAULT ENABLED */}
-              {settings.cameraRotationEnabled !== false && (
+              {/* Enhanced Auto Rotate Settings */}
+              {settings.cameraRotationEnabled && (
                 <div className="bg-blue-900/20 p-4 rounded-lg space-y-4">
                   <h5 className="text-sm font-medium text-blue-300">🔄 Enhanced Auto Rotate Settings</h5>
                   
@@ -1284,47 +1513,45 @@ const EnhancedSceneSettings: React.FC<{
               )}
 
               {/* Manual Camera Settings */}
-              {settings.cameraRotationEnabled === false && (
-                <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
-                  <h5 className="text-xs font-medium text-gray-300">📱 Manual Control Settings</h5>
-                  
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Default Camera Distance
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraDistance} units</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      step="1"
-                      value={settings.cameraDistance}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraDistance: parseFloat(e.target.value) 
-                      }, true)}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-300 mb-2">
-                      Default Camera Height
-                      <span className="ml-2 text-xs text-gray-400">{settings.cameraHeight} units</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="150"
-                      step="2"
-                      value={settings.cameraHeight}
-                      onChange={(e) => onSettingsChange({ 
-                        cameraHeight: parseFloat(e.target.value) 
-                      }, true)}
-                      className="w-full bg-gray-800"
-                    />
-                  </div>
+              <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
+                <h5 className="text-xs font-medium text-gray-300">📱 Manual Control Settings</h5>
+                
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Default Camera Distance
+                    <span className="ml-2 text-xs text-gray-400">{settings.cameraDistance} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="1"
+                    value={settings.cameraDistance}
+                    onChange={(e) => onSettingsChange({ 
+                      cameraDistance: parseFloat(e.target.value) 
+                    }, true)}
+                    className="w-full bg-gray-800"
+                  />
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Default Camera Height
+                    <span className="ml-2 text-xs text-gray-400">{settings.cameraHeight} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="150"
+                    step="2"
+                    value={settings.cameraHeight}
+                    onChange={(e) => onSettingsChange({ 
+                      cameraHeight: parseFloat(e.target.value) 
+                    }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+              </div>
             </div>
           )}
           
@@ -1389,9 +1616,6 @@ const EnhancedSceneSettings: React.FC<{
               }, true)}
               className="w-full bg-gray-800"
             />
-            <p className="mt-1 text-xs text-gray-400">
-              Size of individual photos in the collage (Note: Backend validation may limit this to 15 units)
-            </p>
           </div>
 
           <div>
@@ -1440,15 +1664,14 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* Floor & Grid Settings - RESTORED */}
+      {/* Floor Texture Section */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Layers className="h-4 w-4 mr-2" />
-          Floor & Grid
+          Floor Texture
         </h4>
         
         <div className="space-y-4">
-          {/* Floor Settings */}
           <div className="flex items-center">
             <input
               type="checkbox"
@@ -1464,9 +1687,7 @@ const EnhancedSceneSettings: React.FC<{
           </div>
 
           {settings.floorEnabled && (
-            <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
-              <h5 className="text-xs font-medium text-gray-300">Floor Settings</h5>
-              
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Texture Type</label>
                 <select
@@ -1528,89 +1749,6 @@ const EnhancedSceneSettings: React.FC<{
                   value={settings.floorOpacity}
                   onChange={(e) => onSettingsChange({
                     floorOpacity: parseFloat(e.target.value)
-                  }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Grid Settings - RESTORED */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.gridEnabled !== false}
-              onChange={(e) => onSettingsChange({ 
-                gridEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Show Grid Lines
-            </label>
-          </div>
-
-          {settings.gridEnabled !== false && (
-            <div className="bg-gray-800/30 p-3 rounded-lg space-y-3">
-              <h5 className="text-xs font-medium text-gray-300">Grid Settings</h5>
-              
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Size
-                  <span className="ml-2 text-xs text-gray-400">{settings.gridSize || 200} units</span>
-                </label>
-                <input
-                  type="range"
-                  min="50"
-                  max="400"
-                  step="10"
-                  value={settings.gridSize || 200}
-                  onChange={(e) => onSettingsChange({ gridSize: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Divisions
-                  <span className="ml-2 text-xs text-gray-400">{settings.gridDivisions || 30} lines</span>
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="5"
-                  value={settings.gridDivisions || 30}
-                  onChange={(e) => onSettingsChange({ gridDivisions: parseFloat(e.target.value) }, true)}
-                  className="w-full bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Grid Color</label>
-                <input
-                  type="color"
-                  value={settings.gridColor || '#444444'}
-                  onChange={(e) => onSettingsChange({ 
-                    gridColor: e.target.value 
-                  }, true)}
-                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">
-                  Grid Opacity
-                  <span className="ml-2 text-xs text-gray-400">{Math.round((settings.gridOpacity || 1.0) * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.gridOpacity || 1.0}
-                  onChange={(e) => onSettingsChange({
-                    gridOpacity: parseFloat(e.target.value)
                   }, true)}
                   className="w-full bg-gray-800"
                 />
