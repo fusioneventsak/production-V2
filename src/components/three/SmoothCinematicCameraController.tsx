@@ -345,14 +345,28 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
 
   // Generate smooth camera path based on photo positions and tour type
   const cameraPath = useMemo(() => {
+    console.log('🎬 CAMERA PATH: Generating path with config:', {
+      enabled: config?.enabled,
+      type: config?.type,
+      photoCount: photoPositions.length,
+      animationPattern: animationPattern
+    });
+    
     if (!config?.enabled || !photoPositions.length || config.type === 'none') {
+      console.log('🎬 CAMERA PATH: Not generating path - conditions not met:', {
+        configEnabled: config?.enabled,
+        photoCount: photoPositions.length,
+        configType: config?.type
+      });
       return null;
     }
 
     const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
     if (!validPhotos.length) return null;
 
-    console.log(`🎬 Generating smooth ${config.type} path for ${validPhotos.length} photos`);
+    console.log(`🎬 CAMERA PATH: Generating smooth ${config.type} path for ${validPhotos.length} photos`);
+    console.log(`🎬 CAMERA PATH: Animation pattern: ${animationPattern}`);
+    console.log(`🎬 CAMERA PATH: Config details:`, config);
 
     let waypoints: THREE.Vector3[] = [];
 
@@ -501,8 +515,24 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
 
   // FIXED: Enhanced animation loop with automatic config change detection and smooth resume
   useFrame((state, delta) => {
+    // Debug log at start of frame (only every 60 frames to avoid spam)
+    const frameCount = Math.floor(state.clock.elapsedTime * 60);
+    if (frameCount % 60 === 0) {
+      console.log('🎬 FRAME DEBUG:', {
+        configEnabled: config?.enabled,
+        configType: config?.type,
+        hasPath: !!currentPathRef.current,
+        photoCount: photoPositions.length,
+        userInteracting: userInteractingRef.current,
+        isActive: isActiveRef.current
+      });
+    }
+    
     if (!config?.enabled || !currentPathRef.current || config.type === 'none') {
       isActiveRef.current = false;
+      if (frameCount % 120 === 0) {
+        console.log('🎬 FRAME: Animation disabled - config or path missing');
+      }
       return;
     }
 
@@ -535,8 +565,21 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     const timeSinceInteraction = Date.now() - lastInteractionRef.current;
     const pauseDuration = (config.resumeDelay || 2.0) * 1000;
 
+    // Debug user interaction state every 2 seconds
+    if (frameCount % 120 === 0) {
+      console.log('🎬 INTERACTION DEBUG:', {
+        userInteracting: userInteractingRef.current,
+        timeSinceInteraction: timeSinceInteraction,
+        pauseDuration: pauseDuration,
+        shouldPause: userInteractingRef.current || timeSinceInteraction < pauseDuration
+      });
+    }
+
     if (userInteractingRef.current || timeSinceInteraction < pauseDuration) {
       isActiveRef.current = false;
+      if (frameCount % 120 === 0) {
+        console.log('🎬 FRAME: Animation paused due to user interaction');
+      }
       if (userInteractingRef.current && config.enableManualControl !== false) {
         // Allow full manual control during pause
         return;
@@ -549,7 +592,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       isActiveRef.current = true;
       isResuming.current = true;
       resumeBlendRef.current = 0;
-      console.log('🎬 Camera Animation: Smoothly resuming animation');
+      console.log('🎬 CAMERA: Smoothly resuming animation at frame', frameCount);
     }
 
     // Smooth continuous movement
