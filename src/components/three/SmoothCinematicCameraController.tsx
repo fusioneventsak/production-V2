@@ -79,14 +79,17 @@ class SmoothCameraPath {
       // Add intermediate points for ultra-smooth curves (except for last segment if not closed)
       if (i < waypoints.length - 1 || closed) {
         // Create graceful intermediate position
-        const intermediate = current.clone().lerp(next, 0.3);
-        const intermediateLookAt = currentLookAt.clone().lerp(nextLookAt, 0.3);
+        const intermediate = current.clone().lerp(next, 0.4);
+        const intermediateLookAt = currentLookAt.clone().lerp(nextLookAt, 0.4);
         
-        // Add gentle height variation for cinematic feel - NO DOWNWARD LOOKING
-        intermediate.y += Math.sin(i * 0.8) * 0.8; // Reduced vertical movement
+        // GENTLE height variation for cinematic feel - NO STEEP ANGLES
+        intermediate.y += Math.sin(i * 0.8) * 0.6; // Reduced vertical movement
         
-        // Ensure look-at targets maintain forward-facing orientation
-        intermediateLookAt.y = Math.max(intermediateLookAt.y, intermediate.y - 2); // Never look down too much
+        // CRITICAL FIX: Ensure look-at targets NEVER cause steep downward angles
+        const heightDifference = intermediateLookAt.y - intermediate.y;
+        if (heightDifference < -1.5) { // If looking down more than 1.5 units
+          intermediateLookAt.y = intermediate.y - 1.5; // Limit downward angle
+        }
         
         smoothPoints.push(intermediate);
         smoothLookAts.push(intermediateLookAt);
@@ -94,8 +97,13 @@ class SmoothCameraPath {
         // Add second intermediate for even smoother curves
         const intermediate2 = current.clone().lerp(next, 0.7);
         const intermediateLookAt2 = currentLookAt.clone().lerp(nextLookAt, 0.7);
-        intermediate2.y += Math.cos(i * 0.6) * 0.5;
-        intermediateLookAt2.y = Math.max(intermediateLookAt2.y, intermediate2.y - 1.5);
+        intermediate2.y += Math.cos(i * 0.6) * 0.4;
+        
+        // Apply same height constraint
+        const heightDifference2 = intermediateLookAt2.y - intermediate2.y;
+        if (heightDifference2 < -1.5) {
+          intermediateLookAt2.y = intermediate2.y - 1.5;
+        }
         
         smoothPoints.push(intermediate2);
         smoothLookAts.push(intermediateLookAt2);
@@ -110,20 +118,24 @@ class SmoothCameraPath {
       const endLookAt = smoothLookAts[smoothLookAts.length - 1];
       const startLookAt = smoothLookAts[0];
       
-      // Create bridge points for perfect loop
-      const bridgePoint1 = endPoint.clone().lerp(startPoint, 0.33);
-      const bridgePoint2 = endPoint.clone().lerp(startPoint, 0.67);
-      const bridgeLookAt1 = endLookAt.clone().lerp(startLookAt, 0.33);
-      const bridgeLookAt2 = endLookAt.clone().lerp(startLookAt, 0.67);
-      
-      // Ensure smooth height transition for loop
-      bridgePoint1.y += Math.sin(smoothPoints.length * 0.1) * 0.3;
-      bridgePoint2.y += Math.cos(smoothPoints.length * 0.1) * 0.3;
-      bridgeLookAt1.y = Math.max(bridgeLookAt1.y, bridgePoint1.y - 1);
-      bridgeLookAt2.y = Math.max(bridgeLookAt2.y, bridgePoint2.y - 1);
-      
-      smoothPoints.push(bridgePoint1, bridgePoint2);
-      smoothLookAts.push(bridgeLookAt1, bridgeLookAt2);
+      // Create bridge points for perfect loop - more bridge points for smoother closure
+      for (let i = 1; i <= 3; i++) {
+        const t = i / 4; // 0.25, 0.5, 0.75
+        const bridgePoint = endPoint.clone().lerp(startPoint, t);
+        const bridgeLookAt = endLookAt.clone().lerp(startLookAt, t);
+        
+        // Ensure smooth height transition for loop
+        bridgePoint.y += Math.sin(smoothPoints.length * 0.1 + i) * 0.2;
+        
+        // CRITICAL: Apply same height constraint for bridge points
+        const heightDifference = bridgeLookAt.y - bridgePoint.y;
+        if (heightDifference < -1.5) {
+          bridgeLookAt.y = bridgePoint.y - 1.5;
+        }
+        
+        smoothPoints.push(bridgePoint);
+        smoothLookAts.push(bridgeLookAt);
+      }
     }
 
     this.points = smoothPoints;
@@ -134,8 +146,8 @@ class SmoothCameraPath {
     this.lookAtCurve = new THREE.CatmullRomCurve3(this.lookAtPoints, closed);
     
     // Optimize curve tension for cinematics - smoother is better for loops
-    this.curve.tension = 0.2; // Lower tension = smoother curves
-    this.lookAtCurve.tension = 0.1; // Even smoother look-at transitions
+    this.curve.tension = 0.15; // Even lower tension = smoother curves
+    this.lookAtCurve.tension = 0.05; // Ultra-smooth look-at transitions
     
     this.totalLength = this.curve.getLength();
   }
@@ -212,56 +224,47 @@ class CinematicPathGenerator {
     const optimalHeight = -4;
     const viewingDistance = photoSize * 2.2;
 
-    // Create optimal viewing order for perfect loop
-    const photosByZ = new Map<number, PhotoPosition[]>();
-    photos.forEach(photo => {
-      const z = Math.round(photo.position[2] / photoSize) * photoSize;
-      if (!photosByZ.has(z)) photosByZ.set(z, []);
-      photosByZ.get(z)!.push(photo);
+    // Sort photos in a continuous path that naturally loops back to start
+    const bounds = this.getPhotoBounds(photos);
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+
+    // Sort photos by angle from center for natural circular showcase
+    const sortedPhotos = [...photos].sort((a, b) => {
+      const angleA = Math.atan2(a.position[2] - centerZ, a.position[0] - centerX);
+      const angleB = Math.atan2(b.position[2] - centerZ, b.position[0] - centerX);
+      return angleA - angleB;
     });
 
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
-    const sortedZRows = Array.from(photosByZ.keys()).sort((a, b) => b - a);
     
-    sortedZRows.forEach((z, rowIndex) => {
-      const rowPhotos = photosByZ.get(z)!.sort((a, b) => 
-        rowIndex % 2 === 0 ? a.position[0] - b.position[0] : b.position[0] - a.position[0]
+    sortedPhotos.forEach((photo, photoIndex) => {
+      const totalPhotos = sortedPhotos.length;
+      const progress = photoIndex / totalPhotos;
+      
+      // Create smooth circular viewing path around photo collection
+      const angle = progress * Math.PI * 2;
+      const radius = viewingDistance + Math.sin(progress * Math.PI * 4) * photoSize * 0.3;
+      const heightVar = Math.sin(progress * Math.PI * 3) * 1.2;
+      
+      const cameraPos = new THREE.Vector3(
+        photo.position[0] + Math.cos(angle + Math.PI) * radius * 0.7,
+        optimalHeight + heightVar,
+        photo.position[2] + Math.sin(angle + Math.PI) * radius * 0.7
       );
       
-      rowPhotos.forEach((photo, photoIndex) => {
-        // GRACEFUL POSITIONING: No sharp turns, smooth curves
-        const angle = photoIndex * 0.3; // Reduced angle variation for smoother movement
-        const offset = Math.sin(photoIndex * 0.4) * photoSize * 0.2;
-        const heightVar = Math.sin(photoIndex * 0.2) * 1.5; // Gentle height variation
-        
-        const cameraPos = new THREE.Vector3(
-          photo.position[0] + offset,
-          optimalHeight + heightVar,
-          photo.position[2] + viewingDistance + Math.cos(photoIndex * 0.15) * 0.8
-        );
-        
-        // FORWARD-FACING LOOK-AT: Never look down steeply
-        const photoPos = new THREE.Vector3(...photo.position);
-        photoPos.y = Math.max(photoPos.y, cameraPos.y - 2); // Limit downward angle
-        
-        positions.push(cameraPos);
-        lookAts.push(photoPos);
-      });
-    });
-
-    // PERFECT LOOP: Ensure start and end connect smoothly
-    if (positions.length > 0) {
-      const start = positions[0];
-      const end = positions[positions.length - 1];
-      const startLook = lookAts[0];
-      const endLook = lookAts[lookAts.length - 1];
+      // GRACEFUL FORWARD LOOK-AT: Look towards next photo or ahead in path
+      const nextPhoto = sortedPhotos[(photoIndex + 1) % totalPhotos];
+      const lookDirection = new THREE.Vector3(...nextPhoto.position).sub(new THREE.Vector3(...photo.position));
+      const lookTarget = new THREE.Vector3(...photo.position).add(lookDirection.multiplyScalar(0.5));
       
-      // Adjust end position to create smoother loop transition
-      const loopDirection = start.clone().sub(end).normalize();
-      end.add(loopDirection.multiplyScalar(photoSize * 0.5));
-      endLook.lerp(startLook, 0.1);
-    }
+      // Keep look-at at reasonable height - never steep downward
+      lookTarget.y = Math.max(lookTarget.y, cameraPos.y - 1.5);
+      
+      positions.push(cameraPos);
+      lookAts.push(lookTarget);
+    });
 
     return { positions, lookAts };
   }
@@ -402,38 +405,44 @@ class CinematicPathGenerator {
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
 
-    const rows = Math.ceil((bounds.maxZ - bounds.minZ) / photoSize) + 1;
-    const cols = Math.ceil((bounds.maxX - bounds.minX) / photoSize) + 1;
+    // Create a continuous loop pattern instead of grid
+    const padding = photoSize * 1.5;
+    const corners = [
+      new THREE.Vector3(bounds.minX - padding, sweepHeight, bounds.maxZ + padding), // Top-left
+      new THREE.Vector3(bounds.maxX + padding, sweepHeight, bounds.maxZ + padding), // Top-right
+      new THREE.Vector3(bounds.maxX + padding, sweepHeight, bounds.minZ - padding), // Bottom-right
+      new THREE.Vector3(bounds.minX - padding, sweepHeight, bounds.minZ - padding), // Bottom-left
+    ];
 
-    for (let row = 0; row < rows; row++) {
-      const z = bounds.minZ + (row / (rows - 1)) * (bounds.maxZ - bounds.minZ);
-      const isEvenRow = row % 2 === 0;
+    // Generate smooth path around perimeter
+    const pointsPerSide = 8;
+    for (let side = 0; side < 4; side++) {
+      const currentCorner = corners[side];
+      const nextCorner = corners[(side + 1) % 4];
       
-      for (let col = 0; col < cols; col++) {
-        const colIndex = isEvenRow ? col : cols - 1 - col;
-        const x = bounds.minX + (colIndex / (cols - 1)) * (bounds.maxX - bounds.minX);
+      for (let point = 0; point < pointsPerSide; point++) {
+        if (side === 3 && point === pointsPerSide - 1) break; // Skip last point to avoid duplicate with first
         
-        // SMOOTH GRID SWEEP: Gentle height and position variation
-        const progress = (row * cols + col) / (rows * cols);
-        const heightVar = Math.sin(progress * Math.PI * 2) * 1.2;
-        const posOffset = Math.cos(progress * Math.PI * 3) * photoSize * 0.1;
+        const t = point / pointsPerSide;
+        const progress = (side * pointsPerSide + point) / (4 * pointsPerSide);
         
-        const cameraPos = new THREE.Vector3(
-          x + posOffset,
-          sweepHeight + heightVar,
-          z + photoSize * 2
+        // Smooth interpolation along perimeter
+        const position = currentCorner.clone().lerp(nextCorner, t);
+        
+        // Add gentle height variation for cinematic movement
+        position.y += Math.sin(progress * Math.PI * 2) * 1.5;
+        
+        // GRACEFUL LOOK-AT: Always look toward the photo collection center
+        const centerX = (bounds.minX + bounds.maxX) / 2;
+        const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+        const lookTarget = new THREE.Vector3(
+          centerX + Math.sin(progress * Math.PI * 4) * photoSize * 0.5,
+          sweepHeight + 1,
+          centerZ + Math.cos(progress * Math.PI * 4) * photoSize * 0.5
         );
         
-        // FORWARD-SWEEPING LOOK-AT: Always look ahead in sweep direction
-        const lookAhead = isEvenRow ? photoSize : -photoSize;
-        const lookAtPos = new THREE.Vector3(
-          x + lookAhead * 0.5,
-          sweepHeight,
-          z - photoSize * 0.5
-        );
-        
-        positions.push(cameraPos);
-        lookAts.push(lookAtPos);
+        positions.push(position);
+        lookAts.push(lookTarget);
       }
     }
 
@@ -449,30 +458,35 @@ class CinematicPathGenerator {
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
 
-    photos.forEach((photo, index) => {
-      // SMOOTH PHOTO ORBITS: Multiple elegant angles around each photo
-      const angles = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
+    // Create one continuous smooth orbit path connecting all photos
+    photos.forEach((photo, photoIndex) => {
+      const totalPhotos = photos.length;
       
-      angles.forEach((baseAngle, angleIndex) => {
-        // GRACEFUL ORBIT: Smooth circular motion with height variation
-        const angle = baseAngle + (index * 0.1); // Slight offset per photo
-        const radius = focusDistance + Math.sin(angleIndex * 0.5) * photoSize * 0.2;
-        const height = photo.position[1] + Math.cos(angleIndex + index) * photoSize * 0.3;
-        
-        const cameraPos = new THREE.Vector3(
-          photo.position[0] + Math.cos(angle) * radius,
-          Math.max(height, -6),
-          photo.position[2] + Math.sin(angle) * radius
-        );
-        
-        // INTIMATE FOCUS: Direct attention to photo
-        const photoTarget = new THREE.Vector3(...photo.position);
-        // Ensure comfortable viewing angle - not too steep
-        photoTarget.y = Math.max(photoTarget.y, cameraPos.y - photoSize);
-        
-        positions.push(cameraPos);
-        lookAts.push(photoTarget);
-      });
+      // Single smooth orbit around each photo - no multiple angles
+      const baseAngle = (photoIndex / totalPhotos) * Math.PI * 2;
+      const radius = focusDistance + Math.sin(photoIndex * 0.3) * photoSize * 0.15;
+      const heightOffset = Math.cos(photoIndex * 0.4) * photoSize * 0.25;
+      
+      const cameraPos = new THREE.Vector3(
+        photo.position[0] + Math.cos(baseAngle) * radius,
+        Math.max(photo.position[1] + heightOffset, -6),
+        photo.position[2] + Math.sin(baseAngle) * radius
+      );
+      
+      // GRACEFUL LOOK-AT: Look toward next photo instead of straight down
+      const nextPhotoIndex = (photoIndex + 1) % totalPhotos;
+      const nextPhoto = photos[nextPhotoIndex];
+      
+      // Blend between current photo and next photo for smooth transitions
+      const currentTarget = new THREE.Vector3(...photo.position);
+      const nextTarget = new THREE.Vector3(...nextPhoto.position);
+      const blendedTarget = currentTarget.lerp(nextTarget, 0.3);
+      
+      // CRITICAL: Maintain reasonable viewing angle - no steep downward looks
+      blendedTarget.y = Math.max(blendedTarget.y, cameraPos.y - photoSize * 0.8);
+      
+      positions.push(cameraPos);
+      lookAts.push(blendedTarget);
     });
 
     return { positions, lookAts };
