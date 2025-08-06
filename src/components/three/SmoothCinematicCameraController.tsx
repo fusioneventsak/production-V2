@@ -307,8 +307,10 @@ class CinematicPathGenerator {
     if (!photos.length) return { positions: [], lookAts: [] };
 
     const photoSize = settings.photoSize || 4;
-    const showcaseHeight = 0; // Eye level height
-    const orbitRadius = photoSize * 4;
+    const baseHeight = settings.baseHeight ?? 0; // Use baseHeight from settings
+    const heightVar = settings.heightVariation ?? 2; // Use heightVariation
+    const distanceVar = settings.distanceVariation ?? 5; // Use distanceVariation
+    const baseRadius = (settings.baseDistance ?? photoSize * 4);
 
     // Find collection center
     const bounds = this.getPhotoBounds(photos);
@@ -318,26 +320,32 @@ class CinematicPathGenerator {
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
     
-    const totalPoints = 32; // Perfect loop division
+    const totalPoints = 32;
     
     for (let i = 0; i < totalPoints; i++) {
       const progress = i / totalPoints;
       const orbitAngle = progress * Math.PI * 2;
       
-      // Camera position on smooth circular orbit
+      // Apply distance variation - camera moves in and out
+      const radiusOffset = Math.sin(progress * Math.PI * 3) * distanceVar;
+      const currentRadius = baseRadius + radiusOffset;
+      
+      // Apply height variation - camera moves up and down
+      const heightOffset = Math.sin(progress * Math.PI * 4) * heightVar;
+      
       const cameraPos = new THREE.Vector3(
-        centerX + Math.cos(orbitAngle) * orbitRadius,
-        showcaseHeight + Math.sin(progress * Math.PI * 4) * 0.5, // Gentle wave
-        centerZ + Math.sin(orbitAngle) * orbitRadius
+        centerX + Math.cos(orbitAngle) * currentRadius,
+        baseHeight + heightOffset,
+        centerZ + Math.sin(orbitAngle) * currentRadius
       );
       
-      // Look slightly ahead and inward with natural angle
-      const lookAngle = orbitAngle + 0.15; // Look slightly ahead
-      const lookRadius = orbitRadius * 0.7; // Look somewhat inward
+      // Look slightly ahead and inward
+      const lookAngle = orbitAngle + 0.15;
+      const lookRadius = currentRadius * 0.7;
       
       const lookTarget = new THREE.Vector3(
         centerX + Math.cos(lookAngle) * lookRadius,
-        showcaseHeight, // Look at same height for natural view
+        baseHeight,
         centerZ + Math.sin(lookAngle) * lookRadius
       );
       
@@ -478,37 +486,44 @@ class CinematicPathGenerator {
     if (!photos.length) return { positions: [], lookAts: [] };
 
     const photoSize = settings.photoSize || 4;
-    const sweepHeight = 0; // Eye level for natural viewing
+    const baseHeight = settings.baseHeight ?? 0;
+    const heightVar = settings.heightVariation ?? 1;
+    const distanceVar = settings.distanceVariation ?? 3;
 
     const bounds = this.getPhotoBounds(photos);
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
 
-    // Create perfect smooth circular sweep
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-    const radius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + photoSize * 2.5;
+    const baseRadius = (settings.baseDistance ?? Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + photoSize * 2.5);
 
-    const totalPoints = 24; // Smooth circle for perfect loop
+    const totalPoints = 24;
     
     for (let i = 0; i < totalPoints; i++) {
       const progress = i / totalPoints;
       const angle = progress * Math.PI * 2;
       
-      // Circular motion with gentle height variation
+      // Apply distance variation - breathe in and out
+      const radiusOffset = Math.sin(progress * Math.PI * 2) * distanceVar;
+      const currentRadius = baseRadius + radiusOffset;
+      
+      // Apply height variation - gentle wave up and down
+      const heightOffset = Math.sin(progress * Math.PI * 3) * heightVar;
+      
       const position = new THREE.Vector3(
-        centerX + Math.cos(angle) * radius,
-        sweepHeight + Math.sin(progress * Math.PI * 2) * 0.3, // Very subtle wave
-        centerZ + Math.sin(angle) * radius
+        centerX + Math.cos(angle) * currentRadius,
+        baseHeight + heightOffset,
+        centerZ + Math.sin(angle) * currentRadius
       );
       
-      // Look ahead in the direction of movement with slight inward bias
-      const lookAngle = angle + 0.1; // Slightly ahead
-      const lookRadius = radius * 0.8; // Look somewhat inward
+      // Look ahead in movement direction
+      const lookAngle = angle + 0.1;
+      const lookRadius = currentRadius * 0.8;
       
       const lookTarget = new THREE.Vector3(
         centerX + Math.cos(lookAngle) * lookRadius,
-        sweepHeight, // Natural horizontal gaze
+        baseHeight,
         centerZ + Math.sin(lookAngle) * lookRadius
       );
       
@@ -523,37 +538,42 @@ class CinematicPathGenerator {
     if (!photos.length) return { positions: [], lookAts: [] };
 
     const photoSize = settings.photoSize || 4;
-    const focusHeight = 0; // Eye level viewing
-    const viewRadius = photoSize * 3;
+    const baseHeight = settings.baseHeight ?? 0;
+    const heightVar = settings.heightVariation ?? 2;
+    const distanceVar = settings.distanceVariation ?? 4;
+    const viewRadius = (settings.baseDistance ?? photoSize * 3);
 
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
 
-    // Get bounds for circular tour
     const bounds = this.getPhotoBounds(photos);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-    const tourRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + viewRadius;
+    const baseRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + viewRadius;
 
-    // Create a smooth path that gives natural views toward photos
     const totalPoints = 36;
     
     for (let i = 0; i < totalPoints; i++) {
       const progress = i / totalPoints;
       const angle = progress * Math.PI * 2;
       
-      // Circular path with gentle height variation
+      // Apply variations for more dynamic movement
+      const radiusOffset = Math.sin(progress * Math.PI * 4) * distanceVar;
+      const currentRadius = baseRadius + radiusOffset;
+      
+      const heightOffset = Math.sin(progress * Math.PI * 6) * heightVar;
+      
       const cameraPos = new THREE.Vector3(
-        centerX + Math.cos(angle) * tourRadius,
-        focusHeight + Math.sin(progress * Math.PI * 4) * 0.4, // Gentle bobbing
-        centerZ + Math.sin(angle) * tourRadius
+        centerX + Math.cos(angle) * currentRadius,
+        baseHeight + heightOffset,
+        centerZ + Math.sin(angle) * currentRadius
       );
       
-      // Look inward toward photo area with natural angle
-      const inwardDistance = tourRadius * 0.4;
+      // Look inward with dynamic targeting
+      const inwardDistance = currentRadius * 0.4;
       const lookTarget = new THREE.Vector3(
         centerX + Math.cos(angle) * inwardDistance,
-        focusHeight - 0.5, // Look slightly below eye level for natural viewing
+        baseHeight - 0.5,
         centerZ + Math.sin(angle) * inwardDistance
       );
       
@@ -621,29 +641,39 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     if (!validPhotos.length) return null;
 
     console.log(`🎬 Generating PERFECT LOOP ${config.type} path for ${validPhotos.length} photos`);
+    console.log(`📊 Config - Focus: ${config.focusDistance}, HeightVar: ${config.heightVariation}, DistanceVar: ${config.distanceVariation}`);
 
     let pathData: { positions: THREE.Vector3[], lookAts: THREE.Vector3[] };
 
     pathTypeRef.current = config.type;
 
+    // Pass the config to path generators so they can use variations
+    const enhancedSettings = {
+      ...settings,
+      heightVariation: config.heightVariation,
+      distanceVariation: config.distanceVariation,
+      baseHeight: config.baseHeight,
+      baseDistance: config.baseDistance
+    };
+
     switch (config.type) {
       case 'showcase':
-        pathData = CinematicPathGenerator.generateShowcasePath(validPhotos, settings);
+        pathData = CinematicPathGenerator.generateShowcasePath(validPhotos, enhancedSettings);
         break;
       case 'gallery_walk':
-        pathData = CinematicPathGenerator.generateGalleryWalkPath(validPhotos, settings);
+        pathData = CinematicPathGenerator.generateGalleryWalkPath(validPhotos, enhancedSettings);
         break;
       case 'spiral_tour':
-        pathData = CinematicPathGenerator.generateSpiralTourPath(validPhotos, settings);
+        pathData = CinematicPathGenerator.generateSpiralTourPath(validPhotos, enhancedSettings);
         break;
       case 'wave_follow':
-        pathData = CinematicPathGenerator.generateWaveFollowPath(validPhotos, settings);
+        pathData = CinematicPathGenerator.generateWaveFollowPath(validPhotos, enhancedSettings);
         break;
       case 'grid_sweep':
-        pathData = CinematicPathGenerator.generateGridSweepPath(validPhotos, settings);
+        pathData = CinematicPathGenerator.generateGridSweepPath(validPhotos, enhancedSettings);
         break;
       case 'photo_focus':
-        pathData = CinematicPathGenerator.generatePhotoFocusPath(validPhotos, settings);
+        pathData = CinematicPathGenerator.generatePhotoFocusPath(validPhotos, enhancedSettings);
         currentPhotoIndexRef.current = 0;
         photoFocusTimerRef.current = 0;
         break;
@@ -660,7 +690,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     visibilityTrackerRef.current.clear();
     
     return smoothPath;
-  }, [photoPositions, config?.type, config?.enabled, settings, animationPattern]);
+  }, [photoPositions, config?.type, config?.enabled, settings, animationPattern, config?.focusDistance, config?.heightVariation, config?.distanceVariation, config?.baseHeight, config?.baseDistance]);
 
   // Update path reference
   useEffect(() => {
