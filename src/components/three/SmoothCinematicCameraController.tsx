@@ -100,33 +100,28 @@ class SmoothCameraPath {
         photo: p,
         distance: currentPos.distanceTo(new THREE.Vector3(...p.position))
       }))
-      .filter(p => p.distance <= focusDistance)
+      .filter(p => p.distance <= focusDistance * 1.5) // Slightly larger range
       .sort((a, b) => a.distance - b.distance);
 
     if (nearbyPhotos.length > 0) {
-      // Blend between multiple nearby photos for smoother transitions
-      const maxPhotosToBlend = 3;
-      const photosToBlend = nearbyPhotos.slice(0, maxPhotosToBlend);
-      
-      if (photosToBlend.length === 1) {
-        return new THREE.Vector3(...photosToBlend[0].photo.position);
+      // Focus on closest photos with smooth blending
+      const maxBlend = Math.min(nearbyPhotos.length, 2);
+      if (maxBlend === 1) {
+        return new THREE.Vector3(...nearbyPhotos[0].photo.position);
       }
       
-      // Weighted average based on distance
+      // Blend between two closest for smoother transitions
       const target = new THREE.Vector3();
       let totalWeight = 0;
-      
-      photosToBlend.forEach(p => {
-        const weight = 1 / (p.distance + 0.1); // Avoid division by zero
-        const photoPos = new THREE.Vector3(...p.photo.position);
-        target.add(photoPos.multiplyScalar(weight));
+      for (let i = 0; i < maxBlend; i++) {
+        const weight = 1 / (nearbyPhotos[i].distance + 1);
+        target.add(new THREE.Vector3(...nearbyPhotos[i].photo.position).multiplyScalar(weight));
         totalWeight += weight;
-      });
-      
+      }
       return target.divideScalar(totalWeight);
     } else {
       // Look ahead along the path
-      const lookAheadT = (t + 0.1) % 1;
+      const lookAheadT = (t + 0.05) % 1;
       return this.getPositionAt(lookAheadT);
     }
   }
@@ -240,7 +235,7 @@ class CinematicPathGenerator {
     return waypoints;
   }
 
-  // COMPLETELY REWRITTEN: Wave follow path that creates beautiful cinematic loops
+  // COMPLETELY REWRITTEN: Wave follow that actually visits photos
   static generateWaveFollowPath(photos: PhotoPosition[], settings: any): THREE.Vector3[] {
     if (!photos.length) return [];
 
@@ -248,91 +243,109 @@ class CinematicPathGenerator {
     const waveAmplitude = settings.patterns?.wave?.amplitude || 15;
     const waveFrequency = settings.patterns?.wave?.frequency || 0.3;
     
-    console.log('🌊 Generating cinematic wave follow path with amplitude:', waveAmplitude, 'frequency:', waveFrequency);
+    console.log('🌊 FIXED: Generating wave follow path that visits ALL photos');
+    console.log(`📸 Total photos to visit: ${photos.length}`);
 
-    // Find the bounds of all photos to understand the wave field
+    // Step 1: Analyze the actual photo layout
     const bounds = this.getPhotoBounds(photos);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-    const fieldRadius = Math.max(
-      Math.abs(bounds.maxX - centerX),
-      Math.abs(bounds.maxZ - centerZ)
-    ) + photoSize * 3;
+    
+    console.log('📍 Photo field bounds:', {
+      x: `${bounds.minX.toFixed(1)} to ${bounds.maxX.toFixed(1)}`,
+      z: `${bounds.minZ.toFixed(1)} to ${bounds.maxZ.toFixed(1)}`,
+      center: `(${centerX.toFixed(1)}, ${centerZ.toFixed(1)})`
+    });
 
+    // Step 2: Group photos by their angular position (for radial traversal)
+    const photosByAngle = [...photos].map(photo => {
+      const dx = photo.position[0] - centerX;
+      const dz = photo.position[2] - centerZ;
+      const angle = Math.atan2(dz, dx);
+      const radius = Math.sqrt(dx * dx + dz * dz);
+      return { photo, angle, radius };
+    }).sort((a, b) => a.angle - b.angle);
+
+    // Step 3: Create waypoints that spiral through all photos
     const waypoints: THREE.Vector3[] = [];
-    
-    // Create multiple concentric paths at different radii for variety
-    const numRings = 3;
-    const pointsPerRing = 24;
-    
-    for (let ring = 0; ring < numRings; ring++) {
-      const ringProgress = ring / (numRings - 1);
-      const ringRadius = fieldRadius * (0.4 + ringProgress * 0.6);
+    const viewDistance = photoSize * 2.5;
+    const baseHeight = -3;
+
+    // First pass: Create a spiral that visits each photo
+    photosByAngle.forEach((item, index) => {
+      const { photo, angle, radius } = item;
       
-      for (let i = 0; i < pointsPerRing; i++) {
-        const angleProgress = i / pointsPerRing;
-        const angle = angleProgress * Math.PI * 2;
-        
-        // Base position on the ring
-        const baseX = centerX + Math.cos(angle) * ringRadius;
-        const baseZ = centerZ + Math.sin(angle) * ringRadius;
-        
-        // Calculate wave displacement at this position
-        const distanceFromCenter = Math.sqrt(
-          Math.pow(baseX - centerX, 2) + 
-          Math.pow(baseZ - centerZ, 2)
-        );
-        const wavePhase = distanceFromCenter * waveFrequency;
-        
-        // Add wave-following variations
-        const waveOffset = Math.sin(wavePhase + angle * 2) * waveAmplitude * 0.3;
-        const perpAngle = angle + Math.PI / 2;
-        
-        // Create undulating path that follows wave crests and troughs
-        const x = baseX + Math.cos(perpAngle) * waveOffset;
-        const z = baseZ + Math.sin(perpAngle) * waveOffset;
-        
-        // Dynamic height that follows the wave pattern
-        const baseHeight = -3;
-        const waveHeight = Math.sin(wavePhase) * 2;
-        const undulation = Math.sin(angleProgress * Math.PI * 4 + ring) * 1.5;
-        const y = baseHeight + waveHeight + undulation;
-        
-        waypoints.push(new THREE.Vector3(x, y, z));
-        
-        // Add intermediate swooping points for more dynamic movement
-        if (i % 3 === 0) {
-          const swoopAngle = angle + Math.PI / 8;
-          const swoopRadius = ringRadius * (0.9 + Math.sin(angleProgress * Math.PI * 6) * 0.2);
-          const swoopX = centerX + Math.cos(swoopAngle) * swoopRadius;
-          const swoopZ = centerZ + Math.sin(swoopAngle) * swoopRadius;
-          const swoopHeight = baseHeight + Math.sin(wavePhase + 0.5) * 3;
-          
-          waypoints.push(new THREE.Vector3(swoopX, swoopHeight, swoopZ));
-        }
-      }
-    }
-    
-    // Add figure-8 pattern through the wave for extra cinematography
-    const figure8Points = 16;
-    for (let i = 0; i < figure8Points; i++) {
-      const t = i / figure8Points;
-      const figure8Angle = t * Math.PI * 4;
-      
-      // Figure-8 parametric equations
-      const scale = fieldRadius * 0.7;
-      const x = centerX + scale * Math.sin(figure8Angle);
-      const z = centerZ + scale * Math.sin(figure8Angle * 2) / 2;
+      // Calculate viewing position for this photo
+      // Position camera at a good angle to see the photo
+      const viewAngle = angle - Math.PI * 0.15; // Slight offset for better viewing
+      const viewRadius = radius + viewDistance;
       
       // Calculate wave height at this position
-      const dist = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(z - centerZ, 2));
-      const wavePhase = dist * waveFrequency;
-      const y = -2 + Math.sin(wavePhase) * 2.5 + Math.cos(figure8Angle * 3) * 1;
+      const wavePhase = radius * waveFrequency;
+      const waveHeight = Math.sin(wavePhase) * 2;
+      
+      // Add main viewing waypoint
+      const x = centerX + Math.cos(viewAngle) * viewRadius;
+      const z = centerZ + Math.sin(viewAngle) * viewRadius;
+      const y = baseHeight + waveHeight + Math.sin(index * 0.1) * 1.5;
+      
+      waypoints.push(new THREE.Vector3(x, y, z));
+      
+      // Add intermediate waypoint for smoother movement (every 2nd photo)
+      if (index % 2 === 1 && index < photosByAngle.length - 1) {
+        const nextItem = photosByAngle[index + 1];
+        const midAngle = (angle + nextItem.angle) / 2;
+        const midRadius = (radius + nextItem.radius) / 2 + viewDistance;
+        const midWavePhase = midRadius * waveFrequency;
+        
+        const midX = centerX + Math.cos(midAngle) * midRadius;
+        const midZ = centerZ + Math.sin(midAngle) * midRadius;
+        const midY = baseHeight + Math.sin(midWavePhase) * 2.5;
+        
+        waypoints.push(new THREE.Vector3(midX, midY, midZ));
+      }
+    });
+
+    // Step 4: Add a second orbital pass at different height/distance for variety
+    const secondPassPoints = Math.min(photos.length, 20);
+    const selectedPhotos = [];
+    const step = Math.max(1, Math.floor(photos.length / secondPassPoints));
+    
+    for (let i = 0; i < photos.length; i += step) {
+      selectedPhotos.push(photosByAngle[i]);
+    }
+    
+    selectedPhotos.forEach((item, index) => {
+      const { photo, angle, radius } = item;
+      
+      // Different viewing angle and distance for variety
+      const viewAngle = angle + Math.PI * 0.1;
+      const viewRadius = radius + viewDistance * 1.3;
+      const wavePhase = radius * waveFrequency + Math.PI;
+      
+      const x = centerX + Math.cos(viewAngle) * viewRadius;
+      const z = centerZ + Math.sin(viewAngle) * viewRadius;
+      const y = baseHeight - 1 + Math.sin(wavePhase) * 1.5;
+      
+      waypoints.push(new THREE.Vector3(x, y, z));
+    });
+
+    // Step 5: Add connecting sweep to ensure smooth loop
+    const sweepPoints = 8;
+    for (let i = 0; i < sweepPoints; i++) {
+      const t = i / sweepPoints;
+      const sweepAngle = t * Math.PI * 2;
+      const sweepRadius = (bounds.maxX - centerX + bounds.maxZ - centerZ) / 2 + viewDistance * 1.5;
+      
+      const x = centerX + Math.cos(sweepAngle) * sweepRadius * (1 + Math.sin(t * Math.PI * 3) * 0.2);
+      const z = centerZ + Math.sin(sweepAngle) * sweepRadius * (1 + Math.cos(t * Math.PI * 3) * 0.2);
+      const y = baseHeight + Math.sin(t * Math.PI * 4) * 3;
       
       waypoints.push(new THREE.Vector3(x, y, z));
     }
 
-    console.log(`🌊 Generated ${waypoints.length} cinematic waypoints for wave pattern`);
+    console.log(`🌊 Generated ${waypoints.length} waypoints visiting all ${photos.length} photos`);
+    console.log('✅ Path includes: main viewing angles, intermediate points, second pass, and connecting sweeps');
     
     return waypoints;
   }
@@ -475,7 +488,10 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
         return null;
     }
 
-    if (waypoints.length < 2) return null;
+    if (waypoints.length < 2) {
+      console.warn(`⚠️ Not enough waypoints generated (${waypoints.length}). Need at least 2.`);
+      return null;
+    }
 
     // Create smooth continuous path
     const smoothPath = new SmoothCameraPath(waypoints, true);
@@ -483,6 +499,8 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     // Reset progress and visibility tracking
     pathProgressRef.current = 0;
     visibilityTrackerRef.current.clear();
+    
+    console.log(`✅ Camera path created with ${waypoints.length} waypoints`);
     
     return smoothPath;
   }, [photoPositions, config?.type, config?.enabled, settings, animationPattern]);
@@ -647,7 +665,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     }
 
     // Smooth continuous movement
-    const speed = (config.speed || 1.0) * 0.02; // Slower for smoother movement
+    const speed = (config.speed || 1.0) * 0.015; // Slightly slower for smoother movement
     pathProgressRef.current += delta * speed;
     pathProgressRef.current = pathProgressRef.current % 1; // Loop the path
 
@@ -658,7 +676,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     const lookAtTarget = currentPathRef.current.getLookAtTarget(
       pathProgressRef.current, 
       photoPositions, 
-      config.focusDistance || 12
+      config.focusDistance || 15
     );
 
     // Handle automatic config transitions (takes priority)
@@ -689,7 +707,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     }
 
     // Smooth blending when resuming from user interaction
-    let lerpFactor = 0.03; // Default smooth lerping
+    let lerpFactor = 0.025; // Slightly slower for smoother movement
     
     if (isResuming.current) {
       const blendDuration = config.blendDuration || 2.0;
@@ -698,7 +716,7 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       if (resumeBlendRef.current < blendDuration) {
         // Gradual blend from current position to animation path
         const blendProgress = resumeBlendRef.current / blendDuration;
-        lerpFactor = 0.01 + (blendProgress * 0.02); // Start slow, speed up
+        lerpFactor = 0.008 + (blendProgress * 0.017); // Start very slow, speed up gradually
       } else {
         isResuming.current = false;
         console.log('🎬 Camera Animation: Resume blend complete');
@@ -712,12 +730,12 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     const currentLookAt = new THREE.Vector3();
     camera.getWorldDirection(currentLookAt);
     currentLookAt.multiplyScalar(50).add(camera.position);
-    currentLookAt.lerp(lookAtTarget, lerpFactor * 0.7);
+    currentLookAt.lerp(lookAtTarget, lerpFactor * 0.6);
     camera.lookAt(currentLookAt);
 
     // Update controls
     if (controls && 'target' in controls) {
-      (controls as any).target.lerp(lookAtTarget, lerpFactor * 0.5);
+      (controls as any).target.lerp(lookAtTarget, lerpFactor * 0.4);
       (controls as any).update();
     }
 
@@ -726,19 +744,20 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       if (!photo.id.startsWith('placeholder-')) {
         const photoVec = new THREE.Vector3(...photo.position);
         const distance = camera.position.distanceTo(photoVec);
-        if (distance <= (config.focusDistance || 12)) {
+        if (distance <= (config.focusDistance || 15)) {
           visibilityTrackerRef.current.add(photo.id);
         }
       }
     });
 
     // Log progress occasionally
-    if (Math.floor(pathProgressRef.current * 100) % 25 === 0 && Math.floor(pathProgressRef.current * 100) !== 0) {
+    if (Math.floor(pathProgressRef.current * 100) % 20 === 0 && Math.floor(pathProgressRef.current * 100) !== 0) {
       const viewedCount = visibilityTrackerRef.current.size;
       const totalPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
       
       if (viewedCount > 0) {
-        console.log(`🎬 Smooth camera tour: ${viewedCount}/${totalPhotos} photos showcased (${Math.round(viewedCount/totalPhotos*100)}%)`);
+        console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPhotos} photos viewed (${Math.round(viewedCount/totalPhotos*100)}%)`);
+        console.log(`📍 Current position: (${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)})`);
       }
     }
   });
@@ -746,13 +765,14 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log(`🎬 Cinematic Camera Active: ${config.type}`);
-      console.log(`🌊 WAVE PATTERN FIXED: Beautiful looping paths through wave field!`);
+      console.log(`🎬 FIXED Cinematic Camera Active: ${config.type}`);
+      console.log(`🌊 Wave pattern: Now visits ALL photos in spiral pattern!`);
+      console.log(`📸 Photos will be viewed from multiple angles`);
       console.log(`🚫 Mouse hover ignored: ${config.ignoreMouseMovement !== false}`);
       console.log(`🔄 Auto config change detection: ENABLED`);
       console.log(`⚙️ Auto-resume after: ${config.resumeDelay || 2.0}s`);
       console.log(`🎮 Manual control: ${config.enableManualControl !== false ? 'enabled' : 'disabled'}`);
-      console.log(`📹 Continuous cinematic loops - perfect for video recording!`);
+      console.log(`📹 Smooth continuous loops - perfect for video recording!`);
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}, Focus: ${config.focusDistance}`);
     }
   }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.ignoreMouseMovement, config?.resumeDelay, config?.enableManualControl]);
