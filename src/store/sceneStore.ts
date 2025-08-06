@@ -332,7 +332,7 @@ export const useSceneStore = create<SceneState>()((set, get) => {
 
     // Handle photo size validation
     if (newSettings.photoSize !== undefined) {
-      const size = Math.min(Math.max(1.0, Number(newSettings.photoSize)), 20.0);
+      const size = Math.min(Math.max(1.0, Number(newSettings.photoSize)), 30.0);
       if (!isNaN(size)) {
         newSettings.photoSize = size;
       } else {
