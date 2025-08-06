@@ -27,6 +27,18 @@ interface CinematicCameraConfig {
   blendDuration?: number;
   preserveUserDistance?: boolean;
   preserveUserHeight?: boolean;
+  // Path variation settings (used during path generation)
+  baseHeight?: number;
+  baseDistance?: number;
+  heightVariation?: number;
+  distanceVariation?: number;
+  // Dynamic variation settings (applied in real-time on top of path)
+  verticalDrift?: number;           // Real-time vertical drift amount
+  dynamicDistanceVariation?: number; // Real-time breathing in/out
+  // Elevation control (camera angle constraints)
+  elevationMin?: number;             // Minimum elevation angle in radians
+  elevationMax?: number;             // Maximum elevation angle in radians
+  elevationOscillation?: number;     // Oscillate between min and max (0-1)
 }
 
 interface SmoothCinematicCameraControllerProps {
@@ -623,6 +635,9 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   const lastUserTargetRef = useRef<THREE.Vector3>();
   const resumeBlendRef = useRef(0);
   const isResuming = useRef(false);
+  
+  // Dynamic variation tracking for real-time effects
+  const dynamicVariationRef = useRef(0);
 
   // Automatic config change detection
   const lastConfigRef = useRef<string>('');
@@ -853,15 +868,105 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
     // SEAMLESS LOOP: Perfect modulo handling
     pathProgressRef.current = pathProgressRef.current % 1;
     if (pathProgressRef.current < 0) pathProgressRef.current += 1;
+    
+    // Update dynamic variation for real-time effects
+    dynamicVariationRef.current += delta * 0.5; // Slow oscillation
 
-    // Get smooth positions and look-at targets
-    const targetPosition = currentPathRef.current.getPositionAt(pathProgressRef.current);
-    const lookAtTarget = currentPathRef.current.getLookAtTarget(
+    // Get base positions from path
+    const basePosition = currentPathRef.current.getPositionAt(pathProgressRef.current);
+    const baseLookAt = currentPathRef.current.getLookAtTarget(
       pathProgressRef.current, 
       photoPositions, 
       config.focusDistance || 12,
       pathTypeRef.current
     );
+    
+    // Apply DYNAMIC variations on top of the path (like vertical drift and distance variation)
+    let targetPosition = basePosition.clone();
+    let lookAtTarget = baseLookAt.clone();
+    
+    // Add vertical drift if specified (works like the auto-rotate version)
+    const verticalDrift = config.verticalDrift ?? 0;
+    if (verticalDrift > 0) {
+      const driftAmount = Math.sin(dynamicVariationRef.current * 0.3) * verticalDrift;
+      targetPosition.y += driftAmount;
+      // Keep look target relatively stable
+      lookAtTarget.y += driftAmount * 0.3;
+    }
+    
+    // Add distance variation if specified (breathing in/out from center)
+    const dynamicDistanceVar = config.dynamicDistanceVariation ?? 0;
+    if (dynamicDistanceVar > 0 && (pathTypeRef.current === 'showcase' || pathTypeRef.current === 'grid_sweep')) {
+      const bounds = photoPositions.length > 0 ? 
+        photoPositions.reduce((acc, p) => {
+          acc.centerX += p.position[0];
+          acc.centerZ += p.position[2];
+          acc.count++;
+          return acc;
+        }, { centerX: 0, centerZ: 0, count: 0 }) : 
+        { centerX: 0, centerZ: 0, count: 1 };
+      
+      const centerX = bounds.centerX / bounds.count;
+      const centerZ = bounds.centerZ / bounds.count;
+      
+      // Calculate direction from center
+      const dirFromCenter = new THREE.Vector3(
+        targetPosition.x - centerX,
+        0,
+        targetPosition.z - centerZ
+      );
+      
+      if (dirFromCenter.length() > 0.1) {
+        dirFromCenter.normalize();
+        
+        // Breathing effect - move in and out
+        const breathAmount = Math.sin(dynamicVariationRef.current * 0.4) * dynamicDistanceVar;
+        targetPosition.x += dirFromCenter.x * breathAmount;
+        targetPosition.z += dirFromCenter.z * breathAmount;
+      }
+    }
+    
+    // Apply ELEVATION CONSTRAINTS if specified
+    // This controls the vertical angle range of the camera's view
+    if (config.elevationMin !== undefined || config.elevationMax !== undefined) {
+      const toTarget = lookAtTarget.clone().sub(targetPosition);
+      const horizontalDistance = Math.sqrt(toTarget.x * toTarget.x + toTarget.z * toTarget.z);
+      
+      if (horizontalDistance > 0.1) {
+        // Calculate current elevation angle (negative = looking down, positive = looking up)
+        const currentElevation = Math.atan2(toTarget.y, horizontalDistance);
+        
+        // Apply min/max constraints with defaults
+        const minElevation = config.elevationMin ?? -Math.PI / 3; // Default: can look down 60 degrees
+        const maxElevation = config.elevationMax ?? Math.PI / 3;   // Default: can look up 60 degrees
+        
+        // Clamp the elevation angle
+        let targetElevation = currentElevation;
+        if (currentElevation < minElevation) {
+          targetElevation = minElevation;
+        } else if (currentElevation > maxElevation) {
+          targetElevation = maxElevation;
+        }
+        
+        // If we had to clamp, adjust the look target
+        if (targetElevation !== currentElevation) {
+          // Calculate new vertical offset based on clamped angle
+          const newY = Math.tan(targetElevation) * horizontalDistance;
+          lookAtTarget.y = targetPosition.y + newY;
+        }
+        
+        // For dramatic effect: oscillate between min and max if both are set
+        const elevationOscillation = config.elevationOscillation ?? 0;
+        if (elevationOscillation > 0 && config.elevationMin !== undefined && config.elevationMax !== undefined) {
+          const oscAmount = (Math.sin(dynamicVariationRef.current * 0.2) + 1) / 2; // 0 to 1
+          const oscElevation = minElevation + (maxElevation - minElevation) * oscAmount;
+          const oscY = Math.tan(oscElevation) * horizontalDistance;
+          
+          // Blend between target and oscillating elevation
+          lookAtTarget.y = lookAtTarget.y * (1 - elevationOscillation) + (targetPosition.y + oscY) * elevationOscillation;
+        }
+      }
+    }
 
     // Handle config transitions
     const configTransitionTime = 3000; // 3 seconds for smooth transitions
