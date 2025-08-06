@@ -239,14 +239,11 @@ export const CinematicCameraController: React.FC<CinematicCameraControllerProps>
   
   // Memoized waypoints - recalculate when photos or pattern changes
   const waypoints = useMemo(() => {
-    if (!photoPositions.length || !config?.enabled) return [];
-    
-    const validPhotos = photoPositions.filter(p => p.id && !p.id.startsWith('placeholder-'));
-    if (!validPhotos.length) return [];
+    if (!config?.enabled) return [];
 
-    console.log(`🎬 Generating ${config.type} waypoints for ${validPhotos.length} photos in ${animationPattern} pattern`);
+    console.log(`🎬 Generating ${config.type} waypoints for ${photoPositions.length} positions in ${animationPattern} pattern`);
     
-    const points = waypointGeneratorRef.current.generateWaypoints(validPhotos, animationPattern, settings);
+    const points = waypointGeneratorRef.current.generateWaypoints(photoPositions, animationPattern, settings);
     
     // Reset visibility tracking when waypoints change
     visibilityTrackerRef.current.reset();
@@ -289,10 +286,8 @@ export const CinematicCameraController: React.FC<CinematicCameraControllerProps>
     
     // Check which photos are currently in view
     photoPositions.forEach(photo => {
-      if (!photo.id.startsWith('placeholder-')) {
-        const photoVec = new THREE.Vector3(...photo.position);
-        visibilityTrackerRef.current.checkPhotoInView(camera.position, photoVec, photo.id);
-      }
+      const photoVec = new THREE.Vector3(...photo.position);
+      visibilityTrackerRef.current.checkPhotoInView(camera.position, photoVec, photo.id);
     });
 
     return currentWaypoint || null;
@@ -300,7 +295,7 @@ export const CinematicCameraController: React.FC<CinematicCameraControllerProps>
 
   // Smooth camera animation with photo-focused movement
   useFrame((state, delta) => {
-    if (!config?.enabled || !waypoints.length || config.type === 'none') {
+    if (!config?.enabled || config.type === 'none') {
       isActiveRef.current = false;
       return;
     }
@@ -330,21 +325,20 @@ export const CinematicCameraController: React.FC<CinematicCameraControllerProps>
       const target = getNextTarget();
       if (target) {
         // Find nearest photos to focus on
-        const nearbyPhotos = photoPositions
-          .filter(p => !p.id.startsWith('placeholder-'))
+        const nearbyPositions = photoPositions
           .map(p => ({
-            photo: p,
+            position: p,
             distance: camera.position.distanceTo(new THREE.Vector3(...p.position))
           }))
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 3);
 
-        if (nearbyPhotos.length > 0) {
-          const closestPhoto = nearbyPhotos[0].photo;
-          const photoVec = new THREE.Vector3(...closestPhoto.position);
+        if (nearbyPositions.length > 0) {
+          const closestPosition = nearbyPositions[0].position;
+          const positionVec = new THREE.Vector3(...closestPosition.position);
           
           // Subtle look-at adjustment during pause
-          const lookTarget = photoVec.clone();
+          const lookTarget = positionVec.clone();
           lookTarget.y = Math.max(lookTarget.y, floorHeight + 2);
           
           camera.lookAt(lookTarget);
@@ -375,30 +369,9 @@ export const CinematicCameraController: React.FC<CinematicCameraControllerProps>
     // Dynamic look-at targeting for photo showcase
     const lookTarget = new THREE.Vector3();
     
-    // Find photos to focus on based on current camera position
-    const photosInRange = photoPositions
-      .filter(p => !p.id.startsWith('placeholder-'))
-      .map(p => ({
-        photo: p,
-        distance: camera.position.distanceTo(new THREE.Vector3(...p.position))
-      }))
-      .filter(p => p.distance < (config.focusDistance || 15))
-      .sort((a, b) => a.distance - b.distance);
-
-    if (photosInRange.length > 0) {
-      // Focus on closest photo group
-      const avgPosition = photosInRange.slice(0, 3).reduce((acc, p) => {
-        acc.add(new THREE.Vector3(...p.photo.position));
-        return acc;
-      }, new THREE.Vector3()).divideScalar(Math.min(3, photosInRange.length));
-      
-      lookTarget.copy(avgPosition);
-      lookTarget.y = Math.max(lookTarget.y, floorHeight + 2);
-    } else {
-      // Look forward along path
-      lookTarget.copy(currentTarget);
-      lookTarget.y = Math.max(lookTarget.y, floorHeight + 1);
-    }
+    // Look forward along path for smooth scene coverage
+    lookTarget.copy(currentTarget);
+    lookTarget.y = Math.max(lookTarget.y, floorHeight + 1);
 
     camera.lookAt(lookTarget);
     
@@ -418,22 +391,22 @@ export const CinematicCameraController: React.FC<CinematicCameraControllerProps>
       
       // Log progress for debugging
       const viewedCount = visibilityTrackerRef.current.getViewedCount();
-      const totalPhotos = photoPositions.filter(p => !p.id.startsWith('placeholder-')).length;
+      const totalPositions = photoPositions.length;
       
       if (waypointIndexRef.current % 10 === 0) {
-        console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPhotos} photos showcased (${Math.round(viewedCount/totalPhotos*100)}%)`);
+        console.log(`🎬 Camera tour progress: ${viewedCount}/${totalPositions} positions visited (${Math.round(viewedCount/totalPositions*100)}%)`);
       }
     }
   });
 
   // Debug info
   useEffect(() => {
-    if (config?.enabled && waypoints.length > 0) {
+    if (config?.enabled) {
       console.log(`🎬 Cinematic Camera Active: ${config.type}`);
-      console.log(`📸 Generated ${waypoints.length} waypoints for ${photoPositions.length} photos`);
+      console.log(`📸 Generated ${waypoints.length} waypoints for ${photoPositions.length} positions`);
       console.log(`🎯 Pattern: ${animationPattern}, Speed: ${config.speed}`);
     }
-  }, [config?.enabled, config?.type, waypoints.length, animationPattern]);
+  }, [config?.enabled, config?.type, waypoints.length, animationPattern, photoPositions.length]);
 
   return null;
 };
