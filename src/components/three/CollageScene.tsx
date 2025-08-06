@@ -1049,7 +1049,6 @@ const CameraControls: React.FC<{
   // Photo positions for cinematic camera
   const photoPositions = useMemo(() => {
     return photosWithPositions
-      .filter(photo => photo.id && !photo.id.startsWith('placeholder-'))
       .map(photo => ({
         position: photo.targetPosition,
         slotIndex: photo.slotIndex,
