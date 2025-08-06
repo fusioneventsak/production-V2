@@ -222,51 +222,44 @@ class CinematicPathGenerator {
 
     const photoSize = settings.photoSize || 4;
     const optimalHeight = -4;
-    const viewingDistance = photoSize * 2.5;
+    const orbitRadius = photoSize * 3.5; // Larger radius for better perspective
 
-    // Sort photos in a continuous path that naturally loops back to start
+    // Find collection center
     const bounds = this.getPhotoBounds(photos);
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerZ = (bounds.minZ + bounds.maxZ) / 2;
 
-    // Sort photos by angle from center for natural circular showcase
-    const sortedPhotos = [...photos].sort((a, b) => {
-      const angleA = Math.atan2(a.position[2] - centerZ, a.position[0] - centerX);
-      const angleB = Math.atan2(b.position[2] - centerZ, b.position[0] - centerX);
-      return angleA - angleB;
-    });
-
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
     
-    sortedPhotos.forEach((photo, photoIndex) => {
-      const totalPhotos = sortedPhotos.length;
-      const progress = photoIndex / totalPhotos;
-      
-      // Create circular orbit around the photo collection
+    const totalPoints = 24; // Smooth circular showcase
+    
+    for (let i = 0; i < totalPoints; i++) {
+      const progress = i / totalPoints;
       const orbitAngle = progress * Math.PI * 2;
-      const orbitRadius = viewingDistance + Math.sin(progress * Math.PI * 6) * photoSize * 0.4;
-      const heightVar = Math.sin(progress * Math.PI * 4) * 1.5;
+      
+      // Smooth circular orbit around photo collection
+      const heightVariation = Math.sin(progress * Math.PI * 3) * 2;
       
       const cameraPos = new THREE.Vector3(
         centerX + Math.cos(orbitAngle) * orbitRadius,
-        optimalHeight + heightVar,
+        optimalHeight + heightVariation,
         centerZ + Math.sin(orbitAngle) * orbitRadius
       );
       
-      // FORWARD-FACING: Always look ahead along the orbital path - NEVER DOWN
-      const lookAheadAngle = orbitAngle + 0.3; // Look ahead in orbital direction
-      const lookAheadRadius = orbitRadius * 0.6; // Look toward center-ish but ahead
+      // NEVER LOOK DOWN: Always look forward/outward along orbit direction
+      const lookAheadAngle = orbitAngle + 0.4; // Look ahead in orbit
+      const horizonDistance = orbitRadius * 2; // Look toward horizon
       
       const lookTarget = new THREE.Vector3(
-        centerX + Math.cos(lookAheadAngle) * lookAheadRadius,
-        optimalHeight + heightVar + 1, // Always look slightly upward for grace
-        centerZ + Math.sin(lookAheadAngle) * lookAheadRadius
+        centerX + Math.cos(lookAheadAngle) * horizonDistance,
+        cameraPos.y + 3, // ALWAYS look upward - never down at photos
+        centerZ + Math.sin(lookAheadAngle) * horizonDistance
       );
       
       positions.push(cameraPos);
       lookAts.push(lookTarget);
-    });
+    }
 
     return { positions, lookAts };
   }
@@ -407,44 +400,33 @@ class CinematicPathGenerator {
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
 
-    // Create perfect rectangular loop with exact closure
-    const padding = photoSize * 1.8;
-    const corners = [
-      new THREE.Vector3(bounds.minX - padding, sweepHeight, bounds.maxZ + padding), // Top-left
-      new THREE.Vector3(bounds.maxX + padding, sweepHeight, bounds.maxZ + padding), // Top-right
-      new THREE.Vector3(bounds.maxX + padding, sweepHeight, bounds.minZ - padding), // Bottom-right
-      new THREE.Vector3(bounds.minX - padding, sweepHeight, bounds.minZ - padding), // Bottom-left
-    ];
+    // Create perfect smooth circular sweep - NO sharp corners
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+    const radius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + photoSize * 2;
 
-    // Generate complete perimeter with exact loop closure
-    const totalPoints = 32; // Divisible by 4 for perfect corners
-    const pointsPerSide = totalPoints / 4;
+    const totalPoints = 36; // Smooth circle
     
     for (let i = 0; i < totalPoints; i++) {
       const progress = i / totalPoints;
-      const side = Math.floor(i / pointsPerSide);
-      const localT = (i % pointsPerSide) / pointsPerSide;
+      const angle = progress * Math.PI * 2;
       
-      const currentCorner = corners[side];
-      const nextCorner = corners[(side + 1) % 4];
+      // Perfect circular motion - completely smooth
+      const position = new THREE.Vector3(
+        centerX + Math.cos(angle) * radius,
+        sweepHeight + Math.sin(progress * Math.PI * 4) * 1.5, // Gentle height waves
+        centerZ + Math.sin(angle) * radius
+      );
       
-      // Perfect perimeter positioning
-      const position = currentCorner.clone().lerp(nextCorner, localT);
+      // ALWAYS look ahead in the circular direction - NEVER down or inward
+      const lookAheadAngle = angle + 0.2; // Look ahead in circle
+      const lookDistance = radius * 1.2; // Look beyond the circle
       
-      // Gentle height waves for cinematic movement
-      position.y += Math.sin(progress * Math.PI * 3) * 1.2;
-      
-      // FORWARD-FACING: Look ahead along the perimeter path
-      const lookAheadProgress = (progress + 0.1) % 1; // Look 10% ahead
-      const lookAheadSide = Math.floor((lookAheadProgress * totalPoints) / pointsPerSide);
-      const lookAheadLocalT = ((lookAheadProgress * totalPoints) % pointsPerSide) / pointsPerSide;
-      
-      const lookAheadCorner = corners[lookAheadSide];
-      const lookAheadNextCorner = corners[(lookAheadSide + 1) % 4];
-      const lookTarget = lookAheadCorner.clone().lerp(lookAheadNextCorner, lookAheadLocalT);
-      
-      // Maintain same height level for natural forward look
-      lookTarget.y = position.y + 0.5; // Slight upward angle
+      const lookTarget = new THREE.Vector3(
+        centerX + Math.cos(lookAheadAngle) * lookDistance,
+        position.y + 2, // ALWAYS look up/forward, never down
+        centerZ + Math.sin(lookAheadAngle) * lookDistance
+      );
       
       positions.push(position);
       lookAts.push(lookTarget);
@@ -457,46 +439,46 @@ class CinematicPathGenerator {
     if (!photos.length) return { positions: [], lookAts: [] };
 
     const photoSize = settings.photoSize || 4;
-    const focusDistance = photoSize * 1.8;
+    const focusDistance = photoSize * 2.2;
 
     const positions: THREE.Vector3[] = [];
     const lookAts: THREE.Vector3[] = [];
 
-    // Create one continuous smooth orbit path connecting all photos
-    photos.forEach((photo, photoIndex) => {
-      const totalPhotos = photos.length;
-      const progress = photoIndex / totalPhotos;
+    // Create elevated circular path above photos - like a drone tour
+    const bounds = this.getPhotoBounds(photos);
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+    const tourRadius = Math.max(bounds.maxX - centerX, bounds.maxZ - centerZ) + focusDistance;
+    
+    const totalPoints = photos.length * 2; // 2 positions per photo for smooth coverage
+    
+    for (let i = 0; i < totalPoints; i++) {
+      const progress = i / totalPoints;
+      const tourAngle = progress * Math.PI * 2;
       
-      // Single smooth orbit around each photo
-      const baseAngle = progress * Math.PI * 2;
-      const radius = focusDistance + Math.sin(photoIndex * 0.3) * photoSize * 0.15;
-      const heightOffset = Math.cos(photoIndex * 0.4) * photoSize * 0.2; // Reduced height variation
+      // Elevated circular tour path
+      const elevatedHeight = -2; // Higher than photo level
+      const heightWave = Math.sin(progress * Math.PI * 4) * 1.5;
       
       const cameraPos = new THREE.Vector3(
-        photo.position[0] + Math.cos(baseAngle) * radius,
-        Math.max(photo.position[1] + heightOffset, -6),
-        photo.position[2] + Math.sin(baseAngle) * radius
+        centerX + Math.cos(tourAngle) * tourRadius,
+        elevatedHeight + heightWave,
+        centerZ + Math.sin(tourAngle) * tourRadius
       );
       
-      // GENTLE TRANSITION: Look toward path direction instead of dramatic photo-to-photo
-      const nextProgress = ((photoIndex + 1) % totalPhotos) / totalPhotos;
-      const nextAngle = nextProgress * Math.PI * 2;
+      // HORIZON LOOKING: Never look down at photos - always look outward/forward
+      const horizonAngle = tourAngle + 0.3; // Look ahead in tour direction
+      const horizonDistance = tourRadius * 1.8; // Look toward distant horizon
       
-      // Create smooth directional target instead of steep photo focus
-      const pathDirection = new THREE.Vector3(
-        Math.cos(nextAngle) - Math.cos(baseAngle),
-        0, // Keep Y stable for smooth transitions
-        Math.sin(nextAngle) - Math.sin(baseAngle)
-      ).normalize();
-      
-      const lookTarget = cameraPos.clone().add(pathDirection.multiplyScalar(focusDistance * 0.8));
-      
-      // SMOOTH HEIGHT: Gentle viewing angle - no harsh up/down transitions
-      lookTarget.y = cameraPos.y + Math.sin(progress * Math.PI * 2) * 0.8; // Gentle wave
+      const lookTarget = new THREE.Vector3(
+        centerX + Math.cos(horizonAngle) * horizonDistance,
+        cameraPos.y + 4, // ALWAYS look upward/outward - cinematic horizon view
+        centerZ + Math.sin(horizonAngle) * horizonDistance
+      );
       
       positions.push(cameraPos);
       lookAts.push(lookTarget);
-    });
+    }
 
     return { positions, lookAts };
   }
