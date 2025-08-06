@@ -841,9 +841,14 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
       console.log('🎬 Gracefully resuming perfect loop');
     }
 
-    // Normal speed-based movement
-    const speed = (config.speed || 1.0) * 0.012; // Slightly slower for smoothness
-    pathProgressRef.current += delta * speed;
+    // Normal speed-based movement with more dramatic speed range
+    const speedMultiplier = config.speed || 1.0;
+    
+    // Make speed more dramatic: 0.2 = very slow, 1.0 = normal, 3.0 = quite fast
+    // Using exponential scaling for better feel
+    const effectiveSpeed = Math.pow(speedMultiplier, 1.5) * 0.018;
+    
+    pathProgressRef.current += delta * effectiveSpeed;
     
     // SEAMLESS LOOP: Perfect modulo handling
     pathProgressRef.current = pathProgressRef.current % 1;
@@ -947,15 +952,18 @@ export const SmoothCinematicCameraController: React.FC<SmoothCinematicCameraCont
   // Debug info
   useEffect(() => {
     if (config?.enabled && cameraPath) {
-      console.log(`🎬 ✨ CAMERA CONTROLLER FIXED V3 - OrbitControls Override ✨`);
-      console.log(`✅ Smart Showcase: OrbitControls target OVERRIDDEN - looks horizontally`);
-      console.log(`✅ Grid Sweep: OrbitControls target OVERRIDDEN - perfect loop`);
-      console.log(`✅ Photo Focus: OrbitControls target OVERRIDDEN - horizontal viewing`);
-      console.log(`🔧 Fix: Directly setting OrbitControls.target for problem modes`);
-      console.log(`🚫 Prevents OrbitControls from forcing camera to look at (0,0,0)`);
-      console.log(`⚙️ Config: Speed=${config.speed}, Focus=${config.focusDistance}, Pattern=${animationPattern}`);
+      const speedInfo = config.speed ? 
+        `${config.speed.toFixed(1)}x (${config.speed < 0.5 ? 'very slow' : config.speed < 1.5 ? 'normal' : config.speed < 2.5 ? 'fast' : 'very fast'})` : 
+        '1.0x (normal)';
+      
+      console.log(`🎬 ✨ CINEMATIC CAMERA ACTIVE ✨`);
+      console.log(`🚀 Speed: ${speedInfo}`);
+      console.log(`🎯 Focus Distance: ${config.focusDistance || 12} units`);
+      console.log(`📊 Height Variation: ${config.heightVariation ?? 'auto'}`);
+      console.log(`📐 Distance Variation: ${config.distanceVariation ?? 'auto'}`);
+      console.log(`🎥 Animation Type: ${config.type}`);
     }
-  }, [config?.enabled, config?.type, cameraPath, animationPattern, config?.speed, config?.focusDistance]);
+  }, [config?.enabled, config?.type, cameraPath, config?.speed, config?.focusDistance, config?.heightVariation, config?.distanceVariation]);
 
   return null;
 };
