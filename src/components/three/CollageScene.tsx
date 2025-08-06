@@ -1,4 +1,4 @@
-// Enhanced CollageScene with WORKING Camera Systems and FIXED Touch Interaction for Auto-Rotate & Cinematic
+// Enhanced CollageScene with WORKING Camera Systems and ENHANCED FLOOR TEXTURES - COMPLETE VERSION
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -39,9 +39,30 @@ const POSITION_SMOOTHING = 0.08;
 const ROTATION_SMOOTHING = 0.08;
 const TELEPORT_THRESHOLD = 35;
 
-// Scene Environment Types
+// Scene Environment Types - ENHANCED with new floor textures
 type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
-type FloorTexture = 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom';
+type FloorTexture = 
+  | 'solid' 
+  | 'marble' 
+  | 'wood' 
+  | 'concrete' 
+  | 'metal' 
+  | 'glass' 
+  | 'checkerboard' 
+  | 'custom'
+  // NEW: Cool textures from sample code
+  | 'checker'
+  | 'gradient'
+  | 'noise'
+  | 'stripes'
+  | 'circles'
+  | 'grid'
+  // BONUS: Additional cool patterns
+  | 'hexagon'
+  | 'triangles'
+  | 'waves'
+  | 'diamonds'
+  | 'circuit';
 
 // Photo position interface for cinematic camera
 interface PhotoPosition {
@@ -1492,6 +1513,7 @@ const SceneEnvironmentManager: React.FC<{ settings: ExtendedSceneSettings }> = (
   }
 };
 
+// ENHANCED: FloorTextureFactory with ALL cool textures from sample code
 class FloorTextureFactory {
   static createTexture(type: FloorTexture, size: number = 512, customUrl?: string): THREE.Texture {
     if (type === 'custom' && customUrl) {
@@ -1607,6 +1629,176 @@ class FloorTextureFactory {
         }
         break;
 
+      // NEW: Cool textures from your sample code
+      case 'checker':
+        const checkerSize = 32;
+        for (let i = 0; i < 8; i++) {
+          for (let j = 0; j < 8; j++) {
+            ctx.fillStyle = (i + j) % 2 === 0 ? '#ffffff' : '#333333';
+            ctx.fillRect(i * checkerSize, j * checkerSize, checkerSize, checkerSize);
+          }
+        }
+        break;
+        
+      case 'gradient':
+        const colorGradient = ctx.createLinearGradient(0, 0, size, size);
+        colorGradient.addColorStop(0, '#ff0066');
+        colorGradient.addColorStop(0.5, '#66ff00');
+        colorGradient.addColorStop(1, '#0066ff');
+        ctx.fillStyle = colorGradient;
+        ctx.fillRect(0, 0, size, size);
+        break;
+        
+      case 'noise':
+        const imageData = ctx.createImageData(size, size);
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          const value = Math.random() * 255;
+          imageData.data[i] = value;
+          imageData.data[i + 1] = value * 0.7;
+          imageData.data[i + 2] = value * 1.3;
+          imageData.data[i + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        break;
+        
+      case 'stripes':
+        for (let i = 0; i < size; i += 16) {
+          ctx.fillStyle = i % 32 === 0 ? '#ff6666' : '#6666ff';
+          ctx.fillRect(0, i, size, 16);
+        }
+        break;
+        
+      case 'circles':
+        ctx.fillStyle = '#222222';
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 5; i++) {
+          for (let j = 0; j < 5; j++) {
+            ctx.beginPath();
+            ctx.arc(i * 50 + 25, j * 50 + 25, 15, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        break;
+        
+      case 'grid':
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= size; i += 32) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, size);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(size, i);
+          ctx.stroke();
+        }
+        break;
+
+      // BONUS: Additional cool patterns inspired by your sample
+      case 'hexagon':
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        const hexSize = 30;
+        for (let x = 0; x < size; x += hexSize * 1.5) {
+          for (let y = 0; y < size; y += hexSize * Math.sqrt(3)) {
+            const offsetX = (y / (hexSize * Math.sqrt(3))) % 2 === 1 ? hexSize * 0.75 : 0;
+            FloorTextureFactory.drawHexagon(ctx, x + offsetX, y, hexSize);
+          }
+        }
+        break;
+
+      case 'triangles':
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = '#16213e';
+        const triSize = 40;
+        for (let x = 0; x < size; x += triSize) {
+          for (let y = 0; y < size; y += triSize) {
+            if ((x / triSize + y / triSize) % 2 === 0) {
+              ctx.beginPath();
+              ctx.moveTo(x, y);
+              ctx.lineTo(x + triSize, y);
+              ctx.lineTo(x + triSize / 2, y + triSize);
+              ctx.closePath();
+              ctx.fill();
+            }
+          }
+        }
+        break;
+
+      case 'waves':
+        ctx.fillStyle = '#001122';
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = '#0066cc';
+        ctx.lineWidth = 3;
+        for (let y = 0; y < size; y += 20) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          for (let x = 0; x < size; x += 5) {
+            const waveY = y + Math.sin(x * 0.02 + y * 0.01) * 10;
+            ctx.lineTo(x, waveY);
+          }
+          ctx.stroke();
+        }
+        break;
+
+      case 'diamonds':
+        ctx.fillStyle = '#2c1810';
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = '#8b4513';
+        const diamondSize = 32;
+        for (let x = 0; x < size; x += diamondSize) {
+          for (let y = 0; y < size; y += diamondSize) {
+            if ((x / diamondSize + y / diamondSize) % 2 === 0) {
+              ctx.beginPath();
+              ctx.moveTo(x + diamondSize / 2, y);
+              ctx.lineTo(x + diamondSize, y + diamondSize / 2);
+              ctx.lineTo(x + diamondSize / 2, y + diamondSize);
+              ctx.lineTo(x, y + diamondSize / 2);
+              ctx.closePath();
+              ctx.fill();
+            }
+          }
+        }
+        break;
+
+      case 'circuit':
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = '#00ff41';
+        ctx.lineWidth = 2;
+        const gridSize = 32;
+        for (let x = 0; x < size; x += gridSize) {
+          for (let y = 0; y < size; y += gridSize) {
+            if (Math.random() > 0.7) {
+              ctx.beginPath();
+              ctx.rect(x + 4, y + 4, gridSize - 8, gridSize - 8);
+              ctx.stroke();
+              
+              // Add connection lines
+              if (Math.random() > 0.5) {
+                ctx.beginPath();
+                ctx.moveTo(x + gridSize / 2, y);
+                ctx.lineTo(x + gridSize / 2, y + gridSize);
+                ctx.stroke();
+              }
+              if (Math.random() > 0.5) {
+                ctx.beginPath();
+                ctx.moveTo(x, y + gridSize / 2);
+                ctx.lineTo(x + gridSize, y + gridSize / 2);
+                ctx.stroke();
+              }
+            }
+          }
+        }
+        break;
+
       default:
         ctx.fillStyle = '#2C2C2C';
         ctx.fillRect(0, 0, size, size);
@@ -1623,9 +1815,26 @@ class FloorTextureFactory {
     
     return texture;
   }
+
+  // Helper function for drawing hexagons
+  static drawHexagon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const pointX = x + size * Math.cos(angle);
+      const pointY = y + size * Math.sin(angle);
+      if (i === 0) {
+        ctx.moveTo(pointX, pointY);
+      } else {
+        ctx.lineTo(pointX, pointY);
+      }
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
 }
 
-// FIXED: Textured Floor component that uses the FloorTextureFactory
+// ENHANCED: Textured Floor component with ALL cool textures
 const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
@@ -1649,6 +1858,7 @@ const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings
       envMapIntensity: 0.5,
     });
 
+    // Apply material properties based on texture type
     switch (settings.floorTexture) {
       case 'marble':
         material.metalness = 0.1;
@@ -1667,6 +1877,27 @@ const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings
       case 'wood':
         material.metalness = 0;
         material.roughness = 0.8;
+        break;
+      case 'circuit':
+        material.metalness = 0.6;
+        material.roughness = 0.3;
+        material.emissive = new THREE.Color('#001100');
+        break;
+      case 'noise':
+        material.metalness = 0.2;
+        material.roughness = 0.6;
+        break;
+      case 'gradient':
+        material.metalness = 0.1;
+        material.roughness = 0.4;
+        break;
+      case 'waves':
+        material.metalness = 0.3;
+        material.roughness = 0.7;
+        break;
+      case 'hexagon':
+        material.metalness = 0.4;
+        material.roughness = 0.5;
         break;
     }
 
@@ -2200,150 +2431,6 @@ const EnhancedAnimationController: React.FC<{
   return null;
 };
 
-// Enhanced Scene Settings with Precise Arrow Controls for Fine-tuning
-import { ChevronUp, ChevronDown, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Cherry as Sphere, GalleryVertical as Gallery, BookAudio as Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
-// Enhanced Slider Component with Arrow Controls
-const EnhancedSlider: React.FC<{
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  onChangeComplete?: (value: number) => void;
-  suffix?: string;
-  description?: string;
-  formatValue?: (value: number) => string;
-  showArrows?: boolean;
-  arrowStep?: number;
-  fastStep?: number;
-}> = ({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  onChangeComplete,
-  suffix = '',
-  description,
-  formatValue,
-  showArrows = false,
-  arrowStep,
-  fastStep
-}) => {
-  const actualArrowStep = arrowStep || step;
-  const actualFastStep = fastStep || actualArrowStep * 10;
-  
-  const displayValue = formatValue ? formatValue(value) : value.toString();
-  
-  const handleArrowClick = (direction: 'up' | 'down', isFast = false) => {
-    const stepSize = isFast ? actualFastStep : actualArrowStep;
-    const newValue = direction === 'up' 
-      ? Math.min(value + stepSize, max)
-      : Math.max(value - stepSize, min);
-    
-    onChange(newValue);
-    onChangeComplete?.(newValue);
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <label className="block text-sm text-gray-300">
-          {label}
-          <span className="ml-2 text-xs text-gray-400">
-            {displayValue}{suffix}
-          </span>
-        </label>
-        
-        {showArrows && (
-          <div className="flex items-center space-x-1">
-            <button
-              type="button"
-              onClick={() => handleArrowClick('down')}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                let interval: NodeJS.Timeout;
-                let timeout: NodeJS.Timeout;
-                
-                timeout = setTimeout(() => {
-                  interval = setInterval(() => {
-                    handleArrowClick('down', true);
-                  }, 100);
-                }, 500);
-                
-                const cleanup = () => {
-                  clearTimeout(timeout);
-                  clearInterval(interval);
-                  document.removeEventListener('mouseup', cleanup);
-                  document.removeEventListener('mouseleave', cleanup);
-                };
-                
-                document.addEventListener('mouseup', cleanup);
-                document.addEventListener('mouseleave', cleanup);
-              }}
-              className="flex items-center justify-center w-6 h-6 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded text-gray-300 hover:text-white transition-colors"
-              title={`Decrease by ${actualArrowStep} (hold for fast)`}
-            >
-              <ChevronDown className="h-3 w-3" />
-            </button>
-            
-            <div className="w-12 text-center">
-              <span className="text-xs font-mono text-gray-300">{value}</span>
-            </div>
-            
-            <button
-              type="button"
-              onClick={() => handleArrowClick('up')}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                let interval: NodeJS.Timeout;
-                let timeout: NodeJS.Timeout;
-                
-                timeout = setTimeout(() => {
-                  interval = setInterval(() => {
-                    handleArrowClick('up', true);
-                  }, 100);
-                }, 500);
-                
-                const cleanup = () => {
-                  clearTimeout(timeout);
-                  clearInterval(interval);
-                  document.removeEventListener('mouseup', cleanup);
-                  document.removeEventListener('mouseleave', cleanup);
-                };
-                
-                document.addEventListener('mouseup', cleanup);
-                document.addEventListener('mouseleave', cleanup);
-              }}
-              className="flex items-center justify-center w-6 h-6 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded text-gray-300 hover:text-white transition-colors"
-              title={`Increase by ${actualArrowStep} (hold for fast)`}
-            >
-              <ChevronUp className="h-3 w-3" />
-            </button>
-          </div>
-        )}
-      </div>
-      
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        onMouseUp={onChangeComplete ? (e) => onChangeComplete(parseFloat(e.target.value)) : undefined}
-        className="w-full bg-gray-800"
-      />
-      
-      {description && (
-        <p className="text-xs text-gray-400">{description}</p>
-      )}
-    </div>
-  );
-};
-
 // Main Enhanced CollageScene Component
 const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ 
   photos, 
@@ -2433,7 +2520,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* FIXED Camera Controls with Touch Interaction Support */}
         <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
         
-        {/* FIXED: Textured Floor - Always show unless sphere environment */}
+        {/* ENHANCED: Textured Floor with ALL cool textures - Always show unless sphere environment */}
         {safeSettings.sceneEnvironment !== 'sphere' && (
           <TexturedFloor settings={safeSettings} />
         )}
