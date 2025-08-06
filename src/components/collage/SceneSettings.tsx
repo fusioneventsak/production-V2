@@ -1270,6 +1270,107 @@ const EnhancedSceneSettings: React.FC<{
                       />
                     </div>
                   </div>
+
+                  {/* ENHANCED DYNAMIC CONTROLS - ADD THIS SECTION */}
+                  <div className="border-t border-blue-600/30 pt-4 mt-4">
+                    <h6 className="text-xs font-medium text-blue-300 mb-3">🌊 Dynamic Movement Effects</h6>
+                    
+                    <div>
+                      <label className="block text-sm text-blue-300 mb-2">
+                        Vertical Drift
+                        <span className="ml-2 text-xs text-blue-400">{(settings.cameraAutoRotateVerticalDrift || 0).toFixed(1)} units</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        step="0.5"
+                        value={settings.cameraAutoRotateVerticalDrift || 0}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAutoRotateVerticalDrift: parseFloat(e.target.value)
+                        }, true)}
+                        className="w-full bg-gray-800"
+                      />
+                      <p className="text-xs text-blue-400/80 mt-1">
+                        Real-time floating motion (0=none, 10=strong waves, 20=extreme)
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-blue-300 mb-2">
+                        Distance Variation  
+                        <span className="ml-2 text-xs text-blue-400">{(settings.cameraAutoRotateDistanceVariation || 0).toFixed(0)} units</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="30"
+                        step="1"
+                        value={settings.cameraAutoRotateDistanceVariation || 0}
+                        onChange={(e) => onSettingsChange({ 
+                          cameraAutoRotateDistanceVariation: parseFloat(e.target.value)
+                        }, true)}
+                        className="w-full bg-gray-800"
+                      />
+                      <p className="text-xs text-blue-400/80 mt-1">
+                        Real-time breathing in/out (0=none, 15=strong pulsing, 30=extreme)
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm text-blue-300 mb-2">
+                          Elevation Min
+                          <span className="ml-2 text-xs text-blue-400">{Math.round((settings.cameraAutoRotateElevationMin || -Math.PI/3) * 180 / Math.PI)}°</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={-Math.PI/2}
+                          max={Math.PI/6}
+                          step={Math.PI/180}
+                          value={settings.cameraAutoRotateElevationMin || -Math.PI/3}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAutoRotateElevationMin: parseFloat(e.target.value)
+                          }, true)}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-blue-400/80 mt-1">
+                          Lowest angle (-90°=straight down, 0°=horizon)
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-blue-300 mb-2">
+                          Elevation Max
+                          <span className="ml-2 text-xs text-blue-400">{Math.round((settings.cameraAutoRotateElevationMax || Math.PI/3) * 180 / Math.PI)}°</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={-Math.PI/6}
+                          max={Math.PI/2}
+                          step={Math.PI/180}
+                          value={settings.cameraAutoRotateElevationMax || Math.PI/3}
+                          onChange={(e) => onSettingsChange({ 
+                            cameraAutoRotateElevationMax: parseFloat(e.target.value)
+                          }, true)}
+                          className="w-full bg-gray-800"
+                        />
+                        <p className="text-xs text-blue-400/80 mt-1">
+                          Highest angle (0°=horizon, 90°=straight up)
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-700/20 p-3 rounded border border-blue-500/20 mt-3">
+                      <p className="text-xs text-blue-300 font-medium mb-1">🎯 Pro Tips for Maximum Effect:</p>
+                      <ul className="text-xs text-blue-400/90 space-y-1">
+                        <li>• Set <strong>Vertical Drift to 10+</strong> for dramatic floating</li>
+                        <li>• Set <strong>Distance Variation to 15+</strong> for strong breathing</li>
+                        <li>• Set <strong>Speed to 2.5+</strong> for energetic movement</li>
+                        <li>• Combine both for a "roller coaster" effect!</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               )}
 
