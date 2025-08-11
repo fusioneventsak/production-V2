@@ -1,4 +1,4 @@
-// Enhanced CollageScene with WORKING Camera Systems and ENHANCED FLOOR TEXTURES - COMPLETE VERSION
+// Enhanced CollageScene with WORKING Camera Systems, ENHANCED FLOOR TEXTURES, and MIRRORED LED FLOOR - COMPLETE VERSION
 import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -39,7 +39,7 @@ const POSITION_SMOOTHING = 0.08;
 const ROTATION_SMOOTHING = 0.08;
 const TELEPORT_THRESHOLD = 35;
 
-// Scene Environment Types - ENHANCED with new floor textures
+// Scene Environment Types - ENHANCED with new floor textures including MIRROR
 type SceneEnvironment = 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
 type FloorTexture = 
   | 'solid' 
@@ -62,7 +62,9 @@ type FloorTexture =
   | 'triangles'
   | 'waves'
   | 'diamonds'
-  | 'circuit';
+  | 'circuit'
+  // ENHANCED: Mirrored floor with LED internal lighting effect
+  | 'mirror';
 
 // Photo position interface for cinematic camera
 interface PhotoPosition {
@@ -1513,7 +1515,7 @@ const SceneEnvironmentManager: React.FC<{ settings: ExtendedSceneSettings }> = (
   }
 };
 
-// ENHANCED: FloorTextureFactory with ALL cool textures from sample code
+// ENHANCED: FloorTextureFactory with ALL cool textures from sample code INCLUDING MIRROR SHADER
 class FloorTextureFactory {
   static createTexture(type: FloorTexture, size: number = 512, customUrl?: string): THREE.Texture {
     if (type === 'custom' && customUrl) {
@@ -1816,6 +1818,226 @@ class FloorTextureFactory {
     return texture;
   }
 
+  // Create special mirror floor shader material - ENHANCED MIRRORED LED FLOOR
+  static createMirrorFloorMaterial(settings: ExtendedSceneSettings): THREE.ShaderMaterial {
+    // Create normal texture for surface scratches/details
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Generate normal map for glass surface scratches
+    ctx.fillStyle = '#8080ff'; // Neutral normal color
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Add random scratches
+    ctx.strokeStyle = '#9090ff';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 50; i++) {
+      ctx.beginPath();
+      ctx.moveTo(Math.random() * 512, Math.random() * 512);
+      ctx.bezierCurveTo(
+        Math.random() * 512, Math.random() * 512,
+        Math.random() * 512, Math.random() * 512,
+        Math.random() * 512, Math.random() * 512
+      );
+      ctx.stroke();
+    }
+    
+    const normalTexture = new THREE.CanvasTexture(canvas);
+    normalTexture.wrapS = THREE.RepeatWrapping;
+    normalTexture.wrapT = THREE.RepeatWrapping;
+    normalTexture.repeat.set(4, 4);
+
+    // Shader material inspired by the A-Frame infinite mirror effect
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        u_time: { value: 0 },
+        u_tileCount: { value: 8.0 },
+        u_normalTex: { value: normalTexture },
+        u_floorColor: { value: new THREE.Color(settings.floorColor || '#003366') },
+        u_opacity: { value: settings.floorOpacity || 0.8 },
+        u_cameraPosition: { value: new THREE.Vector3() },
+        u_lightPosition: { value: new THREE.Vector3(1.0, 4.0, 0.0) }
+      },
+      vertexShader: `
+        varying vec3 v_normal;
+        varying vec2 v_uv;
+        varying vec3 v_fragPos;
+        varying vec3 v_viewPos;
+        varying vec3 v_lightPos;
+        varying vec3 v_worldPosition;
+
+        uniform vec3 u_cameraPosition;
+        uniform vec3 u_lightPosition;
+
+        void main() {
+          v_uv = uv;
+          v_normal = normalize(normalMatrix * normal);
+          
+          // World position
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          v_worldPosition = worldPosition.xyz;
+          v_fragPos = worldPosition.xyz;
+          
+          // View and light positions
+          v_viewPos = u_cameraPosition;
+          v_lightPos = u_lightPosition;
+          
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float u_time;
+        uniform float u_tileCount;
+        uniform sampler2D u_normalTex;
+        uniform vec3 u_floorColor;
+        uniform float u_opacity;
+        
+        varying vec2 v_uv;
+        varying vec3 v_fragPos;
+        varying vec3 v_viewPos;
+        varying vec3 v_lightPos;
+        varying vec3 v_normal;
+        varying vec3 v_worldPosition;
+
+        // Utility functions from the A-Frame shader
+        vec3 screenBlend(vec3 src, vec3 dst) {
+          return 1.0 - (1.0 - src) * (1.0 - dst);
+        }
+
+        vec3 scaleNormal(vec3 normal, float scale) {
+          normal = mix(vec3(0.0, 0.0, 1.0), normal, scale);
+          return normalize(normal);
+        }
+
+        vec2 sideUV(vec2 uv, vec3 viewDir) {
+          vec3 p = vec3(uv, 0.0);
+          vec3 d = viewDir;
+          
+          float tx = d.x > 0.0 ? (1.0 - p.x) / d.x : (d.x < 0.0 ? -p.x / d.x : 1e20);
+          float ty = d.y > 0.0 ? (1.0 - p.y) / d.y : (d.y < 0.0 ? -p.y / d.y : 1e20);
+
+          bool hitX = tx < ty;
+          float t = min(tx, ty);
+
+          vec3 q = p + t * d;
+
+          vec2 uvSide;
+          uvSide.x = hitX ? q.y : q.x;
+          uvSide.y = q.z;
+
+          return uvSide;
+        }
+
+        vec3 phongContribForLight(vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 n, vec3 eye, vec3 lightPos, vec3 lightIntensity) {
+          vec3 N = n;
+          vec3 L = normalize(lightPos - p);
+          vec3 V = normalize(eye - p);
+          vec3 R = normalize(reflect(-L, N));
+
+          float dotLN = dot(L, N);
+          float dotRV = dot(R, V);
+
+          if (dotLN < 0.0) {
+            return vec3(0.0, 0.0, 0.0);
+          }
+
+          dotLN = clamp(dotLN, 0.0, 1.0);
+
+          if (dotRV < 0.0) {
+            return lightIntensity * (k_d * dotLN);
+          }
+          return lightIntensity * (k_d * dotLN + k_s * pow(dotRV, alpha));
+        }
+
+        void main() {
+          vec3 viewDir = normalize(v_viewPos - v_fragPos);
+          vec3 lightDir = normalize(v_lightPos - v_fragPos);
+          
+          vec2 uv = v_uv;
+          vec2 uvFixed = 1.0 - uv;
+          vec2 uvTiled = fract(uvFixed * u_tileCount);
+          
+          // Surface normal with scratches
+          vec3 flatNormal = v_normal;
+          vec3 surfaceNormal = normalize(texture2D(u_normalTex, uvTiled).rgb * 2.0 - 1.0);
+          surfaceNormal = scaleNormal(surfaceNormal, 0.3);
+          
+          // Refraction simulation
+          float indexOfRefraction = min(1.4, 1.0 + 1.5 * (1.0 - dot(surfaceNormal, flatNormal)));
+          vec3 refractedViewDir = normalize(-refract(-viewDir, surfaceNormal, 1.0/indexOfRefraction));
+
+          vec2 uvSide = sideUV(uvTiled, refractedViewDir);
+          
+          float maxDepth = 2.0;
+          float depth = uvSide.y;
+          float nDepthClamped = min(depth / maxDepth, 1.0);
+          
+          // LED light pattern (similar to A-Frame version)
+          float cellSize = 0.125;
+          vec2 cellIndex = floor(uvSide / cellSize);
+          vec2 cellCenter = cellIndex * cellSize + 0.5 * cellSize;
+          vec2 local = (uvSide - cellCenter) / cellSize;
+          float d = length(local) * 2.0;
+          d = d * 1.25 - 0.25;
+          float dInverse = max(0.0, 1.0 - d);
+          
+          // Animated LED brightness
+          float ledBrightness1 = min(1.0, sin(u_time * 0.001) * 0.5 + 1.0);
+          float ledBrightness2 = sin(u_time * 0.005 + cellIndex.x) * 0.5 + 0.5;
+          float ledBrightness3 = sin(u_time * 0.04) * 0.45 + 0.75;
+          
+          // Cycle between animations
+          float cycleDuration = 15.0;
+          float t = fract(u_time * 0.001 / cycleDuration);
+          float animMix = smoothstep(0.55, 0.65, t);
+          float ledBrightness = mix(ledBrightness1, ledBrightness2, animMix);
+          float overallLedBrightness = mix(1.0, 0.6, animMix);
+          
+          if (t > 0.96) {
+            ledBrightness = ledBrightness3;
+            overallLedBrightness = ledBrightness3;
+          }
+          
+          // Glass color with LED influence
+          float extLightContrib = max(dot(lightDir, flatNormal), 0.0);
+          vec3 glassColor = u_floorColor * (extLightContrib * 0.35 + overallLedBrightness * 0.65);
+          
+          // LED interior lights
+          vec3 ledColor = vec3(dInverse * dInverse) * ledBrightness * u_floorColor;
+          vec3 interiorColor = mix(ledColor, glassColor, sqrt(nDepthClamped));
+          
+          // Add thin black borders (anti-aliased)
+          vec3 edgeColor = vec3(0.0);
+          vec2 edgeDet = max(abs(uvTiled - 0.5), abs(v_uv - 0.5)) * 2.0;
+          float edgeThresh = 0.975;
+          float edgeAARadius = 0.005;
+          interiorColor = mix(interiorColor, edgeColor, smoothstep(edgeThresh-edgeAARadius, edgeThresh+edgeAARadius, max(edgeDet.x, edgeDet.y)));
+          
+          // Specular reflection
+          float shininess = 200.0;
+          vec3 lightColor = vec3(0.9, 0.9, 0.9);
+          vec3 specularValue = phongContribForLight(
+            vec3(0.0), vec3(1.0), shininess, 
+            v_fragPos, surfaceNormal, v_viewPos, v_lightPos, lightColor
+          );
+          
+          // Fresnel reflection
+          float fresnel = 1.0 - max(dot(viewDir, surfaceNormal), 0.0);
+          vec3 envColor = vec3(0.134, 0.150, 0.188);
+          vec3 reflectionColor = fresnel * fresnel * envColor;
+          
+          vec3 finalColor = screenBlend(interiorColor, screenBlend(specularValue, reflectionColor));
+          
+          gl_FragColor = vec4(finalColor, u_opacity);
+        }
+      `,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+  }
+
   // Helper function for drawing hexagons
   static drawHexagon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
     ctx.beginPath();
@@ -1834,9 +2056,42 @@ class FloorTextureFactory {
   }
 }
 
-// ENHANCED: Textured Floor component with ALL cool textures
+// ENHANCED: Mirrored Floor component with shader-based LED interior effect
+const MirroredFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
+  const { camera } = useThree();
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+
+  const mirrorMaterial = useMemo(() => {
+    return FloorTextureFactory.createMirrorFloorMaterial(settings);
+  }, [settings.floorColor, settings.floorOpacity]);
+
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.u_time.value = state.clock.elapsedTime * 1000;
+      materialRef.current.uniforms.u_cameraPosition.value.copy(camera.position);
+    }
+  });
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -12, 0]}
+      receiveShadow
+    >
+      <planeGeometry args={[settings.floorSize || 300, settings.floorSize || 300, 64, 64]} />
+      <primitive ref={materialRef} object={mirrorMaterial} attach="material" />
+    </mesh>
+  );
+};
+
+// ENHANCED: Textured Floor component with ALL cool textures INCLUDING MIRROR
 const TexturedFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
+
+  // Use special mirrored floor for 'mirror' texture type
+  if (settings.floorTexture === 'mirror') {
+    return <MirroredFloor settings={settings} />;
+  }
 
   const floorTexture = useMemo(() => {
     return FloorTextureFactory.createTexture(
@@ -2431,7 +2686,7 @@ const EnhancedAnimationController: React.FC<{
   return null;
 };
 
-// Main Enhanced CollageScene Component
+// Main Enhanced CollageScene Component with COMPLETE MIRRORED FLOOR SUPPORT
 const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ 
   photos, 
   settings, 
@@ -2520,7 +2775,7 @@ const EnhancedCollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({
         {/* FIXED Camera Controls with Touch Interaction Support */}
         <CameraControls settings={safeSettings} photosWithPositions={photosWithPositions} />
         
-        {/* ENHANCED: Textured Floor with ALL cool textures - Always show unless sphere environment */}
+        {/* ENHANCED: Textured Floor with ALL cool textures INCLUDING MIRRORED LED FLOOR - Always show unless sphere environment */}
         {safeSettings.sceneEnvironment !== 'sphere' && (
           <TexturedFloor settings={safeSettings} />
         )}
