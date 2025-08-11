@@ -108,6 +108,9 @@ export type SceneSettings = {
   roomDepth?: number;
   shadowsEnabled?: boolean;
 
+  // Mirrored LED Floor Settings
+  mirrorTileCount?: number;
+
   // Legacy Auto-Rotate Settings (for backward compatibility)
   cameraAutoRotateSpeed?: number;
   cameraAutoRotateRadius?: number;
@@ -229,6 +232,9 @@ const defaultSettings: SceneSettings = {
   ceilingHeight: 100,
   roomDepth: 200,
   shadowsEnabled: true,
+
+  // Mirrored LED Floor Settings with defaults
+  mirrorTileCount: 8.0,
 
   // Legacy Auto-Rotate Settings (for backward compatibility)
   cameraAutoRotateSpeed: 0.5,
