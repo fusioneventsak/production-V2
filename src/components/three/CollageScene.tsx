@@ -7,7 +7,6 @@ import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
-import { FloorTextureFactory } from './FloorTextureFactory';
 
 type Photo = {
   id: string;
@@ -88,6 +87,9 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingEnabled?: boolean;
   ceilingHeight?: number;
   roomDepth?: number;
+  
+  // Mirrored LED Floor Settings
+  mirrorTileCount?: number;
   
   // FIXED: Enhanced Cinematic Camera Animation Settings with fine-tuning controls
   cameraAnimation?: {
@@ -1854,7 +1856,7 @@ class FloorTextureFactory {
     return new THREE.ShaderMaterial({
       uniforms: {
         u_time: { value: 0 },
-        u_tileCount: { value: 8.0 },
+        u_tileCount: { value: settings.mirrorTileCount || 8.0 },
         u_normalTex: { value: normalTexture },
         u_floorColor: { value: new THREE.Color(settings.floorColor || '#003366') },
         u_opacity: { value: settings.floorOpacity || 0.8 },
@@ -2064,7 +2066,7 @@ const MirroredFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings
 
   const mirrorMaterial = useMemo(() => {
     return FloorTextureFactory.createMirrorFloorMaterial(settings);
-  }, [settings.floorColor, settings.floorOpacity]);
+  }, [settings.floorColor, settings.floorOpacity, settings.mirrorTileCount]);
 
   useFrame((state) => {
     if (materialRef.current) {
