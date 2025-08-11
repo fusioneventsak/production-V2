@@ -88,9 +88,6 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingHeight?: number;
   roomDepth?: number;
   
-  // Mirrored LED Floor Settings
-  mirrorTileCount?: number;
-  
   // FIXED: Enhanced Cinematic Camera Animation Settings with fine-tuning controls
   cameraAnimation?: {
     enabled?: boolean;
@@ -1856,7 +1853,7 @@ class FloorTextureFactory {
     return new THREE.ShaderMaterial({
       uniforms: {
         u_time: { value: 0 },
-        u_tileCount: { value: settings.mirrorTileCount || 8.0 },
+        u_tileCount: { value: 8.0 },
         u_normalTex: { value: normalTexture },
         u_floorColor: { value: new THREE.Color(settings.floorColor || '#003366') },
         u_opacity: { value: settings.floorOpacity || 0.8 },
@@ -2072,6 +2069,8 @@ const MirroredFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings
     if (materialRef.current) {
       materialRef.current.uniforms.u_time.value = state.clock.elapsedTime * 1000;
       materialRef.current.uniforms.u_cameraPosition.value.copy(camera.position);
+      // Update tile count in real-time if needed
+      materialRef.current.uniforms.u_tileCount.value = settings.mirrorTileCount || 8.0;
     }
   });
 
