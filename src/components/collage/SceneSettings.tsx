@@ -1,13 +1,13 @@
-// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features & NEW FLOOR TEXTURES
+// src/components/collage/SceneSettings.tsx - COMPLETE with ALL Enhanced Features & NEW MIRRORED LED FLOOR
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { ChevronUp, ChevronDown, Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles, Building, Cherry as Sphere, GalleryVertical as Gallery, BookAudio as Studio, Home, Layers, Video, Play, Target, Clock, Zap, Settings, ArrowUp, ArrowRight, TrendingUp, Maximize, Ratio, Hash, Ruler } from 'lucide-react';
 import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
 
-// Extended settings interface for new features - UPDATED WITH ALL FLOOR TEXTURES
+// Extended settings interface for new features - UPDATED WITH ALL FLOOR TEXTURES INCLUDING MIRROR
 interface ExtendedSceneSettings extends SceneSettings {
   sceneEnvironment?: 'default' | 'cube' | 'sphere' | 'gallery' | 'studio';
-  floorTexture?: 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom' | 'checker' | 'gradient' | 'noise' | 'stripes' | 'circles' | 'grid' | 'hexagon' | 'triangles' | 'waves' | 'diamonds' | 'circuit';
+  floorTexture?: 'solid' | 'marble' | 'wood' | 'concrete' | 'metal' | 'glass' | 'checkerboard' | 'custom' | 'checker' | 'gradient' | 'noise' | 'stripes' | 'circles' | 'grid' | 'hexagon' | 'triangles' | 'waves' | 'diamonds' | 'circuit' | 'mirror';
   customFloorTextureUrl?: string;
   environmentIntensity?: number;
   cubeTextureUrl?: string;
@@ -18,6 +18,9 @@ interface ExtendedSceneSettings extends SceneSettings {
   ceilingEnabled?: boolean;
   ceilingHeight?: number;
   roomDepth?: number;
+  
+  // Mirror Floor specific settings
+  mirrorTileCount?: number;
   
   // Grid Settings
   gridEnabled?: boolean;
@@ -1449,7 +1452,7 @@ const EnhancedSceneSettings: React.FC<{
         </div>
       </div>
 
-      {/* Floor & Grid Settings - ENHANCED WITH ALL NEW TEXTURES */}
+      {/* Floor & Grid Settings - ENHANCED WITH ALL NEW TEXTURES INCLUDING MIRROR */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <Layers className="h-4 w-4 mr-2" />
@@ -1503,6 +1506,7 @@ const EnhancedSceneSettings: React.FC<{
                   <option value="waves">🌊 Wave Lines</option>
                   <option value="diamonds">💎 Diamond Pattern</option>
                   <option value="circuit">🔌 Circuit Board</option>
+                  <option value="mirror">✨ Mirrored LED Floor (Premium)</option>
                   <option value="custom">🖼️ Custom Image</option>
                 </select>
                 <p className="mt-1 text-xs text-gray-400">
@@ -1524,6 +1528,7 @@ const EnhancedSceneSettings: React.FC<{
                   {settings.floorTexture === 'waves' && "Flowing wave lines in ocean blue colors"}
                   {settings.floorTexture === 'diamonds' && "Diamond pattern in warm brown tones"}
                   {settings.floorTexture === 'circuit' && "High-tech circuit board with glowing green traces"}
+                  {settings.floorTexture === 'mirror' && "🌟 Advanced shader-based mirrored floor with animated LED interior lighting effects"}
                   {settings.floorTexture === 'custom' && "Use your own custom texture image from a URL"}
                   {(!settings.floorTexture || settings.floorTexture === 'solid') && "Solid color floor using the Floor Color setting below"}
                 </p>
@@ -1543,6 +1548,118 @@ const EnhancedSceneSettings: React.FC<{
                   <p className="mt-1 text-xs text-gray-400">
                     Enter a URL for a custom floor texture image. Image will be tiled across the floor.
                   </p>
+                </div>
+              )}
+
+              {/* Enhanced Mirrored LED Floor Settings */}
+              {settings.floorTexture === 'mirror' && (
+                <div className="bg-gradient-to-br from-cyan-900/30 to-blue-900/30 border border-cyan-700/50 rounded-lg p-4 space-y-4">
+                  <div className="flex items-center text-sm font-medium text-cyan-200 mb-3">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    ✨ Mirrored LED Floor Controls
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm text-cyan-300 mb-2">LED Base Color</label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="color"
+                        value={settings.floorColor || '#003366'}
+                        onChange={(e) => onSettingsChange({ floorColor: e.target.value }, true)}
+                        className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                      />
+                      <select
+                        onChange={(e) => onSettingsChange({ floorColor: e.target.value }, true)}
+                        className="bg-gray-700 border border-gray-600 rounded px-2 text-white text-xs"
+                      >
+                        <option value="">LED Presets</option>
+                        <option value="#003366">🔵 Ocean Blue</option>
+                        <option value="#4B0082">🟣 Deep Purple</option>
+                        <option value="#FF1493">🌸 Hot Pink</option>
+                        <option value="#00FF7F">🟢 Spring Green</option>
+                        <option value="#FF4500">🟠 Orange Red</option>
+                        <option value="#FFD700">🟡 Golden Yellow</option>
+                        <option value="#FF0000">🔴 Pure Red</option>
+                        <option value="#00FFFF">🔵 Cyan</option>
+                        <option value="#8A2BE2">🟣 Blue Violet</option>
+                        <option value="#DC143C">🔴 Crimson</option>
+                        <option value="#00CED1">🔵 Dark Turquoise</option>
+                        <option value="#FF6347">🟠 Tomato</option>
+                      </select>
+                    </div>
+                    <p className="mt-1 text-xs text-cyan-400/80">
+                      Controls the base color of the LED lights inside the mirrored floor tiles
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-cyan-300 mb-2">
+                      Mirror Opacity (Glass Effect)
+                      <span className="ml-2 text-xs text-cyan-400">{Math.round((settings.floorOpacity || 0.8) * 100)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.3"
+                      max="1.0"
+                      step="0.05"
+                      value={settings.floorOpacity || 0.8}
+                      onChange={(e) => onSettingsChange({
+                        floorOpacity: parseFloat(e.target.value)
+                      }, true)}
+                      className="w-full bg-gray-800"
+                    />
+                    <div className="flex justify-between text-xs text-cyan-400/80 mt-1">
+                      <span>More Transparent</span>
+                      <span>More Solid</span>
+                    </div>
+                    <p className="text-xs text-cyan-400/80 mt-1">
+                      Lower values = more see-through glass effect, Higher values = more solid mirror surface
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-cyan-300 mb-2">
+                      LED Tile Density
+                      <span className="ml-2 text-xs text-cyan-400">{(settings.mirrorTileCount || 8).toFixed(0)} tiles per side</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="4"
+                      max="16"
+                      step="1"
+                      value={settings.mirrorTileCount || 8}
+                      onChange={(e) => onSettingsChange({
+                        mirrorTileCount: parseFloat(e.target.value)
+                      }, true)}
+                      className="w-full bg-gray-800"
+                    />
+                    <div className="flex justify-between text-xs text-cyan-400/80 mt-1">
+                      <span>Large Tiles (4)</span>
+                      <span>Small Tiles (16)</span>
+                    </div>
+                    <p className="text-xs text-cyan-400/80 mt-1">
+                      Controls how many individual LED mirror tiles make up the floor
+                    </p>
+                  </div>
+
+                  <div className="bg-cyan-800/20 p-3 rounded border border-cyan-600/30">
+                    <p className="text-xs text-cyan-300 font-medium mb-1">🎆 Mirror Floor Features</p>
+                    <ul className="text-xs text-cyan-400/90 space-y-1">
+                      <li>• ✨ Real-time animated LED lighting with cycling patterns</li>
+                      <li>• 🪞 Realistic glass surface with Fresnel reflections</li>
+                      <li>• 🌊 Refraction simulation for depth and realism</li>
+                      <li>• 🔮 Anti-aliased tile borders for clean appearance</li>
+                      <li>• 🎨 Specular highlights that respond to scene lighting</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-yellow-900/20 p-3 rounded border border-yellow-600/30">
+                    <p className="text-xs text-yellow-300 font-medium mb-1">⚡ Performance Note</p>
+                    <p className="text-xs text-yellow-400/90">
+                      The mirrored LED floor uses advanced shaders and may impact performance on older devices. 
+                      Use higher tile density (12-16) for dramatic effects, or lower density (4-8) for better performance.
+                    </p>
+                  </div>
                 </div>
               )}
 
