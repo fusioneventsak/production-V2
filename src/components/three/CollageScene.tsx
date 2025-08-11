@@ -2063,14 +2063,12 @@ const MirroredFloor: React.FC<{ settings: ExtendedSceneSettings }> = ({ settings
 
   const mirrorMaterial = useMemo(() => {
     return FloorTextureFactory.createMirrorFloorMaterial(settings);
-  }, [settings.floorColor, settings.floorOpacity, settings.mirrorTileCount]);
+  }, [settings.floorColor, settings.floorOpacity]);
 
   useFrame((state) => {
     if (materialRef.current) {
       materialRef.current.uniforms.u_time.value = state.clock.elapsedTime * 1000;
       materialRef.current.uniforms.u_cameraPosition.value.copy(camera.position);
-      // Update tile count in real-time if needed
-      materialRef.current.uniforms.u_tileCount.value = settings.mirrorTileCount || 8.0;
     }
   });
 
