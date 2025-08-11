@@ -7,6 +7,7 @@ import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
+import { FloorTextureFactory } from './FloorTextureFactory';
 
 type Photo = {
   id: string;
