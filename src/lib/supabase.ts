@@ -5,10 +5,20 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('🔧 Missing Supabase environment variables:', {
+    url: !!supabaseUrl,
+    key: !!supabaseAnonKey
+  });
   throw new Error('Missing Supabase environment variables');
 }
 
+console.log('🔧 Supabase configuration:', {
+  url: supabaseUrl?.substring(0, 30) + '...',
+  keyLength: supabaseAnonKey?.length
+});
+
 // Configure the Supabase client with optimized settings for Realtime
+// Create the Supabase client without custom fetch to ensure API key is properly included
 export const supabase = createClient<Database>(
   supabaseUrl, 
   supabaseAnonKey, 
@@ -21,6 +31,11 @@ export const supabase = createClient<Database>(
   realtime: {
     params: {
       eventsPerSecond: 10
+    }
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'photosphere-app'
     }
   }
 });

@@ -1,23 +1,40 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useCollageStore, type Collage } from '../store/collageStore';
-import { Image, ExternalLink, Edit, Trash2, Pencil, Camera, Plus } from 'lucide-react';
+import { useUsageLimit } from '../hooks/useSubscription';
+import { useSubscriptionStore } from '../store/subscriptionStore';
+import { useSimpleAuth } from '../contexts/SimpleAuthContext';
+import { Image as ImageIcon, ExternalLink, Edit, Trash2, Pencil, Camera, Plus, Crown } from 'lucide-react';
 import CollageNameModal from '../components/collage/CollageNameModal';
-import Layout from '../components/layout/Layout';
+import DashboardLayout from '../components/layout/DashboardLayout';
+// import SubscriptionManager from '../components/subscription/SubscriptionManager';
+// Trial usage stats removed
+// import FreeTrialBanner from '../components/subscription/FreeTrialBanner';
+
 
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { collages, loading, error, fetchCollages, deleteCollage, createCollage } = useCollageStore();
+  const { subscription, fetchSubscription } = useSubscriptionStore();
+  const { canUse: canCreatePhotosphere } = useUsageLimit('photospheres', collages.length);
+  const { user } = useSimpleAuth();
   const [selectedCollage, setSelectedCollage] = useState<Collage | null>(null);
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newCollageName, setNewCollageName] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  // Trial limits are derived from subscription.features during app-level free trial
 
   useEffect(() => {
     fetchCollages();
   }, [fetchCollages]);
+
+  useEffect(() => {
+    if (user) {
+      fetchSubscription();
+    }
+  }, [user, fetchSubscription]);
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -36,6 +53,7 @@ const DashboardPage = () => {
       setIsDeleting(null);
     }
   };
+  // Legacy DB-based trial creation removed. Trial is derived app-side from account age.
 
   const handleRename = (collage: Collage, e: React.MouseEvent) => {
     e.preventDefault();
@@ -47,6 +65,12 @@ const DashboardPage = () => {
   const handleCreateCollage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCollageName.trim()) return;
+
+    // Check if user can create more photospheres based on subscription features
+    if (!canCreatePhotosphere) {
+      alert('You have reached your PhotoSphere limit. Please upgrade your plan to create more.');
+      return;
+    }
 
     setIsCreating(true);
     try {
@@ -75,32 +99,98 @@ const DashboardPage = () => {
 
   if (loading && collages.length === 0) {
     return (
-      <Layout>
+      <DashboardLayout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white/20 mx-auto"></div>
             <p className="mt-4 text-white/60">Loading your collages...</p>
           </div>
         </div>
-      </Layout>
+      </DashboardLayout>
     );
   }
 
   if (error) {
     return (
-      <Layout>
+      <DashboardLayout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="p-8 text-center">
             <p className="text-red-400">Error loading collages. Please try again later.</p>
           </div>
         </div>
-      </Layout>
+      </DashboardLayout>
     );
   }
 
   return (
-    <Layout>
+    <DashboardLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Free Trial Banner */}
+        {/* <div className="mb-4">
+          <FreeTrialBanner />
+        </div> */}
+        
+        {/* Subscription Stats - Data from subscriptions + subscription_features tables */}
+        <div className="mb-4">
+          <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-white">Subscription Status</h3>
+                <p className="text-sm text-gray-300 mt-1">
+                  {subscription ? (
+                    <>
+                      <span className="capitalize">{subscription.subscription_tier}</span> Plan
+                      {subscription.is_app_free_trial && 
+                        <span className="ml-2 bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded-full text-xs">
+                          Free Trial
+                        </span>
+                      }
+                      {subscription.subscription_status === 'active' && !subscription.is_app_free_trial &&
+                        <span className="ml-2 bg-green-900/40 text-green-300 px-2 py-0.5 rounded-full text-xs">
+                          Active
+                        </span>
+                      }
+                      {subscription.features && (
+                        <span className="ml-2 text-xs text-gray-400">
+                          {subscription.features.max_photospheres === -1 ? '∞' : subscription.features.max_photospheres} PhotoSpheres, 
+                          {subscription.features.max_photos_per_sphere === -1 ? '∞' : subscription.features.max_photos_per_sphere} photos per sphere
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-gray-400">Loading subscription...</span>
+                  )}
+                </p>
+                {subscription?.is_app_free_trial && subscription.trial_end && (
+                  <p className="text-xs text-blue-400 mt-1">
+                    Trial ends: {new Date(subscription.trial_end).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-gray-400">
+                  PhotoSpheres: {collages.length} / {
+                    subscription?.features?.max_photospheres === -1 ? '∞' : 
+                    (subscription?.features?.max_photospheres || '∞')
+                  }
+                </div>
+                <div className="text-sm text-gray-400">
+                  Photos: {collages.reduce((total, collage) => total + (collage.photoCount || 0), 0)} / {
+                    subscription?.features?.max_photos === -1 ? '∞' : 
+                    (subscription?.features?.max_photos || '∞')
+                  }
+                </div>
+                {subscription?.features && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Source: {subscription.is_app_free_trial ? 'App Trial' : 'Subscription'} Data
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -112,32 +202,72 @@ const DashboardPage = () => {
                 Create and manage your 3D photo collages
               </p>
             </div>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Create PhotoSphere
-            </button>
+            {canCreatePhotosphere ? (
+              <div className="flex flex-col items-end">
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create PhotoSphere
+                </button>
+                {subscription?.is_app_free_trial && subscription?.features && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {collages.length} of {subscription.features.max_photospheres} trial PhotoSpheres used
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <p className="text-sm text-gray-400">PhotoSphere limit reached</p>
+                  <p className="text-xs text-gray-500">Upgrade to create more</p>
+                </div>
+                <button
+                  onClick={() => navigate('/dashboard/profile')}
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200"
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Upgrade
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {collages.length === 0 ? (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 mb-6">
-              <Image className="w-8 h-8 text-white/40" />
+              <ImageIcon className="w-8 h-8 text-white/40" />
             </div>
             <h3 className="text-xl font-semibold text-white mb-2">No PhotoSpheres Yet</h3>
             <p className="text-gray-400 mb-6 max-w-md mx-auto">
               Create your first 3D photo collage to get started! Your guests will be able to upload photos in real-time.
             </p>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Create Your First PhotoSphere
-            </button>
+            {canCreatePhotosphere ? (
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create Your First PhotoSphere
+                </button>
+                {subscription?.is_app_free_trial && subscription?.features && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    {collages.length} of {subscription.features.max_photospheres} trial PhotoSpheres used
+                  </p>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate('/dashboard/profile')}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <Crown className="w-5 h-5 mr-2" />
+                Upgrade Plan
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
@@ -157,15 +287,13 @@ const DashboardPage = () => {
                       </h3>
                       <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
                         <div className="inline-flex items-center px-2 py-1 rounded bg-white/5 text-white/60 text-xs border border-white/10">
-                          <Image className="w-3 h-3 mr-1" />
+                          <ImageIcon className="w-3 h-3 mr-1" />
                           Code: {collage.code}
                         </div>
-                        {collage.photoCount !== undefined && (
-                          <span className="text-xs text-gray-400">{collage.photoCount} photos</span>
-                        )}
+                        {/* Photo count can be added here if available in the future */}
                       </div>
                       <p className="text-xs text-gray-500">
-                        Created: {new Date(collage.created_at || collage.createdAt).toLocaleDateString()}
+                        Created: {new Date(collage.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     
@@ -294,7 +422,7 @@ const DashboardPage = () => {
           />
         )}
       </div>
-    </Layout>
+    </DashboardLayout>
   );
 };
 

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscription Feature Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #333;
+    }
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 10px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      overflow: auto;
+      max-height: 500px;
+    }
+    .feature-section {
+      margin-bottom: 20px;
+    }
+    .feature-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .feature-value {
+      margin-left: 20px;
+    }
+    .success {
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <h1>Subscription Feature Test</h1>
+  <p>This page tests the enhanced subscription feature fetching functionality.</p>
+  
+  <button id="testButton">Run Test</button>
+  
+  <h2>Results:</h2>
+  <div id="results">
+    <p>Click the button above to run the test.</p>
+  </div>
+  
+  <h2>Console Output:</h2>
+  <pre id="consoleOutput"></pre>
+  
+  <script type="module">
+    import { useSubscriptionStore } from '../store/subscriptionStore.ts';
+    
+    // Override console.log to capture output
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+    let consoleOutput = '';
+    
+    console.log = function(...args) {
+      originalConsoleLog.apply(console, args);
+      consoleOutput += args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+      ).join(' ') + '\n';
+      document.getElementById('consoleOutput').textContent = consoleOutput;
+    };
+    
+    console.error = function(...args) {
+      originalConsoleError.apply(console, args);
+      consoleOutput += '❌ ERROR: ' + args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+      ).join(' ') + '\n';
+      document.getElementById('consoleOutput').textContent = consoleOutput;
+    };
+    
+    async function testSubscriptionFeatureFetching() {
+      console.log('🧪 Testing enhanced subscription feature fetching...');
+      
+      // Initialize the subscription store
+      const subscriptionStore = useSubscriptionStore.getState();
+      
+      // Fetch subscription data
+      console.log('🔄 Fetching subscription data...');
+      await subscriptionStore.fetchSubscription();
+      
+      // Get the updated state
+      const updatedState = useSubscriptionStore.getState();
+      
+      // Check if subscription was fetched successfully
+      if (!updatedState.subscription) {
+        console.error('Failed to fetch subscription data.');
+        if (updatedState.error) {
+          console.error(`Error: ${updatedState.error}`);
+        }
+        document.getElementById('results').innerHTML = '<p class="error">❌ Test failed: Could not fetch subscription data</p>';
+        return;
+      }
+      
+      // Log subscription data
+      console.log('\n📊 Subscription Data:');
+      console.log(`ID: ${updatedState.subscription.id}`);
+      console.log(`Tier: ${updatedState.subscription.subscription_tier}`);
+      console.log(`Status: ${updatedState.subscription.subscription_status}`);
+      
+      // Log feature data
+      console.log('\n🔑 Feature Data:');
+      const features = updatedState.subscription.features;
+      
+      // Build HTML results
+      let resultsHTML = '<div class="success">✅ Subscription data fetched successfully!</div>';
+      
+      // Subscription details
+      resultsHTML += `
+        <div class="feature-section">
+          <div class="feature-title">📊 Subscription Details:</div>
+          <div class="feature-value">ID: ${updatedState.subscription.id}</div>
+          <div class="feature-value">Tier: ${updatedState.subscription.subscription_tier}</div>
+          <div class="feature-value">Status: ${updatedState.subscription.subscription_status}</div>
+        </div>
+      `;
+      
+      // Core limits
+      resultsHTML += `
+        <div class="feature-section">
+          <div class="feature-title">📏 Core Limits:</div>
+          <div class="feature-value">Max PhotoSpheres: ${features.max_photospheres}</div>
+          <div class="feature-value">Max Photos: ${features.max_photos}</div>
+          <div class="feature-value">Max Photos Per Sphere: ${features.max_photos_per_sphere}</div>
+        </div>
+      `;
+      
+      // Features
+      resultsHTML += `
+        <div class="feature-section">
+          <div class="feature-title">✨ Features:</div>
+          <div class="feature-value">Camera Animations: ${features.camera_animations}</div>
+          <div class="feature-value">Video Recording: ${features.video_recording}</div>
+          <div class="feature-value">Virtual PhotoBooth: ${features.virtual_photobooth}</div>
+          <div class="feature-value">Moderation Tools: ${features.moderation_tools}</div>
+          <div class="feature-value">Custom Branding: ${features.custom_branding}</div>
+          <div class="feature-value">Priority Support: ${features.priority_support}</div>
+          <div class="feature-value">White Label: ${features.white_label}</div>
+          <div class="feature-value">Dedicated Support: ${features.dedicated_support}</div>
+          <div class="feature-value">Custom Training: ${features.custom_training}</div>
+        </div>
+      `;
+      
+      // Trial properties
+      resultsHTML += `
+        <div class="feature-section">
+          <div class="feature-title">⏱️ Trial Properties:</div>
+          <div class="feature-value">Trial Duration Days: ${features.trial_duration_days}</div>
+          <div class="feature-value">Duration Days: ${features.duration_days}</div>
+          <div class="feature-value">Single Use: ${features.single_use}</div>
+        </div>
+      `;
+      
+      // Legacy fields
+      resultsHTML += `
+        <div class="feature-section">
+          <div class="feature-title">🔄 Legacy Fields:</div>
+          <div class="feature-value">Has Video: ${features.has_video}</div>
+          <div class="feature-value">Has Priority Support: ${features.has_priority_support}</div>
+          <div class="feature-value">Has White Label: ${features.has_white_label}</div>
+          <div class="feature-value">Has Dedicated Manager: ${features.has_dedicated_manager}</div>
+        </div>
+      `;
+      
+      // Helper functions
+      resultsHTML += `
+        <div class="feature-section">
+          <div class="feature-title">🧰 Helper Functions:</div>
+          <div class="feature-value">Can Create PhotoSphere: ${subscriptionStore.canCreatePhotosphere(0)}</div>
+          <div class="feature-value">Can Upload Photos: ${subscriptionStore.canUploadPhotos('test-sphere-id', 0)}</div>
+          <div class="feature-value">Has Camera Animations: ${subscriptionStore.hasCameraAnimations()}</div>
+          <div class="feature-value">Has Video Recording: ${subscriptionStore.hasVideoRecording()}</div>
+          <div class="feature-value">Has Virtual PhotoBooth: ${subscriptionStore.hasVirtualPhotobooth()}</div>
+          <div class="feature-value">Has Custom Branding: ${subscriptionStore.hasCustomBranding()}</div>
+          <div class="feature-value">Has Priority Support: ${subscriptionStore.hasPrioritySupport()}</div>
+          <div class="feature-value">Has White Label: ${subscriptionStore.hasWhiteLabel()}</div>
+          <div class="feature-value">Has Dedicated Support: ${subscriptionStore.hasDedicatedSupport()}</div>
+          <div class="feature-value">Has Custom Training: ${subscriptionStore.hasCustomTraining()}</div>
+          <div class="feature-value">Is Single Use Event: ${subscriptionStore.isSingleUseEvent()}</div>
+          <div class="feature-value">Get Duration Days: ${subscriptionStore.getDurationDays()}</div>
+          <div class="feature-value">Is Subscription Suspended: ${subscriptionStore.isSubscriptionSuspended()}</div>
+        </div>
+      `;
+      
+      document.getElementById('results').innerHTML = resultsHTML;
+      console.log('\n✅ Test completed!');
+    }
+    
+    document.getElementById('testButton').addEventListener('click', () => {
+      consoleOutput = '';
+      document.getElementById('consoleOutput').textContent = '';
+      document.getElementById('results').innerHTML = '<p>Running test...</p>';
+      
+      testSubscriptionFeatureFetching().catch(error => {
+        console.error('Test failed with error:', error);
+        document.getElementById('results').innerHTML = `<p class="error">❌ Test failed with error: ${error.message}</p>`;
+      });
+    });
+  </script>
+</body>
+</html>

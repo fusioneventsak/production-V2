@@ -1251,7 +1251,7 @@ const PricingPage = () => {
       features: [
         "5 PhotoSpheres",
         "Virtual PhotoBooth",
-        "PhotoSphere Display", 
+        "PhotoSphere Display",
         "Moderation tools",
         "Up to 200 photos displayed"
       ],

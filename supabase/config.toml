@@ -1,0 +1,6 @@
+# Supabase configuration file
+
+# Disable JWT verification for Stripe webhook
+# Stripe webhooks use signature verification instead of JWT tokens
+[functions.stripe-webhook]
+verify_jwt = false
