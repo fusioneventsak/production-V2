@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCollageStore, type Collage } from '../store/collageStore';
 import { useUsageLimit } from '../hooks/useSubscription';
 import { useSubscriptionStore } from '../store/subscriptionStore';
@@ -14,6 +14,7 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { collages, loading, error, fetchCollages, deleteCollage, createCollage } = useCollageStore();
   const { subscription, fetchSubscription } = useSubscriptionStore();
   const { canUse: canCreatePhotosphere } = useUsageLimit('photospheres', collages.length);
@@ -35,6 +36,21 @@ const DashboardPage = () => {
       fetchSubscription();
     }
   }, [user, fetchSubscription]);
+
+  // Handle payment success parameter
+  useEffect(() => {
+    const paymentSuccess = searchParams.get('payment');
+    if (paymentSuccess === 'success') {
+      // Refresh subscription data after successful payment
+      fetchSubscription();
+      // Clean up the URL parameter
+      setSearchParams(prev => {
+        const newParams = new URLSearchParams(prev);
+        newParams.delete('payment');
+        return newParams;
+      });
+    }
+  }, [searchParams, setSearchParams, fetchSubscription]);
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();

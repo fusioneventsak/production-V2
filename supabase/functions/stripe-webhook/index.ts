@@ -868,19 +868,29 @@ serve(async (req) => {
     const rawBody = await req.text();
     let event: any;
     
-    // Perform async verification compatible with Deno
-    const isValid = await verifyStripeSignature(rawBody, signature, STRIPE_WEBHOOK_SECRET);
-    if (!isValid) {
-      console.error('❌ Webhook signature verification failed: Invalid signature');
+    // Use custom async signature verification for Deno compatibility
+    try {
+      const isValid = await verifyStripeSignature(rawBody, signature, STRIPE_WEBHOOK_SECRET);
+      if (!isValid) {
+        console.error('❌ Webhook signature verification failed: Invalid signature');
+        return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      console.log('✅ Signature verified successfully (Custom async)');
+      
+      // Parse the event manually after verification
+      event = JSON.parse(rawBody);
+    } catch (err) {
+      console.error('❌ Webhook signature verification failed:', err.message);
       return new Response(JSON.stringify({ error: 'Invalid signature' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-    console.log('✅ Signature verified successfully (Deno async)');
     
-    // Safe to parse now that signature is verified
-    event = JSON.parse(rawBody);
+    // Event is now parsed manually after custom signature verification
     
     // Process the verified event
     console.log(`🎯 Processing ${event.type} event`);

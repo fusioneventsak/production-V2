@@ -25,6 +25,7 @@ import BlogPostPricing from './pages/BlogPostPricing';
 import ShowcasePage from './pages/ShowcasePage';
 import SimpleSubscriptionPlans from './components/subscription/SimpleSubscriptionPlans';
 import SubscriptionSuccess from './components/subscription/SubscriptionSuccess';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import AuthTest from './pages/AuthTest';
 
 // Admin Components
@@ -63,6 +64,7 @@ const router = createBrowserRouter(
       <Route path="/dashboard/photospheres" element={<SimpleProtectedRoute><PhotoSpheresPage /></SimpleProtectedRoute>} />
       <Route path="/dashboard/profile" element={<SimpleProtectedRoute><Profile /></SimpleProtectedRoute>} />
       <Route path="/dashboard/subscription" element={<SimpleProtectedRoute><SimpleSubscriptionPlans /></SimpleProtectedRoute>} />
+      <Route path="/payment/success" element={<SimpleProtectedRoute><PaymentSuccessPage /></SimpleProtectedRoute>} />
       <Route path="/subscription/success" element={<SimpleProtectedRoute><SubscriptionSuccess /></SimpleProtectedRoute>} />
       <Route path="/dashboard/collage/:id" element={<SimpleProtectedRoute><CollageEditorPage /></SimpleProtectedRoute>} />
       <Route path="/dashboard/collage/:id/photobooth-settings" element={<SimpleProtectedRoute><PhotoboothSettingsPage /></SimpleProtectedRoute>} />

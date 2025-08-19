@@ -31,6 +31,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Clean OAuth hash fragment from URL after Supabase processes it
+  const cleanOAuthHash = () => {
+    if (window.location.hash && /access_token=|refresh_token=|provider_token=|code=/.test(window.location.hash)) {
+      const newUrl = window.location.pathname + window.location.search;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  };
+
   // Guard against hanging requests from external services
   const withTimeout = async <T,>(promise: Promise<T>, ms = 10000): Promise<T> => {
     return await Promise.race<T>([
@@ -48,6 +56,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         if (session?.user) {
           await initializeUser(session.user);
+          // Ensure URL is clean (no tokens in hash) and route the user to dashboard
+          cleanOAuthHash();
+          navigate('/dashboard');
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -94,6 +105,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     checkSession();
+    // On first mount, if we returned from OAuth redirect, clean the URL hash
+    cleanOAuthHash();
     return () => {
       authListener?.subscription.unsubscribe();
     };
@@ -251,11 +264,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await withTimeout(supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
           },
+          skipBrowserRedirect: false,
         },
       }));
 
@@ -323,12 +337,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       setLoading(true);
-      const { data, error } = await withTimeout(
-        supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+      const { data, error } = await withTimeout<any>(
+        (supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()) as unknown as Promise<any>
       );
 
       if (error) throw error;
@@ -349,13 +363,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setLoading(true);
       
-      const { data, error } = await withTimeout(
-        supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single()
+      const { data, error } = await withTimeout<any>(
+        (supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id)
+          .select()
+          .single()) as unknown as Promise<any>
       );
 
       if (error) throw error;

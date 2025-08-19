@@ -79,7 +79,7 @@ export interface SubscriptionBundleResult {
 export const TRIAL_TIER: EffectiveTier = 'starter';
 
 // Duration of the app-level free trial in days
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = 0; // Trials disabled
 
 export async function fetchSubscriptionBundle(): Promise<SubscriptionBundleResult> {
   // 1) Auth
@@ -98,6 +98,7 @@ export async function fetchSubscriptionBundle(): Promise<SubscriptionBundleResul
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle<SubscriptionRow>();
+
 
   // 3) Fetch features and profile in parallel
   const [featRes, profRes] = await Promise.all([
@@ -124,26 +125,21 @@ export async function fetchSubscriptionBundle(): Promise<SubscriptionBundleResul
   const features = featRes.data ? [featRes.data] : [];
   const profileSnapshot = profRes.data ?? null;
 
-  // 3) App-level free trial (14 days from account creation) when NO active subscription
-  const createdAt = user.created_at ? new Date(user.created_at) : null;
-  const trialEndsDate = createdAt ? new Date(createdAt.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000) : null;
-  const now = new Date();
+  // 3) App-level free trial disabled globally
   const hasActiveSubscription = !!subscription; // We only fetched active/trialing; non-null means active
-  const isAppFreeTrial = !hasActiveSubscription && !!trialEndsDate && now < trialEndsDate;
+  const isAppFreeTrial = false;
 
   // 4) Effective tier/status
   // Ignore Stripe trialing; use app-level free trial only
   const tierFromSub = (subscription?.tier as EffectiveTier | null) || null;
   const tierFromProfile = (profileSnapshot?.subscription_tier as EffectiveTier | null) || null;
-  const effectiveTier: EffectiveTier = isAppFreeTrial
-    ? TRIAL_TIER
-    : (tierFromSub || tierFromProfile || 'free');
+  const effectiveTier: EffectiveTier = (tierFromSub || tierFromProfile || 'free');
 
   const effectiveStatus = hasActiveSubscription
     ? (subscription?.status || 'active')
-    : (isAppFreeTrial ? 'trialing' : (profileSnapshot?.subscription_status || 'inactive'));
+    : (profileSnapshot?.subscription_status || 'inactive');
 
-  const periodEnd = subscription?.current_period_end || profileSnapshot?.subscription_expiry || (trialEndsDate ? trialEndsDate.toISOString() : null);
+  const periodEnd = subscription?.current_period_end || profileSnapshot?.subscription_expiry || null;
 
   return {
     subscription,
@@ -153,6 +149,6 @@ export async function fetchSubscriptionBundle(): Promise<SubscriptionBundleResul
     effectiveStatus,
     periodEnd,
     isAppFreeTrial,
-    trialEndsAt: trialEndsDate ? trialEndsDate.toISOString() : null,
+    trialEndsAt: null,
   };
 }
