@@ -59,6 +59,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Ensure URL is clean (no tokens in hash) and route the user to dashboard
           cleanOAuthHash();
           navigate('/dashboard');
+          // If we just returned from Google OAuth, perform a one-time hard reload to avoid any hanging UI state
+          try {
+            const shouldReload = sessionStorage.getItem('ps_should_reload_after_oauth');
+            if (shouldReload) {
+              sessionStorage.removeItem('ps_should_reload_after_oauth');
+              // Slight delay to allow navigation state to settle before reloading
+              setTimeout(() => window.location.reload(), 50);
+            }
+          } catch (_) {
+            // ignore storage access issues
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -260,6 +271,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setLoading(true);
       setError(null);
+      // Mark that we should force a one-time reload after OAuth completes, to avoid UI hanging post-redirect
+      try {
+        sessionStorage.setItem('ps_should_reload_after_oauth', '1');
+      } catch (_) {
+        // ignore storage access issues
+      }
       
       const { error } = await withTimeout(supabase.auth.signInWithOAuth({
         provider: 'google',

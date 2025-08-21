@@ -175,6 +175,17 @@ export const SimpleAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           subscriptionStatus: session.user.app_metadata?.subscription_status || 'inactive'
         });
         
+        // One-time hard reload after OAuth to avoid hanging UI states
+        try {
+          const shouldReload = sessionStorage.getItem('ps_should_reload_after_oauth');
+          if (shouldReload) {
+            sessionStorage.removeItem('ps_should_reload_after_oauth');
+            setTimeout(() => window.location.reload(), 50);
+          }
+        } catch (_) {
+          // ignore storage access issues
+        }
+        
         // Load profile in background to update with database data
         loadUserProfile(session.user.id).catch(err => {
           console.warn('Profile load failed in auth state change:', err);

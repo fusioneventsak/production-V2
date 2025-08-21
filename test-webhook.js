@@ -12,7 +12,8 @@
  * 3. Run: node test-webhook.js
  */
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+import Stripe from 'stripe';
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 async function testWebhookFlow() {
   console.log('🧪 Testing Stripe Webhook Flow\n');
@@ -126,8 +127,9 @@ async function main() {
   }
 }
 
-if (require.main === module) {
+// Check if this is the main module
+if (import.meta.url === import.meta.main) {
   main();
 }
 
-module.exports = { testWebhookFlow, cleanupTestData };
+export { testWebhookFlow, cleanupTestData };
