@@ -1,7 +1,3 @@
-/// <reference lib="deno.ns" />
-/// <reference lib="deno.unstable" />
-
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,16 +23,6 @@ const STRIPE_WEBHOOK_SECRETS: string[] = (() => {
 
 // Debug mode
 const STRIPE_DEBUG = Deno.env.get("STRIPE_DEBUG") === "true";
-
-// Price ID to tier mapping
-const PRICE_ID_TO_TIER: Record<string, string> = {
-  "price_1RxMXuHF5unOiVE9Hy9Yd3Wd": "starter",  // Monthly Starter
-  "price_1RxMYQHF5unOiVE9KbCRJVYT": "pro",      // Monthly Pro
-  "price_1RxMYwHF5unOiVE9aBCDEFGH": "enterprise", // Monthly Enterprise
-  "price_1RxMZRHF5unOiVE9IJKLMNOP": "starter",  // Annual Starter
-  "price_1RxMZtHF5unOiVE9QRSTUVWX": "pro",      // Annual Pro
-  "price_1RxMaJHF5unOiVE9YZ123456": "enterprise"  // Annual Enterprise
-};
 
 // Utility functions
 async function hmacSHA256(key: string, payload: string): Promise<string> {
@@ -264,34 +250,24 @@ Deno.serve(async (req) => {
               console.log(`✅ Profile updated with subscription info`);
             }
             
-            // Set limits based on tier
-            let maxPhotospheres = 5; // Default for free
-            let maxPhotos = 100; // Default for free
+            // Set credits based on tier
+            let credits = 1000; // Default for starter
+            if (tier === "pro") credits = 2500;
+            if (tier === "enterprise") credits = 999999;
             
-            if (tier === "starter") {
-              maxPhotospheres = 10;
-              maxPhotos = 500;
-            } else if (tier === "pro") {
-              maxPhotospheres = 25;
-              maxPhotos = 1000;
-            } else if (tier === "enterprise") {
-              maxPhotospheres = 100;
-              maxPhotos = 5000;
-            }
-            
-            const { error: limitsError } = await supabase
+            const { error: creditsError } = await supabase
               .from("profiles")
               .update({
-                max_photospheres: maxPhotospheres,
-                max_photos: maxPhotos,
+                credits_remaining: credits,
+                credits_limit: credits,
                 updated_at: new Date().toISOString()
               })
               .eq("id", userId);
             
-            if (limitsError) {
-              console.error("❌ Error setting usage limits:", limitsError);
+            if (creditsError) {
+              console.error("❌ Error setting credits:", creditsError);
             } else {
-              console.log(`✅ Usage limits set for ${tier} tier: ${maxPhotospheres} photospheres, ${maxPhotos} photos`);
+              console.log(`✅ Credits set to ${credits} for ${tier} tier`);
             }
           } else {
             console.warn("⚠️ No user_id in checkout session metadata");
@@ -324,89 +300,30 @@ Deno.serve(async (req) => {
           const subscription = event.data.object;
           console.log(`🆕 Subscription created: id=${subscription.id} | status=${subscription.status}`);
           
-          // Extract tier from price mapping or fallback to metadata
+          // Extract tier from price metadata or lookup key
           const priceInfo = subscription.items?.data?.[0]?.price;
-          const priceId = priceInfo?.id;
-          let tier = "starter"; // Default fallback
+          const tier = priceInfo?.metadata?.plan_type || priceInfo?.lookup_key || priceInfo?.nickname || "starter";
           
-          if (priceId && PRICE_ID_TO_TIER[priceId]) {
-            // Use our explicit mapping if available
-            tier = PRICE_ID_TO_TIER[priceId];
-            console.log(`🔍 Found tier ${tier} from price ID mapping for ${priceId}`);
-          } else {
-            // Fallback to metadata
-            tier = priceInfo?.metadata?.plan_type || priceInfo?.lookup_key || priceInfo?.nickname || "starter";
-            console.log(`🔍 Using metadata-derived tier: ${tier} (no price ID mapping found)`);
-          }
-          
-          // Prepare subscription data for insert
-          // If current_period_end is missing, calculate a default (30 days from now)
-          let currentPeriodEnd: string;
+          // Only insert if we have a current_period_end (required by DB schema)
           if (subscription.current_period_end) {
-            currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
-            console.log(`ℹ️ Using provided current_period_end: ${currentPeriodEnd}`);
-          } else {
-            // Default to 30 days from now if missing
-            const defaultEndDate = new Date();
-            defaultEndDate.setDate(defaultEndDate.getDate() + 30);
-            currentPeriodEnd = defaultEndDate.toISOString();
-            console.log(`ℹ️ Using default current_period_end (30 days): ${currentPeriodEnd}`);
-          }
-          
-          // Find the user_id associated with this customer
-          // First check if we have a customer record with this stripe_customer_id
-          console.log(`🔍 Looking up user_id for customer: ${subscription.customer}`);
-          const { data: customerData } = await supabase
-            .from("customers")
-            .select("user_id")
-            .eq("stripe_customer_id", subscription.customer)
-            .single();
-          
-          let userId = customerData?.user_id;
-          
-          // If no customer record found, check if we have metadata in the subscription
-          if (!userId && subscription.customer) {
-            // Check if the subscription has metadata with user_id
-            if (subscription.metadata?.user_id || subscription.metadata?.supabaseUserId) {
-              userId = subscription.metadata?.user_id || subscription.metadata?.supabaseUserId;
-              console.log(`🔍 Found user_id in subscription metadata: ${userId}`);
+            const subData = {
+              stripe_subscription_id: subscription.id,
+              stripe_customer_id: subscription.customer,
+              status: subscription.status,
+              tier,
+              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
+            const { error } = await supabase.from("subscriptions").insert(subData);
+            if (error) {
+              console.error("❌ Error inserting subscription:", error);
             } else {
-              // Look for any profile with this customer ID
-              console.log(`🔍 Looking up profile by stripe_customer_id: ${subscription.customer}`);
-              const { data: profileData } = await supabase
-                .from("profiles")
-                .select("id")
-                .eq("stripe_customer_id", subscription.customer)
-                .single();
-              
-              userId = profileData?.id;
+              console.log(`✅ Subscription inserted with tier: ${tier}`);
             }
-          }
-          
-          if (!userId) {
-            console.error(`❌ Cannot insert subscription: No user_id found for customer ${subscription.customer}`);
-            return;
-          }
-          
-          console.log(`✅ Found user_id: ${userId} for customer: ${subscription.customer}`);
-          
-          const subData = {
-            stripe_subscription_id: subscription.id,
-            stripe_customer_id: subscription.customer,
-            user_id: userId,
-            status: subscription.status,
-            tier,
-            current_period_end: currentPeriodEnd,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          
-          const { error } = await supabase.from("subscriptions").insert(subData);
-          if (error) {
-            console.error(`❌ Error inserting subscription: ${error.message}`);
-            console.error(error);
           } else {
-            console.log(`✅ Subscription inserted with tier: ${tier} for user: ${userId}`);
+            console.warn("⚠️ Missing current_period_end, skipping subscription insert");
           }
           
           break;
@@ -419,20 +336,10 @@ Deno.serve(async (req) => {
             console.log("🧾 Sub snapshot:", safeStringify({ current_period_start: subscription.current_period_start, current_period_end: subscription.current_period_end, cancel_at_period_end: subscription.cancel_at_period_end, plan: subscription.items?.data?.[0]?.plan?.id }));
           }
           
-          // Extract tier from price mapping or fallback to metadata
+          // Extract tier information from price metadata or lookup key
           const priceInfo = subscription.items?.data?.[0]?.price;
-          const priceId = priceInfo?.id;
-          let derivedTier = "starter"; // Default fallback
-          
-          if (priceId && PRICE_ID_TO_TIER[priceId]) {
-            // Use our explicit mapping if available
-            derivedTier = PRICE_ID_TO_TIER[priceId];
-            console.log(`🔍 Found tier ${derivedTier} from price ID mapping for ${priceId}`);
-          } else {
-            // Fallback to metadata
-            derivedTier = priceInfo?.metadata?.plan_type || priceInfo?.lookup_key || priceInfo?.nickname || "starter";
-            console.log(`🔍 Using metadata-derived tier: ${derivedTier} (no price ID mapping found)`);
-          }
+          const derivedTier = priceInfo?.metadata?.plan_type || priceInfo?.lookup_key || priceInfo?.nickname || "starter";
+          console.log(`🔍 Derived tier from subscription update: ${derivedTier}`);
           
           const subUpdate: Record<string, unknown> = {
             status: subscription.status,
@@ -549,15 +456,15 @@ Deno.serve(async (req) => {
       const subscriptionId = invoice.subscription;
       const customerId = invoice.customer;
       
-      if (!customerId) {
-        console.warn("⚠️ Missing customer ID on invoice");
+      if (!subscriptionId || !customerId) {
+        console.warn("⚠️ Missing subscription or customer ID on invoice");
         return;
       }
       
       // Find the user by customer ID
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("id, subscription_tier")
+        .select("id")
         .eq("stripe_customer_id", customerId)
         .maybeSingle();
       
@@ -581,23 +488,19 @@ Deno.serve(async (req) => {
         console.log(`✅ Profile ${profile.id} subscription status updated to active`);
       }
       
-      // Update subscription record if it exists and we have a subscription ID
-      if (subscriptionId) {
-        const { error: subError } = await supabase
-          .from("subscriptions")
-          .update({
-            status: "active",
-            updated_at: new Date().toISOString()
-          })
-          .eq("stripe_subscription_id", subscriptionId);
-        
-        if (subError) {
-          console.log(`ℹ️ Subscription record may not exist yet: ${subError.message}`);
-        } else {
-          console.log(`✅ Subscription record updated to active`);
-        }
+      // Update subscription record if it exists
+      const { error: subError } = await supabase
+        .from("subscriptions")
+        .update({
+          status: "active",
+          updated_at: new Date().toISOString()
+        })
+        .eq("stripe_subscription_id", subscriptionId);
+      
+      if (subError) {
+        console.log(`ℹ️ Subscription record may not exist yet: ${subError.message}`);
       } else {
-        console.log("ℹ️ No subscription ID on invoice, skipping subscription record update");
+        console.log(`✅ Subscription record updated to active`);
       }
     }
     

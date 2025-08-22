@@ -1,0 +1,1384 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+// Environment variables
+const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") || "";
+// Support multiple secrets (e.g., dashboard endpoint + CLI, or during rotation)
+// Comma-separated in STRIPE_WEBHOOK_SECRETS, or a secondary STRIPE_WEBHOOK_SECRET_2
+const STRIPE_WEBHOOK_SECRETS: string[] = (() => {
+  const list: string[] = [];
+  if (STRIPE_WEBHOOK_SECRET) list.push(STRIPE_WEBHOOK_SECRET);
+  const rotated = Deno.env.get("STRIPE_WEBHOOK_SECRET_2");
+  if (rotated) list.push(rotated);
+  const csv = Deno.env.get("STRIPE_WEBHOOK_SECRETS");
+  if (csv) {
+    for (const s of csv.split(",")) {
+      const v = s.trim();
+      if (v) list.push(v);
+    }
+  }
+  // de-dup while preserving order
+  return Array.from(new Set(list));
+})();
+// Debug toggle (defaults to true in sandbox). Set STRIPE_DEBUG=false to reduce logs.
+const STRIPE_DEBUG: boolean = (Deno.env.get("STRIPE_DEBUG") || "true").toLowerCase() === "true";
+
+function redactSignatureHeader(h: string | null): string {
+  if (!h) return "<missing>";
+  // keep t= intact, redact v1 hex except first/last 4 chars
+  try {
+    return h.split(",").map(part => {
+      const [k, v] = part.split("=");
+      if (k === "v1" && v) {
+        if (v.length > 8) return `${k}=${v.slice(0,4)}…${v.slice(-4)}`;
+        return `${k}=${v}`;
+      }
+      return part;
+    }).join(",");
+  } catch {
+    return "<unparseable header>";
+  }
+}
+
+function safeStringify(obj: unknown, maxLen = 2000): string {
+  try {
+    const s = JSON.stringify(obj);
+    return s.length > maxLen ? s.slice(0, maxLen) + "…" : s;
+  } catch {
+    return String(obj);
+  }
+}
+
+async function sha256Hex(data: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  const bytes = new Uint8Array(digest);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+// Initialize Supabase client with service role key
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Constant-time comparison to prevent timing attacks
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a[i] ^ b[i];
+  }
+  return result === 0;
+}
+
+// Bytes-based Stripe signature verification (Deno/Web Crypto friendly)
+async function verifyStripeSignatureBytes(raw: Uint8Array, sigHeader: string, secret: string): Promise<boolean> {
+  if (!raw || !sigHeader || !secret) return false;
+  try {
+    // Parse header: t=timestamp, v1=hexsignature (can appear multiple times)
+    let ts = "";
+    const v1s: string[] = [];
+    for (const part of sigHeader.split(",")) {
+      const [k, v] = part.trim().split("=");
+      if (k === "t") ts = (v || "").trim();
+      if (k === "v1" && v) v1s.push(v.trim());
+    }
+    if (!ts || v1s.length === 0) return false;
+    // Tolerance 5 minutes
+    const now = Math.floor(Date.now() / 1000);
+    const tsNum = parseInt(ts, 10);
+    if (!Number.isFinite(tsNum) || Math.abs(now - tsNum) > 300) return false;
+    // Build signed payload: `${ts}.${rawBody}` as bytes
+    const enc = new TextEncoder();
+    const tsBytes = enc.encode(ts + ".");
+    const signedBytes = new Uint8Array(tsBytes.length + raw.length);
+    signedBytes.set(tsBytes, 0);
+    signedBytes.set(raw, tsBytes.length);
+    // HMAC-SHA256(secret, signedBytes)
+    const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const sig = await crypto.subtle.sign("HMAC", key, signedBytes);
+    const expected = new Uint8Array(sig);
+    // Compare against any provided v1
+    for (const candidate of v1s) {
+      const hexPairs = candidate.match(/.{1,2}/g) || [];
+      const cand = new Uint8Array(hexPairs.map(h => parseInt(h, 16)));
+      if (cand.length === expected.length && timingSafeEqual(cand, expected)) return true;
+      // also try lowercase hex string direct compare for resiliency
+      const expectedHex = Array.from(expected).map(b => b.toString(16).padStart(2, "0")).join("");
+      if (candidate.toLowerCase() === expectedHex) return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("verifyStripeSignatureBytes error:", e);
+    return false;
+  }
+}
+
+// Custom async signature verification using Web Crypto API
+async function verifyStripeSignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
+  try {
+    console.log(`🔍 Verifying signature: Header="${sigHeader}", Secret length=${secret.length}, Payload length=${payload.length}`);
+    // Validate inputs
+    if (!payload || !sigHeader || !secret) {
+      console.log("❌ Missing required parameters for signature verification");
+      return false;
+    }
+    // Parse signature header - handle potential whitespace
+    const elements: string[] = sigHeader.trim().split(',');
+    let timestamp: string = '';
+    const signatures: string[] = [];
+    console.log(`🔍 Signature header elements: ${JSON.stringify(elements)}`);
+    for (const element of elements){
+      const trimmedElement = element.trim();
+      const [key, value] = trimmedElement.split('=');
+      if (key?.trim() === 't') {
+        timestamp = value?.trim() || '';
+        console.log(`🔍 Found timestamp: ${timestamp}`);
+      } else if (key?.trim() === 'v1') {
+        const sig = value?.trim() || '';
+        signatures.push(sig);
+        console.log(`🔍 Found signature: ${sig.substring(0, 8)}... (length: ${sig.length})`);
+      }
+    }
+    if (!timestamp || signatures.length === 0) {
+      console.log("❌ Invalid signature format - Missing timestamp or signatures");
+      console.log(`🔍 Parsed - timestamp: "${timestamp}", signatures count: ${signatures.length}`);
+      return false;
+    }
+    // Check timestamp tolerance (5 minutes)
+    const timestampNum = parseInt(timestamp, 10);
+    if (isNaN(timestampNum)) {
+      console.log(`❌ Invalid timestamp format: ${timestamp}`);
+      return false;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const timeDiff = Math.abs(now - timestampNum);
+    console.log(`🔍 Timestamp check: Event=${timestampNum}, Now=${now}, Diff=${timeDiff}s`);
+    if (timeDiff > 300) {
+      console.log(`❌ Timestamp out of tolerance: ${timeDiff}s > 300s`);
+      return false;
+    }
+    // Create signed payload
+    const signedPayload = `${timestamp}.${payload}`;
+    console.log(`🔍 Created signed payload (${signedPayload.length} chars): ${timestamp}.${payload.substring(0, 50)}...`);
+    // Generate expected signature using Web Crypto API
+    const encoder = new TextEncoder();
+    const keyData: Uint8Array = encoder.encode(secret);
+    const payloadData: Uint8Array = encoder.encode(signedPayload);
+    console.log(`🔍 Importing crypto key: Secret starts with "${secret.substring(0, 4)}..." (length: ${secret.length})`);
+    const cryptoKey = await crypto.subtle.importKey('raw', keyData, {
+      name: 'HMAC',
+      hash: 'SHA-256'
+    }, false, [
+      'sign'
+    ]);
+    console.log(`🔍 Generating HMAC signature for payload length: ${payloadData.length}`);
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, payloadData);
+    const expectedBytes = new Uint8Array(signature);
+    const expectedSignature = Array.from(expectedBytes).map((b)=>b.toString(16).padStart(2, '0')).join('');
+    console.log(`🔍 Expected signature (${expectedSignature.length} chars): ${expectedSignature.substring(0, 8)}...${expectedSignature.slice(-8)}`);
+    // Compare signatures with detailed logging
+    let matched: boolean = false;
+    for(let i = 0; i < signatures.length; i++){
+      const sig: string = signatures[i];
+      console.log(`🔍 Comparing signature ${i + 1}: "${sig.substring(0, 8)}...${sig.slice(-8)}" (length: ${sig.length})`);
+      console.log(`🔍 Expected signature:     "${expectedSignature.substring(0, 8)}...${expectedSignature.slice(-8)}" (length: ${expectedSignature.length})`);
+      // Try exact comparison
+      if (sig === expectedSignature) {
+        console.log("✅ Exact signature match found!");
+        matched = true;
+        break;
+      }
+      // Try case-insensitive comparison
+      if (sig.toLowerCase() === expectedSignature.toLowerCase()) {
+        console.log("✅ Case-insensitive signature match found!");
+        matched = true;
+        break;
+      }
+      // Timing-safe comparison using bytes
+      const hexPairs: RegExpMatchArray | null = sig.match(/.{1,2}/g);
+      const sigBytes = new Uint8Array(hexPairs ? hexPairs.map((byte)=>parseInt(byte, 16)) : []);
+      if (sigBytes.length === expectedBytes.length && timingSafeEqual(sigBytes, expectedBytes)) {
+        console.log("✅ Timing-safe signature match found!");
+        matched = true;
+        break;
+      }
+      // Character-by-character comparison for debugging
+      if (sig.length === expectedSignature.length) {
+        let firstDiff = -1;
+        for(let j = 0; j < sig.length; j++){
+          if (sig[j] !== expectedSignature[j]) {
+            firstDiff = j;
+            break;
+          }
+        }
+        if (firstDiff >= 0) {
+          console.log(`🔍 First difference at position ${firstDiff}: got "${sig[firstDiff]}", expected "${expectedSignature[firstDiff]}"`);
+        }
+      } else {
+        console.log(`🔍 Length mismatch: got ${sig.length}, expected ${expectedSignature.length}`);
+      }
+    }
+    if (matched) {
+      console.log("✅ Signature verified successfully");
+      return true;
+    } else {
+      console.log("❌ No matching signature found after all comparisons");
+      return false;
+    }
+  } catch (error) {
+    console.error("❌ Signature verification error:", error);
+    console.error("❌ Error stack:", error.stack);
+    return false;
+  }
+}
+serve(async (req)=>{
+  console.log("🔍 Webhook received:", req.method, req.url);
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: corsHeaders
+    });
+  }
+  const signature = req.headers.get("stripe-signature");
+  if (STRIPE_DEBUG) {
+    const contentType = req.headers.get("content-type") || "";
+    const reqId = req.headers.get("x-sb-request-id") || req.headers.get("cf-ray") || "";
+    console.log(`🔔 Incoming webhook | ct=${contentType} | rid=${reqId} | sig=${redactSignatureHeader(signature)}`);
+  }
+  if (!signature) {
+    console.log("❌ Missing stripe-signature header");
+    return new Response("Missing stripe-signature header", {
+      status: 400,
+      headers: corsHeaders
+    });
+  }
+  if (!STRIPE_WEBHOOK_SECRETS.length) {
+    console.log("❌ Missing Stripe webhook secret(s): set STRIPE_WEBHOOK_SECRET, STRIPE_WEBHOOK_SECRET_2, or STRIPE_WEBHOOK_SECRETS");
+    return new Response("Server misconfiguration: missing webhook secret(s)", {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
+  try {
+    // Get RAW request bytes for exact signature computation
+    const raw = new Uint8Array(await req.arrayBuffer());
+    const body = new TextDecoder().decode(raw);
+    if (STRIPE_DEBUG) {
+      const hash = await sha256Hex(raw);
+      console.log("📦 Body length (text|bytes):", body.length, "|", raw.length);
+      console.log("#️⃣ Body sha256:", `${hash.slice(0,8)}…${hash.slice(-8)}`);
+      console.log("🔑 Secrets configured:", STRIPE_WEBHOOK_SECRETS.length);
+    }
+    // Verify signature against all configured secrets (bytes-based)
+    let isValid = false;
+    for (let idx = 0; idx < STRIPE_WEBHOOK_SECRETS.length; idx++) {
+      const secret = STRIPE_WEBHOOK_SECRETS[idx];
+      const redacted = secret ? `${secret.substring(0, 4)}…(${secret.length})` : "";
+      console.log(`🔐 Trying secret #${idx + 1} starting with "${redacted}"`);
+      // eslint-disable-next-line no-await-in-loop
+      isValid = await verifyStripeSignatureBytes(raw, signature, secret);
+      if (isValid) {
+        console.log(`✅ Signature verified with secret #${idx + 1}`);
+        break;
+      }
+    }
+    if (!isValid) {
+      return new Response("Invalid signature", {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
+    // Parse event
+    const event = JSON.parse(body);
+    console.log("📧 Event:", event.type, "| id:", event.id, "| created:", event.created, "| pending:", event.pending_webhooks);
+    if (STRIPE_DEBUG) {
+      // Log minimal object snapshot (not full to avoid noise)
+      console.log("🧩 Event data.object keys:", Object.keys(event?.data?.object || {}));
+    }
+    // Handle specific event types
+    switch(event.type){
+      case "checkout.session.completed":
+        {
+          const session = event.data.object;
+          const customerId = session.customer;
+          const subscriptionId = session.subscription;
+          const userId = session.client_reference_id || session.metadata?.user_id;
+          console.log(`✅ Checkout completed - user=${userId} | customer=${customerId} | sub=${subscriptionId}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Session snapshot:", safeStringify({ mode: session.mode, status: session.status, amount_total: session.amount_total, currency: session.currency, metadata: session.metadata }));
+          }
+          if (userId && subscriptionId) {
+            // Do not insert a new row here because subscriptions.current_period_end is NOT NULL in DB.
+            // Only update an existing row if present; creation will be handled on
+            // invoice.payment_succeeded or customer.subscription.updated where we have period dates.
+            const { data: updatedRows, error } = await supabase
+              .from("subscriptions")
+              .update({
+                user_id: userId,
+                stripe_customer_id: customerId,
+                status: "active",
+                tier: session.metadata?.tier || "starter",
+                updated_at: new Date().toISOString()
+              })
+              .eq("stripe_subscription_id", subscriptionId)
+              .select("stripe_subscription_id");
+            if (error) {
+              console.error("❌ Error updating subscription (checkout):", error);
+            } else if (!updatedRows || updatedRows.length === 0) {
+              console.log("ℹ️ No existing subscription row to update on checkout; will rely on invoice/subscription events to create/update with period dates.");
+            } else {
+              console.log("✅ Subscription updated on checkout.session.completed");
+            }
+          }
+          break;
+        }
+      case "customer.subscription.created":
+        {
+          const subscription = event.data.object;
+          console.log(`🆕 Subscription created: id=${subscription.id} | status=${subscription.status}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Sub created snapshot:", safeStringify({
+              customer: subscription.customer,
+              current_period_end: subscription.current_period_end,
+              status: subscription.status,
+              metadata: subscription.metadata
+            }));
+          }
+          const priceInfo = subscription.items?.data?.[0]?.price;
+          const derivedTier = priceInfo?.metadata?.plan_type || priceInfo?.lookup_key || priceInfo?.nickname || "starter";
+          // If current_period_end is missing, avoid upsert to respect NOT NULL constraints; rely on invoice/subscription.updated
+          if (!subscription.current_period_end) {
+            console.log("ℹ️ Skipping upsert on subscription.created: current_period_end missing; will wait for invoice/subscription.updated");
+            break;
+          }
+          const insertOrUpdate: Record<string, unknown> = {
+            stripe_customer_id: subscription.customer,
+            stripe_subscription_id: subscription.id,
+            status: subscription.status,
+            tier: derivedTier,
+            updated_at: new Date().toISOString(),
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString()
+          };
+          // Try to set user_id from metadata if present
+          if (subscription.metadata?.user_id) {
+            insertOrUpdate.user_id = subscription.metadata.user_id;
+          }
+          // Upsert by stripe_subscription_id
+          const { error: upErr } = await supabase
+            .from("subscriptions")
+            .upsert(insertOrUpdate, { onConflict: "stripe_subscription_id" });
+          if (upErr) {
+            console.error("❌ Error upserting subscription on created:", upErr);
+          } else {
+            console.log("✅ Upserted subscription on subscription.created");
+          }
+
+          // Ensure profile is marked active
+          try {
+            const customerId = subscription.customer;
+            if (customerId) {
+              const { error: pErr } = await supabase
+                .from("profiles")
+                .update({
+                  subscription_status: "active",
+                  updated_at: new Date().toISOString()
+                })
+                .eq("stripe_customer_id", customerId);
+              if (pErr) {
+                console.error("❌ Error marking profile active on sub created:", pErr);
+              } else {
+                console.log("✅ Profile marked active on subscription.created");
+              }
+            }
+          } catch (e) {
+            console.error("❌ Error updating profile on subscription.created:", e);
+          }
+          break;
+        }
+      case "invoice.payment_succeeded":
+        {
+          const invoice = event.data.object;
+          const subscriptionId = invoice.subscription;
+          const customerId = invoice.customer;
+          console.log(`💰 Invoice paid: subscription=${subscriptionId} | customer=${customerId} | status=${invoice.status}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Invoice snapshot:", safeStringify({
+              number: invoice.number,
+              amount_paid: invoice.amount_paid,
+              currency: invoice.currency,
+              billing_reason: invoice.billing_reason,
+              period_start: invoice.period_start,
+              period_end: invoice.period_end,
+              status: invoice.status
+            }));
+          }
+          if (subscriptionId) {
+            const update: Record<string, unknown> = {
+              status: "active",
+              updated_at: new Date().toISOString()
+            };
+            if (invoice.period_end) {
+              update.current_period_end = new Date(invoice.period_end * 1000).toISOString();
+            }
+            const { data: updated, error } = await supabase
+              .from("subscriptions")
+              .update(update)
+              .eq("stripe_subscription_id", subscriptionId)
+              .select("stripe_subscription_id");
+            if (error) {
+              console.error("❌ Error updating subscription from invoice:", error);
+            } else {
+              console.log("✅ Subscription status updated from invoice.payment_succeeded");
+              // If no existing row was updated, insert a new one, but only if we have period_end to satisfy NOT NULL.
+              if (!updated || updated.length === 0) {
+                if (!invoice.period_end) {
+                  console.log("ℹ️ Skipping insert because invoice.period_end is missing; will wait for subscription.updated event.");
+                } else {
+                  // Resolve user_id from profiles via stripe_customer_id
+                  let userIdForInsert: string | null = null;
+                  if (!userIdForInsert) {
+                    // 1) Try existing mapping by stripe_customer_id
+                    const { data: prof, error: profErr } = await supabase
+                      .from("profiles")
+                      .select("id")
+                      .eq("stripe_customer_id", customerId)
+                      .limit(1)
+                      .maybeSingle();
+                    if (profErr) {
+                      console.error("❌ Error fetching profile for insert:", profErr);
+                    } else if (prof?.id) {
+                      userIdForInsert = prof.id;
+                    }
+                  }
+                  if (!userIdForInsert && invoice?.customer_email) {
+                    // 2) Fallback: find profile by email, link it to this customer, then use its id
+                    const email = invoice.customer_email;
+                    const { data: profByEmail, error: emailErr } = await supabase
+                      .from("profiles")
+                      .select("id, stripe_customer_id")
+                      .eq("email", email)
+                      .limit(1)
+                      .maybeSingle();
+                    if (emailErr) {
+                      console.error("❌ Error fetching profile by email for insert:", emailErr);
+                    } else if (profByEmail?.id) {
+                      if (!profByEmail.stripe_customer_id) {
+                        const { error: linkErr } = await supabase
+                          .from("profiles")
+                          .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
+                          .eq("id", profByEmail.id);
+                        if (linkErr) {
+                          console.error("❌ Error linking profile to customer id:", linkErr);
+                        } else {
+                          console.log("✅ Linked profile to stripe_customer_id via email fallback");
+                        }
+                      }
+                      userIdForInsert = profByEmail.id;
+                    }
+                  }
+                  if (!userIdForInsert) {
+                    console.log("ℹ️ No user_id could be resolved for invoice; skipping subscription insert to avoid NOT NULL violation");
+                    break; // exit insert path, rely on future events after mapping exists
+                  }
+                  const priceLine = invoice?.lines?.data?.[0]?.price;
+                  const derivedTierFromInvoice = priceLine?.metadata?.plan_type || priceLine?.lookup_key || priceLine?.nickname || "starter";
+                  const insertPayload: Record<string, unknown> = {
+                    user_id: userIdForInsert,
+                    stripe_customer_id: customerId,
+                    stripe_subscription_id: subscriptionId,
+                    status: "active",
+                    tier: derivedTierFromInvoice,
+                    current_period_end: new Date(invoice.period_end * 1000).toISOString(),
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    // source column not present in schema; omitted
+                  };
+                  const { error: insErr } = await supabase
+                    .from("subscriptions")
+                    .insert(insertPayload);
+                  if (insErr) {
+                    console.error("❌ Error inserting subscription from invoice:", insErr, "payload:", insertPayload);
+                  } else {
+                    console.log("✅ Inserted subscription from invoice.payment_succeeded");
+                  }
+                }
+              }
+            }
+
+            // Also ensure the linked profile is marked active
+            if (customerId) {
+              const { error: pErr } = await supabase
+                .from("profiles")
+                .update({
+                  subscription_status: "active",
+                  updated_at: new Date().toISOString()
+                })
+                .eq("stripe_customer_id", customerId);
+              if (pErr) {
+                console.error("❌ Error updating profile status on payment:", pErr);
+              } else {
+                console.log("✅ Profile status set to active on payment");
+              }
+            }
+          } else {
+            console.log("ℹ️ Invoice missing subscription id; attempting fallback update by customer id");
+            if (customerId) {
+              const { data: subs, error: findErr } = await supabase
+                .from("subscriptions")
+                .select("stripe_subscription_id")
+                .eq("stripe_customer_id", customerId)
+                .neq("status", "canceled")
+                .order("updated_at", { ascending: false })
+                .limit(1);
+              if (findErr) {
+                console.error("❌ Error finding subscription for customer fallback:", findErr);
+              } else if (subs && subs.length > 0) {
+                const targetSubId = subs[0].stripe_subscription_id as string;
+                const fallbackUpdate: Record<string, unknown> = {
+                  status: "active",
+                  updated_at: new Date().toISOString()
+                };
+                if (invoice.period_end) {
+                  fallbackUpdate.current_period_end = new Date(invoice.period_end * 1000).toISOString();
+                }
+                const { error: upErr } = await supabase
+                  .from("subscriptions")
+                  .update(fallbackUpdate)
+                  .eq("stripe_subscription_id", targetSubId);
+                if (upErr) {
+                  console.error("❌ Error updating subscription via customer fallback:", upErr);
+                } else {
+                  console.log("✅ Updated subscription via customer fallback on invoice.payment_succeeded");
+                }
+              } else {
+                console.log("ℹ️ No existing subscription found for customer; deferring to future events");
+              }
+            } else {
+              console.log("ℹ️ No customer id on invoice; cannot perform fallback update");
+            }
+          }
+          break;
+        }
+      case "customer.subscription.updated":
+        {
+          const subscription = event.data.object;
+          console.log(`🔄 Subscription updated: id=${subscription.id} | status=${subscription.status}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Sub snapshot:", safeStringify({ current_period_start: subscription.current_period_start, current_period_end: subscription.current_period_end, cancel_at_period_end: subscription.cancel_at_period_end, plan: subscription.items?.data?.[0]?.plan?.id }));
+          }
+          const subUpdate: Record<string, unknown> = {
+            status: subscription.status,
+            updated_at: new Date().toISOString()
+          };
+          if (subscription.current_period_end) {
+            subUpdate.current_period_end = new Date(subscription.current_period_end * 1000).toISOString();
+          }
+          const { error } = await supabase.from("subscriptions").update(subUpdate).eq("stripe_subscription_id", subscription.id);
+          if (error) {
+            console.error("❌ Error updating subscription:", error);
+          } else {
+            console.log("✅ Subscription status updated");
+          }
+
+          // Determine if we should downgrade the profile to free
+          try {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const expired = !!(subscription.current_period_end && subscription.current_period_end <= nowSec);
+            const shouldDowngrade = ["canceled", "unpaid", "past_due", "incomplete_expired"].includes(subscription.status) || (subscription.cancel_at_period_end && expired);
+
+            if (shouldDowngrade) {
+              // Downgrade profile to free/inactive by customer id
+              const customerId = subscription.customer;
+              if (customerId) {
+                const { error: pErr } = await supabase
+                  .from("profiles")
+                  .update({
+                    subscription_tier: "free",
+                    subscription_status: "inactive",
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("stripe_customer_id", customerId);
+                if (pErr) {
+                  console.error("❌ Error downgrading profile to free:", pErr);
+                } else {
+                  console.log("⬇️ Profile downgraded to free due to subscription status/expiration");
+                }
+              }
+            } else if (subscription.status === "active") {
+              // Ensure profile is active while subscription is active
+              const customerId = subscription.customer;
+              if (customerId) {
+                const { error: pErr } = await supabase
+                  .from("profiles")
+                  .update({
+                    subscription_status: "active",
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("stripe_customer_id", customerId);
+                if (pErr) {
+                  console.error("❌ Error marking profile active on sub updated:", pErr);
+                } else {
+                  console.log("✅ Profile marked active on subscription.updated");
+                }
+              }
+            }
+          } catch (e) {
+            console.error("❌ Error in profile sync logic (subscription.updated):", e);
+          }
+          break;
+        }
+      case "customer.subscription.deleted":
+        {
+          const subscription = event.data.object;
+          console.log(`🗑️ Subscription deleted: id=${subscription.id}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Sub snapshot:", safeStringify({ status: subscription.status, ended_at: subscription.ended_at }));
+          }
+          const { error } = await supabase.from("subscriptions").update({
+            status: "canceled",
+            updated_at: new Date().toISOString()
+          }).eq("stripe_subscription_id", subscription.id);
+          if (error) {
+            console.error("❌ Error canceling subscription:", error);
+          } else {
+            console.log("✅ Subscription canceled");
+          }
+
+          // Downgrade profile to free when subscription is deleted
+          try {
+            const customerId = subscription.customer;
+            if (customerId) {
+              const { error: pErr } = await supabase
+                .from("profiles")
+                .update({
+                  subscription_tier: "free",
+                  subscription_status: "inactive",
+                  updated_at: new Date().toISOString()
+                })
+                .eq("stripe_customer_id", customerId);
+              if (pErr) {
+                console.error("❌ Error downgrading profile to free on deletion:", pErr);
+              } else {
+                console.log("⬇️ Profile downgraded to free due to subscription deletion");
+              }
+            }
+          } catch (e) {
+            console.error("❌ Error updating profile on subscription.deleted:", e);
+          }
+          break;
+        }
+      default:
+        console.log(`ℹ️ Unhandled event type: ${event.type}`);
+    }
+    return new Response(JSON.stringify({
+      received: true,
+      event_type: event.type
+    }), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      },
+      status: 200
+    });
+  } catch (err) {
+    console.error("❌ Webhook Error:", err.message);
+    return new Response(`Webhook Error: ${err.message}`, {
+      status: 400,
+      headers: corsHeaders
+    });
+  }
+});
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+// Environment variables
+const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") || "";
+// Support multiple secrets (e.g., dashboard endpoint + CLI, or during rotation)
+// Comma-separated in STRIPE_WEBHOOK_SECRETS, or a secondary STRIPE_WEBHOOK_SECRET_2
+const STRIPE_WEBHOOK_SECRETS: string[] = (() => {
+  const list: string[] = [];
+  if (STRIPE_WEBHOOK_SECRET) list.push(STRIPE_WEBHOOK_SECRET);
+  const rotated = Deno.env.get("STRIPE_WEBHOOK_SECRET_2");
+  if (rotated) list.push(rotated);
+  const csv = Deno.env.get("STRIPE_WEBHOOK_SECRETS");
+  if (csv) {
+    for (const s of csv.split(",")) {
+      const v = s.trim();
+      if (v) list.push(v);
+    }
+  }
+  // de-dup while preserving order
+  return Array.from(new Set(list));
+})();
+// Debug toggle (defaults to true in sandbox). Set STRIPE_DEBUG=false to reduce logs.
+const STRIPE_DEBUG: boolean = (Deno.env.get("STRIPE_DEBUG") || "true").toLowerCase() === "true";
+
+function redactSignatureHeader(h: string | null): string {
+  if (!h) return "<missing>";
+  // keep t= intact, redact v1 hex except first/last 4 chars
+  try {
+    return h.split(",").map(part => {
+      const [k, v] = part.split("=");
+      if (k === "v1" && v) {
+        if (v.length > 8) return `${k}=${v.slice(0,4)}…${v.slice(-4)}`;
+        return `${k}=${v}`;
+      }
+      return part;
+    }).join(",");
+  } catch {
+    return "<unparseable header>";
+  }
+}
+
+function safeStringify(obj: unknown, maxLen = 2000): string {
+  try {
+    const s = JSON.stringify(obj);
+    return s.length > maxLen ? s.slice(0, maxLen) + "…" : s;
+  } catch {
+    return String(obj);
+  }
+}
+
+async function sha256Hex(data: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  const bytes = new Uint8Array(digest);
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+// Initialize Supabase client with service role key
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Constant-time comparison to prevent timing attacks
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a[i] ^ b[i];
+  }
+  return result === 0;
+}
+
+// Bytes-based Stripe signature verification (Deno/Web Crypto friendly)
+async function verifyStripeSignatureBytes(raw: Uint8Array, sigHeader: string, secret: string): Promise<boolean> {
+  if (!raw || !sigHeader || !secret) return false;
+  try {
+    // Parse header: t=timestamp, v1=hexsignature (can appear multiple times)
+    let ts = "";
+    const v1s: string[] = [];
+    for (const part of sigHeader.split(",")) {
+      const [k, v] = part.trim().split("=");
+      if (k === "t") ts = (v || "").trim();
+      if (k === "v1" && v) v1s.push(v.trim());
+    }
+    if (!ts || v1s.length === 0) return false;
+    // Tolerance 5 minutes
+    const now = Math.floor(Date.now() / 1000);
+    const tsNum = parseInt(ts, 10);
+    if (!Number.isFinite(tsNum) || Math.abs(now - tsNum) > 300) return false;
+    // Build signed payload: `${ts}.${rawBody}` as bytes
+    const enc = new TextEncoder();
+    const tsBytes = enc.encode(ts + ".");
+    const signedBytes = new Uint8Array(tsBytes.length + raw.length);
+    signedBytes.set(tsBytes, 0);
+    signedBytes.set(raw, tsBytes.length);
+    // HMAC-SHA256(secret, signedBytes)
+    const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const sig = await crypto.subtle.sign("HMAC", key, signedBytes);
+    const expected = new Uint8Array(sig);
+    // Compare against any provided v1
+    for (const candidate of v1s) {
+      const hexPairs = candidate.match(/.{1,2}/g) || [];
+      const cand = new Uint8Array(hexPairs.map(h => parseInt(h, 16)));
+      if (cand.length === expected.length && timingSafeEqual(cand, expected)) return true;
+      // also try lowercase hex string direct compare for resiliency
+      const expectedHex = Array.from(expected).map(b => b.toString(16).padStart(2, "0")).join("");
+      if (candidate.toLowerCase() === expectedHex) return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("verifyStripeSignatureBytes error:", e);
+    return false;
+  }
+}
+
+// Custom async signature verification using Web Crypto API
+async function verifyStripeSignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
+  try {
+    console.log(`🔍 Verifying signature: Header="${sigHeader}", Secret length=${secret.length}, Payload length=${payload.length}`);
+    // Validate inputs
+    if (!payload || !sigHeader || !secret) {
+      console.log("❌ Missing required parameters for signature verification");
+      return false;
+    }
+    // Parse signature header - handle potential whitespace
+    const elements: string[] = sigHeader.trim().split(',');
+    let timestamp: string = '';
+    const signatures: string[] = [];
+    console.log(`🔍 Signature header elements: ${JSON.stringify(elements)}`);
+    for (const element of elements){
+      const trimmedElement = element.trim();
+      const [key, value] = trimmedElement.split('=');
+      if (key?.trim() === 't') {
+        timestamp = value?.trim() || '';
+        console.log(`🔍 Found timestamp: ${timestamp}`);
+      } else if (key?.trim() === 'v1') {
+        const sig = value?.trim() || '';
+        signatures.push(sig);
+        console.log(`🔍 Found signature: ${sig.substring(0, 8)}... (length: ${sig.length})`);
+      }
+    }
+    if (!timestamp || signatures.length === 0) {
+      console.log("❌ Invalid signature format - Missing timestamp or signatures");
+      console.log(`🔍 Parsed - timestamp: "${timestamp}", signatures count: ${signatures.length}`);
+      return false;
+    }
+    // Check timestamp tolerance (5 minutes)
+    const timestampNum = parseInt(timestamp, 10);
+    if (isNaN(timestampNum)) {
+      console.log(`❌ Invalid timestamp format: ${timestamp}`);
+      return false;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const timeDiff = Math.abs(now - timestampNum);
+    console.log(`🔍 Timestamp check: Event=${timestampNum}, Now=${now}, Diff=${timeDiff}s`);
+    if (timeDiff > 300) {
+      console.log(`❌ Timestamp out of tolerance: ${timeDiff}s > 300s`);
+      return false;
+    }
+    // Create signed payload
+    const signedPayload = `${timestamp}.${payload}`;
+    console.log(`🔍 Created signed payload (${signedPayload.length} chars): ${timestamp}.${payload.substring(0, 50)}...`);
+    // Generate expected signature using Web Crypto API
+    const encoder = new TextEncoder();
+    const keyData: Uint8Array = encoder.encode(secret);
+    const payloadData: Uint8Array = encoder.encode(signedPayload);
+    console.log(`🔍 Importing crypto key: Secret starts with "${secret.substring(0, 4)}..." (length: ${secret.length})`);
+    const cryptoKey = await crypto.subtle.importKey('raw', keyData, {
+      name: 'HMAC',
+      hash: 'SHA-256'
+    }, false, [
+      'sign'
+    ]);
+    console.log(`🔍 Generating HMAC signature for payload length: ${payloadData.length}`);
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, payloadData);
+    const expectedBytes = new Uint8Array(signature);
+    const expectedSignature = Array.from(expectedBytes).map((b)=>b.toString(16).padStart(2, '0')).join('');
+    console.log(`🔍 Expected signature (${expectedSignature.length} chars): ${expectedSignature.substring(0, 8)}...${expectedSignature.slice(-8)}`);
+    // Compare signatures with detailed logging
+    let matched: boolean = false;
+    for(let i = 0; i < signatures.length; i++){
+      const sig: string = signatures[i];
+      console.log(`🔍 Comparing signature ${i + 1}: "${sig.substring(0, 8)}...${sig.slice(-8)}" (length: ${sig.length})`);
+      console.log(`🔍 Expected signature:     "${expectedSignature.substring(0, 8)}...${expectedSignature.slice(-8)}" (length: ${expectedSignature.length})`);
+      // Try exact comparison
+      if (sig === expectedSignature) {
+        console.log("✅ Exact signature match found!");
+        matched = true;
+        break;
+      }
+      // Try case-insensitive comparison
+      if (sig.toLowerCase() === expectedSignature.toLowerCase()) {
+        console.log("✅ Case-insensitive signature match found!");
+        matched = true;
+        break;
+      }
+      // Timing-safe comparison using bytes
+      const hexPairs: RegExpMatchArray | null = sig.match(/.{1,2}/g);
+      const sigBytes = new Uint8Array(hexPairs ? hexPairs.map((byte)=>parseInt(byte, 16)) : []);
+      if (sigBytes.length === expectedBytes.length && timingSafeEqual(sigBytes, expectedBytes)) {
+        console.log("✅ Timing-safe signature match found!");
+        matched = true;
+        break;
+      }
+      // Character-by-character comparison for debugging
+      if (sig.length === expectedSignature.length) {
+        let firstDiff = -1;
+        for(let j = 0; j < sig.length; j++){
+          if (sig[j] !== expectedSignature[j]) {
+            firstDiff = j;
+            break;
+          }
+        }
+        if (firstDiff >= 0) {
+          console.log(`🔍 First difference at position ${firstDiff}: got "${sig[firstDiff]}", expected "${expectedSignature[firstDiff]}"`);
+        }
+      } else {
+        console.log(`🔍 Length mismatch: got ${sig.length}, expected ${expectedSignature.length}`);
+      }
+    }
+    if (matched) {
+      console.log("✅ Signature verified successfully");
+      return true;
+    } else {
+      console.log("❌ No matching signature found after all comparisons");
+      return false;
+    }
+  } catch (error) {
+    console.error("❌ Signature verification error:", error);
+    console.error("❌ Error stack:", error.stack);
+    return false;
+  }
+}
+serve(async (req)=>{
+  console.log("🔍 Webhook received:", req.method, req.url);
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: corsHeaders
+    });
+  }
+  const signature = req.headers.get("stripe-signature");
+  if (STRIPE_DEBUG) {
+    const contentType = req.headers.get("content-type") || "";
+    const reqId = req.headers.get("x-sb-request-id") || req.headers.get("cf-ray") || "";
+    console.log(`🔔 Incoming webhook | ct=${contentType} | rid=${reqId} | sig=${redactSignatureHeader(signature)}`);
+  }
+  if (!signature) {
+    console.log("❌ Missing stripe-signature header");
+    return new Response("Missing stripe-signature header", {
+      status: 400,
+      headers: corsHeaders
+    });
+  }
+  if (!STRIPE_WEBHOOK_SECRETS.length) {
+    console.log("❌ Missing Stripe webhook secret(s): set STRIPE_WEBHOOK_SECRET, STRIPE_WEBHOOK_SECRET_2, or STRIPE_WEBHOOK_SECRETS");
+    return new Response("Server misconfiguration: missing webhook secret(s)", {
+      status: 500,
+      headers: corsHeaders
+    });
+  }
+  try {
+    // Get RAW request bytes for exact signature computation
+    const raw = new Uint8Array(await req.arrayBuffer());
+    const body = new TextDecoder().decode(raw);
+    if (STRIPE_DEBUG) {
+      const hash = await sha256Hex(raw);
+      console.log("📦 Body length (text|bytes):", body.length, "|", raw.length);
+      console.log("#️⃣ Body sha256:", `${hash.slice(0,8)}…${hash.slice(-8)}`);
+      console.log("🔑 Secrets configured:", STRIPE_WEBHOOK_SECRETS.length);
+    }
+    // Verify signature against all configured secrets (bytes-based)
+    let isValid = false;
+    for (let idx = 0; idx < STRIPE_WEBHOOK_SECRETS.length; idx++) {
+      const secret = STRIPE_WEBHOOK_SECRETS[idx];
+      const redacted = secret ? `${secret.substring(0, 4)}…(${secret.length})` : "";
+      console.log(`🔐 Trying secret #${idx + 1} starting with "${redacted}"`);
+      // eslint-disable-next-line no-await-in-loop
+      isValid = await verifyStripeSignatureBytes(raw, signature, secret);
+      if (isValid) {
+        console.log(`✅ Signature verified with secret #${idx + 1}`);
+        break;
+      }
+    }
+    if (!isValid) {
+      return new Response("Invalid signature", {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
+    // Parse event
+    const event = JSON.parse(body);
+    console.log("📧 Event:", event.type, "| id:", event.id, "| created:", event.created, "| pending:", event.pending_webhooks);
+    if (STRIPE_DEBUG) {
+      // Log minimal object snapshot (not full to avoid noise)
+      console.log("🧩 Event data.object keys:", Object.keys(event?.data?.object || {}));
+    }
+    // Handle specific event types
+    switch(event.type){
+      case "checkout.session.completed":
+        {
+          const session = event.data.object;
+          const customerId = session.customer;
+          const subscriptionId = session.subscription;
+          const userId = session.client_reference_id || session.metadata?.user_id;
+          console.log(`✅ Checkout completed - user=${userId} | customer=${customerId} | sub=${subscriptionId}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Session snapshot:", safeStringify({ mode: session.mode, status: session.status, amount_total: session.amount_total, currency: session.currency, metadata: session.metadata }));
+          }
+          if (userId && subscriptionId) {
+            // Do not insert a new row here because subscriptions.current_period_end is NOT NULL in DB.
+            // Only update an existing row if present; creation will be handled on
+            // invoice.payment_succeeded or customer.subscription.updated where we have period dates.
+            const { data: updatedRows, error } = await supabase
+              .from("subscriptions")
+              .update({
+                user_id: userId,
+                stripe_customer_id: customerId,
+                status: "active",
+                tier: session.metadata?.tier || "starter",
+                updated_at: new Date().toISOString()
+              })
+              .eq("stripe_subscription_id", subscriptionId)
+              .select("stripe_subscription_id");
+            if (error) {
+              console.error("❌ Error updating subscription (checkout):", error);
+            } else if (!updatedRows || updatedRows.length === 0) {
+              console.log("ℹ️ No existing subscription row to update on checkout; will rely on invoice/subscription events to create/update with period dates.");
+            } else {
+              console.log("✅ Subscription updated on checkout.session.completed");
+            }
+          }
+          break;
+        }
+      case "customer.subscription.created":
+        {
+          const subscription = event.data.object;
+          console.log(`🆕 Subscription created: id=${subscription.id} | status=${subscription.status}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Sub created snapshot:", safeStringify({
+              customer: subscription.customer,
+              current_period_end: subscription.current_period_end,
+              status: subscription.status,
+              metadata: subscription.metadata
+            }));
+          }
+          const priceInfo = subscription.items?.data?.[0]?.price;
+          const derivedTier = priceInfo?.metadata?.plan_type || priceInfo?.lookup_key || priceInfo?.nickname || "starter";
+          // If current_period_end is missing, avoid upsert to respect NOT NULL constraints; rely on invoice/subscription.updated
+          if (!subscription.current_period_end) {
+            console.log("ℹ️ Skipping upsert on subscription.created: current_period_end missing; will wait for invoice/subscription.updated");
+            break;
+          }
+          const insertOrUpdate: Record<string, unknown> = {
+            stripe_customer_id: subscription.customer,
+            stripe_subscription_id: subscription.id,
+            status: subscription.status,
+            tier: derivedTier,
+            updated_at: new Date().toISOString(),
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString()
+          };
+          // Try to set user_id from metadata if present
+          if (subscription.metadata?.user_id) {
+            insertOrUpdate.user_id = subscription.metadata.user_id;
+          }
+          // Upsert by stripe_subscription_id
+          const { error: upErr } = await supabase
+            .from("subscriptions")
+            .upsert(insertOrUpdate, { onConflict: "stripe_subscription_id" });
+          if (upErr) {
+            console.error("❌ Error upserting subscription on created:", upErr);
+          } else {
+            console.log("✅ Upserted subscription on subscription.created");
+          }
+
+          // Ensure profile is marked active
+          try {
+            const customerId = subscription.customer;
+            if (customerId) {
+              const { error: pErr } = await supabase
+                .from("profiles")
+                .update({
+                  subscription_status: "active",
+                  updated_at: new Date().toISOString()
+                })
+                .eq("stripe_customer_id", customerId);
+              if (pErr) {
+                console.error("❌ Error marking profile active on sub created:", pErr);
+              } else {
+                console.log("✅ Profile marked active on subscription.created");
+              }
+            }
+          } catch (e) {
+            console.error("❌ Error updating profile on subscription.created:", e);
+          }
+          break;
+        }
+      case "invoice.payment_succeeded":
+        {
+          const invoice = event.data.object;
+          const subscriptionId = invoice.subscription;
+          const customerId = invoice.customer;
+          console.log(`💰 Invoice paid: subscription=${subscriptionId} | customer=${customerId} | status=${invoice.status}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Invoice snapshot:", safeStringify({
+              number: invoice.number,
+              amount_paid: invoice.amount_paid,
+              currency: invoice.currency,
+              billing_reason: invoice.billing_reason,
+              period_start: invoice.period_start,
+              period_end: invoice.period_end,
+              status: invoice.status
+            }));
+          }
+          if (subscriptionId) {
+            const update: Record<string, unknown> = {
+              status: "active",
+              updated_at: new Date().toISOString()
+            };
+            if (invoice.period_end) {
+              update.current_period_end = new Date(invoice.period_end * 1000).toISOString();
+            }
+            const { data: updated, error } = await supabase
+              .from("subscriptions")
+              .update(update)
+              .eq("stripe_subscription_id", subscriptionId)
+              .select("stripe_subscription_id");
+            if (error) {
+              console.error("❌ Error updating subscription from invoice:", error);
+            } else {
+              console.log("✅ Subscription status updated from invoice.payment_succeeded");
+              // If no existing row was updated, insert a new one, but only if we have period_end to satisfy NOT NULL.
+              if (!updated || updated.length === 0) {
+                if (!invoice.period_end) {
+                  console.log("ℹ️ Skipping insert because invoice.period_end is missing; will wait for subscription.updated event.");
+                } else {
+                  // Resolve user_id from profiles via stripe_customer_id
+                  let userIdForInsert: string | null = null;
+                  if (!userIdForInsert) {
+                    // 1) Try existing mapping by stripe_customer_id
+                    const { data: prof, error: profErr } = await supabase
+                      .from("profiles")
+                      .select("id")
+                      .eq("stripe_customer_id", customerId)
+                      .limit(1)
+                      .maybeSingle();
+                    if (profErr) {
+                      console.error("❌ Error fetching profile for insert:", profErr);
+                    } else if (prof?.id) {
+                      userIdForInsert = prof.id;
+                    }
+                  }
+                  if (!userIdForInsert && invoice?.customer_email) {
+                    // 2) Fallback: find profile by email, link it to this customer, then use its id
+                    const email = invoice.customer_email;
+                    const { data: profByEmail, error: emailErr } = await supabase
+                      .from("profiles")
+                      .select("id, stripe_customer_id")
+                      .eq("email", email)
+                      .limit(1)
+                      .maybeSingle();
+                    if (emailErr) {
+                      console.error("❌ Error fetching profile by email for insert:", emailErr);
+                    } else if (profByEmail?.id) {
+                      if (!profByEmail.stripe_customer_id) {
+                        const { error: linkErr } = await supabase
+                          .from("profiles")
+                          .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
+                          .eq("id", profByEmail.id);
+                        if (linkErr) {
+                          console.error("❌ Error linking profile to customer id:", linkErr);
+                        } else {
+                          console.log("✅ Linked profile to stripe_customer_id via email fallback");
+                        }
+                      }
+                      userIdForInsert = profByEmail.id;
+                    }
+                  }
+                  if (!userIdForInsert) {
+                    console.log("ℹ️ No user_id could be resolved for invoice; skipping subscription insert to avoid NOT NULL violation");
+                    break; // exit insert path, rely on future events after mapping exists
+                  }
+                  const priceLine = invoice?.lines?.data?.[0]?.price;
+                  const derivedTierFromInvoice = priceLine?.metadata?.plan_type || priceLine?.lookup_key || priceLine?.nickname || "starter";
+                  const insertPayload: Record<string, unknown> = {
+                    user_id: userIdForInsert,
+                    stripe_customer_id: customerId,
+                    stripe_subscription_id: subscriptionId,
+                    status: "active",
+                    tier: derivedTierFromInvoice,
+                    current_period_end: new Date(invoice.period_end * 1000).toISOString(),
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    // source column not present in schema; omitted
+                  };
+                  const { error: insErr } = await supabase
+                    .from("subscriptions")
+                    .insert(insertPayload);
+                  if (insErr) {
+                    console.error("❌ Error inserting subscription from invoice:", insErr, "payload:", insertPayload);
+                  } else {
+                    console.log("✅ Inserted subscription from invoice.payment_succeeded");
+                  }
+                }
+              }
+            }
+
+            // Also ensure the linked profile is marked active
+            if (customerId) {
+              const { error: pErr } = await supabase
+                .from("profiles")
+                .update({
+                  subscription_status: "active",
+                  updated_at: new Date().toISOString()
+                })
+                .eq("stripe_customer_id", customerId);
+              if (pErr) {
+                console.error("❌ Error updating profile status on payment:", pErr);
+              } else {
+                console.log("✅ Profile status set to active on payment");
+              }
+            }
+          } else {
+            console.log("ℹ️ Invoice missing subscription id; attempting fallback update by customer id");
+            if (customerId) {
+              const { data: subs, error: findErr } = await supabase
+                .from("subscriptions")
+                .select("stripe_subscription_id")
+                .eq("stripe_customer_id", customerId)
+                .neq("status", "canceled")
+                .order("updated_at", { ascending: false })
+                .limit(1);
+              if (findErr) {
+                console.error("❌ Error finding subscription for customer fallback:", findErr);
+              } else if (subs && subs.length > 0) {
+                const targetSubId = subs[0].stripe_subscription_id as string;
+                const fallbackUpdate: Record<string, unknown> = {
+                  status: "active",
+                  updated_at: new Date().toISOString()
+                };
+                if (invoice.period_end) {
+                  fallbackUpdate.current_period_end = new Date(invoice.period_end * 1000).toISOString();
+                }
+                const { error: upErr } = await supabase
+                  .from("subscriptions")
+                  .update(fallbackUpdate)
+                  .eq("stripe_subscription_id", targetSubId);
+                if (upErr) {
+                  console.error("❌ Error updating subscription via customer fallback:", upErr);
+                } else {
+                  console.log("✅ Updated subscription via customer fallback on invoice.payment_succeeded");
+                }
+              } else {
+                console.log("ℹ️ No existing subscription found for customer; deferring to future events");
+              }
+            } else {
+              console.log("ℹ️ No customer id on invoice; cannot perform fallback update");
+            }
+          }
+          break;
+        }
+      case "customer.subscription.updated":
+        {
+          const subscription = event.data.object;
+          console.log(`🔄 Subscription updated: id=${subscription.id} | status=${subscription.status}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Sub snapshot:", safeStringify({ current_period_start: subscription.current_period_start, current_period_end: subscription.current_period_end, cancel_at_period_end: subscription.cancel_at_period_end, plan: subscription.items?.data?.[0]?.plan?.id }));
+          }
+          const subUpdate: Record<string, unknown> = {
+            status: subscription.status,
+            updated_at: new Date().toISOString()
+          };
+          if (subscription.current_period_end) {
+            subUpdate.current_period_end = new Date(subscription.current_period_end * 1000).toISOString();
+          }
+          const { error } = await supabase.from("subscriptions").update(subUpdate).eq("stripe_subscription_id", subscription.id);
+          if (error) {
+            console.error("❌ Error updating subscription:", error);
+          } else {
+            console.log("✅ Subscription status updated");
+          }
+
+          // Determine if we should downgrade the profile to free
+          try {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const expired = !!(subscription.current_period_end && subscription.current_period_end <= nowSec);
+            const shouldDowngrade = ["canceled", "unpaid", "past_due", "incomplete_expired"].includes(subscription.status) || (subscription.cancel_at_period_end && expired);
+
+            if (shouldDowngrade) {
+              // Downgrade profile to free/inactive by customer id
+              const customerId = subscription.customer;
+              if (customerId) {
+                const { error: pErr } = await supabase
+                  .from("profiles")
+                  .update({
+                    subscription_tier: "free",
+                    subscription_status: "inactive",
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("stripe_customer_id", customerId);
+                if (pErr) {
+                  console.error("❌ Error downgrading profile to free:", pErr);
+                } else {
+                  console.log("⬇️ Profile downgraded to free due to subscription status/expiration");
+                }
+              }
+            } else if (subscription.status === "active") {
+              // Ensure profile is active while subscription is active
+              const customerId = subscription.customer;
+              if (customerId) {
+                const { error: pErr } = await supabase
+                  .from("profiles")
+                  .update({
+                    subscription_status: "active",
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("stripe_customer_id", customerId);
+                if (pErr) {
+                  console.error("❌ Error marking profile active on sub updated:", pErr);
+                } else {
+                  console.log("✅ Profile marked active on subscription.updated");
+                }
+              }
+            }
+          } catch (e) {
+            console.error("❌ Error in profile sync logic (subscription.updated):", e);
+          }
+          break;
+        }
+      case "customer.subscription.deleted":
+        {
+          const subscription = event.data.object;
+          console.log(`🗑️ Subscription deleted: id=${subscription.id}`);
+          if (STRIPE_DEBUG) {
+            console.log("🧾 Sub snapshot:", safeStringify({ status: subscription.status, ended_at: subscription.ended_at }));
+          }
+          const { error } = await supabase.from("subscriptions").update({
+            status: "canceled",
+            updated_at: new Date().toISOString()
+          }).eq("stripe_subscription_id", subscription.id);
+          if (error) {
+            console.error("❌ Error canceling subscription:", error);
+          } else {
+            console.log("✅ Subscription canceled");
+          }
+
+          // Downgrade profile to free when subscription is deleted
+          try {
+            const customerId = subscription.customer;
+            if (customerId) {
+              const { error: pErr } = await supabase
+                .from("profiles")
+                .update({
+                  subscription_tier: "free",
+                  subscription_status: "inactive",
+                  updated_at: new Date().toISOString()
+                })
+                .eq("stripe_customer_id", customerId);
+              if (pErr) {
+                console.error("❌ Error downgrading profile to free on deletion:", pErr);
+              } else {
+                console.log("⬇️ Profile downgraded to free due to subscription deletion");
+              }
+            }
+          } catch (e) {
+            console.error("❌ Error updating profile on subscription.deleted:", e);
+          }
+          break;
+        }
+      default:
+        console.log(`ℹ️ Unhandled event type: ${event.type}`);
+    }
+    return new Response(JSON.stringify({
+      received: true,
+      event_type: event.type
+    }), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      },
+      status: 200
+    });
+  } catch (err) {
+    console.error("❌ Webhook Error:", err.message);
+    return new Response(`Webhook Error: ${err.message}`, {
+      status: 400,
+      headers: corsHeaders
+    });
+  }
+});
